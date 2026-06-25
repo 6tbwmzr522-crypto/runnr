@@ -779,17 +779,17 @@ body.light #equity-canvas{filter:invert(0)}
         <div class="stat-item">
           <div class="stat-val" id="coach-stop-pct" style="font-size:28px">—</div>
           <div class="stat-lbl">Stop Confirmation</div>
-          <div class="stat-delta delta-up">↑ 12% vs last week</div>
+          <div class="stat-delta" id="coach-stop-delta">—</div>
         </div>
         <div class="stat-item">
           <div class="stat-val" id="coach-size-pct" style="font-size:28px">—</div>
           <div class="stat-lbl">Size Discipline</div>
-          <div class="stat-delta delta-up">↑ 5% vs last week</div>
+          <div class="stat-delta" id="coach-size-delta">—</div>
         </div>
         <div class="stat-item">
           <div class="stat-val" id="coach-early-exits" style="font-size:28px">—</div>
           <div class="stat-lbl">Undisciplined Trades</div>
-          <div class="stat-delta delta-down">↓ was 6/12 last week</div>
+          <div class="stat-delta" id="coach-undisc-delta">—</div>
         </div>
         <div class="stat-item">
           <div class="stat-val" id="coach-gap-cost" style="color:var(--red);font-size:28px">—</div>
@@ -3096,13 +3096,45 @@ const coachAnswers = {}; // legacy — CoachEngine used instead
 function renderCoachPage() {
   const label = document.getElementById('coach-week-label');
   if (label) label.textContent = 'Week of ' + new Date().toLocaleDateString('en-GB', { month: 'short', day: 'numeric', year: 'numeric' });
+  const weekTrades = CoachEngine.withinDays(S.trades, 7);
+  const priorTrades = CoachEngine.completed(S.trades).filter(t => {
+    const d = CoachEngine.parseTradeDate(t.date);
+    if (!d) return false;
+    const days = (new Date() - d) / 86400000;
+    return days > 7 && days <= 14;
+  });
   const all = CoachEngine.metrics(S.trades);
+  const week = CoachEngine.metrics(weekTrades);
+  const prior = CoachEngine.metrics(priorTrades);
   const set = (id, t) => { const e = document.getElementById(id); if (e) e.textContent = t; };
-  set('coach-stop-pct', all.count ? all.stopPct.toFixed(0) + '%' : '—');
-  set('coach-size-pct', all.count ? all.sizePct.toFixed(0) + '%' : '—');
-  const bad = S.trades.filter(t => !t.incomplete && (!t.stopOk || !t.sizeOk)).length;
-  set('coach-early-exits', bad + '/' + all.count);
-  set('coach-gap-cost', (all.undiscPnl >= 0 ? '+' : '') + S.sym + Math.abs(Math.round(all.undiscPnl)).toLocaleString());
+  const setDelta = (id, cur, prev, suffix = 'pp') => {
+    const el = document.getElementById(id);
+    if (!el) return;
+    if (!week.count && !prior.count) { el.textContent = '—'; el.className = 'stat-delta'; return; }
+    const diff = cur - prev;
+    if (Math.abs(diff) < 0.5) { el.textContent = '→ flat vs last week'; el.className = 'stat-delta'; return; }
+    const up = diff > 0;
+    el.textContent = `${up ? '↑' : '↓'} ${Math.abs(diff).toFixed(0)}${suffix} vs last week`;
+    el.className = 'stat-delta ' + (up ? 'delta-up' : 'delta-down');
+  };
+  set('coach-stop-pct', week.count ? week.stopPct.toFixed(0) + '%' : (all.count ? all.stopPct.toFixed(0) + '%' : '—'));
+  set('coach-size-pct', week.count ? week.sizePct.toFixed(0) + '%' : (all.count ? all.sizePct.toFixed(0) + '%' : '—'));
+  const bad = weekTrades.filter(t => !t.stopOk || !t.sizeOk).length;
+  const priorBad = priorTrades.filter(t => !t.stopOk || !t.sizeOk).length;
+  set('coach-early-exits', week.count ? bad + '/' + week.count : (all.count ? bad + '/' + all.count : '—'));
+  set('coach-gap-cost', (week.undiscPnl >= 0 ? '+' : '') + S.sym + Math.abs(Math.round(week.count ? week.undiscPnl : all.undiscPnl)).toLocaleString());
+  setDelta('coach-stop-delta', week.stopPct, prior.stopPct);
+  setDelta('coach-size-delta', week.sizePct, prior.sizePct);
+  const undiscEl = document.getElementById('coach-undisc-delta');
+  if (undiscEl) {
+    if (prior.count) {
+      undiscEl.textContent = `was ${priorBad}/${prior.count} last week`;
+      undiscEl.className = 'stat-delta';
+    } else {
+      undiscEl.textContent = week.count ? `${bad} this week` : '—';
+      undiscEl.className = 'stat-delta';
+    }
+  }
 
   const list = document.getElementById('coach-insights-list');
   if (list) {
