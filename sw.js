@@ -1,10 +1,11 @@
-const CACHE = "runnr-v1";
+const CACHE = "runnr-v2";
 const ASSETS = [
   "./",
   "./index.html",
   "./manifest.webmanifest",
   "./js/baron.js",
   "./js/coach.js",
+  "./js/onboarding.js",
   "./icons/icon-192.svg",
   "./icons/icon-512.svg",
 ];

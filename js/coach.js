@@ -1,4 +1,4 @@
-/** Runnr Coach v1 — insights from journal data */
+/** Runnr Coach v1 — insights, discipline scoring, trade analysis */
 const CoachEngine = {
   parseTradeDate(dateStr) {
     const months = {
@@ -44,6 +44,173 @@ const CoachEngine = {
     };
   },
 
+  /** Weighted discipline score: 40% stops, 40% size, 20% journal completeness */
+  disciplineScore(trades) {
+    const all = trades.filter((t) => t.exit != null && t.pnl != null);
+    const c = this.completed(trades);
+    if (!all.length) {
+      return {
+        overall: 0, stopPct: 0, sizePct: 0, completePct: 0,
+        streak: this.loggingStreak(trades), tradeCount: 0, tier: "Novice",
+      };
+    }
+    const stopPct = all.filter((t) => t.stopOk).length / all.length * 100;
+    const sizePct = all.filter((t) => t.sizeOk).length / all.length * 100;
+    const completePct = c.length / all.length * 100;
+    const overall = stopPct * 0.4 + sizePct * 0.4 + completePct * 0.2;
+    let tier = "Novice";
+    if (overall >= 80 && c.length >= 20) tier = "Consistent Runner";
+    else if (overall >= 65 && c.length >= 10) tier = "Disciplined";
+    else if (overall >= 45 || c.length >= 3) tier = "Learning";
+    return {
+      overall: Math.round(overall),
+      stopPct: Math.round(stopPct),
+      sizePct: Math.round(sizePct),
+      completePct: Math.round(completePct),
+      streak: this.loggingStreak(trades),
+      tradeCount: c.length,
+      tier,
+    };
+  },
+
+  loggingStreak(trades) {
+    const dates = [...new Set(
+      trades.filter((t) => t.date).map((t) => {
+        const d = this.parseTradeDate(t.date);
+        return d ? d.toDateString() : null;
+      }).filter(Boolean),
+    )];
+    if (!dates.length) return 0;
+    const daySet = new Set(dates);
+    let streak = 0;
+    const cursor = new Date();
+    cursor.setHours(0, 0, 0, 0);
+    while (daySet.has(cursor.toDateString())) {
+      streak++;
+      cursor.setDate(cursor.getDate() - 1);
+    }
+    return streak;
+  },
+
+  /** 5-minute onboarding hook — cost of oversizing / no stop */
+  analyzeTrade(trade, balance = 10000, riskPct = 1, sym = "€") {
+    const entry = parseFloat(trade.entry);
+    const exit = parseFloat(trade.exit);
+    const size = parseFloat(trade.size) || 1;
+    const dir = trade.dir || "long";
+    const stop = parseFloat(trade.stop);
+
+    if (!entry || !exit) {
+      return { ok: false, error: "Entry and exit are required." };
+    }
+
+    const stopDist = stop && stop !== entry
+      ? Math.abs(entry - stop)
+      : Math.abs(entry) * 0.02;
+
+    let properShares = size;
+    let capped = false;
+    if (window.Baron && typeof Baron.sizeShares === "function" && stopDist > 0) {
+      const sized = Baron.sizeShares(balance, riskPct, entry, dir === "long" ? entry - stopDist : entry + stopDist);
+      properShares = sized.shares;
+      capped = sized.capped;
+    } else if (stopDist > 0) {
+      const riskAmount = balance * (riskPct / 100);
+      properShares = Math.max(1, Math.floor(riskAmount / stopDist));
+      const maxShares = Math.floor((balance * 0.1) / entry);
+      if (maxShares > 0) properShares = Math.min(properShares, maxShares);
+    }
+
+    const sign = dir === "long" ? 1 : -1;
+    const actualPnl = Math.round((exit - entry) * sign * size);
+    const properPnl = Math.round((exit - entry) * sign * properShares);
+    const oversizeUnits = Math.max(0, size - properShares);
+    const oversizeCost = oversizeUnits > 0
+      ? Math.round((exit - entry) * sign * oversizeUnits)
+      : 0;
+
+    const noStop = !trade.stopOk && trade.stopOk !== true;
+    const oversize = size > properShares * 1.05;
+    const riskAmount = balance * (riskPct / 100);
+    const extraRisk = oversize ? Math.round((size - properShares) * stopDist) : 0;
+
+    let disciplineCost = 0;
+    if (actualPnl < 0 && oversizeCost < 0) disciplineCost = Math.abs(oversizeCost);
+    else if (actualPnl < 0 && oversize) disciplineCost = Math.abs(actualPnl) - Math.abs(properPnl);
+    else if (oversize && actualPnl >= 0) disciplineCost = Math.max(0, actualPnl - properPnl);
+
+    if (disciplineCost < 0) disciplineCost = 0;
+
+    const headline = disciplineCost > 0
+      ? `Undisciplined sizing cost you ${sym}${Math.round(disciplineCost).toLocaleString()}`
+      : actualPnl >= 0
+        ? "Process was clean on this trade"
+        : "Loss within rules — size looked appropriate";
+
+    let insight = "";
+    if (oversize) {
+      insight = `You traded ${size} units; at ${riskPct}% risk the cap was ~${properShares}${capped ? " (10% position cap)" : ""}.`;
+    } else if (noStop) {
+      insight = "Stop was not confirmed before entry — the #1 fix for most retail blow-ups.";
+    } else {
+      insight = "Size matched your risk rules. Keep logging every trade so Coach can spot patterns.";
+    }
+
+    return {
+      ok: true,
+      instr: trade.instr || "—",
+      actualPnl,
+      properPnl,
+      properShares,
+      actualShares: size,
+      oversizeCost: disciplineCost,
+      extraRisk,
+      riskAmount: Math.round(riskAmount),
+      stopDist: +stopDist.toFixed(4),
+      headline,
+      insight,
+      suggestedStopOk: !!stop || trade.stopOk === true,
+      suggestedSizeOk: !oversize,
+      flags: { oversize, noStop },
+    };
+  },
+
+  weeklyDigest(trades, sym = "€") {
+    const score = this.disciplineScore(trades);
+    const week = this.metrics(this.withinDays(trades, 7));
+    const priorTrades = this.completed(trades).filter((t) => {
+      const d = this.parseTradeDate(t.date);
+      if (!d) return false;
+      const days = (new Date() - d) / 86400000;
+      return days > 7 && days <= 14;
+    });
+    const prior = this.metrics(priorTrades);
+    const insights = this.generateInsights(trades, sym);
+    const top = insights[0];
+
+    const stopDelta = week.count ? week.stopPct - prior.stopPct : 0;
+    const deltaStr = week.count && prior.count
+      ? `${stopDelta >= 0 ? "↑" : "↓"} ${Math.abs(stopDelta).toFixed(0)}pp stops vs last week`
+      : week.count ? `${week.stopPct.toFixed(0)}% stop discipline this week` : "Log trades to unlock weekly Coach";
+
+    return {
+      score: score.overall,
+      stopPct: score.stopPct,
+      sizePct: score.sizePct,
+      streak: score.streak,
+      tradeCount: score.tradeCount,
+      weekPnl: week.totalPnl,
+      subject: `Runnr · ${score.overall}% discipline this week`,
+      pushTitle: `Discipline score: ${score.overall}%`,
+      pushBody: top ? top.title.replace(/^[^\s]+\s/, "") + " — " + top.text.slice(0, 80) + "…" : deltaStr,
+      bannerText: week.count
+        ? `Weekly review ready · ${score.overall}% discipline · ${deltaStr}`
+        : "Analyse your last trade — see what discipline would have saved",
+      action: top && top.type === "warning" ? top.text.split(".")[0] + "." : "Review your journal before Monday's open.",
+      insights,
+    };
+  },
+
   byInstrument(trades) {
     const map = {};
     this.completed(trades).forEach((t) => {
@@ -62,13 +229,21 @@ const CoachEngine = {
     const week = this.metrics(this.withinDays(trades, 7));
     const byInstr = this.byInstrument(trades);
 
-    if (all.count < 3) {
+    if (all.count < 1) {
       insights.push({
         type: "info",
         title: "ℹ Getting started",
-        text: `Log at least 5 completed trades with discipline flags. You have ${all.count} so far — Coach gets sharper with every entry.`,
+        text: "Log your first trade to see what discipline would have saved. The 5-minute analysis is free.",
       });
       return insights;
+    }
+
+    if (all.count < 3) {
+      insights.push({
+        type: "info",
+        title: "ℹ Building your book",
+        text: `You have ${all.count} completed trade${all.count > 1 ? "s" : ""}. Coach gets sharper after 5 — keep flagging stops and size.`,
+      });
     }
 
     if (week.stopPct < 70 && week.count >= 2) {
@@ -87,7 +262,7 @@ const CoachEngine = {
       });
     }
 
-    if (all.sizePct < 75) {
+    if (all.sizePct < 75 && all.count >= 2) {
       insights.push({
         type: "warning",
         title: "⚠ Oversizing pattern",
@@ -132,7 +307,7 @@ const CoachEngine = {
     }
 
     const toTier = Math.max(0, 20 - all.count);
-    if (toTier > 0) {
+    if (toTier > 0 && all.count >= 3) {
       insights.push({
         type: "info",
         title: "ℹ Tier progress",

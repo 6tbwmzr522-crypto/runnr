@@ -446,6 +446,35 @@ body.light #equity-canvas{filter:invert(0)}
 .alert-toast .at-sym{font-family:var(--font-head);font-size:16px;font-weight:700;color:var(--accent)}
 .alert-toast .at-msg{font-size:12px;color:var(--text2);margin-top:2px}
 .alert-toast .at-close{position:absolute;top:8px;right:10px;background:none;border:none;color:var(--text3);cursor:pointer;font-size:16px}
+
+/* ── ONBOARDING & DISCIPLINE SCORE ── */
+#onboarding-overlay{position:fixed;inset:0;background:var(--bg);z-index:200;display:flex;flex-direction:column;opacity:0;pointer-events:none;transition:opacity 0.25s;max-width:430px;margin:0 auto}
+#onboarding-overlay.open{opacity:1;pointer-events:all}
+.ob-top{padding:16px 20px;display:flex;align-items:center;justify-content:space-between;border-bottom:1px solid var(--border);flex-shrink:0}
+.ob-progress-wrap{height:3px;background:var(--surface3);flex-shrink:0}
+.ob-progress{height:100%;background:var(--accent);width:25%;transition:width 0.3s}
+.ob-content{flex:1;overflow-y:auto;padding:24px 20px calc(24px + var(--safe-bottom))}
+.ob-hero h2{font-family:var(--font-head);font-size:26px;font-weight:700;line-height:1.2;margin-bottom:10px;color:var(--text)}
+.ob-hero h2 em{color:var(--accent);font-style:italic}
+.ob-hero p,.ob-kicker{font-size:14px;color:var(--text2);line-height:1.55;margin-bottom:16px}
+.ob-kicker{font-size:11px;text-transform:uppercase;letter-spacing:1px;color:var(--accent);font-weight:700;margin-bottom:8px}
+.ob-aha{text-align:center;padding:8px 0 16px}
+.ob-aha-label{font-size:12px;color:var(--text3);margin-bottom:8px}
+.ob-aha-cost{font-family:var(--font-mono);font-size:48px;font-weight:500;line-height:1}
+.ob-aha-sub{font-size:15px;color:var(--text);margin-top:10px;font-weight:600}
+.ob-insight{font-size:13px;color:var(--text2);margin:14px 0;line-height:1.55;text-align:left}
+.ob-compare{display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px;margin-top:12px}
+.ob-compare div{background:var(--surface2);border:1px solid var(--border);border-radius:var(--r-sm);padding:10px;text-align:center}
+.ob-compare span{display:block;font-size:9px;color:var(--text3);text-transform:uppercase;margin-bottom:4px}
+.ob-compare strong{font-family:var(--font-mono);font-size:14px;color:var(--text)}
+.ob-paywall{text-align:center;font-size:12px;color:var(--text3);margin-top:14px}
+.discipline-card{display:flex;align-items:center;gap:16px;margin-bottom:12px}
+.disc-ring{width:72px;height:72px;border-radius:50%;display:flex;align-items:center;justify-content:center;flex-shrink:0;background:conic-gradient(var(--accent) 0deg,var(--surface3) 0)}
+.disc-ring-inner{width:58px;height:58px;border-radius:50%;background:var(--surface);display:flex;align-items:center;justify-content:center;font-family:var(--font-mono);font-size:18px;font-weight:600;color:var(--accent)}
+.disc-meta{flex:1}
+.disc-meta-row{display:flex;justify-content:space-between;font-size:11px;color:var(--text3);margin-top:4px}
+.disc-meta-row strong{color:var(--text);font-family:var(--font-mono)}
+#share-canvas{display:block;width:100%;max-width:320px;margin:0 auto;border-radius:var(--r-sm);border:1px solid var(--border)}
 </style>
 </head>
 <body>
@@ -466,9 +495,29 @@ body.light #equity-canvas{filter:invert(0)}
     <!-- ══ HOME ══════════════════════════════════════════════════════════ -->
     <div class="page active" id="page-home">
 
-      <div class="notif" onclick="switchPage('coach')">
+      <div class="notif" id="home-coach-banner" onclick="switchPage('coach')">
         <div class="notif-dot"></div>
-        <span>Your weekly discipline review is ready — tap to see insights</span>
+        <span>Analyse your last trade — see what discipline would have saved</span>
+      </div>
+
+      <!-- Discipline score -->
+      <div class="card highlight-card">
+        <div class="section-hdr" style="margin-bottom:12px">
+          <h3>Discipline Score</h3>
+          <button class="see-all" onclick="RunnrGrowth.openShareModal(S)">Share ↗</button>
+        </div>
+        <div class="discipline-card">
+          <div class="disc-ring" id="disc-score-ring">
+            <div class="disc-ring-inner" id="disc-score-val">—</div>
+          </div>
+          <div class="disc-meta">
+            <div style="font-size:12px;color:var(--text2)">Tier: <strong id="disc-tier-label" style="color:var(--accent)">Novice</strong></div>
+            <div class="disc-meta-row"><span>Stop</span><strong id="disc-stop-val">—</strong></div>
+            <div class="disc-meta-row"><span>Size</span><strong id="disc-size-val">—</strong></div>
+            <div class="disc-meta-row"><span>Log streak</span><strong id="disc-streak-val">0</strong></div>
+          </div>
+        </div>
+        <button class="btn btn-sm btn-ghost" style="width:100%" onclick="RunnrGrowth.open(S)">↻ Analyse another trade</button>
       </div>
 
       <!-- Account snapshot -->
@@ -805,6 +854,15 @@ body.light #equity-canvas{filter:invert(0)}
       </div>
 
       <div id="coach-insights-list"></div>
+
+      <div class="card" style="margin-top:12px">
+        <div class="card-title">Share your process</div>
+        <div style="font-size:12px;color:var(--text2);margin-bottom:12px">Brag about discipline — not P&amp;L. Optional public card for X, Discord, prop-firm apps.</div>
+        <div style="display:flex;gap:8px">
+          <button class="btn btn-sm" onclick="RunnrGrowth.openShareModal(S)">Create share card</button>
+          <button class="btn btn-sm btn-ghost" onclick="RunnrGrowth.previewWeeklyDigest(S)">Preview weekly digest</button>
+        </div>
+      </div>
 
       <!-- Ask Coach -->
       <div class="card" style="margin-top:4px">
@@ -1220,6 +1278,16 @@ body.light #equity-canvas{filter:invert(0)}
 </div>
 </div><!-- /app -->
 
+<!-- Onboarding -->
+<div id="onboarding-overlay">
+  <div class="ob-top">
+    <div class="logo" style="font-family:var(--font-head);font-size:22px;font-weight:700;color:var(--accent);font-style:italic">runnr</div>
+    <button class="modal-close" onclick="RunnrGrowth.skip(S)">Skip</button>
+  </div>
+  <div class="ob-progress-wrap"><div class="ob-progress" id="ob-progress"></div></div>
+  <div class="ob-content" id="ob-body"></div>
+</div>
+
 <!-- ══ MODALS ══════════════════════════════════════════════════════════════ -->
 
 
@@ -1286,6 +1354,17 @@ body.light #equity-canvas{filter:invert(0)}
   </div>
 </div>
 
+<!-- Share discipline card -->
+<div class="modal-overlay" id="modal-share" onclick="closeModalOutside(event,'modal-share')">
+  <div class="modal">
+    <div class="modal-title">Share discipline score <button class="modal-close" onclick="closeModal('modal-share')">✕</button></div>
+    <canvas id="share-canvas" width="360" height="420"></canvas>
+    <div class="field" style="margin-top:12px"><label>Handle on card</label><input id="share-handle" placeholder="yourname" oninput="S.profileHandle=this.value;persist();RunnrGrowth.drawShareCard(S,document.getElementById('share-canvas'))"></div>
+    <button class="btn" style="margin-top:8px" onclick="RunnrGrowth.shareDisciplineCard(S)">Download / Share PNG</button>
+    <div style="font-size:11px;color:var(--text3);text-align:center;margin-top:8px">No P&amp;L shown — process only</div>
+  </div>
+</div>
+
 <!-- Settings Modal -->
 <div class="modal-overlay" id="modal-settings" onclick="closeModalOutside(event,'modal-settings')">
   <div class="modal">
@@ -1299,6 +1378,11 @@ body.light #equity-canvas{filter:invert(0)}
         <option value="£">GBP (£)</option>
       </select>
     </div>
+    <div class="field"><label>Profile handle (for share card)</label><input id="set-handle" placeholder="yourname"></div>
+    <div class="notif-global-toggle" style="margin:12px 0">
+      <div><div style="font-size:13px;font-weight:600">Weekly Coach digest</div><div style="font-size:11px;color:var(--text3)">Sunday push if you haven't logged in 48h</div></div>
+      <label class="toggle-switch"><input type="checkbox" id="set-coach-digest" checked onchange="S.coachDigestEnabled=this.checked;persist()"><span class="toggle-slider"></span></label>
+    </div>
     <div class="divider"></div>
     <div style="font-size:12px;color:var(--text3);margin-bottom:10px;font-weight:600;text-transform:uppercase;letter-spacing:0.8px">Account · Free Plan</div>
     <button class="btn" style="background:linear-gradient(135deg,var(--accent2),var(--accent));margin-bottom:8px" onclick="closeModal('modal-settings')">⬆ Upgrade to Runner — €10/mo</button>
@@ -1310,6 +1394,7 @@ body.light #equity-canvas{filter:invert(0)}
 
 <script src="js/baron.js"></script>
 <script src="js/coach.js"></script>
+<script src="js/onboarding.js"></script>
 <script>
 // ── STATE ──────────────────────────────────────────────────────────────────
 const S = {
@@ -1326,7 +1411,10 @@ const S = {
     { id:3, sym:'EURUSD', dir:'short', entry:1.142, stop:1.150, target:1.110, thesis:'ECB dovish pivot signals, USD strength on rate divergence', rr:4.0, urgent:false },
   ],
   flags: { stop: null, size: null },
-  optType: 'call'
+  optType: 'call',
+  onboardingComplete: false,
+  profileHandle: '',
+  coachDigestEnabled: true,
 };
 
 try {
@@ -1358,6 +1446,9 @@ function saveSettings() {
   S.bal = parseFloat(document.getElementById('set-bal').value) || S.bal;
   S.risk = parseFloat(document.getElementById('set-risk').value) || S.risk;
   S.sym = document.getElementById('set-currency').value;
+  S.profileHandle = (document.getElementById('set-handle')?.value || '').trim().replace(/[^a-zA-Z0-9_-]/g, '') || S.profileHandle;
+  const digestEl = document.getElementById('set-coach-digest');
+  if (digestEl) S.coachDigestEnabled = digestEl.checked;
   persist();
   updateHomeStats();
   closeModal('modal-settings');
@@ -1365,6 +1456,10 @@ function saveSettings() {
 function openSettingsModal() {
   document.getElementById('set-bal').value = S.bal;
   document.getElementById('set-risk').value = S.risk;
+  const h = document.getElementById('set-handle');
+  if (h) h.value = S.profileHandle || '';
+  const d = document.getElementById('set-coach-digest');
+  if (d) d.checked = S.coachDigestEnabled !== false;
   openModal('modal-settings');
 }
 document.getElementById('acct-display').addEventListener('click', openSettingsModal);
@@ -1423,6 +1518,10 @@ function updateHomeStats() {
   });
   updateTier();
   renderBaronPills();
+  if (window.RunnrGrowth) {
+    RunnrGrowth.renderDisciplineCard(S);
+    RunnrGrowth.renderHomeBanner(S);
+  }
 }
 
 // ── SIZER TABS ─────────────────────────────────────────────────────────────
@@ -3416,6 +3515,13 @@ function initApp() {
   try { renderHomePreviews(); } catch (e) {}
   try { renderBaronPills(); } catch (e) {}
   registerServiceWorker();
+  if (window.RunnrGrowth) {
+    RunnrGrowth.renderHomeBanner(S);
+    RunnrGrowth.scheduleDigestCheck(S);
+    setTimeout(() => {
+      if (RunnrGrowth.shouldShowOnboarding(S)) RunnrGrowth.open(S);
+    }, 600);
+  }
   setTimeout(() => {
     try { startFeedTimer(); } catch (e) {}
     try { updateFGDisplay(72); drawFGGauge(72); } catch (e) {}
