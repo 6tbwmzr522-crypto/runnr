@@ -5,7 +5,7 @@
 <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
 <script>
 (function () {
-  var V = "12";
+  var V = "13";
   try {
     if (localStorage.getItem("runnr_app_v") !== V) {
       localStorage.setItem("runnr_app_v", V);
@@ -1443,10 +1443,10 @@ body.light #equity-canvas{filter:invert(0)}
   </div>
 </div>
 
-<script src="js/baron.js?v=12"></script>
-<script src="js/coach.js?v=12"></script>
-<script src="js/onboarding.js?v=12"></script>
-<script src="js/sync.js?v=12"></script>
+<script src="js/baron.js?v=13"></script>
+<script src="js/coach.js?v=13"></script>
+<script src="js/onboarding.js?v=13"></script>
+<script src="js/sync.js?v=13"></script>
 <script>
 // ── STATE ──────────────────────────────────────────────────────────────────
 const S = {
@@ -1463,6 +1463,7 @@ const S = {
     { id:3, sym:'EURUSD', dir:'short', entry:1.142, stop:1.150, target:1.110, thesis:'ECB dovish pivot signals, USD strength on rate divergence', rr:4.0, urgent:false },
   ],
   flags: { stop: null, size: null },
+  editingTradeId: null,
   optType: 'call',
   onboardingComplete: false,
   profileHandle: '',
@@ -1822,7 +1823,10 @@ function renderJournal() {
   if (hint) {
     if (alpacaPending.length) {
       hint.style.display = 'block';
-      hint.innerHTML = `<strong>${alpacaPending.length} Alpaca fill${alpacaPending.length > 1 ? 's' : ''}</strong> imported — tap each trade to confirm stop &amp; size discipline.`;
+      hint.innerHTML = `<div style="display:flex;justify-content:space-between;align-items:flex-start;gap:10px;flex-wrap:wrap">
+        <span><strong>${alpacaPending.length} Alpaca fill${alpacaPending.length > 1 ? 's' : ''}</strong> need discipline flags — tap each trade, or bulk-apply Baron rules.</span>
+        <button class="btn btn-sm" style="white-space:nowrap;flex-shrink:0" onclick="applyBaronRulesToAll(event)">🎩 Baron rules on all</button>
+      </div>`;
     } else {
       hint.style.display = 'none';
     }
@@ -1863,12 +1867,46 @@ function renderJournal() {
 function reviewTrade(id) {
   const t = S.trades.find(t => t.id === id);
   if (!t || !t.incomplete) return;
+  S.editingTradeId = id;
   openLogModal('cfd');
   document.getElementById('log-instr').value = t.instr;
   document.getElementById('log-entry').value = t.entry || t.fillPrice || '';
   document.getElementById('log-exit').value = t.exit || t.fillPrice || '';
   document.getElementById('log-size').value = t.size;
   document.getElementById('log-dir').value = t.dir || 'long';
+}
+
+function applyBaronRulesToAll(e) {
+  if (e) e.stopPropagation();
+  const pending = S.trades.filter(t => t.source === 'alpaca' && t.incomplete);
+  if (!pending.length) return;
+  const baronNote = window.Baron
+    ? ` (${Baron.STRATEGY.risk_pct}% risk · ${Baron.STRATEGY.atr_stop_mult}× ATR stop · ${Baron.STRATEGY.max_position_pct}% max size)`
+    : '';
+  if (!confirm(`Apply Baron discipline to all ${pending.length} Alpaca fills${baronNote}?\n\nStop confirmed ✓ · Size within rules ✓`)) return;
+  pending.forEach(t => {
+    const fill = Number(t.fillPrice || t.entry || t.exit || 0);
+    if (t.dir === 'long') {
+      if (!t.entry && fill) t.entry = fill;
+      if (t.exit == null) t.exit = t.entry || fill || null;
+    } else {
+      if (!t.exit && fill) t.exit = fill;
+      if (t.entry == null) t.entry = t.exit || fill || null;
+    }
+    t.stopOk = true;
+    t.sizeOk = true;
+    t.incomplete = false;
+    t.baronRules = true;
+    const entry = Number(t.entry) || 0;
+    const exit = Number(t.exit) || entry;
+    const size = Number(t.size) || 1;
+    t.pnl = Math.round((t.dir === 'long' ? exit - entry : entry - exit) * size);
+  });
+  persist();
+  renderJournal();
+  updateHomeStats();
+  if (typeof renderCoachPage === 'function') renderCoachPage();
+  alert(`🎩 ${pending.length} trades marked as Baron-disciplined. Check Coach for your score.`);
 }
 
 // ── LOG MODAL ──────────────────────────────────────────────────────────────
@@ -1900,14 +1938,23 @@ function saveLog() {
   const dir   = document.getElementById('log-dir').value;
   if (!instr || !entry) return;
   const pnl = exit ? Math.round((dir==='long' ? exit-entry : entry-exit) * (size||1)) : 0;
-  S.trades.unshift({
-    id: Date.now(), instr, dir, entry, exit: exit||null, size: size||1, pnl,
+  const patch = {
+    instr, dir, entry, exit: exit||null, size: size||1, pnl,
     stopOk: S.flags.stop === 'yes',
     sizeOk: S.flags.size === 'yes',
-    type: 'cfd',
-    date: new Date().toLocaleDateString('en-GB',{month:'short',day:'numeric'}),
     incomplete: !S.flags.stop || !S.flags.size
-  });
+  };
+  if (S.editingTradeId) {
+    const t = S.trades.find(x => x.id === S.editingTradeId);
+    if (t) Object.assign(t, patch);
+    S.editingTradeId = null;
+  } else {
+    S.trades.unshift({
+      id: Date.now(), type: 'cfd',
+      date: new Date().toLocaleDateString('en-GB',{month:'short',day:'numeric'}),
+      ...patch
+    });
+  }
   persist();
   closeModal('modal-log');
   renderJournal();
