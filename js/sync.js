@@ -298,9 +298,32 @@ const RunnrSync = (() => {
     }
   }
 
+  async function ensureAlpacaConnected() {
+    if (!isLoggedIn()) return false;
+    ensureBrokerState();
+    try {
+      const st = await alpacaStatus();
+      if (st?.connected) {
+        applyAlpacaStatus(st);
+        return true;
+      }
+    } catch (e) {
+      const msg = String(e.message || e);
+      if (/user not found|session expired|invalid token|missing bearer/i.test(msg)) {
+        setToken("");
+        return false;
+      }
+    }
+    return tryAutoReconnectAlpaca();
+  }
+
   async function runSync() {
     ensureBrokerState();
     if (!isLoggedIn()) throw new Error("Log in to Runnr first");
+    const connected = await ensureAlpacaConnected();
+    if (!connected) {
+      throw new Error("Alpaca not connected — tap Connect Alpaca on the Sync page");
+    }
     const data = await syncAlpaca();
     const { added, repaired } = importOrders(data.recent_orders || []);
     window.S.brokerSync.alpaca.lastSync = data.as_of || new Date().toISOString();
@@ -345,6 +368,7 @@ const RunnrSync = (() => {
     repairJournalIfNeeded,
     verifySession,
     tryAutoReconnectAlpaca,
+    ensureAlpacaConnected,
     saveAlpacaLocal,
     loadAlpacaLocal,
     hasLocalAlpaca,
