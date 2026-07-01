@@ -1,4 +1,4 @@
-const CACHE = "runnr-v8";
+const CACHE = "runnr-v9";
 const ASSETS = [
   "./manifest.webmanifest",
   "./icons/icon-192.svg",

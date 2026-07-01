@@ -1297,7 +1297,7 @@ body.light #equity-canvas{filter:invert(0)}
 <div class="modal-overlay" id="modal-alpaca" onclick="closeModalOutside(event,'modal-alpaca')">
   <div class="modal">
     <div class="modal-title">Connect Alpaca <button class="modal-close" onclick="closeModal('modal-alpaca')">✕</button></div>
-    <div style="font-size:12px;color:var(--text2);margin-bottom:14px;line-height:1.5">Use a <strong>read-only</strong> paper API key from Alpaca. Keys are stored encrypted on the Runnr server — never in this page's code.</div>
+    <div style="font-size:12px;color:var(--text2);margin-bottom:14px;line-height:1.5">Paper API keys are saved on this device and encrypted on the Runnr server — so reconnect is one tap after updates.</div>
     <div class="field"><label>API Key ID</label><input id="alpaca-key" placeholder="PK..." autocomplete="off"></div>
     <div class="field"><label>Secret Key</label><input id="alpaca-secret" type="password" placeholder="••••••••" autocomplete="off"></div>
     <div class="field"><label>Account</label>
@@ -3219,12 +3219,26 @@ const brokers = [
 function renderAvailableBrokers() {
   const el = document.getElementById('available-brokers');
   if (!el) return;
-  el.innerHTML = brokers.map(b => `
+  const alpacaLinked = !!(S.brokerSync && S.brokerSync.alpaca && S.brokerSync.alpaca.connected);
+  el.innerHTML = brokers.map(b => {
+    let badge = b.live ? '+ Connect' : '+ Connect';
+    let badgeCls = 'bk-available';
+    if (b.code === 'Alpaca') {
+      if (alpacaLinked) {
+        badge = '● Connected';
+        badgeCls = 'bk-synced';
+      } else if (RunnrSync.isLoggedIn() && RunnrSync.hasLocalAlpaca()) {
+        badge = '↻ Reconnect';
+        badgeCls = 'bk-synced';
+      }
+    }
+    return `
   <div class="broker-card" onclick="connectBroker('${b.code}')">
     <div class="bk-logo" style="background:${b.bg};color:${b.color}">${b.code.slice(0,4)}</div>
     <div class="bk-info"><div class="bk-name">${b.code}</div><div class="bk-status">${b.live ? 'Read-only sync available' : 'Coming soon — CSV import works today'}</div></div>
-    <div class="bk-badge ${b.live ? 'bk-synced' : 'bk-available'}">${b.live ? '● Live' : '+ Connect'}</div>
-  </div>`).join('');
+    <div class="bk-badge ${badgeCls}">${badge}</div>
+  </div>`;
+  }).join('');
 }
 
 function renderSyncAuthBanner() {
@@ -3248,7 +3262,16 @@ function renderConnectedBrokers() {
   if (!el) return;
   const a = S.brokerSync.alpaca || {};
   if (!a.connected) {
-    el.innerHTML = `<div style="font-size:12px;color:var(--text3)">No broker connected yet. Start with Alpaca below.</div>`;
+    if (RunnrSync.isLoggedIn() && RunnrSync.hasLocalAlpaca()) {
+      el.innerHTML = `<div class="card-sm" style="font-size:12px;color:var(--text2);display:flex;justify-content:space-between;align-items:center;gap:8px">
+        <span>Alpaca unlinked on server — keys saved on this phone.</span>
+        <button class="btn btn-sm" onclick="reconnectAlpaca()">Reconnect</button>
+      </div>`;
+    } else if (RunnrSync.isLoggedIn()) {
+      el.innerHTML = `<div style="font-size:12px;color:var(--text3)">Logged in — tap Alpaca below to paste keys once.</div>`;
+    } else {
+      el.innerHTML = `<div style="font-size:12px;color:var(--text3)">Log in first, then connect Alpaca below.</div>`;
+    }
     return;
   }
   const ago = RunnrSync.formatAgo(a.lastSync);
@@ -3326,6 +3349,7 @@ async function submitSyncLogin() {
   try {
     await RunnrSync.login(email, password);
     closeModal('modal-sync-auth');
+    await RunnrSync.tryAutoReconnectAlpaca();
     await RunnrSync.refreshStatus();
     renderSyncPage();
     renderHomeBrokerPreview();
@@ -3345,6 +3369,7 @@ async function submitSyncRegister() {
     await RunnrSync.register(email, password);
     localStorage.setItem('runnr_remember_email', email);
     closeModal('modal-sync-auth');
+    await RunnrSync.tryAutoReconnectAlpaca();
     await RunnrSync.refreshStatus();
     renderSyncPage();
     renderHomeBrokerPreview();
@@ -3359,10 +3384,40 @@ function connectBroker(name) {
       openSyncAuthModal();
       return;
     }
-    openModal('modal-alpaca');
+    if (RunnrSync.hasLocalAlpaca()) {
+      reconnectAlpaca();
+      return;
+    }
+    openAlpacaModal();
     return;
   }
   alert(name + ' coming soon.\n\nUse Alpaca today, or import trades via CSV on the Journal page.');
+}
+
+function openAlpacaModal() {
+  const saved = RunnrSync.loadAlpacaLocal();
+  if (saved?.key) document.getElementById('alpaca-key').value = saved.key;
+  if (saved?.secret) document.getElementById('alpaca-secret').value = saved.secret;
+  if (saved && saved.paper === false) document.getElementById('alpaca-paper').value = '0';
+  openModal('modal-alpaca');
+}
+
+async function reconnectAlpaca() {
+  if (!RunnrSync.isLoggedIn()) {
+    openSyncAuthModal();
+    return;
+  }
+  const ok = await RunnrSync.tryAutoReconnectAlpaca();
+  renderSyncPage();
+  renderHomeBrokerPreview();
+  if (ok) {
+    await RunnrSync.repairJournalIfNeeded();
+    renderJournal();
+    updateHomeStats();
+    alert('Alpaca reconnected.');
+    return;
+  }
+  openAlpacaModal();
 }
 
 async function submitAlpacaConnect() {
@@ -3372,6 +3427,7 @@ async function submitAlpacaConnect() {
   if (!apiKey || !apiSecret) return alert('Paste both API key and secret.');
   try {
     const st = await RunnrSync.connectAlpaca(apiKey, apiSecret, paper);
+    RunnrSync.saveAlpacaLocal(apiKey, apiSecret, paper);
     RunnrSync.ensureBrokerState();
     S.brokerSync.alpaca.connected = true;
     S.brokerSync.alpaca.paper = st.paper;
@@ -3438,8 +3494,20 @@ function bootRunnrSync() {
     renderHomeBrokerPreview();
     return;
   }
-  RunnrSync.refreshStatus()
-    .then(() => RunnrSync.repairJournalIfNeeded())
+  RunnrSync.verifySession()
+    .then((ok) => {
+      if (!ok) {
+        renderSyncAuthBanner();
+        renderSyncPage();
+        renderHomeBrokerPreview();
+        return null;
+      }
+      return RunnrSync.tryAutoReconnectAlpaca();
+    })
+    .then((result) => {
+      if (result === null) return;
+      return RunnrSync.repairJournalIfNeeded();
+    })
     .then(() => {
       renderSyncPage();
       renderHomeBrokerPreview();

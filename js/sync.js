@@ -5,6 +5,7 @@ const RunnrSync = (() => {
   const TOKEN_KEY = "runnr_api_token";
   const EMAIL_KEY = "runnr_api_email";
   const URL_KEY = "runnr_api_url";
+  const ALPACA_LOCAL_KEY = "runnr_alpaca_device";
 
   function apiBase() {
     const saved = localStorage.getItem(URL_KEY);
@@ -95,9 +96,82 @@ const RunnrSync = (() => {
 
   function logout() {
     setToken("");
+    localStorage.removeItem(ALPACA_LOCAL_KEY);
     if (window.S && window.S.brokerSync) {
       window.S.brokerSync.alpaca = { connected: false, lastSync: null, imported: 0 };
       if (typeof persist === "function") persist();
+    }
+  }
+
+  function saveAlpacaLocal(apiKey, apiSecret, paper) {
+    localStorage.setItem(
+      ALPACA_LOCAL_KEY,
+      JSON.stringify({ key: apiKey, secret: apiSecret, paper: !!paper })
+    );
+  }
+
+  function loadAlpacaLocal() {
+    try {
+      const raw = localStorage.getItem(ALPACA_LOCAL_KEY);
+      return raw ? JSON.parse(raw) : null;
+    } catch (e) {
+      return null;
+    }
+  }
+
+  function hasLocalAlpaca() {
+    const c = loadAlpacaLocal();
+    return !!(c && c.key && c.secret);
+  }
+
+  function applyAlpacaStatus(st) {
+    ensureBrokerState();
+    if (!window.S || !st) return;
+    window.S.brokerSync.alpaca.connected = !!st.connected;
+    window.S.brokerSync.alpaca.paper = st.paper;
+    window.S.brokerSync.alpaca.equity = st.equity;
+    window.S.brokerSync.alpaca.positionCount = st.position_count;
+    if (typeof persist === "function") persist();
+  }
+
+  async function verifySession() {
+    if (!isLoggedIn()) return false;
+    try {
+      await request("/api/v1/brokers/alpaca/status");
+      return true;
+    } catch (e) {
+      const msg = String(e.message || e);
+      if (/user not found|session expired|invalid token|missing bearer/i.test(msg)) {
+        setToken("");
+        return false;
+      }
+      return true;
+    }
+  }
+
+  async function tryAutoReconnectAlpaca() {
+    if (!isLoggedIn()) return false;
+    try {
+      const st = await alpacaStatus();
+      if (st?.connected) {
+        applyAlpacaStatus(st);
+        return true;
+      }
+    } catch (e) {
+      const msg = String(e.message || e);
+      if (/user not found|session expired|invalid token|missing bearer/i.test(msg)) {
+        setToken("");
+        return false;
+      }
+    }
+    const creds = loadAlpacaLocal();
+    if (!creds?.key || !creds?.secret) return false;
+    try {
+      const st = await connectAlpaca(creds.key, creds.secret, creds.paper !== false);
+      applyAlpacaStatus({ ...st, connected: true });
+      return true;
+    } catch (e) {
+      return false;
     }
   }
 
@@ -217,11 +291,7 @@ const RunnrSync = (() => {
     }
     try {
       const st = await alpacaStatus();
-      window.S.brokerSync.alpaca.connected = !!st.connected;
-      window.S.brokerSync.alpaca.paper = st.paper;
-      window.S.brokerSync.alpaca.equity = st.equity;
-      window.S.brokerSync.alpaca.positionCount = st.position_count;
-      if (typeof persist === "function") persist();
+      applyAlpacaStatus(st);
       return st;
     } catch (e) {
       return null;
@@ -244,8 +314,12 @@ const RunnrSync = (() => {
 
   async function repairJournalIfNeeded() {
     if (!isLoggedIn() || !window.S) return false;
+    if (!window.S.brokerSync?.alpaca?.connected) {
+      await tryAutoReconnectAlpaca();
+    }
     const needsFix = (window.S.trades || []).some(tradeNeedsPriceFix);
     if (!needsFix) return false;
+    if (!window.S.brokerSync?.alpaca?.connected) return false;
     try {
       const { repaired } = await runSync();
       return repaired > 0;
@@ -269,6 +343,11 @@ const RunnrSync = (() => {
     refreshStatus,
     runSync,
     repairJournalIfNeeded,
+    verifySession,
+    tryAutoReconnectAlpaca,
+    saveAlpacaLocal,
+    loadAlpacaLocal,
+    hasLocalAlpaca,
     ensureBrokerState,
     formatAgo,
     tradeNeedsPriceFix,
