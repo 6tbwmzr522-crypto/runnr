@@ -1308,14 +1308,16 @@ body.light #equity-canvas{filter:invert(0)}
 
 <!-- Runnr account modal -->
 <div class="modal-overlay" id="modal-sync-auth" onclick="closeModalOutside(event,'modal-sync-auth')">
-  <div class="modal">
+  <div class="modal" onclick="event.stopPropagation()">
     <div class="modal-title">Runnr account <button class="modal-close" onclick="closeModal('modal-sync-auth')">✕</button></div>
     <div style="font-size:12px;color:var(--text2);margin-bottom:14px">One login to sync brokers across devices.</div>
-    <div class="field"><label>Email</label><input id="sync-email" type="email" placeholder="you@example.com" autocomplete="username"></div>
-    <div class="field"><label>Password</label><input id="sync-password" type="password" placeholder="8+ characters" autocomplete="current-password"></div>
-    <button class="btn" onclick="submitSyncLogin()">Log in</button>
-    <button class="btn btn-ghost" style="margin-top:8px" onclick="submitSyncRegister()">Create account</button>
-    <button class="btn btn-ghost" style="margin-top:8px;font-size:12px" onclick="RunnrSync.logout(); renderSyncPage(); renderHomeBrokerPreview(); closeModal('modal-sync-auth');">Log out</button>
+    <form id="sync-auth-form" onsubmit="submitSyncLogin(); return false;">
+      <div class="field"><label for="sync-email">Email</label><input id="sync-email" name="email" type="email" placeholder="you@example.com" autocomplete="username" required inputmode="email" autocapitalize="none" autocorrect="off"></div>
+      <div class="field"><label for="sync-password">Password</label><input id="sync-password" name="password" type="password" placeholder="8+ characters" autocomplete="current-password" required minlength="8"></div>
+      <button class="btn" type="submit">Log in</button>
+      <button class="btn btn-ghost" style="margin-top:8px" type="button" onclick="submitSyncRegister()">Create account</button>
+      <button class="btn btn-ghost" style="margin-top:8px;font-size:12px" type="button" onclick="RunnrSync.logout(); renderSyncPage(); renderHomeBrokerPreview(); closeModal('modal-sync-auth');">Log out</button>
+    </form>
   </div>
 </div>
 
@@ -3271,11 +3273,35 @@ function renderSyncPage() {
 
 function openSyncAuthModal() {
   openModal('modal-sync-auth');
+  setTimeout(() => {
+    const email = document.getElementById('sync-email');
+    if (email) email.focus();
+  }, 250);
+}
+
+function readSyncAuthFields() {
+  const form = document.getElementById('sync-auth-form');
+  if (!form) return { email: '', password: '' };
+  const email = (form.elements.email?.value || '').trim();
+  const password = form.elements.password?.value || '';
+  return { email, password };
+}
+
+function validateSyncAuth(email, password) {
+  if (!email) return 'Enter your email address.';
+  if (!email.includes('@')) return 'Enter a valid email (needs an @ sign).';
+  if (!password) return 'Enter a password.';
+  if (password.length < 8) return 'Password must be at least 8 characters.';
+  return '';
 }
 
 async function submitSyncLogin() {
-  const email = document.getElementById('sync-email').value.trim();
-  const password = document.getElementById('sync-password').value;
+  const { email, password } = readSyncAuthFields();
+  const err = validateSyncAuth(email, password);
+  if (err) {
+    alert(err);
+    return;
+  }
   try {
     await RunnrSync.login(email, password);
     closeModal('modal-sync-auth');
@@ -3288,8 +3314,12 @@ async function submitSyncLogin() {
 }
 
 async function submitSyncRegister() {
-  const email = document.getElementById('sync-email').value.trim();
-  const password = document.getElementById('sync-password').value;
+  const { email, password } = readSyncAuthFields();
+  const err = validateSyncAuth(email, password);
+  if (err) {
+    alert(err);
+    return;
+  }
   try {
     await RunnrSync.register(email, password);
     closeModal('modal-sync-auth');
