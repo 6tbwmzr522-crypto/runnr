@@ -38,8 +38,13 @@ const RunnrSync = (() => {
       data = null;
     }
     if (!res.ok) {
-      const msg = (data && data.detail) || res.statusText || "Request failed";
-      throw new Error(typeof msg === "string" ? msg : JSON.stringify(msg));
+      let msg = (data && data.detail) || res.statusText || "Request failed";
+      if (Array.isArray(msg)) {
+        msg = msg.map((e) => e.msg || JSON.stringify(e)).join("; ");
+      } else if (typeof msg !== "string") {
+        msg = JSON.stringify(msg);
+      }
+      throw new Error(msg);
     }
     return data;
   }
