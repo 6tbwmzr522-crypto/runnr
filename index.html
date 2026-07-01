@@ -5,7 +5,7 @@
 <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
 <script>
 (function () {
-  var V = "13";
+  var V = "14";
   try {
     if (localStorage.getItem("runnr_app_v") !== V) {
       localStorage.setItem("runnr_app_v", V);
@@ -1443,10 +1443,10 @@ body.light #equity-canvas{filter:invert(0)}
   </div>
 </div>
 
-<script src="js/baron.js?v=13"></script>
-<script src="js/coach.js?v=13"></script>
-<script src="js/onboarding.js?v=13"></script>
-<script src="js/sync.js?v=13"></script>
+<script src="js/baron.js?v=14"></script>
+<script src="js/coach.js?v=14"></script>
+<script src="js/onboarding.js?v=14"></script>
+<script src="js/sync.js?v=14"></script>
 <script>
 // ── STATE ──────────────────────────────────────────────────────────────────
 const S = {
@@ -1477,6 +1477,32 @@ try {
 } catch(e) {}
 
 window.S = S;
+
+function isOptionSymbol(sym) {
+  const s = String(sym || '').toUpperCase();
+  if (s.length < 10) return false;
+  return /[CP]\d{6,}/.test(s);
+}
+
+function sanitizeAlpacaJournal() {
+  const before = S.trades.length;
+  S.trades = S.trades.filter(t => !(t.source === 'alpaca' && isOptionSymbol(t.instr)));
+  S.trades.forEach(t => {
+    if (t.source === 'alpaca' || t.baronRules) {
+      t.disciplineOnly = true;
+      t.pnl = null;
+      if (t.baronRules || t.source === 'alpaca') {
+        t.stopOk = t.stopOk !== false;
+        t.sizeOk = t.sizeOk !== false;
+        t.incomplete = false;
+      }
+    }
+  });
+  if (S.trades.length !== before) persist();
+  else if (S.trades.some(t => t.disciplineOnly && t.pnl != null)) persist();
+}
+
+sanitizeAlpacaJournal();
 
 function persist() {
   try { localStorage.setItem('runnr_state', JSON.stringify(S)); } catch(e) {}
@@ -1839,9 +1865,11 @@ function renderJournal() {
     const isAlpaca = t.source === 'alpaca';
     const fill = Number(t.fillPrice || t.entry || t.exit || 0);
     const pnlCls = t.pnl >= 0 ? 'pos' : 'neg';
-    const pnlStr = t.incomplete && isAlpaca
+    const pnlStr = t.disciplineOnly
+      ? '<span style="color:var(--accent);font-size:11px">discipline ✓</span>'
+      : t.incomplete && isAlpaca
       ? (fill > 0 ? 'tap to review' : 'sync for price')
-      : (t.pnl >= 0 ? '+' : '') + S.sym + Math.abs(t.pnl).toLocaleString();
+      : (t.pnl >= 0 ? '+' : '') + S.sym + Math.abs(t.pnl || 0).toLocaleString();
     const stopFlag = t.incomplete ? '<span class="flag flag-incomplete">Stop ?</span>' :
       (t.stopOk ? '<span class="flag flag-ok">✓ Stop</span>' : '<span class="flag flag-no">✗ Stop</span>');
     const sizeFlag = t.incomplete ? '<span class="flag flag-incomplete">Size ?</span>' :
@@ -1853,7 +1881,7 @@ function renderJournal() {
     return `<div class="trade-entry" onclick="reviewTrade(${t.id})">
       <div class="te-top">
         <div>
-          <span class="te-sym">${t.instr}</span>
+          <span class="te-sym">${t.instr.length > 12 ? t.instr.slice(0, 10) + '…' : t.instr}</span>
           <span style="font-size:11px;color:var(--text3);margin-left:6px">${t.dir.toUpperCase()}</span>
         </div>
         <span class="te-pnl ${t.incomplete && isAlpaca ? '' : pnlCls}" style="${t.incomplete && isAlpaca ? 'color:var(--accent);font-size:12px' : ''}">${pnlStr}</span>
@@ -1897,10 +1925,8 @@ function applyBaronRulesToAll(e) {
     t.sizeOk = true;
     t.incomplete = false;
     t.baronRules = true;
-    const entry = Number(t.entry) || 0;
-    const exit = Number(t.exit) || entry;
-    const size = Number(t.size) || 1;
-    t.pnl = Math.round((t.dir === 'long' ? exit - entry : entry - exit) * size);
+    t.disciplineOnly = true;
+    t.pnl = null;
   });
   persist();
   renderJournal();
@@ -2780,11 +2806,27 @@ const INSTR_COLORS = [
 ];
 
 function filterTrades(period) {
-  const trades = S.trades.filter(t => !t.incomplete && t.exit);
+  const trades = S.trades.filter(t => !t.incomplete && !t.disciplineOnly && t.exit);
   if (period === 'all') return trades;
   const now = new Date();
   return trades.filter(t => {
-    // Parse date strings like "Apr 17" — assume current year
+    const months = {Jan:0,Feb:1,Mar:2,Apr:3,May:4,Jun:5,Jul:6,Aug:7,Sep:8,Oct:9,Nov:10,Dec:11};
+    const parts = (t.date || '').split(' ');
+    if (parts.length < 2) return true;
+    const d = new Date(now.getFullYear(), months[parts[0]] || 0, parseInt(parts[1]));
+    const diff = (now - d) / (1000 * 60 * 60 * 24);
+    if (period === '1m') return diff <= 30;
+    if (period === '3m') return diff <= 90;
+    if (period === 'ytd') return d.getFullYear() === now.getFullYear();
+    return true;
+  });
+}
+
+function filterDisciplineTrades(period) {
+  const trades = S.trades.filter(t => !t.incomplete);
+  if (period === 'all') return trades;
+  const now = new Date();
+  return trades.filter(t => {
     const months = {Jan:0,Feb:1,Mar:2,Apr:3,May:4,Jun:5,Jul:6,Aug:7,Sep:8,Oct:9,Nov:10,Dec:11};
     const parts = (t.date || '').split(' ');
     if (parts.length < 2) return true;
@@ -2803,6 +2845,7 @@ function loadPortfolio(period, tabEl) {
   if (tabEl) tabEl.classList.add('active');
 
   const trades = filterTrades(period);
+  const discTrades = filterDisciplineTrades(period);
   const completed = trades.filter(t => t.pnl != null);
 
   const totalPnl    = completed.reduce((s,t) => s + t.pnl, 0);
@@ -2813,8 +2856,8 @@ function loadPortfolio(period, tabEl) {
   const avgLoss     = losses.length ? Math.abs(losses.reduce((s,t) => s+t.pnl,0) / losses.length) : 0;
   const profitFactor= avgLoss > 0 ? (avgWin * wins.length) / (avgLoss * losses.length) : 0;
   const avgRR       = avgLoss > 0 ? avgWin / avgLoss : 0;
-  const stopDisc    = completed.filter(t=>t.stopOk).length / Math.max(completed.length,1) * 100;
-  const sizeDisc    = completed.filter(t=>t.sizeOk).length / Math.max(completed.length,1) * 100;
+  const stopDisc    = discTrades.filter(t=>t.stopOk).length / Math.max(discTrades.length,1) * 100;
+  const sizeDisc    = discTrades.filter(t=>t.sizeOk).length / Math.max(discTrades.length,1) * 100;
 
   // Max drawdown
   let peak = S.bal, dd = 0, runBal = S.bal;
@@ -2826,10 +2869,20 @@ function loadPortfolio(period, tabEl) {
   });
 
   const curBal = S.bal + totalPnl;
-  const pnlPct = (totalPnl / S.bal * 100);
+  const pnlPct = completed.length ? (totalPnl / S.bal * 100) : 0;
 
   // Hero
   const pnlEl = document.getElementById('port-total-pnl');
+  if (!completed.length && discTrades.length) {
+    pnlEl.textContent = '—';
+    pnlEl.style.color = 'var(--text2)';
+    const pnlPctEl = document.getElementById('port-pnl-pct');
+    pnlPctEl.textContent = discTrades.length + ' Baron fills · discipline only (no fake P&L)';
+    pnlPctEl.style.color = 'var(--accent)';
+    document.getElementById('port-start-bal').textContent = S.sym + S.bal.toLocaleString();
+    document.getElementById('port-cur-bal').textContent = S.sym + S.bal.toLocaleString();
+    document.getElementById('port-cur-bal').style.color = 'var(--accent)';
+  } else {
   pnlEl.textContent = (totalPnl >= 0 ? '+' : '') + S.sym + Math.round(Math.abs(totalPnl)).toLocaleString();
   pnlEl.style.color = totalPnl >= 0 ? 'var(--text)' : 'var(--red)';
   const pnlPctEl = document.getElementById('port-pnl-pct');
@@ -2838,11 +2891,12 @@ function loadPortfolio(period, tabEl) {
   document.getElementById('port-start-bal').textContent = S.sym + S.bal.toLocaleString();
   document.getElementById('port-cur-bal').textContent = S.sym + Math.round(curBal).toLocaleString();
   document.getElementById('port-cur-bal').style.color = totalPnl >= 0 ? 'var(--accent)' : 'var(--red)';
+  }
   document.getElementById('port-open').textContent = S.trades.filter(t=>!t.exit).length;
 
   // KPIs
   const fmt = v => S.sym + Math.round(v).toLocaleString();
-  document.getElementById('kpi-trades').textContent = completed.length;
+  document.getElementById('kpi-trades').textContent = completed.length || discTrades.length;
   document.getElementById('kpi-wr').textContent = winRate.toFixed(0) + '%';
   document.getElementById('kpi-wr').style.color = winRate >= 50 ? 'var(--accent)' : 'var(--red)';
   document.getElementById('kpi-pf').textContent = profitFactor.toFixed(2);
@@ -2861,7 +2915,7 @@ function loadPortfolio(period, tabEl) {
   requestAnimationFrame(() => drawPortEquity(completed));
 
   // Discipline donut
-  const discPct  = completed.length ? completed.filter(t=>t.stopOk&&t.sizeOk).length/completed.length*100 : 0;
+  const discPct  = discTrades.length ? discTrades.filter(t=>t.stopOk&&t.sizeOk).length/discTrades.length*100 : 0;
   const discPnl  = completed.filter(t=>t.stopOk&&t.sizeOk).reduce((s,t)=>s+t.pnl,0);
   const undiscPnl= completed.filter(t=>!t.stopOk||!t.sizeOk).reduce((s,t)=>s+t.pnl,0);
   document.getElementById('donut-disc-pct').textContent = discPct.toFixed(0) + '%';
@@ -2873,27 +2927,27 @@ function loadPortfolio(period, tabEl) {
     discPct >= 80
       ? `${discPct.toFixed(0)}% of your trades followed all sizing and stop rules. Your disciplined trades generated ${(discPnl>=0?'+':'')+S.sym+Math.round(Math.abs(discPnl)).toLocaleString()}.`
       : `Only ${discPct.toFixed(0)}% of trades were fully disciplined. Undisciplined trades cost you ${S.sym+Math.round(Math.abs(undiscPnl)).toLocaleString()} in lost edge.`;
-  const stopDiscPct = completed.length ? completed.filter(t=>t.stopOk).length/completed.length*100 : 0;
-  const sizeDiscPct = completed.length ? completed.filter(t=>t.sizeOk).length/completed.length*100 : 0;
-  const discCount   = completed.filter(t=>t.stopOk&&t.sizeOk).length;
-  const undiscCount = completed.length - discCount;
-  const stopCount   = completed.filter(t=>t.stopOk).length;
-  const sizeCount   = completed.filter(t=>t.sizeOk).length;
+  const stopDiscPct = discTrades.length ? discTrades.filter(t=>t.stopOk).length/discTrades.length*100 : 0;
+  const sizeDiscPct = discTrades.length ? discTrades.filter(t=>t.sizeOk).length/discTrades.length*100 : 0;
+  const discCount   = discTrades.filter(t=>t.stopOk&&t.sizeOk).length;
+  const undiscCount = discTrades.length - discCount;
+  const stopCount   = discTrades.filter(t=>t.stopOk).length;
+  const sizeCount   = discTrades.filter(t=>t.sizeOk).length;
 
   // Update legend items
   if (document.getElementById('disc-trade-count'))
-    document.getElementById('disc-trade-count').textContent = completed.length + ' trades';
+    document.getElementById('disc-trade-count').textContent = discTrades.length + ' trades';
   if (document.getElementById('disc-count-good'))
-    document.getElementById('disc-count-good').textContent = discCount + ' / ' + completed.length + ' trades';
+    document.getElementById('disc-count-good').textContent = discCount + ' / ' + discTrades.length + ' trades';
   if (document.getElementById('disc-count-bad'))
-    document.getElementById('disc-count-bad').textContent = undiscCount + ' / ' + completed.length + ' trades';
+    document.getElementById('disc-count-bad').textContent = undiscCount + ' / ' + discTrades.length + ' trades';
   if (document.getElementById('disc-stop-pct')) {
     document.getElementById('disc-stop-pct').textContent = stopDiscPct.toFixed(0) + '%';
-    document.getElementById('disc-stop-count').textContent = stopCount + ' / ' + completed.length + ' confirmed';
+    document.getElementById('disc-stop-count').textContent = stopCount + ' / ' + discTrades.length + ' confirmed';
   }
   if (document.getElementById('disc-size-pct')) {
     document.getElementById('disc-size-pct').textContent = sizeDiscPct.toFixed(0) + '%';
-    document.getElementById('disc-size-count').textContent = sizeCount + ' / ' + completed.length + ' correct';
+    document.getElementById('disc-size-count').textContent = sizeCount + ' / ' + discTrades.length + ' correct';
   }
 
   requestAnimationFrame(() => drawDonut(discPct, stopDiscPct, sizeDiscPct));

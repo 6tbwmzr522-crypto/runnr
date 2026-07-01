@@ -221,6 +221,12 @@ const RunnrSync = (() => {
     return new Date(iso).toLocaleDateString("en-GB", { month: "short", day: "numeric" });
   }
 
+  function isOptionSymbol(sym) {
+    const s = String(sym || "").toUpperCase();
+    if (s.length < 10) return false;
+    return /[CP]\d{6,}/.test(s);
+  }
+
   function importOrders(orders) {
     ensureBrokerState();
     const seen = new Set(window.S.brokerSync.importedOrderIds || []);
@@ -246,7 +252,7 @@ const RunnrSync = (() => {
       if (o.status && !String(o.status).toLowerCase().includes("fill")) return;
       const qty = o.filled_qty || o.qty || 1;
       const sym = o.symbol || "?";
-      const d = o.filled_at || o.submitted_at;
+      if (isOptionSymbol(sym)) return;
       const date = d
         ? new Date(d).toLocaleDateString("en-GB", { month: "short", day: "numeric" })
         : new Date().toLocaleDateString("en-GB", { month: "short", day: "numeric" });

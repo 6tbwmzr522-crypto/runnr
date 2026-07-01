@@ -12,7 +12,11 @@ const CoachEngine = {
   },
 
   completed(trades) {
-    return trades.filter((t) => !t.incomplete && t.exit != null && t.pnl != null);
+    return trades.filter((t) => !t.incomplete && !t.disciplineOnly && t.exit != null && t.pnl != null);
+  },
+
+  forDiscipline(trades) {
+    return trades.filter((t) => !t.incomplete);
   },
 
   withinDays(trades, days) {
@@ -26,18 +30,19 @@ const CoachEngine = {
 
   metrics(trades) {
     const c = this.completed(trades);
+    const d = this.forDiscipline(trades);
     const wins = c.filter((t) => t.pnl > 0);
     const losses = c.filter((t) => t.pnl <= 0);
-    const stopOk = c.filter((t) => t.stopOk).length;
-    const sizeOk = c.filter((t) => t.sizeOk).length;
+    const stopOk = d.filter((t) => t.stopOk).length;
+    const sizeOk = d.filter((t) => t.sizeOk).length;
     const winPnL = wins.reduce((s, t) => s + t.pnl, 0);
     const lossPnL = Math.abs(losses.reduce((s, t) => s + t.pnl, 0));
     return {
       count: c.length,
       winRate: c.length ? (wins.length / c.length) * 100 : 0,
       profitFactor: lossPnL > 0 ? winPnL / lossPnL : wins.length ? 999 : 0,
-      stopPct: c.length ? (stopOk / c.length) * 100 : 0,
-      sizePct: c.length ? (sizeOk / c.length) * 100 : 0,
+      stopPct: d.length ? (stopOk / d.length) * 100 : 0,
+      sizePct: d.length ? (sizeOk / d.length) * 100 : 0,
       totalPnl: c.reduce((s, t) => s + t.pnl, 0),
       undiscPnl: c.filter((t) => !t.stopOk || !t.sizeOk).reduce((s, t) => s + t.pnl, 0),
       discPnl: c.filter((t) => t.stopOk && t.sizeOk).reduce((s, t) => s + t.pnl, 0),
@@ -46,29 +51,29 @@ const CoachEngine = {
 
   /** Weighted discipline score: 40% stops, 40% size, 20% journal completeness */
   disciplineScore(trades) {
-    const all = trades.filter((t) => t.exit != null && t.pnl != null);
+    const d = this.forDiscipline(trades);
     const c = this.completed(trades);
-    if (!all.length) {
+    if (!d.length) {
       return {
         overall: 0, stopPct: 0, sizePct: 0, completePct: 0,
         streak: this.loggingStreak(trades), tradeCount: 0, tier: "Novice",
       };
     }
-    const stopPct = all.filter((t) => t.stopOk).length / all.length * 100;
-    const sizePct = all.filter((t) => t.sizeOk).length / all.length * 100;
-    const completePct = c.length / all.length * 100;
+    const stopPct = d.filter((t) => t.stopOk).length / d.length * 100;
+    const sizePct = d.filter((t) => t.sizeOk).length / d.length * 100;
+    const completePct = d.filter((t) => t.stopOk && t.sizeOk).length / d.length * 100;
     const overall = stopPct * 0.4 + sizePct * 0.4 + completePct * 0.2;
     let tier = "Novice";
-    if (overall >= 80 && c.length >= 20) tier = "Consistent Runner";
-    else if (overall >= 65 && c.length >= 10) tier = "Disciplined";
-    else if (overall >= 45 || c.length >= 3) tier = "Learning";
+    if (overall >= 80 && d.length >= 20) tier = "Consistent Runner";
+    else if (overall >= 65 && d.length >= 10) tier = "Disciplined";
+    else if (overall >= 45 || d.length >= 3) tier = "Learning";
     return {
       overall: Math.round(overall),
       stopPct: Math.round(stopPct),
       sizePct: Math.round(sizePct),
       completePct: Math.round(completePct),
       streak: this.loggingStreak(trades),
-      tradeCount: c.length,
+      tradeCount: d.length,
       tier,
     };
   },
