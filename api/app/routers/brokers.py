@@ -124,6 +124,7 @@ def alpaca_sync(user: dict = Depends(get_current_user)):
                 "side": str(o.side),
                 "qty": float(o.qty) if o.qty else None,
                 "filled_qty": float(o.filled_qty) if o.filled_qty else None,
+                "filled_avg_price": float(o.filled_avg_price) if o.filled_avg_price else None,
                 "status": str(o.status),
                 "submitted_at": o.submitted_at.isoformat() if o.submitted_at else None,
                 "filled_at": o.filled_at.isoformat() if o.filled_at else None,

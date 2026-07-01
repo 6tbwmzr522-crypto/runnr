@@ -805,6 +805,7 @@ body.light #equity-canvas{filter:invert(0)}
         <h3 style="font-size:15px">Trade Journal</h3>
         <button class="btn btn-sm" onclick="openLogModal('cfd')" style="background:var(--accent);color:#070d0b;font-family:var(--font-head);font-size:12px;font-weight:700;border:none;cursor:pointer;padding:7px 14px;border-radius:20px">+ Log Trade</button>
       </div>
+      <div id="journal-hint" style="display:none;margin-bottom:12px;padding:12px 14px;background:var(--accent-dim);border:1px solid var(--border);border-radius:var(--r-sm);font-size:12px;color:var(--text2);line-height:1.5"></div>
       <div id="journal-list"></div>
     </div>
 
@@ -1784,30 +1785,43 @@ function calcOptions() {
 // ── JOURNAL ────────────────────────────────────────────────────────────────
 function renderJournal() {
   const list = document.getElementById('journal-list');
+  const hint = document.getElementById('journal-hint');
+  const alpacaPending = S.trades.filter(t => t.source === 'alpaca' && t.incomplete);
+  if (hint) {
+    if (alpacaPending.length) {
+      hint.style.display = 'block';
+      hint.innerHTML = `<strong>${alpacaPending.length} Alpaca fill${alpacaPending.length > 1 ? 's' : ''}</strong> imported — tap each trade to confirm stop &amp; size discipline.`;
+    } else {
+      hint.style.display = 'none';
+    }
+  }
   if (!S.trades.length) {
-    list.innerHTML = '<div class="empty-state"><div class="es-icon">📋</div>No trades yet. Log your first trade.</div>';
+    list.innerHTML = '<div class="empty-state"><div class="es-icon">📋</div>No trades yet. Connect Alpaca on Sync or log a trade.</div>';
     return;
   }
   list.innerHTML = S.trades.map(t => {
+    const isAlpaca = t.source === 'alpaca';
+    const fill = t.fillPrice || t.entry || t.exit || 0;
     const pnlCls = t.pnl >= 0 ? 'pos' : 'neg';
-    const pnlStr = (t.pnl >= 0 ? '+' : '') + S.sym + Math.abs(t.pnl).toLocaleString();
+    const pnlStr = t.incomplete && isAlpaca
+      ? 'tap to review'
+      : (t.pnl >= 0 ? '+' : '') + S.sym + Math.abs(t.pnl).toLocaleString();
     const stopFlag = t.incomplete ? '<span class="flag flag-incomplete">Stop ?</span>' :
       (t.stopOk ? '<span class="flag flag-ok">✓ Stop</span>' : '<span class="flag flag-no">✗ Stop</span>');
     const sizeFlag = t.incomplete ? '<span class="flag flag-incomplete">Size ?</span>' :
       (t.sizeOk ? '<span class="flag flag-ok">✓ Size</span>' : '<span class="flag flag-no">✗ Size</span>');
+    const metaLine = isAlpaca
+      ? `<span>${t.date}</span><span>${t.dir === 'long' ? 'BUY' : 'SELL'} ${t.size} @ $${Number(fill).toFixed(2)}</span><span>Alpaca</span>`
+      : `<span>${t.date}</span><span>${t.entry} → ${t.exit ?? '—'}</span><span>${t.size} units</span>`;
     return `<div class="trade-entry" onclick="reviewTrade(${t.id})">
       <div class="te-top">
         <div>
           <span class="te-sym">${t.instr}</span>
           <span style="font-size:11px;color:var(--text3);margin-left:6px">${t.dir.toUpperCase()}</span>
         </div>
-        <span class="te-pnl ${pnlCls}">${pnlStr}</span>
+        <span class="te-pnl ${t.incomplete && isAlpaca ? '' : pnlCls}" style="${t.incomplete && isAlpaca ? 'color:var(--accent);font-size:12px' : ''}">${pnlStr}</span>
       </div>
-      <div class="te-meta">
-        <span>${t.date}</span>
-        <span>${t.entry} → ${t.exit}</span>
-        <span>${t.size} units</span>
-      </div>
+      <div class="te-meta">${metaLine}</div>
       <div class="flags">${stopFlag}${sizeFlag}${t.incomplete?'<span class="flag flag-miss">Incomplete</span>':''}</div>
     </div>`;
   }).join('');
@@ -1818,9 +1832,10 @@ function reviewTrade(id) {
   if (!t || !t.incomplete) return;
   openLogModal('cfd');
   document.getElementById('log-instr').value = t.instr;
-  document.getElementById('log-entry').value = t.entry;
-  document.getElementById('log-exit').value = t.exit;
+  document.getElementById('log-entry').value = t.entry || t.fillPrice || '';
+  document.getElementById('log-exit').value = t.exit || t.fillPrice || '';
   document.getElementById('log-size').value = t.size;
+  document.getElementById('log-dir').value = t.dir || 'long';
 }
 
 // ── LOG MODAL ──────────────────────────────────────────────────────────────
@@ -3379,7 +3394,14 @@ async function runBrokerSync() {
     await RunnrSync.refreshStatus();
     renderSyncPage();
     renderHomeBrokerPreview();
-    alert(added ? `Synced — ${added} new trade(s) added to journal.` : 'Synced — no new trades.');
+    updateHomeStats();
+    renderJournal();
+    if (added) {
+      switchPage('journal');
+      alert(`Synced — ${added} new trade(s) in Journal. Tap each to confirm stop & size.`);
+    } else {
+      alert('Synced — no new trades.');
+    }
   } catch (e) {
     alert('Sync failed: ' + e.message + '\n\nIf API is not deployed yet, set runnr-api on Railway first.');
   }

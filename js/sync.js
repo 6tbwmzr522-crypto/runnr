@@ -124,9 +124,20 @@ const RunnrSync = (() => {
     const seen = new Set(window.S.brokerSync.importedOrderIds || []);
     let added = 0;
     const maxId = window.S.trades.reduce((m, t) => Math.max(m, t.id || 0), 0);
+    const demoIds = new Set([1, 2, 3, 4]);
 
     orders.forEach((o, i) => {
-      if (!o.id || seen.has(o.id)) return;
+      if (!o.id) return;
+      const fillPrice = Number(o.filled_avg_price) || 0;
+      if (seen.has(o.id)) {
+        const existing = window.S.trades.find((t) => t.externalId === o.id);
+        if (existing && fillPrice && !existing.fillPrice) {
+          existing.fillPrice = fillPrice;
+          if (existing.dir === "long") existing.entry = fillPrice;
+          else existing.exit = fillPrice;
+        }
+        return;
+      }
       if (o.status && !String(o.status).toLowerCase().includes("fill")) return;
       const side = String(o.side || "").toLowerCase();
       const dir = side.includes("sell") ? "short" : "long";
@@ -141,8 +152,8 @@ const RunnrSync = (() => {
         id: maxId + i + 1 + Date.now(),
         instr: sym,
         dir,
-        entry: 0,
-        exit: null,
+        entry: dir === "long" ? fillPrice : null,
+        exit: dir === "short" ? fillPrice : null,
         size: qty,
         pnl: 0,
         stopOk: null,
@@ -152,13 +163,18 @@ const RunnrSync = (() => {
         incomplete: true,
         source: "alpaca",
         externalId: o.id,
+        fillPrice,
       });
       seen.add(o.id);
       added++;
     });
 
+    if (added > 0) {
+      window.S.trades = window.S.trades.filter((t) => t.source === "alpaca" || !demoIds.has(t.id));
+    }
+
     window.S.brokerSync.importedOrderIds = [...seen];
-    window.S.brokerSync.alpaca.imported = (window.S.brokerSync.alpaca.imported || 0) + added;
+    window.S.brokerSync.alpaca.imported = window.S.trades.filter((t) => t.source === "alpaca").length;
     if (typeof persist === "function") persist();
     return added;
   }
