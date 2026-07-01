@@ -622,15 +622,7 @@ body.light #equity-canvas{filter:invert(0)}
           <h3>Connected Brokers</h3>
           <button class="see-all" onclick="switchPage('sync')">Manage</button>
         </div>
-        <div class="broker-card" style="cursor:default">
-          <div class="bk-logo" style="background:#1a3a2a;color:#00e5a0">T212</div>
-          <div class="bk-info">
-            <div class="bk-name">Trading 212</div>
-            <div class="bk-status">Last sync: 2 hours ago · 47 trades imported</div>
-          </div>
-          <div class="bk-badge bk-synced">● Live</div>
-        </div>
-        <div style="font-size:11px;color:var(--text3);margin-top:4px">Next auto-sync in 4 hours &nbsp;·&nbsp; <span style="color:var(--accent);cursor:pointer">Refresh now</span></div>
+        <div id="home-broker-preview"></div>
       </div>
 
       <!-- Watchlist snapshot -->
@@ -931,13 +923,10 @@ body.light #equity-canvas{filter:invert(0)}
     <!-- ══ SYNC ═══════════════════════════════════════════════════════════ -->
     <div class="page" id="page-sync">
       <div style="font-family:var(--font-head);font-size:18px;font-weight:700;margin-bottom:4px">Broker Sync</div>
-      <div style="font-size:12px;color:var(--text3);margin-bottom:16px">Connect once. See your real discipline score.</div>
-
-      <div class="broker-card">
-        <div class="bk-logo" style="background:#1a3a2a;color:#00e5a0">T212</div>
-        <div class="bk-info"><div class="bk-name">Trading 212</div><div class="bk-status">47 trades · Last sync 2h ago</div></div>
-        <div class="bk-badge bk-synced">● Live</div>
-      </div>
+      <div style="font-size:12px;color:var(--text3);margin-bottom:12px">Connect once. Pull real trades into your journal.</div>
+      <div id="sync-auth-banner" style="margin-bottom:12px"></div>
+      <div id="sync-connected" style="margin-bottom:12px"></div>
+      <button class="btn btn-ghost" style="margin-bottom:16px;width:100%" onclick="runBrokerSync()">↻ Sync now</button>
 
       <div style="background:var(--surface2);border:1px dashed var(--border);border-radius:var(--r-sm);padding:14px;margin-bottom:8px">
         <div style="font-size:12px;color:var(--text3);font-weight:600;text-transform:uppercase;letter-spacing:0.8px;margin-bottom:12px">Available to Connect</div>
@@ -1303,6 +1292,33 @@ body.light #equity-canvas{filter:invert(0)}
     </div>
   </div>
 </div>
+<!-- Alpaca Connect Modal -->
+<div class="modal-overlay" id="modal-alpaca" onclick="closeModalOutside(event,'modal-alpaca')">
+  <div class="modal">
+    <div class="modal-title">Connect Alpaca <button class="modal-close" onclick="closeModal('modal-alpaca')">✕</button></div>
+    <div style="font-size:12px;color:var(--text2);margin-bottom:14px;line-height:1.5">Use a <strong>read-only</strong> paper API key from Alpaca. Keys are stored encrypted on the Runnr server — never in this page's code.</div>
+    <div class="field"><label>API Key ID</label><input id="alpaca-key" placeholder="PK..." autocomplete="off"></div>
+    <div class="field"><label>Secret Key</label><input id="alpaca-secret" type="password" placeholder="••••••••" autocomplete="off"></div>
+    <div class="field"><label>Account</label>
+      <select id="alpaca-paper"><option value="1">Paper trading</option><option value="0">Live (careful)</option></select>
+    </div>
+    <button class="btn" onclick="submitAlpacaConnect()">Connect &amp; verify</button>
+  </div>
+</div>
+
+<!-- Runnr account modal -->
+<div class="modal-overlay" id="modal-sync-auth" onclick="closeModalOutside(event,'modal-sync-auth')">
+  <div class="modal">
+    <div class="modal-title">Runnr account <button class="modal-close" onclick="closeModal('modal-sync-auth')">✕</button></div>
+    <div style="font-size:12px;color:var(--text2);margin-bottom:14px">One login to sync brokers across devices.</div>
+    <div class="field"><label>Email</label><input id="sync-email" type="email" placeholder="you@example.com" autocomplete="username"></div>
+    <div class="field"><label>Password</label><input id="sync-password" type="password" placeholder="8+ characters" autocomplete="current-password"></div>
+    <button class="btn" onclick="submitSyncLogin()">Log in</button>
+    <button class="btn btn-ghost" style="margin-top:8px" onclick="submitSyncRegister()">Create account</button>
+    <button class="btn btn-ghost" style="margin-top:8px;font-size:12px" onclick="RunnrSync.logout(); renderSyncPage(); renderHomeBrokerPreview(); closeModal('modal-sync-auth');">Log out</button>
+  </div>
+</div>
+
 <!-- Log Trade Modal -->
 <div class="modal-overlay" id="modal-log" onclick="closeModalOutside(event,'modal-log')">
   <div class="modal">
@@ -1395,6 +1411,7 @@ body.light #equity-canvas{filter:invert(0)}
 <script src="js/baron.js"></script>
 <script src="js/coach.js"></script>
 <script src="js/onboarding.js"></script>
+<script src="js/sync.js"></script>
 <script>
 // ── STATE ──────────────────────────────────────────────────────────────────
 const S = {
@@ -1415,6 +1432,7 @@ const S = {
   onboardingComplete: false,
   profileHandle: '',
   coachDigestEnabled: true,
+  brokerSync: { alpaca: { connected: false, lastSync: null, imported: 0 }, importedOrderIds: [] },
 };
 
 try {
@@ -1438,7 +1456,8 @@ function switchPage(key) {
   if (key === 'watchlist') { renderWatchlist(); renderNotifSettings(); if (!feedLastUpdate) refreshAllPrices(); }
   if (key === 'coach') { renderCoachPage(); drawEquityCurve(); }
   if (key === 'portfolio') loadPortfolio('all', document.querySelector('.period-tab'));
-  if (key === 'home') { renderHomePreviews(); updateHomeStats(); }
+  if (key === 'home') { renderHomePreviews(); updateHomeStats(); renderHomeBrokerPreview(); }
+  if (key === 'sync') renderSyncPage();
 }
 
 // ── SETTINGS ───────────────────────────────────────────────────────────────
@@ -3170,24 +3189,181 @@ try {
   }
 } catch(e) {}
 
-// ── AVAILABLE BROKERS ──────────────────────────────────────────────────────
+// ── BROKER SYNC (Runnr API) ───────────────────────────────────────────────
 const brokers = [
-  { code:'eToro', bg:'#6FCF97', color:'#000' },
-  { code:'IG Group', bg:'#003087', color:'#fff' },
-  { code:'XTB', bg:'#e8002d', color:'#fff' },
-  { code:'MT4/5', bg:'#1565C0', color:'#fff' },
-  { code:'IBKR', bg:'#cc0000', color:'#fff' },
+  { code: 'Alpaca', bg: '#f5d542', color: '#000', live: true },
+  { code: 'eToro', bg: '#6FCF97', color: '#000' },
+  { code: 'IG Group', bg: '#003087', color: '#fff' },
+  { code: 'XTB', bg: '#e8002d', color: '#fff' },
+  { code: 'MT4/5', bg: '#1565C0', color: '#fff' },
+  { code: 'IBKR', bg: '#cc0000', color: '#fff' },
 ];
-document.getElementById('available-brokers').innerHTML = brokers.map(b => `
+
+function renderAvailableBrokers() {
+  const el = document.getElementById('available-brokers');
+  if (!el) return;
+  el.innerHTML = brokers.map(b => `
   <div class="broker-card" onclick="connectBroker('${b.code}')">
     <div class="bk-logo" style="background:${b.bg};color:${b.color}">${b.code.slice(0,4)}</div>
-    <div class="bk-info"><div class="bk-name">${b.code}</div><div class="bk-status">Tap to connect</div></div>
-    <div class="bk-badge bk-available">+ Connect</div>
+    <div class="bk-info"><div class="bk-name">${b.code}</div><div class="bk-status">${b.live ? 'Read-only sync available' : 'Coming soon — CSV import works today'}</div></div>
+    <div class="bk-badge ${b.live ? 'bk-synced' : 'bk-available'}">${b.live ? '● Live' : '+ Connect'}</div>
   </div>`).join('');
+}
+
+function renderSyncAuthBanner() {
+  const el = document.getElementById('sync-auth-banner');
+  if (!el) return;
+  if (RunnrSync.isLoggedIn()) {
+    el.innerHTML = `<div class="card-sm" style="display:flex;justify-content:space-between;align-items:center;gap:8px">
+      <span style="font-size:12px;color:var(--text2)">✓ Logged in to Runnr cloud</span>
+      <button class="btn btn-sm btn-ghost" onclick="openSyncAuthModal()">Account</button>
+    </div>`;
+  } else {
+    el.innerHTML = `<div class="card-sm" style="font-size:12px;color:var(--text2);margin-bottom:4px">Log in once to store broker keys safely.</div>
+      <button class="btn btn-sm" onclick="openSyncAuthModal()">Log in / Sign up</button>`;
+  }
+}
+
+function renderConnectedBrokers() {
+  RunnrSync.ensureBrokerState();
+  const el = document.getElementById('sync-connected');
+  if (!el) return;
+  const a = S.brokerSync.alpaca || {};
+  if (!a.connected) {
+    el.innerHTML = `<div style="font-size:12px;color:var(--text3)">No broker connected yet. Start with Alpaca below.</div>`;
+    return;
+  }
+  const ago = RunnrSync.formatAgo(a.lastSync);
+  const eq = a.equity != null ? ('$' + Math.round(a.equity).toLocaleString()) : '—';
+  el.innerHTML = `<div class="broker-card" style="cursor:default">
+    <div class="bk-logo" style="background:#f5d542;color:#000">ALP</div>
+    <div class="bk-info">
+      <div class="bk-name">Alpaca ${a.paper !== false ? 'Paper' : 'Live'}</div>
+      <div class="bk-status">${eq} · ${a.positionCount ?? 0} positions · Last sync ${ago}</div>
+    </div>
+    <div class="bk-badge bk-synced">● Live</div>
+  </div>`;
+}
+
+function renderHomeBrokerPreview() {
+  const el = document.getElementById('home-broker-preview');
+  if (!el) return;
+  RunnrSync.ensureBrokerState();
+  const a = S.brokerSync.alpaca || {};
+  if (!a.connected) {
+    el.innerHTML = `<div style="font-size:12px;color:var(--text3)">No broker connected. <span style="color:var(--accent);cursor:pointer" onclick="switchPage('sync')">Connect Alpaca →</span></div>`;
+    return;
+  }
+  const ago = RunnrSync.formatAgo(a.lastSync);
+  el.innerHTML = `<div class="broker-card" style="cursor:default">
+    <div class="bk-logo" style="background:#f5d542;color:#000">ALP</div>
+    <div class="bk-info">
+      <div class="bk-name">Alpaca Paper</div>
+      <div class="bk-status">Last sync ${ago} · ${a.imported || 0} trades imported</div>
+    </div>
+    <div class="bk-badge bk-synced">● Live</div>
+  </div>
+  <div style="font-size:11px;color:var(--text3);margin-top:4px"><span style="color:var(--accent);cursor:pointer" onclick="runBrokerSync()">Refresh now</span></div>`;
+}
+
+function renderSyncPage() {
+  renderSyncAuthBanner();
+  renderConnectedBrokers();
+  renderAvailableBrokers();
+}
+
+function openSyncAuthModal() {
+  openModal('modal-sync-auth');
+}
+
+async function submitSyncLogin() {
+  const email = document.getElementById('sync-email').value.trim();
+  const password = document.getElementById('sync-password').value;
+  try {
+    await RunnrSync.login(email, password);
+    closeModal('modal-sync-auth');
+    await RunnrSync.refreshStatus();
+    renderSyncPage();
+    renderHomeBrokerPreview();
+  } catch (e) {
+    alert('Login failed: ' + e.message);
+  }
+}
+
+async function submitSyncRegister() {
+  const email = document.getElementById('sync-email').value.trim();
+  const password = document.getElementById('sync-password').value;
+  try {
+    await RunnrSync.register(email, password);
+    closeModal('modal-sync-auth');
+    await RunnrSync.refreshStatus();
+    renderSyncPage();
+    renderHomeBrokerPreview();
+  } catch (e) {
+    alert('Sign up failed: ' + e.message);
+  }
+}
 
 function connectBroker(name) {
-  alert(`Connecting ${name}...\n\nIn the full app:\n1. Go to ${name} → Settings → API\n2. Generate a read-only key\n3. Paste it here to enable auto-sync`);
+  if (name === 'Alpaca') {
+    if (!RunnrSync.isLoggedIn()) {
+      openSyncAuthModal();
+      return;
+    }
+    openModal('modal-alpaca');
+    return;
+  }
+  alert(name + ' coming soon.\n\nUse Alpaca today, or import trades via CSV on the Journal page.');
 }
+
+async function submitAlpacaConnect() {
+  const apiKey = document.getElementById('alpaca-key').value.trim();
+  const apiSecret = document.getElementById('alpaca-secret').value.trim();
+  const paper = document.getElementById('alpaca-paper').value === '1';
+  if (!apiKey || !apiSecret) return alert('Paste both API key and secret.');
+  try {
+    const st = await RunnrSync.connectAlpaca(apiKey, apiSecret, paper);
+    RunnrSync.ensureBrokerState();
+    S.brokerSync.alpaca.connected = true;
+    S.brokerSync.alpaca.paper = st.paper;
+    S.brokerSync.alpaca.equity = st.equity;
+    S.brokerSync.alpaca.positionCount = st.position_count;
+    persist();
+    closeModal('modal-alpaca');
+    document.getElementById('alpaca-secret').value = '';
+    await runBrokerSync();
+    renderSyncPage();
+    renderHomeBrokerPreview();
+    alert('Alpaca connected.');
+  } catch (e) {
+    alert('Connect failed: ' + e.message);
+  }
+}
+
+async function runBrokerSync() {
+  if (!RunnrSync.isLoggedIn()) {
+    openSyncAuthModal();
+    return;
+  }
+  try {
+    const { added } = await RunnrSync.runSync();
+    await RunnrSync.refreshStatus();
+    renderSyncPage();
+    renderHomeBrokerPreview();
+    alert(added ? `Synced — ${added} new trade(s) added to journal.` : 'Synced — no new trades.');
+  } catch (e) {
+    alert('Sync failed: ' + e.message + '\n\nIf API is not deployed yet, set runnr-api on Railway first.');
+  }
+}
+
+renderAvailableBrokers();
+RunnrSync.refreshStatus().then(() => {
+  renderSyncPage();
+  renderHomeBrokerPreview();
+}).catch(() => {
+  renderSyncPage();
+  renderHomeBrokerPreview();
+});
 
 // ── COACH ─────────────────────────────────────────────────────────────────
 const coachAnswers = {}; // legacy — CoachEngine used instead

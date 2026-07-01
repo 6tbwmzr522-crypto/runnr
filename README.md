@@ -48,10 +48,18 @@ runnr/
   index.html          # main app
   js/baron.js         # Baron 38-ticker sizing
   js/coach.js         # journal insight engine
+  js/sync.js          # Runnr API client (broker sync)
+  api/                # small backend (Railway)
   manifest.webmanifest
   sw.js               # offline cache
   icons/
 ```
+
+## Runnr API (broker sync)
+
+Deploy `api/` to Railway (root directory: `api`). Set `RUNNR_SECRET_KEY` and `RUNNR_ENCRYPTION_KEY`.
+
+Local: `cd api && uvicorn app.main:app --reload --port 8090` — docs at `/docs`.
 
 ## Data
 
