@@ -1418,10 +1418,10 @@ body.light #equity-canvas{filter:invert(0)}
   </div>
 </div>
 
-<script src="js/baron.js"></script>
-<script src="js/coach.js"></script>
-<script src="js/onboarding.js"></script>
-<script src="js/sync.js"></script>
+<script src="js/baron.js?v=11"></script>
+<script src="js/coach.js?v=11"></script>
+<script src="js/onboarding.js?v=11"></script>
+<script src="js/sync.js?v=11"></script>
 <script>
 // ── STATE ──────────────────────────────────────────────────────────────────
 const S = {
@@ -3458,10 +3458,9 @@ async function submitAlpacaConnect() {
     persist();
     closeModal('modal-alpaca');
     document.getElementById('alpaca-secret').value = '';
-    await runBrokerSync();
     renderSyncPage();
     renderHomeBrokerPreview();
-    alert('Alpaca connected.');
+    alert('Alpaca connected — tap Sync now to pull trades.');
   } catch (e) {
     const msg = String(e.message || e);
     if (/session expired|user not found|invalid token|missing bearer/i.test(msg)) {
@@ -3475,13 +3474,24 @@ async function submitAlpacaConnect() {
   }
 }
 
+async function ensureAlpacaLinked() {
+  if (typeof RunnrSync.ensureAlpacaConnected === 'function') {
+    return RunnrSync.ensureAlpacaConnected();
+  }
+  if (typeof RunnrSync.tryAutoReconnectAlpaca === 'function') {
+    return RunnrSync.tryAutoReconnectAlpaca();
+  }
+  await RunnrSync.refreshStatus();
+  return !!(S.brokerSync && S.brokerSync.alpaca && S.brokerSync.alpaca.connected);
+}
+
 async function runBrokerSync() {
   if (!RunnrSync.isLoggedIn()) {
     openSyncAuthModal();
     return;
   }
   try {
-    const connected = await RunnrSync.ensureAlpacaConnected();
+    const connected = await ensureAlpacaLinked();
     renderSyncPage();
     if (!connected) {
       openAlpacaModal();
