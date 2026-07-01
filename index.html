@@ -1442,6 +1442,8 @@ try {
   if (saved) { const p = JSON.parse(saved); Object.assign(S, p); }
 } catch(e) {}
 
+window.S = S;
+
 function persist() {
   try { localStorage.setItem('runnr_state', JSON.stringify(S)); } catch(e) {}
 }

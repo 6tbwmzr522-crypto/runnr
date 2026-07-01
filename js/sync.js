@@ -91,6 +91,7 @@ const RunnrSync = (() => {
   }
 
   function ensureBrokerState() {
+    if (!window.S) return;
     if (!window.S.brokerSync) {
       window.S.brokerSync = {
         alpaca: { connected: false, lastSync: null, imported: 0, equity: null },
@@ -98,6 +99,7 @@ const RunnrSync = (() => {
       };
     }
     if (!window.S.brokerSync.importedOrderIds) window.S.brokerSync.importedOrderIds = [];
+    if (!window.S.trades) window.S.trades = [];
   }
 
   function formatAgo(iso) {
@@ -156,6 +158,7 @@ const RunnrSync = (() => {
 
   async function refreshStatus() {
     ensureBrokerState();
+    if (!window.S) return null;
     if (!isLoggedIn()) {
       window.S.brokerSync.alpaca.connected = false;
       return null;
