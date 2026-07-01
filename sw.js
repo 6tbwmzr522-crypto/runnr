@@ -1,4 +1,4 @@
-const CACHE = "runnr-v2";
+const CACHE = "runnr-v3";
 const ASSETS = [
   "./",
   "./index.html",
@@ -6,6 +6,7 @@ const ASSETS = [
   "./js/baron.js",
   "./js/coach.js",
   "./js/onboarding.js",
+  "./js/sync.js",
   "./icons/icon-192.svg",
   "./icons/icon-512.svg",
 ];
