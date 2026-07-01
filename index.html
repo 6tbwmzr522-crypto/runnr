@@ -2028,6 +2028,14 @@ function sizefromWatch(id) {
 // Cache to avoid re-fetching
 const stockCache = {};
 
+async function fetchYahooChart(sym, interval, range) {
+  const base = (typeof RunnrSync !== 'undefined' ? RunnrSync.apiBase() : 'https://api.runnr.fyi');
+  const url = base + '/api/v1/quotes/' + encodeURIComponent(sym) + '?interval=' + interval + '&range=' + range;
+  const res = await fetchWithTimeout(url, 7000);
+  if (!res.ok) throw new Error('fetch failed');
+  return res.json();
+}
+
 async function openStockDetail(sym) {
   document.getElementById('sd-modal-title').textContent = sym + ' — Market Data';
   document.getElementById('sd-modal-body').innerHTML = '<div class="sd-loading">⟳ Fetching data for ' + sym + '...</div>';
@@ -2039,13 +2047,7 @@ async function openStockDetail(sym) {
   }
 
   try {
-    // Yahoo Finance via allorigins proxy
-    const yUrl = `https://query1.finance.yahoo.com/v8/finance/chart/${encodeURIComponent(sym)}?interval=1d&range=1y`;
-    const proxy = `https://api.allorigins.win/get?url=${encodeURIComponent(yUrl)}`;
-    const res = await fetchWithTimeout(proxy, 7000);
-    if (!res.ok) throw new Error('fetch failed');
-    const outer = await res.json();
-    const json = JSON.parse(outer.contents);
+    const json = await fetchYahooChart(sym, '1d', '1y');
     const chart = json.chart.result[0];
     const meta = chart.meta;
     const closes = chart.indicators.quote[0].close.filter(Boolean);
@@ -2543,12 +2545,7 @@ function fetchWithTimeout(url, ms) {
 
 async function fetchLivePrice(sym) {
   try {
-    const yUrl = 'https://query1.finance.yahoo.com/v8/finance/chart/' + encodeURIComponent(sym) + '?interval=1m&range=1d';
-    const proxy = 'https://api.allorigins.win/get?url=' + encodeURIComponent(yUrl);
-    const res = await fetchWithTimeout(proxy, 7000);
-    if (!res.ok) throw new Error('network');
-    const outer = await res.json();
-    const json = JSON.parse(outer.contents);
+    const json = await fetchYahooChart(sym, '1m', '1d');
     const result = json && json.chart && json.chart.result && json.chart.result[0];
     if (!result) throw new Error('no result');
     const meta = result.meta;

@@ -11,7 +11,7 @@ const RunnrSync = (() => {
     if (location.hostname === "localhost" || location.hostname === "127.0.0.1") {
       return "http://localhost:8090";
     }
-    return "https://runnr-api-production.up.railway.app";
+    return "https://api.runnr.fyi";
   }
 
   function token() {
