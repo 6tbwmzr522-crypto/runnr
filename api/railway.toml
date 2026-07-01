@@ -5,3 +5,6 @@ dockerfilePath = "Dockerfile"
 [deploy]
 restartPolicyType = "ON_FAILURE"
 restartPolicyMaxRetries = 10
+
+# In Railway dashboard: add a Volume mounted at /data (keeps SQLite across deploys).
+# Optional variable: DATABASE_PATH=/data/runnr.db

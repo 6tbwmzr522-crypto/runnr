@@ -1,4 +1,4 @@
-const CACHE = "runnr-v5";
+const CACHE = "runnr-v6";
 const ASSETS = [
   "./",
   "./index.html",

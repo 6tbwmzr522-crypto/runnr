@@ -5,7 +5,7 @@ from pydantic_settings import BaseSettings
 class Settings(BaseSettings):
     runnr_secret_key: str = "change-me-in-railway"
     runnr_encryption_key: str = ""
-    database_path: str = os.environ.get("DATABASE_PATH", "/tmp/runnr.db")
+    database_path: str = os.environ.get("DATABASE_PATH", "/data/runnr.db")
     cors_origins: str = (
         "http://localhost:8080,"
         "https://6tbwmzr522-crypto.github.io,"

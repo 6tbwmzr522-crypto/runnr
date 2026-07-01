@@ -44,6 +44,13 @@ const RunnrSync = (() => {
       } else if (typeof msg !== "string") {
         msg = JSON.stringify(msg);
       }
+      if (
+        res.status === 401 &&
+        /session expired|user not found|invalid token|missing bearer/i.test(msg)
+      ) {
+        setToken("");
+        msg = "Your login expired (server was updated). Tap Log in / Sign up and create your account again.";
+      }
       throw new Error(msg);
     }
     return data;

@@ -45,5 +45,8 @@ def get_current_user(
     with get_db() as conn:
         row = conn.execute("SELECT id, email FROM users WHERE id = ?", (user_id,)).fetchone()
     if not row:
-        raise HTTPException(status_code=401, detail="User not found")
+        raise HTTPException(
+            status_code=401,
+            detail="Session expired — please log out and create your account again",
+        )
     return {"id": row["id"], "email": row["email"]}

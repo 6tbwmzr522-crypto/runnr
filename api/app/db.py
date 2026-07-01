@@ -1,3 +1,4 @@
+import os
 import sqlite3
 from contextlib import contextmanager
 
@@ -5,6 +6,9 @@ from app.config import settings
 
 
 def init_db() -> None:
+    db_dir = os.path.dirname(settings.database_path)
+    if db_dir:
+        os.makedirs(db_dir, exist_ok=True)
     with get_db() as conn:
         conn.executescript(
             """
