@@ -3,6 +3,7 @@
  */
 const RunnrSync = (() => {
   const TOKEN_KEY = "runnr_api_token";
+  const EMAIL_KEY = "runnr_api_email";
   const URL_KEY = "runnr_api_url";
 
   function apiBase() {
@@ -18,13 +19,37 @@ const RunnrSync = (() => {
     return localStorage.getItem(TOKEN_KEY) || "";
   }
 
-  function setToken(t) {
-    if (t) localStorage.setItem(TOKEN_KEY, t);
-    else localStorage.removeItem(TOKEN_KEY);
+  function setToken(t, email) {
+    if (t) {
+      localStorage.setItem(TOKEN_KEY, t);
+      if (email) localStorage.setItem(EMAIL_KEY, email);
+    } else {
+      localStorage.removeItem(TOKEN_KEY);
+      localStorage.removeItem(EMAIL_KEY);
+    }
+  }
+
+  function sessionEmail() {
+    const saved = localStorage.getItem(EMAIL_KEY);
+    if (saved) return saved;
+    const t = token();
+    if (!t) return "";
+    try {
+      const payload = JSON.parse(atob(t.split(".")[1].replace(/-/g, "+").replace(/_/g, "/")));
+      return payload.email || "";
+    } catch (e) {
+      return "";
+    }
   }
 
   function isLoggedIn() {
     return !!token();
+  }
+
+  function tradeNeedsPriceFix(t) {
+    if (!t || t.source !== "alpaca") return false;
+    const price = Number(t.fillPrice || t.entry || t.exit || 0);
+    return !price;
   }
 
   async function request(path, options = {}) {
@@ -44,13 +69,6 @@ const RunnrSync = (() => {
       } else if (typeof msg !== "string") {
         msg = JSON.stringify(msg);
       }
-      if (
-        res.status === 401 &&
-        /session expired|user not found|invalid token|missing bearer/i.test(msg)
-      ) {
-        setToken("");
-        msg = "Your login expired (server was updated). Tap Log in / Sign up and create your account again.";
-      }
       throw new Error(msg);
     }
     return data;
@@ -61,7 +79,7 @@ const RunnrSync = (() => {
       method: "POST",
       body: JSON.stringify({ email, password }),
     });
-    setToken(data.access_token);
+    setToken(data.access_token, data.email || email);
     return data;
   }
 
@@ -70,7 +88,8 @@ const RunnrSync = (() => {
       method: "POST",
       body: JSON.stringify({ email, password }),
     });
-    setToken(data.access_token);
+    setToken(data.access_token, data.email || email);
+    localStorage.setItem("runnr_remember_email", email);
     return data;
   }
 
@@ -109,6 +128,15 @@ const RunnrSync = (() => {
     if (!window.S.trades) window.S.trades = [];
   }
 
+  function applyFillToTrade(trade, fillPrice, dir) {
+    trade.fillPrice = fillPrice;
+    if (dir === "long" || trade.dir === "long") {
+      trade.entry = fillPrice;
+    } else {
+      trade.exit = fillPrice;
+    }
+  }
+
   function formatAgo(iso) {
     if (!iso) return "never";
     const mins = Math.round((Date.now() - new Date(iso).getTime()) / 60000);
@@ -123,24 +151,25 @@ const RunnrSync = (() => {
     ensureBrokerState();
     const seen = new Set(window.S.brokerSync.importedOrderIds || []);
     let added = 0;
+    let repaired = 0;
     const maxId = window.S.trades.reduce((m, t) => Math.max(m, t.id || 0), 0);
     const demoIds = new Set([1, 2, 3, 4]);
 
     orders.forEach((o, i) => {
       if (!o.id) return;
+      const side = String(o.side || "").toLowerCase();
+      const dir = side.includes("sell") ? "short" : "long";
       const fillPrice = Number(o.filled_avg_price) || 0;
+
       if (seen.has(o.id)) {
         const existing = window.S.trades.find((t) => t.externalId === o.id);
-        if (existing && fillPrice && !existing.fillPrice) {
-          existing.fillPrice = fillPrice;
-          if (existing.dir === "long") existing.entry = fillPrice;
-          else existing.exit = fillPrice;
+        if (existing && fillPrice && tradeNeedsPriceFix(existing)) {
+          applyFillToTrade(existing, fillPrice, dir);
+          repaired++;
         }
         return;
       }
       if (o.status && !String(o.status).toLowerCase().includes("fill")) return;
-      const side = String(o.side || "").toLowerCase();
-      const dir = side.includes("sell") ? "short" : "long";
       const qty = o.filled_qty || o.qty || 1;
       const sym = o.symbol || "?";
       const d = o.filled_at || o.submitted_at;
@@ -176,7 +205,7 @@ const RunnrSync = (() => {
     window.S.brokerSync.importedOrderIds = [...seen];
     window.S.brokerSync.alpaca.imported = window.S.trades.filter((t) => t.source === "alpaca").length;
     if (typeof persist === "function") persist();
-    return added;
+    return { added, repaired };
   }
 
   async function refreshStatus() {
@@ -195,7 +224,6 @@ const RunnrSync = (() => {
       if (typeof persist === "function") persist();
       return st;
     } catch (e) {
-      window.S.brokerSync.alpaca.connected = false;
       return null;
     }
   }
@@ -204,20 +232,33 @@ const RunnrSync = (() => {
     ensureBrokerState();
     if (!isLoggedIn()) throw new Error("Log in to Runnr first");
     const data = await syncAlpaca();
-    const added = importOrders(data.recent_orders || []);
+    const { added, repaired } = importOrders(data.recent_orders || []);
     window.S.brokerSync.alpaca.lastSync = data.as_of || new Date().toISOString();
     window.S.brokerSync.alpaca.connected = true;
     if (typeof persist === "function") persist();
     if (typeof renderJournal === "function") renderJournal();
     if (typeof updateHomeStats === "function") updateHomeStats();
     if (typeof renderCoachPage === "function") renderCoachPage();
-    return { added, data };
+    return { added, repaired, data };
+  }
+
+  async function repairJournalIfNeeded() {
+    if (!isLoggedIn() || !window.S) return false;
+    const needsFix = (window.S.trades || []).some(tradeNeedsPriceFix);
+    if (!needsFix) return false;
+    try {
+      const { repaired } = await runSync();
+      return repaired > 0;
+    } catch (e) {
+      return false;
+    }
   }
 
   return {
     apiBase,
     token,
     setToken,
+    sessionEmail,
     isLoggedIn,
     register,
     login,
@@ -227,7 +268,9 @@ const RunnrSync = (() => {
     syncAlpaca,
     refreshStatus,
     runSync,
+    repairJournalIfNeeded,
     ensureBrokerState,
     formatAgo,
+    tradeNeedsPriceFix,
   };
 })();

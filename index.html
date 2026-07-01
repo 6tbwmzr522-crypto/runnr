@@ -1801,17 +1801,18 @@ function renderJournal() {
   }
   list.innerHTML = S.trades.map(t => {
     const isAlpaca = t.source === 'alpaca';
-    const fill = t.fillPrice || t.entry || t.exit || 0;
+    const fill = Number(t.fillPrice || t.entry || t.exit || 0);
     const pnlCls = t.pnl >= 0 ? 'pos' : 'neg';
     const pnlStr = t.incomplete && isAlpaca
-      ? 'tap to review'
+      ? (fill > 0 ? 'tap to review' : 'sync for price')
       : (t.pnl >= 0 ? '+' : '') + S.sym + Math.abs(t.pnl).toLocaleString();
     const stopFlag = t.incomplete ? '<span class="flag flag-incomplete">Stop ?</span>' :
       (t.stopOk ? '<span class="flag flag-ok">✓ Stop</span>' : '<span class="flag flag-no">✗ Stop</span>');
     const sizeFlag = t.incomplete ? '<span class="flag flag-incomplete">Size ?</span>' :
       (t.sizeOk ? '<span class="flag flag-ok">✓ Size</span>' : '<span class="flag flag-no">✗ Size</span>');
+    const priceLabel = fill > 0 ? `$${fill.toFixed(2)}` : 'price pending';
     const metaLine = isAlpaca
-      ? `<span>${t.date}</span><span>${t.dir === 'long' ? 'BUY' : 'SELL'} ${t.size} @ $${Number(fill).toFixed(2)}</span><span>Alpaca</span>`
+      ? `<span>${t.date}</span><span>${t.dir === 'long' ? 'BUY' : 'SELL'} ${t.size} @ ${priceLabel}</span><span>Alpaca</span>`
       : `<span>${t.date}</span><span>${t.entry} → ${t.exit ?? '—'}</span><span>${t.size} units</span>`;
     return `<div class="trade-entry" onclick="reviewTrade(${t.id})">
       <div class="te-top">
@@ -3230,8 +3231,9 @@ function renderSyncAuthBanner() {
   const el = document.getElementById('sync-auth-banner');
   if (!el) return;
   if (RunnrSync.isLoggedIn()) {
+    const who = RunnrSync.sessionEmail() || 'your account';
     el.innerHTML = `<div class="card-sm" style="display:flex;justify-content:space-between;align-items:center;gap:8px">
-      <span style="font-size:12px;color:var(--text2)">✓ Logged in to Runnr cloud</span>
+      <span style="font-size:12px;color:var(--text2)">✓ ${who}</span>
       <button class="btn btn-sm btn-ghost" onclick="openSyncAuthModal()">Account</button>
     </div>`;
   } else {
@@ -3292,6 +3294,8 @@ function openSyncAuthModal() {
   openModal('modal-sync-auth');
   setTimeout(() => {
     const email = document.getElementById('sync-email');
+    const remembered = localStorage.getItem('runnr_remember_email') || RunnrSync.sessionEmail();
+    if (email && remembered && !email.value) email.value = remembered;
     if (email) email.focus();
   }, 250);
 }
@@ -3339,6 +3343,7 @@ async function submitSyncRegister() {
   }
   try {
     await RunnrSync.register(email, password);
+    localStorage.setItem('runnr_remember_email', email);
     closeModal('modal-sync-auth');
     await RunnrSync.refreshStatus();
     renderSyncPage();
@@ -3380,7 +3385,15 @@ async function submitAlpacaConnect() {
     renderHomeBrokerPreview();
     alert('Alpaca connected.');
   } catch (e) {
-    alert('Connect failed: ' + e.message);
+    const msg = String(e.message || e);
+    if (/session expired|user not found|invalid token|missing bearer/i.test(msg)) {
+      RunnrSync.logout();
+      renderSyncPage();
+      openSyncAuthModal();
+      alert('Session expired — log in again (same email is fine).');
+      return;
+    }
+    alert('Connect failed: ' + msg);
   }
 }
 
@@ -3390,31 +3403,56 @@ async function runBrokerSync() {
     return;
   }
   try {
-    const { added } = await RunnrSync.runSync();
+    const { added, repaired } = await RunnrSync.runSync();
     await RunnrSync.refreshStatus();
     renderSyncPage();
     renderHomeBrokerPreview();
     updateHomeStats();
     renderJournal();
-    if (added) {
+    if (added || repaired) {
       switchPage('journal');
-      alert(`Synced — ${added} new trade(s) in Journal. Tap each to confirm stop & size.`);
+      const parts = [];
+      if (added) parts.push(`${added} new`);
+      if (repaired) parts.push(`${repaired} updated with prices`);
+      alert(`Synced — ${parts.join(', ')} trade(s) in Journal.`);
     } else {
-      alert('Synced — no new trades.');
+      alert('Synced — journal is up to date.');
     }
   } catch (e) {
-    alert('Sync failed: ' + e.message + '\n\nIf API is not deployed yet, set runnr-api on Railway first.');
+    const msg = String(e.message || e);
+    if (/session expired|user not found|invalid token|missing bearer/i.test(msg)) {
+      RunnrSync.logout();
+      renderSyncPage();
+      openSyncAuthModal();
+      alert('Server lost your account (deploy reset). Create your account once more — same email is fine.');
+      return;
+    }
+    alert('Sync failed: ' + msg);
   }
 }
 
-renderAvailableBrokers();
-RunnrSync.refreshStatus().then(() => {
-  renderSyncPage();
-  renderHomeBrokerPreview();
-}).catch(() => {
-  renderSyncPage();
-  renderHomeBrokerPreview();
-});
+function bootRunnrSync() {
+  renderSyncAuthBanner();
+  if (!RunnrSync.isLoggedIn()) {
+    renderSyncPage();
+    renderHomeBrokerPreview();
+    return;
+  }
+  RunnrSync.refreshStatus()
+    .then(() => RunnrSync.repairJournalIfNeeded())
+    .then(() => {
+      renderSyncPage();
+      renderHomeBrokerPreview();
+      renderJournal();
+      updateHomeStats();
+    })
+    .catch(() => {
+      renderSyncPage();
+      renderHomeBrokerPreview();
+    });
+}
+
+bootRunnrSync();
 
 // ── COACH ─────────────────────────────────────────────────────────────────
 const coachAnswers = {}; // legacy — CoachEngine used instead

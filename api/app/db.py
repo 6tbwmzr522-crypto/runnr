@@ -5,10 +5,29 @@ from contextlib import contextmanager
 from app.config import settings
 
 
+def _resolve_database_path() -> str:
+    candidates = [
+        os.environ.get("DATABASE_PATH"),
+        "/data/runnr.db",
+        "/tmp/runnr.db",
+    ]
+    for path in candidates:
+        if not path:
+            continue
+        parent = os.path.dirname(path)
+        try:
+            if parent:
+                os.makedirs(parent, exist_ok=True)
+            return path
+        except OSError:
+            continue
+    return "/tmp/runnr.db"
+
+
+DB_PATH = _resolve_database_path()
+
+
 def init_db() -> None:
-    db_dir = os.path.dirname(settings.database_path)
-    if db_dir:
-        os.makedirs(db_dir, exist_ok=True)
     with get_db() as conn:
         conn.executescript(
             """
@@ -36,7 +55,7 @@ def init_db() -> None:
 
 @contextmanager
 def get_db():
-    conn = sqlite3.connect(settings.database_path)
+    conn = sqlite3.connect(DB_PATH)
     conn.row_factory = sqlite3.Row
     try:
         yield conn

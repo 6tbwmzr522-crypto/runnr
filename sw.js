@@ -1,15 +1,14 @@
-const CACHE = "runnr-v7";
+const CACHE = "runnr-v8";
 const ASSETS = [
-  "./",
-  "./index.html",
   "./manifest.webmanifest",
-  "./js/baron.js",
-  "./js/coach.js",
-  "./js/onboarding.js",
-  "./js/sync.js",
   "./icons/icon-192.svg",
   "./icons/icon-512.svg",
 ];
+
+function isNetworkFirst(url) {
+  const p = url.pathname;
+  return p.endsWith(".html") || p.endsWith("/") || p.includes("/js/");
+}
 
 self.addEventListener("install", (e) => {
   e.waitUntil(caches.open(CACHE).then((c) => c.addAll(ASSETS)).then(() => self.skipWaiting()));
@@ -27,14 +26,29 @@ self.addEventListener("fetch", (e) => {
   if (e.request.method !== "GET") return;
   const url = new URL(e.request.url);
   if (url.origin !== self.location.origin) return;
+
+  if (isNetworkFirst(url)) {
+    e.respondWith(
+      fetch(e.request)
+        .then((res) => {
+          const copy = res.clone();
+          caches.open(CACHE).then((c) => c.put(e.request, copy));
+          return res;
+        })
+        .catch(() => caches.match(e.request))
+    );
+    return;
+  }
+
   e.respondWith(
-    caches.match(e.request).then((cached) =>
-      cached ||
-      fetch(e.request).then((res) => {
-        const copy = res.clone();
-        caches.open(CACHE).then((c) => c.put(e.request, copy));
-        return res;
-      }).catch(() => cached)
+    caches.match(e.request).then(
+      (cached) =>
+        cached ||
+        fetch(e.request).then((res) => {
+          const copy = res.clone();
+          caches.open(CACHE).then((c) => c.put(e.request, copy));
+          return res;
+        })
     )
   );
 });
