@@ -9,17 +9,24 @@ router = APIRouter(prefix="/auth", tags=["auth"])
 
 @router.post("/register", response_model=TokenResponse)
 def register(body: RegisterRequest):
+    email = body.email.lower()
     with get_db() as conn:
-        existing = conn.execute("SELECT id FROM users WHERE email = ?", (body.email.lower(),)).fetchone()
+        existing = conn.execute(
+            "SELECT id, email, password_hash FROM users WHERE email = ?",
+            (email,),
+        ).fetchone()
         if existing:
-            raise HTTPException(status_code=400, detail="Email already registered")
+            if verify_password(body.password, existing["password_hash"]):
+                token = create_access_token(existing["id"], existing["email"])
+                return TokenResponse(access_token=token, email=existing["email"])
+            raise HTTPException(status_code=400, detail="Email already registered — use Log in")
         cur = conn.execute(
             "INSERT INTO users (email, password_hash) VALUES (?, ?)",
-            (body.email.lower(), hash_password(body.password)),
+            (email, hash_password(body.password)),
         )
         user_id = cur.lastrowid
-    token = create_access_token(user_id, body.email.lower())
-    return TokenResponse(access_token=token, email=body.email.lower())
+    token = create_access_token(user_id, email)
+    return TokenResponse(access_token=token, email=email)
 
 
 @router.post("/login", response_model=TokenResponse)

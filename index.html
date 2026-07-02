@@ -5,7 +5,7 @@
 <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
 <script>
 (function () {
-  var V = "16";
+  var V = "17";
   try {
     if (localStorage.getItem("runnr_app_v") !== V) {
       localStorage.setItem("runnr_app_v", V);
@@ -1362,11 +1362,11 @@ body.light #equity-canvas{filter:invert(0)}
   <div class="modal" onclick="event.stopPropagation()">
     <div class="modal-title">Runnr account <button class="modal-close" onclick="closeModal('modal-sync-auth')">✕</button></div>
     <div style="font-size:12px;color:var(--text2);margin-bottom:14px">One login to sync brokers across devices.</div>
-    <form id="sync-auth-form" onsubmit="submitSyncLogin(); return false;">
+    <form id="sync-auth-form">
       <div class="field"><label for="sync-email">Email</label><input id="sync-email" name="email" type="email" placeholder="you@example.com" autocomplete="username" required inputmode="email" autocapitalize="none" autocorrect="off"></div>
       <div class="field"><label for="sync-password">Password</label><input id="sync-password" name="password" type="password" placeholder="8+ characters" autocomplete="current-password" required minlength="8"></div>
-      <button class="btn" type="submit">Log in</button>
-      <button class="btn btn-ghost" style="margin-top:8px" type="button" onclick="submitSyncRegister()">Create account</button>
+      <button class="btn" type="submit" id="sync-login-btn">Log in</button>
+      <button class="btn btn-ghost" style="margin-top:8px" type="button" id="sync-register-btn">Create account</button>
       <button class="btn btn-ghost" style="margin-top:8px;font-size:12px" type="button" onclick="RunnrSync.logout(); renderSyncPage(); renderHomeBrokerPreview(); closeModal('modal-sync-auth');">Log out</button>
     </form>
   </div>
@@ -1462,10 +1462,10 @@ body.light #equity-canvas{filter:invert(0)}
   </div>
 </div>
 
-<script src="js/baron.js?v=16"></script>
-<script src="js/coach.js?v=16"></script>
-<script src="js/onboarding.js?v=16"></script>
-<script src="js/sync.js?v=16"></script>
+<script src="js/baron.js?v=17"></script>
+<script src="js/coach.js?v=17"></script>
+<script src="js/onboarding.js?v=17"></script>
+<script src="js/sync.js?v=17"></script>
 <script>
 // ── STATE ──────────────────────────────────────────────────────────────────
 const S = {
@@ -2054,19 +2054,28 @@ function watchRowStatus(w, lp) {
   return { cls: 'ai-status-armed', text: 'Armed' };
 }
 
+function watchId(v) {
+  const n = Number(v);
+  return Number.isFinite(n) ? n : v;
+}
+
 function selectWatch(id) {
-  S.selectedWatchId = S.selectedWatchId === id ? null : id;
+  id = watchId(id);
+  S.selectedWatchId = watchId(S.selectedWatchId) === id ? null : id;
   persist();
   renderWatchlist();
+  const panel = document.getElementById('watchlist-detail');
+  if (panel) panel.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
 }
+window.selectWatch = selectWatch;
 
 function renderWatchCompactRow(w) {
   const lp = liveprices[w.sym];
   const livePrice = lp && lp.price ? fmtPrice(lp.price) : '—';
   const st = watchRowStatus(w, lp);
   const isNear = lp && isNearEntry(lp.price, w.entry, w.dir);
-  const selected = S.selectedWatchId === w.id;
-  return `<div class="watch-compact-row ${selected ? 'watch-compact-selected' : ''}" onclick="selectWatch(${w.id})">
+  const selected = watchId(S.selectedWatchId) === watchId(w.id);
+  return `<div class="watch-compact-row ${selected ? 'watch-compact-selected' : ''}" role="button" tabindex="0" onclick="selectWatch(${w.id})" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();selectWatch(${w.id})}">
     <div class="ai-sym">${w.sym}</div>
     <div class="ai-info">
       <div class="ai-trigger">Entry: ${w.entry} · Live: ${livePrice}${isNear ? ' <span style="color:var(--amber)">● near</span>' : ''}</div>
@@ -2115,8 +2124,8 @@ function renderWatchlist() {
     return;
   }
   const compact = S.watchlist.map(w => renderWatchCompactRow(w)).join('');
-  const selected = S.watchlist.find(w => w.id === S.selectedWatchId);
-  const detail = selected ? renderWatchDetailCard(selected) : '';
+  const selected = S.watchlist.find(w => watchId(w.id) === watchId(S.selectedWatchId));
+  const detail = selected ? `<div id="watchlist-detail">${renderWatchDetailCard(selected)}</div>` : '';
   const hint = selected ? '' : '<div style="font-size:11px;color:var(--text3);text-align:center;margin:8px 0 12px">Tap a ticker above to open setup details</div>';
   list.innerHTML = `<div class="watch-compact-list">${compact}</div>${hint}${detail}`;
 }
@@ -2723,36 +2732,11 @@ function renderNotifSettings() {
   }
   if (alertList) alertList.style.display = 'block';
 
-  // Build alert items
-  const items = S.watchlist.map(w => {
-    const bandPct  = S.risk;
-    const bandAmt  = w.entry * (bandPct / 100);
-    const lo = (w.entry - bandAmt).toFixed(w.entry < 10 ? 4 : 2);
-    const hi = (w.entry + bandAmt).toFixed(w.entry < 10 ? 4 : 2);
-    const lp       = liveprices[w.sym];
-    const alertKey = w.sym + '-' + w.entry;
-    const firedAt  = alertState.fired[alertKey];
-    const inZone   = lp && lp.price && Math.abs(distToEntry(lp.price, w.entry)) <= bandPct;
-
-    let statusClass = 'ai-status-armed';
-    let statusText  = 'Armed';
-    if (firedAt) { statusClass = 'ai-status-fired'; statusText = 'Alerted'; }
-    if (inZone)  { statusClass = 'ai-status-hit';   statusText = '● In Zone'; }
-
-    const livePrice = lp && lp.price ? fmtPrice(lp.price) : '—';
-
-    return '<div class="alert-item">'
-      + '<div class="ai-sym">' + w.sym + '</div>'
-      + '<div class="ai-info">'
-      + '<div class="ai-trigger">Entry: ' + w.entry + ' · Live: ' + livePrice + '</div>'
-      + '<div class="ai-band">Alert zone: ' + lo + ' – ' + hi + ' (±' + bandPct + '%)</div>'
-      + '</div>'
-      + '<div class="ai-status ' + statusClass + '">' + statusText + '</div>'
-      + '</div>';
-  }).join('');
-
   const itemsEl = document.getElementById('notif-items');
-  if (itemsEl) itemsEl.innerHTML = items || '<div style="font-size:11px;color:var(--text3)">No watchlist setups.</div>';
+  if (itemsEl) {
+    const armed = S.watchlist.length;
+    itemsEl.innerHTML = '<div style="font-size:12px;color:var(--text2);line-height:1.5">Monitoring <strong>' + armed + '</strong> setup' + (armed === 1 ? '' : 's') + ' — status shown on each ticker row below.</div>';
+  }
 }
 
 function checkPriceAlerts() {
@@ -3681,15 +3665,26 @@ async function submitSyncLogin() {
     alert(err);
     return;
   }
+  const btn = document.getElementById('sync-login-btn');
+  if (btn) { btn.disabled = true; btn.textContent = 'Logging in…'; }
   try {
     await RunnrSync.login(email, password);
+    localStorage.setItem('runnr_remember_email', email);
     closeModal('modal-sync-auth');
     await RunnrSync.tryAutoReconnectAlpaca();
     await RunnrSync.refreshStatus();
     renderSyncPage();
     renderHomeBrokerPreview();
+    updateHomeStats();
   } catch (e) {
-    alert('Login failed: ' + e.message);
+    const msg = String(e.message || e);
+    if (/invalid email or password/i.test(msg)) {
+      alert('Login failed — wrong email or password.\n\nIf Runnr was reset on the server, tap Create account once with the same email.');
+    } else {
+      alert('Login failed: ' + msg);
+    }
+  } finally {
+    if (btn) { btn.disabled = false; btn.textContent = 'Log in'; }
   }
 }
 
@@ -3700,6 +3695,8 @@ async function submitSyncRegister() {
     alert(err);
     return;
   }
+  const btn = document.getElementById('sync-register-btn');
+  if (btn) { btn.disabled = true; btn.textContent = 'Creating…'; }
   try {
     await RunnrSync.register(email, password);
     localStorage.setItem('runnr_remember_email', email);
@@ -3708,8 +3705,16 @@ async function submitSyncRegister() {
     await RunnrSync.refreshStatus();
     renderSyncPage();
     renderHomeBrokerPreview();
+    updateHomeStats();
   } catch (e) {
-    alert('Sign up failed: ' + e.message);
+    const msg = String(e.message || e);
+    if (/already registered/i.test(msg)) {
+      alert('That email already exists — use Log in with your password.');
+    } else {
+      alert('Sign up failed: ' + msg);
+    }
+  } finally {
+    if (btn) { btn.disabled = false; btn.textContent = 'Create account'; }
   }
 }
 
@@ -4201,10 +4206,25 @@ function registerServiceWorker() {
   }
 }
 
+function initSyncAuthForm() {
+  const form = document.getElementById('sync-auth-form');
+  if (!form || form.dataset.bound) return;
+  form.dataset.bound = '1';
+  form.addEventListener('submit', (e) => {
+    e.preventDefault();
+    submitSyncLogin();
+  });
+  document.getElementById('sync-register-btn')?.addEventListener('click', (e) => {
+    e.preventDefault();
+    submitSyncRegister();
+  });
+}
+
 function initApp() {
   try { updateHomeStats(); } catch (e) {}
   try { renderHomePreviews(); } catch (e) {}
   try { renderBaronPills(); } catch (e) {}
+  try { initSyncAuthForm(); } catch (e) {}
   registerServiceWorker();
   if (window.RunnrGrowth) {
     RunnrGrowth.renderHomeBanner(S);
