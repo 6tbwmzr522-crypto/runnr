@@ -124,6 +124,16 @@ const RunnrSync = (() => {
     return !!(c && c.key && c.secret);
   }
 
+  function applyAlpacaBalance(equity) {
+    if (equity == null || !window.S) return;
+    if (window.S.balManualOverride) return;
+    window.S.bal = Math.round(equity);
+    window.S.sym = "$";
+    window.S.balFromAlpaca = true;
+    if (typeof updateHomeStats === "function") updateHomeStats();
+    if (typeof persist === "function") persist();
+  }
+
   function applyAlpacaStatus(st) {
     ensureBrokerState();
     if (!window.S || !st) return;
@@ -131,6 +141,7 @@ const RunnrSync = (() => {
     window.S.brokerSync.alpaca.paper = st.paper;
     window.S.brokerSync.alpaca.equity = st.equity;
     window.S.brokerSync.alpaca.positionCount = st.position_count;
+    if (st.connected && st.equity != null) applyAlpacaBalance(st.equity);
     if (typeof persist === "function") persist();
   }
 
@@ -379,6 +390,7 @@ const RunnrSync = (() => {
     loadAlpacaLocal,
     hasLocalAlpaca,
     ensureBrokerState,
+    applyAlpacaBalance,
     formatAgo,
     tradeNeedsPriceFix,
   };

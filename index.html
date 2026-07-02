@@ -5,7 +5,7 @@
 <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
 <script>
 (function () {
-  var V = "15";
+  var V = "16";
   try {
     if (localStorage.getItem("runnr_app_v") !== V) {
       localStorage.setItem("runnr_app_v", V);
@@ -155,6 +155,12 @@ html,body{height:100%;background:var(--bg);color:var(--text);font-family:var(--f
 
 /* ── WATCHLIST ── */
 .watch-item{background:var(--surface2);border-left:3px solid var(--accent2);border-radius:0 var(--r-sm) var(--r-sm) 0;padding:12px;margin-bottom:8px;border-top:1px solid var(--border);border-right:1px solid var(--border);border-bottom:1px solid var(--border)}
+.watch-compact-list{background:var(--surface2);border:1px solid var(--border);border-radius:var(--r-sm);padding:4px 12px;margin-bottom:10px}
+.watch-compact-row{display:flex;align-items:center;gap:10px;padding:10px 0;border-bottom:1px solid var(--border);cursor:pointer;transition:background 0.12s}
+.watch-compact-row:last-child{border-bottom:none}
+.watch-compact-row:hover{background:rgba(0,229,160,0.04)}
+.watch-compact-row.watch-compact-selected{background:rgba(0,229,160,0.08);border-radius:var(--r-sm);margin:0 -6px;padding-left:6px;padding-right:6px}
+.watch-detail-panel{margin-bottom:12px}
 .watch-item.watch-urgent{border-left-color:var(--amber)}
 .watch-item .wi-top{display:flex;justify-content:space-between;align-items:flex-start}
 .watch-item .wi-sym{font-family:var(--font-head);font-size:16px;font-weight:700}
@@ -562,6 +568,7 @@ body.light #equity-canvas{filter:invert(0)}
           <div>
             <div style="font-size:11px;color:var(--text3);letter-spacing:1px;text-transform:uppercase;font-weight:600;margin-bottom:4px">Account Balance</div>
             <div id="home-bal" style="font-family:var(--font-mono);font-size:32px;font-weight:500;color:var(--text);line-height:1">€10,000</div>
+            <div id="home-bal-source" style="font-size:10px;color:var(--accent);display:none;margin-top:2px"></div>
             <div id="home-risk-label" style="font-size:12px;color:var(--text3);margin-top:4px">Risk 1% = €100 per trade</div>
           </div>
           <div style="text-align:right">
@@ -1432,6 +1439,7 @@ body.light #equity-canvas{filter:invert(0)}
   <div class="modal">
     <div class="modal-title">Settings <button class="modal-close" onclick="closeModal('modal-settings')">✕</button></div>
     <div class="field"><label>Account Balance</label><input id="set-bal" type="number" placeholder="10000"></div>
+    <div id="set-bal-hint" style="font-size:11px;color:var(--accent);margin:-6px 0 10px;display:none">Synced from Alpaca — tap Sync to refresh</div>
     <div class="field"><label>Risk % per Trade</label><input id="set-risk" type="number" placeholder="1" step="0.5"></div>
     <div class="field"><label>Currency</label>
       <select id="set-currency">
@@ -1454,10 +1462,10 @@ body.light #equity-canvas{filter:invert(0)}
   </div>
 </div>
 
-<script src="js/baron.js?v=15"></script>
-<script src="js/coach.js?v=15"></script>
-<script src="js/onboarding.js?v=15"></script>
-<script src="js/sync.js?v=15"></script>
+<script src="js/baron.js?v=16"></script>
+<script src="js/coach.js?v=16"></script>
+<script src="js/onboarding.js?v=16"></script>
+<script src="js/sync.js?v=16"></script>
 <script>
 // ── STATE ──────────────────────────────────────────────────────────────────
 const S = {
@@ -1540,6 +1548,8 @@ function saveSettings() {
   S.bal = parseFloat(document.getElementById('set-bal').value) || S.bal;
   S.risk = parseFloat(document.getElementById('set-risk').value) || S.risk;
   S.sym = document.getElementById('set-currency').value;
+  S.balManualOverride = true;
+  S.balFromAlpaca = false;
   S.profileHandle = (document.getElementById('set-handle')?.value || '').trim().replace(/[^a-zA-Z0-9_-]/g, '') || S.profileHandle;
   const digestEl = document.getElementById('set-coach-digest');
   if (digestEl) S.coachDigestEnabled = digestEl.checked;
@@ -1550,6 +1560,10 @@ function saveSettings() {
 function openSettingsModal() {
   document.getElementById('set-bal').value = S.bal;
   document.getElementById('set-risk').value = S.risk;
+  const cur = document.getElementById('set-currency');
+  if (cur) cur.value = S.sym || '€';
+  const hint = document.getElementById('set-bal-hint');
+  if (hint) hint.style.display = (S.balFromAlpaca && S.brokerSync?.alpaca?.connected) ? 'block' : 'none';
   const h = document.getElementById('set-handle');
   if (h) h.value = S.profileHandle || '';
   const d = document.getElementById('set-coach-digest');
@@ -1574,6 +1588,16 @@ function updateHomeStats() {
   document.getElementById('home-bal').textContent = S.sym + S.bal.toLocaleString();
   document.getElementById('home-risk-label').textContent = `Risk ${S.risk}% = ${S.sym}${Math.round(mr)} per trade`;
   document.getElementById('acct-display').textContent = S.sym + S.bal.toLocaleString() + ' ✎';
+  const balSrc = document.getElementById('home-bal-source');
+  if (balSrc) {
+    if (S.balFromAlpaca && S.brokerSync?.alpaca?.connected) {
+      const paper = S.brokerSync.alpaca.paper !== false ? 'paper' : 'live';
+      balSrc.textContent = '↻ Alpaca ' + paper + ' equity';
+      balSrc.style.display = 'block';
+    } else {
+      balSrc.style.display = 'none';
+    }
+  }
 
   const incomplete = S.trades.filter(t => t.incomplete);
   const banner = document.getElementById('incomplete-banner');
@@ -2020,46 +2044,81 @@ function saveLog() {
 }
 
 // ── WATCHLIST ──────────────────────────────────────────────────────────────
+function watchRowStatus(w, lp) {
+  const bandPct = S.risk;
+  const alertKey = w.sym + '-' + w.entry;
+  const firedAt = alertState.fired[alertKey];
+  const inZone = lp && lp.price && Math.abs(distToEntry(lp.price, w.entry)) <= bandPct;
+  if (inZone) return { cls: 'ai-status-hit', text: '● In Zone' };
+  if (firedAt) return { cls: 'ai-status-fired', text: 'Alerted' };
+  return { cls: 'ai-status-armed', text: 'Armed' };
+}
+
+function selectWatch(id) {
+  S.selectedWatchId = S.selectedWatchId === id ? null : id;
+  persist();
+  renderWatchlist();
+}
+
+function renderWatchCompactRow(w) {
+  const lp = liveprices[w.sym];
+  const livePrice = lp && lp.price ? fmtPrice(lp.price) : '—';
+  const st = watchRowStatus(w, lp);
+  const isNear = lp && isNearEntry(lp.price, w.entry, w.dir);
+  const selected = S.selectedWatchId === w.id;
+  return `<div class="watch-compact-row ${selected ? 'watch-compact-selected' : ''}" onclick="selectWatch(${w.id})">
+    <div class="ai-sym">${w.sym}</div>
+    <div class="ai-info">
+      <div class="ai-trigger">Entry: ${w.entry} · Live: ${livePrice}${isNear ? ' <span style="color:var(--amber)">● near</span>' : ''}</div>
+      <div class="ai-band">Stop ${w.stop} → Target ${w.target} · R:R ${w.rr.toFixed(1)}</div>
+    </div>
+    <div class="ai-status ${st.cls}">${st.text}</div>
+  </div>`;
+}
+
+function renderWatchDetailCard(w) {
+  const rrColor = w.rr >= 2 ? 'var(--accent)' : w.rr >= 1.5 ? 'var(--amber)' : 'var(--red)';
+  const lp = liveprices[w.sym];
+  const isNear = lp && isNearEntry(lp.price, w.entry, w.dir);
+  return `<div class="watch-item watch-detail-panel ${isNear?'watch-urgent':''}" id="wi-${w.id}">
+    <div class="wi-top">
+      <div style="display:flex;align-items:center;gap:6px;flex-wrap:wrap">
+        <span class="wi-sym">${w.sym}</span>
+        ${isNear ? '<span style="font-size:10px;color:var(--amber);animation:pulse 2s infinite">● Near entry</span>' : ''}
+      </div>
+      <span class="wi-dir dir-${w.dir}">${w.dir.toUpperCase()}</span>
+    </div>
+    <div class="live-price-row" id="lp-row-${w.id}">
+      ${lp && lp.price ? renderLivePriceRow(lp, w) : '<span class="lp-loading">⟳ Fetching live price...</span>'}
+    </div>
+    ${lp && lp.price ? renderDistBar(lp.price, w) : ''}
+    <div class="wi-prices">
+      <div class="wi-price"><div class="p-val">${w.entry}</div><div class="p-lbl">Entry</div></div>
+      <div class="wi-price"><div class="p-val" style="color:var(--red)">${w.stop}</div><div class="p-lbl">Stop</div></div>
+      <div class="wi-price"><div class="p-val" style="color:var(--accent)">${w.target}</div><div class="p-lbl">Target</div></div>
+    </div>
+    <div style="margin-top:8px;display:flex;justify-content:space-between;align-items:center">
+      <div style="font-size:11px;color:var(--text3)">R:R <span style="color:${rrColor};font-family:var(--font-mono);font-weight:600">${w.rr.toFixed(1)}</span></div>
+      <div style="display:flex;gap:6px">
+        <button onclick="event.stopPropagation();sizefromWatch(${w.id})" style="background:var(--accent-dim);color:var(--accent);font-size:11px;font-weight:700;padding:4px 10px;border-radius:10px;cursor:pointer;border:none;font-family:var(--font-head)">→ Size it</button>
+        <button onclick="event.stopPropagation();openStockDetail('${w.sym}')" style="background:var(--surface3);color:var(--text2);font-size:11px;font-weight:700;padding:4px 10px;border-radius:10px;cursor:pointer;border:1px solid var(--border);font-family:var(--font-head)">📊 Data</button>
+      </div>
+    </div>
+    ${w.thesis ? `<div class="wi-thesis">"${w.thesis}"</div>` : ''}
+  </div>`;
+}
+
 function renderWatchlist() {
   const list = document.getElementById('watchlist-list');
   if (!S.watchlist.length) {
     list.innerHTML = '<div class="empty-state"><div class="es-icon">👁</div>No setups yet. Add your first watch.</div>';
     return;
   }
-  list.innerHTML = S.watchlist.map(w => {
-    const rrColor = w.rr >= 2 ? 'var(--accent)' : w.rr >= 1.5 ? 'var(--amber)' : 'var(--red)';
-    const lp = liveprices[w.sym];
-    const isNear = lp && isNearEntry(lp.price, w.entry, w.dir);
-    return `<div class="watch-item ${isNear?'watch-urgent':''}" id="wi-${w.id}">
-      <div class="wi-top">
-        <div style="display:flex;align-items:center;gap:6px;flex-wrap:wrap">
-          <span class="wi-sym">${w.sym}</span>
-          ${isNear ? '<span style="font-size:10px;color:var(--amber);animation:pulse 2s infinite">● Near entry</span>' : ''}
-        </div>
-        <span class="wi-dir dir-${w.dir}">${w.dir.toUpperCase()}</span>
-      </div>
-
-      <!-- Live price row -->
-      <div class="live-price-row" id="lp-row-${w.id}">
-        ${lp && lp.price ? renderLivePriceRow(lp, w) : '<span class="lp-loading">⟳ Fetching live price...</span>'}
-      </div>
-      ${lp && lp.price ? renderDistBar(lp.price, w) : ''}
-
-      <div class="wi-prices">
-        <div class="wi-price"><div class="p-val">${w.entry}</div><div class="p-lbl">Entry</div></div>
-        <div class="wi-price"><div class="p-val" style="color:var(--red)">${w.stop}</div><div class="p-lbl">Stop</div></div>
-        <div class="wi-price"><div class="p-val" style="color:var(--accent)">${w.target}</div><div class="p-lbl">Target</div></div>
-      </div>
-      <div style="margin-top:8px;display:flex;justify-content:space-between;align-items:center">
-        <div style="font-size:11px;color:var(--text3)">R:R <span style="color:${rrColor};font-family:var(--font-mono);font-weight:600">${w.rr.toFixed(1)}</span></div>
-        <div style="display:flex;gap:6px">
-          <button onclick="sizefromWatch(${w.id})" style="background:var(--accent-dim);color:var(--accent);font-size:11px;font-weight:700;padding:4px 10px;border-radius:10px;cursor:pointer;border:none;font-family:var(--font-head)">→ Size it</button>
-          <button onclick="openStockDetail('${w.sym}')" style="background:var(--surface3);color:var(--text2);font-size:11px;font-weight:700;padding:4px 10px;border-radius:10px;cursor:pointer;border:1px solid var(--border);font-family:var(--font-head)">📊 Data</button>
-        </div>
-      </div>
-      ${w.thesis ? `<div class="wi-thesis">"${w.thesis}"</div>` : ''}
-    </div>`;
-  }).join('');
+  const compact = S.watchlist.map(w => renderWatchCompactRow(w)).join('');
+  const selected = S.watchlist.find(w => w.id === S.selectedWatchId);
+  const detail = selected ? renderWatchDetailCard(selected) : '';
+  const hint = selected ? '' : '<div style="font-size:11px;color:var(--text3);text-align:center;margin:8px 0 12px">Tap a ticker above to open setup details</div>';
+  list.innerHTML = `<div class="watch-compact-list">${compact}</div>${hint}${detail}`;
 }
 
 function renderLivePriceRow(lp, w) {
@@ -2159,7 +2218,9 @@ function saveWatch() {
   const stop  = parseFloat(document.getElementById('w-stop').value)||0;
   const target= parseFloat(document.getElementById('w-target').value)||0;
   const rr = (entry && stop && target) ? parseFloat(((Math.abs(target-entry)/Math.abs(entry-stop)).toFixed(1))) : 0;
-  S.watchlist.unshift({ id: Date.now(), sym, dir: document.getElementById('w-dir').value, entry, stop, target, thesis: document.getElementById('w-thesis').value, rr, urgent: false });
+  const id = Date.now();
+  S.watchlist.unshift({ id, sym, dir: document.getElementById('w-dir').value, entry, stop, target, thesis: document.getElementById('w-thesis').value, rr, urgent: false });
+  S.selectedWatchId = id;
   persist();
   closeModal('modal-add-watch');
   renderWatchlist();
@@ -3707,6 +3768,8 @@ async function submitAlpacaConnect() {
     S.brokerSync.alpaca.paper = st.paper;
     S.brokerSync.alpaca.equity = st.equity;
     S.brokerSync.alpaca.positionCount = st.position_count;
+    S.balManualOverride = false;
+    if (typeof RunnrSync.applyAlpacaBalance === 'function') RunnrSync.applyAlpacaBalance(st.equity);
     persist();
     closeModal('modal-alpaca');
     document.getElementById('alpaca-secret').value = '';
@@ -4154,6 +4217,7 @@ function initApp() {
     try { startFeedTimer(); } catch (e) {}
     try { updateFGDisplay(72); drawFGGauge(72); } catch (e) {}
     fetchFearGreed().catch(() => {});
+    if (RunnrSync.isLoggedIn()) RunnrSync.refreshStatus().catch(() => {});
   }, 400);
 }
 
