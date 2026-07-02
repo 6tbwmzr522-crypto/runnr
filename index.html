@@ -5,7 +5,7 @@
 <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
 <script>
 (function () {
-  var V = "19";
+  var V = "20";
   try {
     if (localStorage.getItem("runnr_app_v") !== V) {
       localStorage.setItem("runnr_app_v", V);
@@ -35,7 +35,7 @@
 <meta name="theme-color" content="#080c12">
 <meta name="apple-mobile-web-app-title" content="Runnr">
 <link rel="apple-touch-icon" href="icons/icon-192.svg">
-<link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,300;0,400;0,600;1,300;1,400&family=DM+Mono:wght@400;500&family=Jost:wght@300;400;500&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,300;0,400;0,500;0,600;1,300;1,400;1,500&family=Jost:wght@300;400;500&display=swap" rel="stylesheet">
 <style>
 :root {
   --bg: #080c12;
@@ -62,14 +62,35 @@
   --blue-dim: rgba(126, 184, 232, 0.12);
   --font-head: 'Cormorant Garamond', Georgia, serif;
   --font-body: 'Jost', sans-serif;
-  --font-mono: 'DM Mono', monospace;
+  --font-num: 'Cormorant Garamond', Georgia, serif;
+  --font-mono: var(--font-num);
   --r: 12px;
   --r-sm: 6px;
   --safe-bottom: env(safe-area-inset-bottom, 0px);
 }
 *{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent}
-html,body{height:100%;background:var(--bg);color:var(--text);font-family:var(--font-body);font-weight:300;font-size:15px;overflow:hidden}
+html,body{height:100%;background:var(--bg);color:var(--text);font-family:var(--font-body);font-weight:300;font-size:15px;overflow:hidden;font-variant-numeric:oldstyle-nums}
 body::before{content:'';position:fixed;inset:0;background:radial-gradient(ellipse 90% 55% at 50% -15%,rgba(201,169,110,0.09),transparent 55%),radial-gradient(ellipse 50% 35% at 100% 80%,rgba(0,229,160,0.05),transparent);pointer-events:none;z-index:0}
+
+/* Royal figures — serif numerals throughout */
+.stat-val,.stat-delta,.te-pnl,.result-main,.result-sub-item .val,.fg-value,.fg-updated,
+.sd-price,.sd-change-pos,.sd-change-neg,.sd-stat .s-val,.sd-premarket .pm-price,.sd-postmarket .pm-price,
+.rsi-val,.range-labels,.lp-price,.lp-change-pos,.lp-change-neg,.lp-dist,.lp-loading,
+.port-hero .ph-val,.port-hero .ph-sub,.kpi .k-val,.kpi .k-delta,.instr-pnl,.donut-pct,.th-pnl,
+.disc-leg-item .dl-val,.disc-leg-item .dl-count,.disc-ring-inner,.disc-meta-row strong,
+.ob-aha-cost,.ob-compare strong,.field input,.field select,.risk-pill,.badge,.tier-labels,
+.broker-card .bk-status,.alert-item .ai-trigger,.home-price-chip,.period-tab,.cal-labels span,
+.rule-card .r-status,.opt-portfolio-input input,.badge-row .badge{
+  font-family:var(--font-num);
+  font-weight:300;
+  font-variant-numeric:lining-nums;
+  letter-spacing:0.02em;
+}
+#home-bal,.port-hero .ph-val,.result-main,.ob-aha-cost,.fg-value,.disc-ring-inner{
+  font-weight:300;
+  letter-spacing:0.03em;
+}
+#acct-display{font-family:var(--font-num)!important;font-weight:400;font-style:italic;letter-spacing:0.04em}
 
 /* ── LAYOUT ── */
 #app{display:flex;flex-direction:column;height:100dvh;max-width:430px;margin:0 auto;position:relative;overflow:hidden;z-index:1}
@@ -401,7 +422,7 @@ body.light #equity-canvas{filter:invert(0)}
 .instr-row{display:flex;align-items:center;gap:10px;padding:10px 0;border-bottom:1px solid var(--border)}
 .instr-row:last-child{border-bottom:none}
 .instr-dot{width:10px;height:10px;border-radius:50%;flex-shrink:0}
-.instr-name{font-family:var(--font-head);font-size:14px;font-weight:700;flex:1}
+.instr-name{font-family:var(--font-head);font-size:16px;font-weight:400;font-style:italic;flex:1}
 .instr-trades{font-size:11px;color:var(--text3)}
 .instr-pnl{font-family:var(--font-mono);font-size:14px;font-weight:500}
 /* Drawdown + equity */
@@ -424,7 +445,7 @@ body.light #equity-canvas{filter:invert(0)}
 /* Best/worst trade */
 .trade-highlight{background:var(--surface2);border-radius:var(--r-sm);padding:12px;border:1px solid var(--border);flex:1}
 .th-tag{font-size:9px;font-weight:700;text-transform:uppercase;letter-spacing:0.8px;margin-bottom:4px}
-.th-sym{font-family:var(--font-head);font-size:16px;font-weight:700}
+.th-sym{font-family:var(--font-head);font-size:18px;font-weight:400;font-style:italic}
 .th-pnl{font-family:var(--font-mono);font-size:18px;font-weight:500;margin-top:2px}
 /* Donut */
 .disc-card-inner{display:flex;flex-direction:column;gap:14px}
@@ -506,7 +527,7 @@ body.light #equity-canvas{filter:invert(0)}
 .ob-progress-wrap{height:3px;background:var(--surface3);flex-shrink:0}
 .ob-progress{height:100%;background:var(--accent);width:25%;transition:width 0.3s}
 .ob-content{flex:1;overflow-y:auto;padding:24px 20px calc(24px + var(--safe-bottom))}
-.ob-hero h2{font-family:var(--font-head);font-size:26px;font-weight:700;line-height:1.2;margin-bottom:10px;color:var(--text)}
+.ob-hero h2{font-family:var(--font-head);font-size:28px;font-weight:300;font-style:italic;line-height:1.15;margin-bottom:10px;color:var(--text)}
 .ob-hero h2 em{color:var(--accent);font-style:italic}
 .ob-hero p,.ob-kicker{font-size:14px;color:var(--text2);line-height:1.55;margin-bottom:16px}
 .ob-kicker{font-size:11px;text-transform:uppercase;letter-spacing:1px;color:var(--accent);font-weight:700;margin-bottom:8px}
@@ -539,7 +560,7 @@ body.light #equity-canvas{filter:invert(0)}
       <div class="logo">runnr</div>
     </div>
     <div style="display:flex;gap:8px;align-items:center"><button id="theme-toggle" onclick="toggleTheme()">☀ Light</button>
-      <span id="acct-display" style="font-family:var(--font-mono);font-size:13px;color:var(--text2);cursor:pointer" onclick="openModal('modal-settings')">€10,000 ✎</span>
+      <span id="acct-display" style="font-size:14px;color:var(--text2);cursor:pointer;font-style:italic" onclick="openModal('modal-settings')">€10,000 ✎</span>
       <div class="tier-badge" id="tier-badge">🌱 NOVICE</div>
     </div>
   </div>
@@ -580,13 +601,13 @@ body.light #equity-canvas{filter:invert(0)}
         <div style="display:flex;justify-content:space-between;align-items:flex-start">
           <div>
             <div style="font-size:11px;color:var(--text3);letter-spacing:1px;text-transform:uppercase;font-weight:600;margin-bottom:4px">Account Balance</div>
-            <div id="home-bal" style="font-family:var(--font-mono);font-size:32px;font-weight:500;color:var(--text);line-height:1">€10,000</div>
+            <div id="home-bal" style="font-family:var(--font-num);font-size:36px;font-weight:300;color:var(--gold-light);line-height:1;letter-spacing:0.03em">€10,000</div>
             <div id="home-bal-source" style="font-size:10px;color:var(--accent);display:none;margin-top:2px"></div>
             <div id="home-risk-label" style="font-size:12px;color:var(--text3);margin-top:4px">Risk 1% = €100 per trade</div>
           </div>
           <div style="text-align:right">
             <div style="font-size:10px;color:var(--text3);letter-spacing:0.8px;text-transform:uppercase;margin-bottom:6px">This week</div>
-            <div id="home-week-pnl" style="font-family:var(--font-mono);font-size:18px;color:var(--accent)">—</div>
+            <div id="home-week-pnl" style="font-family:var(--font-num);font-size:20px;font-weight:300;color:var(--accent);letter-spacing:0.02em">—</div>
             <div id="home-week-stop" style="font-size:10px;color:var(--text3);margin-top:2px">Stop discipline: —</div>
           </div>
         </div>
@@ -1475,10 +1496,10 @@ body.light #equity-canvas{filter:invert(0)}
   </div>
 </div>
 
-<script src="js/baron.js?v=19"></script>
-<script src="js/coach.js?v=19"></script>
-<script src="js/onboarding.js?v=19"></script>
-<script src="js/sync.js?v=19"></script>
+<script src="js/baron.js?v=20"></script>
+<script src="js/coach.js?v=20"></script>
+<script src="js/onboarding.js?v=20"></script>
+<script src="js/sync.js?v=20"></script>
 <script>
 // ── STATE ──────────────────────────────────────────────────────────────────
 const S = {
@@ -2644,7 +2665,7 @@ function drawMiniChart(canvasId, closes, ma50val, ma200val) {
     ctx.setLineDash([3,2]);
     ctx.moveTo(0, toY(ma50val)); ctx.lineTo(W, toY(ma50val));
     ctx.strokeStyle = '#ffb547'; ctx.lineWidth = 1; ctx.stroke();
-    ctx.fillStyle = '#ffb547'; ctx.font = `${9*dpr/dpr}px DM Mono, monospace`;
+    ctx.fillStyle = '#ffb547'; ctx.font = `${9*dpr/dpr}px Cormorant Garamond, serif`;
     ctx.fillText('50MA', 4, toY(ma50val) - 3);
   }
 
@@ -2654,7 +2675,7 @@ function drawMiniChart(canvasId, closes, ma50val, ma200val) {
     ctx.setLineDash([4,3]);
     ctx.moveTo(0, toY(ma200val)); ctx.lineTo(W, toY(ma200val));
     ctx.strokeStyle = '#4da6ff'; ctx.lineWidth = 1; ctx.stroke();
-    ctx.fillStyle = '#4da6ff'; ctx.font = `${9*dpr/dpr}px DM Mono, monospace`;
+    ctx.fillStyle = '#4da6ff'; ctx.font = `${9*dpr/dpr}px Cormorant Garamond, serif`;
     ctx.fillText('200MA', 4, toY(ma200val) + 10);
   }
   ctx.setLineDash([]);
@@ -3257,7 +3278,7 @@ function drawPortEquity(trades) {
   ctx.fillStyle = isUp ? '#00e5a0' : '#ff4d6d'; ctx.fill();
 
   // Start/end labels
-  ctx.font = `${10*dpr/dpr}px DM Mono, monospace`;
+  ctx.font = `${10*dpr/dpr}px Cormorant Garamond, serif`;
   ctx.textAlign='left'; ctx.fillStyle='rgba(255,255,255,0.4)';
   ctx.fillText(S.sym+Math.round(points[0]).toLocaleString(), 4, toY(points[0])-4);
   ctx.textAlign='right';
@@ -4005,7 +4026,7 @@ function drawEquityCurve() {
   ctx.stroke();
   ctx.setLineDash([]);
 
-  ctx.font = '10px DM Mono, monospace';
+  ctx.font = '10px Cormorant Garamond, serif';
   ctx.fillStyle = '#00e5a0';
   ctx.fillText((cmp.idealEnd >= 0 ? '+' : '') + S.sym + Math.round(cmp.idealEnd).toLocaleString(), toX(n - 1) - 60, toY(ideal[n - 1], mn, mx) - 6);
   ctx.fillStyle = '#ff4d6d';
@@ -4131,7 +4152,7 @@ function drawFGGauge(value) {
   ctx.fill();
 
   // Value text in center
-  ctx.font = `bold ${14 * dpr / dpr}px DM Mono, monospace`;
+  ctx.font = `bold ${14 * dpr / dpr}px Cormorant Garamond, serif`;
   ctx.fillStyle = '#e8f5f0';
   ctx.textAlign = 'center';
   ctx.fillText(value, cx, cy - 8);

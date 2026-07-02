@@ -327,7 +327,7 @@ const RunnrGrowth = {
     ctx.fillText(score.tradeCount + " trades · " + score.streak + "-day streak", 28, 210);
 
     ctx.fillStyle = "rgba(201,169,110,0.5)";
-    ctx.font = "11px DM Mono, monospace";
+    ctx.font = "11px Cormorant Garamond, serif";
     ctx.fillText("runnr.fyi/u/" + handle, 28, H - 36);
     ctx.fillText("Process · not P&L", 28, H - 18);
   },
