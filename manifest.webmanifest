@@ -4,8 +4,8 @@
   "description": "Position sizing, journal, watchlist, and discipline coaching for active traders.",
   "start_url": "./index.html",
   "display": "standalone",
-  "background_color": "#070d0b",
-  "theme_color": "#00b87a",
+  "background_color": "#080c12",
+  "theme_color": "#080c12",
   "orientation": "portrait",
   "icons": [
     {

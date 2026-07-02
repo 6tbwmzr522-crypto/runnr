@@ -306,29 +306,29 @@ const RunnrGrowth = {
     const ctx = canvas.getContext("2d");
     ctx.scale(dpr, dpr);
 
-    ctx.fillStyle = "#0f1a16";
+    ctx.fillStyle = "#080c12";
     ctx.fillRect(0, 0, W, H);
-    ctx.strokeStyle = "#00b87a";
+    ctx.strokeStyle = "#C9A96E";
     ctx.lineWidth = 2;
     ctx.strokeRect(12, 12, W - 24, H - 24);
 
-    ctx.fillStyle = "#4d6b5e";
-    ctx.font = "600 11px DM Sans, sans-serif";
+    ctx.fillStyle = "rgba(201,169,110,0.7)";
+    ctx.font = "500 11px Jost, sans-serif";
     ctx.fillText("RUNNR · DISCIPLINE SCORE", 28, 44);
 
     ctx.fillStyle = "#00e5a0";
     ctx.font = "italic 700 52px Cormorant Garamond, serif";
     ctx.fillText(score.tradeCount ? score.overall + "%" : "—", 28, 110);
 
-    ctx.fillStyle = "#8aada0";
-    ctx.font = "13px DM Sans, sans-serif";
+    ctx.fillStyle = "rgba(245,242,236,0.55)";
+    ctx.font = "13px Jost, sans-serif";
     ctx.fillText("Stop confirmation: " + (score.tradeCount ? score.stopPct + "%" : "—"), 28, 150);
     ctx.fillText("Size discipline:   " + (score.tradeCount ? score.sizePct + "%" : "—"), 28, 174);
     ctx.fillText(score.tradeCount + " trades · " + score.streak + "-day streak", 28, 210);
 
-    ctx.fillStyle = "#4d6b5e";
+    ctx.fillStyle = "rgba(201,169,110,0.5)";
     ctx.font = "11px DM Mono, monospace";
-    ctx.fillText("runnr.app/u/" + handle, 28, H - 36);
+    ctx.fillText("runnr.fyi/u/" + handle, 28, H - 36);
     ctx.fillText("Process · not P&L", 28, H - 18);
   },
 
