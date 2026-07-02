@@ -37,3 +37,20 @@ jobs:
 
       - id: deployment
         uses: actions/deploy-pages@v4
+        continue-on-error: true
+
+      - name: Re-upload artifact (deploy retry)
+        if: steps.deployment.outcome != 'success'
+        uses: actions/upload-pages-artifact@v3
+        with:
+          path: _site
+
+      - id: deployment_retry
+        if: steps.deployment.outcome != 'success'
+        uses: actions/deploy-pages@v4
+
+      - name: Verify Pages deploy
+        if: steps.deployment.outcome != 'success' && steps.deployment_retry.outcome != 'success'
+        run: |
+          echo "GitHub Pages deploy failed twice — re-run workflow from Actions tab."
+          exit 1
