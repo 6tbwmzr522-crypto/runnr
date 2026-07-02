@@ -28,6 +28,7 @@ jobs:
           mkdir -p _site
           cp index.html sw.js manifest.webmanifest .nojekyll _site/
           cp -r js icons _site/
+          echo "runnr.fyi" > _site/CNAME
 
       - uses: actions/configure-pages@v5
 
@@ -40,17 +41,17 @@ jobs:
         continue-on-error: true
 
       - name: Re-upload artifact (deploy retry)
-        if: steps.deployment.outcome != 'success'
+        if: steps.deployment.outcome == 'failure'
         uses: actions/upload-pages-artifact@v3
         with:
           path: _site
 
       - id: deployment_retry
-        if: steps.deployment.outcome != 'success'
+        if: steps.deployment.outcome == 'failure'
         uses: actions/deploy-pages@v4
 
       - name: Verify Pages deploy
-        if: steps.deployment.outcome != 'success' && steps.deployment_retry.outcome != 'success'
+        if: steps.deployment.outcome == 'failure' && steps.deployment_retry.outcome != 'success'
         run: |
-          echo "GitHub Pages deploy failed twice — re-run workflow from Actions tab."
+          echo "GitHub Pages deploy failed — re-run workflow from Actions tab."
           exit 1
