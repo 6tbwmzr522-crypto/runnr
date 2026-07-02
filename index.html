@@ -5,7 +5,7 @@
 <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
 <script>
 (function () {
-  var V = "14";
+  var V = "15";
   try {
     if (localStorage.getItem("runnr_app_v") !== V) {
       localStorage.setItem("runnr_app_v", V);
@@ -138,7 +138,10 @@ html,body{height:100%;background:var(--bg);color:var(--text);font-family:var(--f
 .trade-entry{background:var(--surface2);border:1px solid var(--border);border-radius:var(--r-sm);padding:12px;margin-bottom:8px;cursor:pointer;transition:border-color 0.15s}
 .trade-entry:hover{border-color:var(--accent2)}
 .trade-entry .te-top{display:flex;justify-content:space-between;align-items:center;margin-bottom:6px}
-.trade-entry .te-sym{font-family:var(--font-head);font-size:15px;font-weight:700;color:var(--text)}
+.trade-entry .te-sym{font-family:var(--font-head);font-size:15px;font-weight:700;color:var(--accent);cursor:pointer}
+.trade-entry .te-sym:hover{text-decoration:underline}
+.trade-entry .te-del{background:transparent;border:none;color:var(--text3);font-size:14px;padding:2px 6px;cursor:pointer;border-radius:6px;line-height:1}
+.trade-entry .te-del:hover{color:var(--red);background:var(--red-dim)}
 .trade-entry .te-pnl{font-family:var(--font-mono);font-size:15px;font-weight:500}
 .te-pnl.pos{color:var(--accent)}
 .te-pnl.neg{color:var(--red)}
@@ -276,8 +279,16 @@ html,body{height:100%;background:var(--bg);color:var(--text);font-family:var(--f
 .rsi-zone{font-size:10px;font-weight:600;margin-left:4px}
 .sd-loading{text-align:center;padding:20px;color:var(--text3);font-size:12px}
 .sd-premarket{background:var(--amber-dim);border:1px solid rgba(255,181,71,0.25);border-radius:var(--r-sm);padding:8px 12px;margin-bottom:8px;display:flex;justify-content:space-between;align-items:center}
-.sd-premarket .pm-label{font-size:10px;color:var(--amber);font-weight:700;text-transform:uppercase;letter-spacing:0.5px}
-.sd-premarket .pm-price{font-family:var(--font-mono);font-size:14px;color:var(--text)}
+.sd-postmarket{background:rgba(120,140,255,0.12);border:1px solid rgba(120,140,255,0.28);border-radius:var(--r-sm);padding:8px 12px;margin-bottom:8px;display:flex;justify-content:space-between;align-items:center}
+.sd-premarket .pm-label,.sd-postmarket .pm-label{font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:0.5px}
+.sd-premarket .pm-label{color:var(--amber)}
+.sd-postmarket .pm-label{color:#8aa4ff}
+.sd-premarket .pm-price,.sd-postmarket .pm-price{font-family:var(--font-mono);font-size:14px;color:var(--text)}
+.sd-session-badge{display:inline-block;font-size:9px;font-weight:700;text-transform:uppercase;letter-spacing:0.6px;padding:2px 7px;border-radius:8px;margin-bottom:4px}
+.sd-session-badge.live{background:var(--accent-dim);color:var(--accent)}
+.sd-session-badge.premarket{background:var(--amber-dim);color:var(--amber)}
+.sd-session-badge.postmarket{background:rgba(120,140,255,0.2);color:#8aa4ff}
+.sd-session-badge.closed{background:var(--surface3);color:var(--text3)}
 
 /* ── OPTIONS RULES ── */
 .opt-rules{margin-bottom:12px}
@@ -1443,10 +1454,10 @@ body.light #equity-canvas{filter:invert(0)}
   </div>
 </div>
 
-<script src="js/baron.js?v=14"></script>
-<script src="js/coach.js?v=14"></script>
-<script src="js/onboarding.js?v=14"></script>
-<script src="js/sync.js?v=14"></script>
+<script src="js/baron.js?v=15"></script>
+<script src="js/coach.js?v=15"></script>
+<script src="js/onboarding.js?v=15"></script>
+<script src="js/sync.js?v=15"></script>
 <script>
 // ── STATE ──────────────────────────────────────────────────────────────────
 const S = {
@@ -1880,16 +1891,37 @@ function renderJournal() {
       : `<span>${t.date}</span><span>${t.entry} → ${t.exit ?? '—'}</span><span>${t.size} units</span>`;
     return `<div class="trade-entry" onclick="reviewTrade(${t.id})">
       <div class="te-top">
-        <div>
-          <span class="te-sym">${t.instr.length > 12 ? t.instr.slice(0, 10) + '…' : t.instr}</span>
-          <span style="font-size:11px;color:var(--text3);margin-left:6px">${t.dir.toUpperCase()}</span>
+        <div style="display:flex;align-items:center;gap:6px">
+          <span class="te-sym" onclick="event.stopPropagation();openStockDetail('${quoteSymbolFromInstr(t.instr).replace(/'/g, "\\'")}')" title="Live price">${t.instr.length > 12 ? t.instr.slice(0, 10) + '…' : t.instr}</span>
+          <span style="font-size:11px;color:var(--text3)">${t.dir.toUpperCase()}</span>
         </div>
-        <span class="te-pnl ${t.incomplete && isAlpaca ? '' : pnlCls}" style="${t.incomplete && isAlpaca ? 'color:var(--accent);font-size:12px' : ''}">${pnlStr}</span>
+        <div style="display:flex;align-items:center;gap:8px">
+          <span class="te-pnl ${t.incomplete && isAlpaca ? '' : pnlCls}" style="${t.incomplete && isAlpaca ? 'color:var(--accent);font-size:12px' : ''}">${pnlStr}</span>
+          <button class="te-del" onclick="deleteTrade(${t.id}, event)" title="Delete entry">✕</button>
+        </div>
       </div>
       <div class="te-meta">${metaLine}</div>
       <div class="flags">${stopFlag}${sizeFlag}${t.incomplete?'<span class="flag flag-miss">Incomplete</span>':''}</div>
     </div>`;
   }).join('');
+}
+
+function deleteTrade(id, e) {
+  if (e) { e.stopPropagation(); e.preventDefault(); }
+  const t = S.trades.find(x => x.id === id);
+  if (!t) return;
+  const label = t.instr + (t.date ? ' (' + t.date + ')' : '');
+  if (!confirm('Delete ' + label + ' from journal?')) return;
+  S.trades = S.trades.filter(x => x.id !== id);
+  if (t.externalId && S.brokerSync?.importedOrderIds) {
+    S.brokerSync.importedOrderIds = S.brokerSync.importedOrderIds.filter(x => x !== t.externalId);
+  }
+  if (S.editingTradeId === id) S.editingTradeId = null;
+  persist();
+  renderJournal();
+  updateHomeStats();
+  if (typeof renderCoachPage === 'function') renderCoachPage();
+  if (window.RunnrGrowth) RunnrGrowth.renderDisciplineCard(S);
 }
 
 function reviewTrade(id) {
@@ -2150,8 +2182,52 @@ function sizefromWatch(id) {
 
 // ── STOCK DATA ────────────────────────────────────────────────────────────
 
-// Cache to avoid re-fetching
+// Cache to avoid re-fetching (short TTL for live quotes)
 const stockCache = {};
+const STOCK_CACHE_MS = 60000;
+
+const CRYPTO_SYMS = ['BTC','ETH','SOL','DOGE','XRP','ADA','AVAX','LINK','BNB','LTC','DOT','MATIC','SHIB'];
+
+function normalizeQuoteSymbol(sym) {
+  const s = String(sym || '').trim().toUpperCase();
+  if (!s) return s;
+  if (s.includes('-') || s.includes('=')) return s;
+  if (CRYPTO_SYMS.includes(s)) return s + '-USD';
+  return s;
+}
+
+function quoteSymbolFromInstr(instr) {
+  const s = String(instr || '').trim().toUpperCase();
+  if (/^[A-Z]{1,5}$/.test(s)) return s;
+  const m = s.match(/^([A-Z]{1,5})/);
+  return m ? m[1] : normalizeQuoteSymbol(s);
+}
+
+function parseMarketSession(meta) {
+  const raw = meta?.marketState || meta?.currentTradingPeriod?.period || '';
+  const state = String(raw).toUpperCase();
+  if (state.includes('PRE')) return 'premarket';
+  if (state.includes('POST')) return 'postmarket';
+  if (state.includes('REGULAR')) return 'regular';
+  if (meta?.preMarketPrice && !meta?.regularMarketPrice) return 'premarket';
+  if (meta?.postMarketPrice && meta?.marketState === 'CLOSED') return 'postmarket';
+  return 'closed';
+}
+
+function sessionBadgeClass(session) {
+  if (session === 'regular') return 'live';
+  if (session === 'premarket') return 'premarket';
+  if (session === 'postmarket') return 'postmarket';
+  return 'closed';
+}
+
+function sessionDisplayLabel(session, sym) {
+  if (sym && sym.includes('-USD')) return 'Live · Crypto';
+  if (session === 'regular') return 'Live';
+  if (session === 'premarket') return 'Pre-Market';
+  if (session === 'postmarket') return 'After-Hours';
+  return 'Last Close';
+}
 
 async function fetchYahooChart(sym, interval, range) {
   const base = (typeof RunnrSync !== 'undefined' ? RunnrSync.apiBase() : 'https://api.runnr.fyi');
@@ -2162,35 +2238,48 @@ async function fetchYahooChart(sym, interval, range) {
 }
 
 async function openStockDetail(sym) {
-  document.getElementById('sd-modal-title').textContent = sym + ' — Market Data';
-  document.getElementById('sd-modal-body').innerHTML = '<div class="sd-loading">⟳ Fetching data for ' + sym + '...</div>';
+  sym = normalizeQuoteSymbol(sym);
+  const displaySym = sym.replace('-USD', '');
+  document.getElementById('sd-modal-title').textContent = displaySym + ' — Market Data';
+  document.getElementById('sd-modal-body').innerHTML = '<div class="sd-loading">⟳ Fetching live data for ' + displaySym + '...</div>';
   openModal('modal-stock');
 
-  if (stockCache[sym] && (Date.now() - stockCache[sym].ts < 300000)) {
+  if (stockCache[sym] && (Date.now() - stockCache[sym].ts < STOCK_CACHE_MS)) {
     renderStockModal(sym, stockCache[sym].data);
     return;
   }
 
   try {
-    const json = await fetchYahooChart(sym, '1d', '1y');
-    const chart = json.chart.result[0];
+    const [histJson, liveJson] = await Promise.all([
+      fetchYahooChart(sym, '1d', '1y'),
+      fetchYahooChart(sym, '1m', '1d').catch(() => null)
+    ]);
+    const chart = histJson.chart.result[0];
     const meta = chart.meta;
+    const liveMeta = liveJson?.chart?.result?.[0]?.meta || meta;
     const closes = chart.indicators.quote[0].close.filter(Boolean);
     const highs  = chart.indicators.quote[0].high.filter(Boolean);
     const lows   = chart.indicators.quote[0].low.filter(Boolean);
     const vols   = chart.indicators.quote[0].volume.filter(Boolean);
 
-    // Calculations
-    const current = meta.regularMarketPrice || closes[closes.length-1];
-    const prevClose = meta.previousClose || closes[closes.length-2];
-    const change = current - prevClose;
-    const changePct = (change / prevClose) * 100;
+    const regularPrice = liveMeta.regularMarketPrice || meta.regularMarketPrice || closes[closes.length-1];
+    const prevClose = liveMeta.previousClose || meta.previousClose || meta.chartPreviousClose || closes[closes.length-2];
+    const session = parseMarketSession(liveMeta);
+    const pmPrice = liveMeta.preMarketPrice || meta.preMarketPrice || null;
+    const postPrice = liveMeta.postMarketPrice || meta.postMarketPrice || null;
+
+    let displayPrice = regularPrice;
+    if (session === 'premarket' && pmPrice) displayPrice = pmPrice;
+    else if (session === 'postmarket' && postPrice) displayPrice = postPrice;
+    else if (sym.includes('-USD')) displayPrice = liveMeta.regularMarketPrice || regularPrice;
+
+    const change = displayPrice - prevClose;
+    const changePct = prevClose ? (change / prevClose) * 100 : 0;
     const w52High = Math.max(...highs);
     const w52Low  = Math.min(...lows);
     const avgVol  = Math.round(vols.reduce((a,b) => a+b, 0) / vols.length);
-    const curVol  = meta.regularMarketVolume || vols[vols.length-1];
+    const curVol  = liveMeta.regularMarketVolume || meta.regularMarketVolume || vols[vols.length-1];
 
-    // RSI(14)
     function calcRSI(data, period = 14) {
       if (data.length < period + 1) return 50;
       let gains = 0, losses = 0;
@@ -2202,7 +2291,6 @@ async function openStockDetail(sym) {
       return Math.round(100 - 100 / (1 + rs));
     }
 
-    // SMA
     function sma(data, period) {
       if (data.length < period) return null;
       return data.slice(-period).reduce((a,b) => a+b, 0) / period;
@@ -2212,14 +2300,35 @@ async function openStockDetail(sym) {
     const ma50  = sma(closes, 50);
     const ma200 = sma(closes, 200);
 
-    // Pre-market if available
-    const pmPrice  = meta.preMarketPrice || null;
-    const pmChange = pmPrice ? pmPrice - current : null;
-    const pmPct    = pmChange ? (pmChange / current * 100) : null;
+    const pmChange = pmPrice ? pmPrice - prevClose : null;
+    const pmPct = pmChange != null && prevClose ? (pmChange / prevClose * 100) : null;
+    const postChange = postPrice ? postPrice - prevClose : null;
+    const postPct = postChange != null && prevClose ? (postChange / prevClose * 100) : null;
 
-    const data = { current, prevClose, change, changePct, w52High, w52Low,
-                   avgVol, curVol, rsi, ma50, ma200, pmPrice, pmChange, pmPct,
-                   closes: closes.slice(-50), sym };
+    const data = {
+      current: displayPrice,
+      regularPrice,
+      prevClose,
+      change,
+      changePct,
+      w52High,
+      w52Low,
+      avgVol,
+      curVol,
+      rsi,
+      ma50,
+      ma200,
+      pmPrice,
+      pmChange,
+      pmPct,
+      postPrice,
+      postChange,
+      postPct,
+      session,
+      sessionLabel: sessionDisplayLabel(session, sym),
+      closes: closes.slice(-50),
+      sym: displaySym
+    };
 
     stockCache[sym] = { data, ts: Date.now() };
     renderStockModal(sym, data);
@@ -2243,6 +2352,8 @@ async function openStockDetail(sym) {
       ma50:  base * (0.97 + pseudo(11) * 0.06),
       ma200: base * (0.85 + pseudo(12) * 0.2),
       pmPrice: null, pmChange: null, pmPct: null,
+      postPrice: null, postChange: null, postPct: null,
+      session: 'closed', sessionLabel: 'Last Close',
       closes: Array.from({length:50}, (_,i) => base * (0.9 + pseudo(i+20) * 0.2)),
       sym, simulated: true
     };
@@ -2265,9 +2376,9 @@ function renderStockModal(sym, d) {
   const fmtP = v => v != null ? '$'+Number(v).toFixed(2) : '—';
 
   let html = '';
+  const badgeCls = sessionBadgeClass(d.session || 'closed');
 
-  // Pre-market
-  if (d.pmPrice) {
+  if (d.pmPrice && d.session !== 'premarket') {
     const pmPos = d.pmChange >= 0;
     html += `<div class="sd-premarket">
       <div><div class="pm-label">Pre-Market</div><div style="font-size:10px;color:var(--text3)">Before open</div></div>
@@ -2278,12 +2389,23 @@ function renderStockModal(sym, d) {
     </div>`;
   }
 
-  // Price header
+  if (d.postPrice && d.session !== 'postmarket') {
+    const postPos = d.postChange >= 0;
+    html += `<div class="sd-postmarket">
+      <div><div class="pm-label">After-Hours</div><div style="font-size:10px;color:var(--text3)">Extended session</div></div>
+      <div style="text-align:right">
+        <div class="pm-price">${fmtP(d.postPrice)}</div>
+        <div class="${postPos?'sd-change-pos':'sd-change-neg'}">${postPos?'+':''}${d.postChange.toFixed(2)} (${postPos?'+':''}${d.postPct.toFixed(2)}%)</div>
+      </div>
+    </div>`;
+  }
+
   html += `<div class="sd-full" style="margin-bottom:8px">
     <div style="display:flex;justify-content:space-between;align-items:center">
       <div>
-        <div style="font-size:10px;color:var(--text3);text-transform:uppercase;letter-spacing:0.8px;margin-bottom:2px">Last Close</div>
+        <div class="sd-session-badge ${badgeCls}">${d.sessionLabel || 'Last Close'}</div>
         <div style="font-family:var(--font-mono);font-size:28px;font-weight:500">${fmtP(d.current)}</div>
+        ${d.regularPrice && d.session !== 'closed' && d.regularPrice !== d.current ? `<div style="font-size:10px;color:var(--text3);margin-top:2px">Regular: ${fmtP(d.regularPrice)}</div>` : ''}
       </div>
       <div style="text-align:right">
         <div class="${isPos?'sd-change-pos':'sd-change-neg'}" style="font-size:18px">${isPos?'+':''}${d.change.toFixed(2)}</div>
@@ -2669,12 +2791,16 @@ function fetchWithTimeout(url, ms) {
 }
 
 async function fetchLivePrice(sym) {
+  sym = normalizeQuoteSymbol(sym);
   try {
     const json = await fetchYahooChart(sym, '1m', '1d');
     const result = json && json.chart && json.chart.result && json.chart.result[0];
     if (!result) throw new Error('no result');
     const meta = result.meta;
-    const price = parseFloat(meta.regularMarketPrice || meta.previousClose);
+    const session = parseMarketSession(meta);
+    let price = parseFloat(meta.regularMarketPrice || meta.previousClose);
+    if (session === 'premarket' && meta.preMarketPrice) price = parseFloat(meta.preMarketPrice);
+    else if (session === 'postmarket' && meta.postMarketPrice) price = parseFloat(meta.postMarketPrice);
     const prev  = parseFloat(meta.previousClose || price);
     if (!price || isNaN(price)) throw new Error('bad price');
     const change    = price - prev;
@@ -3963,20 +4089,19 @@ function updateFGDisplay(value) {
 
 async function fetchFearGreed() {
   try {
-    // Try to fetch from CNN Fear & Greed via a CORS proxy
-    const res = await fetchWithTimeout('https://production.dataviz.cnn.io/index/fearandgreed/graphdata', 4000);
+    const base = (typeof RunnrSync !== 'undefined' ? RunnrSync.apiBase() : 'https://api.runnr.fyi');
+    const res = await fetchWithTimeout(base + '/api/v1/quotes/fear-greed', 6000);
     if (res.ok) {
       const data = await res.json();
-      const value = Math.round(data.fear_and_greed?.score || 72);
+      const value = Math.round(data.score || 50);
       updateFGDisplay(value);
       return;
     }
   } catch(e) {}
 
-  // Fallback: realistic simulated value based on time seed
-  const seed = Math.floor(Date.now() / (1000 * 60 * 60 * 24)); // changes daily
+  const seed = Math.floor(Date.now() / (1000 * 60 * 60 * 24));
   const pseudo = ((seed * 9301 + 49297) % 233280) / 233280;
-  const fallback = Math.round(35 + pseudo * 50); // range 35–85
+  const fallback = Math.round(35 + pseudo * 50);
   updateFGDisplay(fallback);
 }
 

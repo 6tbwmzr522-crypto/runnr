@@ -96,8 +96,8 @@ const RunnrGrowth = {
       `;
     } else if (this.step === 2) {
       body.innerHTML = `
-        <div class="ob-hero"><h2>Your trade</h2><p>Paste your worst recent trade — wins or losses.</p></div>
-        <div class="field"><label>Symbol</label><input id="ob-instr" placeholder="NVDA, EURUSD..." value="${this.draft.instr || ""}"></div>
+        <div class="ob-hero"><h2>Your trade</h2><p>Paste your worst recent trade — or compare up to 4 tickers with the same size.</p></div>
+        <div class="field"><label>Symbol(s)</label><input id="ob-instr" placeholder="NVDA, AAPL, BTC — up to 4" value="${this.draft.instr || ""}"></div>
         <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
           <div class="field"><label>Entry</label><input id="ob-entry" type="number" placeholder="0.00" value="${this.draft.entry || ""}"></div>
           <div class="field"><label>Exit</label><input id="ob-exit" type="number" placeholder="0.00" value="${this.draft.exit || ""}"></div>
@@ -112,6 +112,45 @@ const RunnrGrowth = {
         <button class="btn" onclick="RunnrGrowth.analyseStep(S)">Show me the cost</button>
       `;
     } else if (this.step === 3) {
+      const multi = this.draft.multiAnalysis;
+      if (multi && multi.length > 1) {
+        const rows = multi.map(a => {
+          const cost = a.oversizeCost > 0 ? state.sym + Math.round(a.oversizeCost).toLocaleString() : "✓";
+          const costColor = a.oversizeCost > 0 ? "var(--red)" : "var(--accent)";
+          return `<tr>
+            <td style="font-weight:700">${a.instr}</td>
+            <td>${a.actualShares} → <strong>${a.properShares}</strong></td>
+            <td style="color:${costColor}">${cost}</td>
+          </tr>`;
+        }).join("");
+        const worst = multi.reduce((a, b) => (b.oversizeCost > a.oversizeCost ? b : a), multi[0]);
+        body.innerHTML = `
+          <div class="ob-hero"><h2>Compare tickers</h2><p>Same entry/exit/size — rules cap each symbol differently.</p></div>
+          <div class="ob-compare" style="display:block;overflow-x:auto">
+            <table style="width:100%;font-size:12px;border-collapse:collapse">
+              <thead><tr style="color:var(--text3);text-align:left">
+                <th style="padding:6px 4px">Symbol</th>
+                <th style="padding:6px 4px">You → Rules</th>
+                <th style="padding:6px 4px">Discipline cost</th>
+              </tr></thead>
+              <tbody>${rows}</tbody>
+            </table>
+          </div>
+          <p class="ob-insight" style="margin-top:12px">Worst oversize: <strong>${worst.instr}</strong> — ${worst.headline}</p>
+          <div class="card-sm" style="margin:12px 0">
+            <div style="font-size:12px;color:var(--text2);margin-bottom:8px">Were your discipline flags correct?</div>
+            <div style="display:flex;gap:8px;flex-wrap:wrap">
+              <button class="btn btn-sm btn-ghost" id="ob-stop-y" onclick="RunnrGrowth.setObFlag('stop',true)">Stop confirmed ✓</button>
+              <button class="btn btn-sm btn-ghost" id="ob-stop-n" onclick="RunnrGrowth.setObFlag('stop',false)">No stop ✗</button>
+            </div>
+          </div>
+          <button class="btn" onclick="RunnrGrowth.finish(S)">Save &amp; start my journal</button>
+          <div class="ob-paywall">Unlock weekly Coach, alerts &amp; full journal — <strong>€19/mo on Whop</strong></div>
+        `;
+        this.draft.stopOk = worst.suggestedStopOk;
+        this.draft.sizeOk = worst.suggestedSizeOk;
+        return;
+      }
       const a = this.draft.analysis;
       if (!a || !a.ok) {
         body.innerHTML = `<p>Could not analyse trade.</p><button class="btn" onclick="RunnrGrowth.step=2;RunnrGrowth.renderStep(S)">Back</button>`;
@@ -165,17 +204,46 @@ const RunnrGrowth = {
     this.renderStep(state);
   },
 
+  parseSymbols(raw) {
+    return [...new Set(String(raw || "").split(/[,\s;/]+/).map(s => s.trim().toUpperCase()).filter(Boolean))].slice(0, 4);
+  },
+
   analyseStep(state) {
-    this.draft.instr = document.getElementById("ob-instr")?.value.trim();
+    const raw = document.getElementById("ob-instr")?.value.trim() || "";
+    const symbols = this.parseSymbols(raw);
+    if (!symbols.length) {
+      alert("Enter at least one symbol (e.g. NVDA or NVDA, AAPL, BTC).");
+      return;
+    }
+    this.draft.instr = symbols.join(", ");
+    this.draft.symbols = symbols;
     this.draft.entry = parseFloat(document.getElementById("ob-entry")?.value);
     this.draft.exit = parseFloat(document.getElementById("ob-exit")?.value);
     this.draft.size = parseFloat(document.getElementById("ob-size")?.value);
     this.draft.stop = parseFloat(document.getElementById("ob-stop")?.value);
     this.draft.dir = document.getElementById("ob-dir")?.value || "long";
-    this.draft.analysis = CoachEngine.analyzeTrade(this.draft, state.bal, this.draft.risk || state.risk, state.sym);
-    if (!this.draft.analysis.ok) {
-      alert(this.draft.analysis.error || "Check your numbers.");
-      return;
+    const risk = this.draft.risk || state.risk;
+    const bal = state.bal;
+
+    if (symbols.length > 1) {
+      this.draft.multiAnalysis = symbols.map(sym => CoachEngine.analyzeTrade(
+        { ...this.draft, instr: sym },
+        bal,
+        risk,
+        state.sym
+      )).filter(a => a.ok);
+      if (!this.draft.multiAnalysis.length) {
+        alert("Check your numbers — could not analyse any symbol.");
+        return;
+      }
+      this.draft.analysis = null;
+    } else {
+      this.draft.analysis = CoachEngine.analyzeTrade({ ...this.draft, instr: symbols[0] }, bal, risk, state.sym);
+      this.draft.multiAnalysis = null;
+      if (!this.draft.analysis.ok) {
+        alert(this.draft.analysis.error || "Check your numbers.");
+        return;
+      }
     }
     this.step = 3;
     this.renderStep(state);
@@ -188,22 +256,26 @@ const RunnrGrowth = {
 
   finish(state) {
     const d = this.draft;
+    const symbols = d.symbols && d.symbols.length > 1 ? d.symbols : [d.instr || (d.symbols && d.symbols[0]) || "—"];
     const sign = d.dir === "long" ? 1 : -1;
-    const pnl = Math.round((d.exit - d.entry) * sign * (d.size || 1));
-    state.trades.unshift({
-      id: Date.now(),
-      instr: d.instr,
-      dir: d.dir,
-      entry: d.entry,
-      exit: d.exit,
-      size: d.size || 1,
-      pnl,
-      stopOk: d.stopOk !== false,
-      sizeOk: d.sizeOk !== false,
-      type: "shares",
-      date: new Date().toLocaleDateString("en-GB", { month: "short", day: "numeric" }),
-      incomplete: false,
-      fromOnboarding: true,
+    const dateStr = new Date().toLocaleDateString("en-GB", { month: "short", day: "numeric" });
+    symbols.forEach((instr, i) => {
+      const pnl = Math.round((d.exit - d.entry) * sign * (d.size || 1));
+      state.trades.unshift({
+        id: Date.now() + i,
+        instr,
+        dir: d.dir,
+        entry: d.entry,
+        exit: d.exit,
+        size: d.size || 1,
+        pnl,
+        stopOk: d.stopOk !== false,
+        sizeOk: d.sizeOk !== false,
+        type: "shares",
+        date: dateStr,
+        incomplete: false,
+        fromOnboarding: true,
+      });
     });
     this.completeOnboarding(state);
     persist();
@@ -263,8 +335,18 @@ const RunnrGrowth = {
   async shareDisciplineCard(state) {
     const canvas = document.getElementById("share-canvas");
     if (!canvas) return;
+    try { await document.fonts?.ready; } catch (e) {}
     this.drawShareCard(state, canvas);
+    await new Promise((r) => requestAnimationFrame(() => requestAnimationFrame(r)));
     const blob = await new Promise((r) => canvas.toBlob(r, "image/png"));
+    if (!blob) {
+      const dataUrl = canvas.toDataURL("image/png");
+      const a = document.createElement("a");
+      a.href = dataUrl;
+      a.download = "runnr-discipline.png";
+      a.click();
+      return;
+    }
     const file = new File([blob], "runnr-discipline.png", { type: "image/png" });
     if (navigator.share && navigator.canShare?.({ files: [file] })) {
       try {
@@ -276,14 +358,17 @@ const RunnrGrowth = {
     a.href = URL.createObjectURL(blob);
     a.download = "runnr-discipline.png";
     a.click();
+    URL.revokeObjectURL(a.href);
   },
 
   openShareModal(state) {
     const h = document.getElementById("share-handle");
     if (h) h.value = state.profileHandle || "";
-    const canvas = document.getElementById("share-canvas");
-    if (canvas) this.drawShareCard(state, canvas);
     openModal("modal-share");
+    setTimeout(() => {
+      const canvas = document.getElementById("share-canvas");
+      if (canvas) this.drawShareCard(state, canvas);
+    }, 80);
   },
 
   // ── Weekly Coach digest ──
