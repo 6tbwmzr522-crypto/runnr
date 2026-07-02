@@ -264,8 +264,9 @@ const RunnrSync = (() => {
       const qty = o.filled_qty || o.qty || 1;
       const sym = o.symbol || "?";
       if (isOptionSymbol(sym)) return;
-      const date = d
-        ? new Date(d).toLocaleDateString("en-GB", { month: "short", day: "numeric" })
+      const filledAt = o.filled_at || o.submitted_at;
+      const date = filledAt
+        ? new Date(filledAt).toLocaleDateString("en-GB", { month: "short", day: "numeric" })
         : new Date().toLocaleDateString("en-GB", { month: "short", day: "numeric" });
 
       window.S.trades.unshift({
