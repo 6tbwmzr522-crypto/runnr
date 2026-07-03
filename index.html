@@ -3059,7 +3059,9 @@ function loadPortfolio(period, tabEl) {
   const winRate     = completed.length ? (wins.length / completed.length * 100) : 0;
   const avgWin      = wins.length ? wins.reduce((s,t) => s+t.pnl,0) / wins.length : 0;
   const avgLoss     = losses.length ? Math.abs(losses.reduce((s,t) => s+t.pnl,0) / losses.length) : 0;
-  const profitFactor= avgLoss > 0 ? (avgWin * wins.length) / (avgLoss * losses.length) : 0;
+  const winPnL      = wins.reduce((s,t) => s + t.pnl, 0);
+  const lossPnL     = Math.abs(losses.reduce((s,t) => s + t.pnl, 0));
+  const profitFactor= lossPnL > 0 ? winPnL / lossPnL : wins.length ? 999 : 0;
   const avgRR       = avgLoss > 0 ? avgWin / avgLoss : 0;
   const stopDisc    = discTrades.filter(t=>t.stopOk).length / Math.max(discTrades.length,1) * 100;
   const sizeDisc    = discTrades.filter(t=>t.sizeOk).length / Math.max(discTrades.length,1) * 100;
