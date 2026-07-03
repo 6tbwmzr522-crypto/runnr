@@ -1169,7 +1169,7 @@ body.light #equity-canvas{filter:invert(0)}
       <div class="port-kpis">
         <div class="kpi">
           <div class="k-val" id="kpi-trades">18</div>
-          <div class="k-lbl">Trades</div>
+          <div class="k-lbl" id="kpi-trades-lbl">Trades</div>
         </div>
         <div class="kpi">
           <div class="k-val" id="kpi-wr" style="color:var(--accent)">58%</div>
@@ -3199,53 +3199,71 @@ const INSTR_COLORS = [
   '#a78bfa','#34d399','#fb923c','#60a5fa','#f472b6'
 ];
 
-function filterTrades(period) {
-  const trades = S.trades.filter(t => !t.incomplete && !t.disciplineOnly && t.exit);
+function filterByPeriod(trades, period) {
   if (period === 'all') return trades;
   const now = new Date();
+  const months = {Jan:0,Feb:1,Mar:2,Apr:3,May:4,Jun:5,Jul:6,Aug:7,Sep:8,Oct:9,Nov:10,Dec:11};
   return trades.filter(t => {
-    const months = {Jan:0,Feb:1,Mar:2,Apr:3,May:4,Jun:5,Jul:6,Aug:7,Sep:8,Oct:9,Nov:10,Dec:11};
     const parts = (t.date || '').split(' ');
     if (parts.length < 2) return true;
-    const d = new Date(now.getFullYear(), months[parts[0]] || 0, parseInt(parts[1]));
+    const d = new Date(now.getFullYear(), months[parts[0]] || 0, parseInt(parts[1], 10));
     const diff = (now - d) / (1000 * 60 * 60 * 24);
     if (period === '1m') return diff <= 30;
     if (period === '3m') return diff <= 90;
     if (period === 'ytd') return d.getFullYear() === now.getFullYear();
     return true;
   });
+}
+
+/** Realized P&L when stored value missing or zero but entry/exit exist. */
+function resolveTradePnl(t) {
+  if (t.disciplineOnly) return null;
+  const entry = parseFloat(t.entry ?? (t.dir === 'long' ? t.fillPrice : null));
+  const exit = parseFloat(t.exit ?? (t.dir === 'short' ? t.fillPrice : null));
+  const hasRoundTrip = entry > 0 && exit > 0 && entry !== exit;
+  const stored = t.pnl;
+  if (stored != null && stored !== '' && !Number.isNaN(Number(stored))) {
+    const n = Number(stored);
+    if (n !== 0 || !hasRoundTrip) return n;
+  }
+  if (!hasRoundTrip) return null;
+  const size = parseFloat(t.size) || 1;
+  const dir = t.dir || 'long';
+  const pair = window.Baron?.parseForexPair?.(t.instr);
+  if (pair && window.Baron?.tradePnl) {
+    return Math.round(Baron.tradePnl(pair, entry, exit, size, dir));
+  }
+  return Math.round((dir === 'long' ? exit - entry : entry - exit) * size);
+}
+
+function filterTrades(period) {
+  const trades = S.trades.filter(t => !t.incomplete && !t.disciplineOnly);
+  return filterByPeriod(trades.filter(t => resolveTradePnl(t) != null), period);
 }
 
 function filterDisciplineTrades(period) {
-  const trades = S.trades.filter(t => !t.incomplete);
-  if (period === 'all') return trades;
-  const now = new Date();
-  return trades.filter(t => {
-    const months = {Jan:0,Feb:1,Mar:2,Apr:3,May:4,Jun:5,Jul:6,Aug:7,Sep:8,Oct:9,Nov:10,Dec:11};
-    const parts = (t.date || '').split(' ');
-    if (parts.length < 2) return true;
-    const d = new Date(now.getFullYear(), months[parts[0]] || 0, parseInt(parts[1]));
-    const diff = (now - d) / (1000 * 60 * 60 * 24);
-    if (period === '1m') return diff <= 30;
-    if (period === '3m') return diff <= 90;
-    if (period === 'ytd') return d.getFullYear() === now.getFullYear();
-    return true;
-  });
+  return filterByPeriod(S.trades.filter(t => !t.incomplete), period);
+}
+
+function filterPendingTrades(period) {
+  return filterByPeriod(S.trades.filter(t => t.incomplete), period);
 }
 
 function loadPortfolio(period, tabEl) {
-  // Update active tab
   document.querySelectorAll('.period-tab').forEach(t => t.classList.remove('active'));
   if (tabEl) tabEl.classList.add('active');
 
   const trades = filterTrades(period);
   const discTrades = filterDisciplineTrades(period);
-  const completed = trades.filter(t => t.pnl != null);
+  const pendingTrades = filterPendingTrades(period);
+  const completed = trades.map(t => ({ ...t, pnl: resolveTradePnl(t) }));
+  const hasClosed = completed.length > 0;
+  const fmtKpi = (val, formatter) => hasClosed ? formatter(val) : '—';
 
   const totalPnl    = completed.reduce((s,t) => s + t.pnl, 0);
   const wins        = completed.filter(t => t.pnl > 0);
   const losses      = completed.filter(t => t.pnl <= 0);
-  const winRate     = completed.length ? (wins.length / completed.length * 100) : 0;
+  const winRate     = hasClosed ? (wins.length / completed.length * 100) : 0;
   const avgWin      = wins.length ? wins.reduce((s,t) => s+t.pnl,0) / wins.length : 0;
   const avgLoss     = losses.length ? Math.abs(losses.reduce((s,t) => s+t.pnl,0) / losses.length) : 0;
   const winPnL      = wins.reduce((s,t) => s + t.pnl, 0);
@@ -3255,7 +3273,6 @@ function loadPortfolio(period, tabEl) {
   const stopDisc    = discTrades.filter(t=>t.stopOk).length / Math.max(discTrades.length,1) * 100;
   const sizeDisc    = discTrades.filter(t=>t.sizeOk).length / Math.max(discTrades.length,1) * 100;
 
-  // Max drawdown
   let peak = S.bal, dd = 0, runBal = S.bal;
   completed.forEach(t => {
     runBal += t.pnl;
@@ -3265,47 +3282,61 @@ function loadPortfolio(period, tabEl) {
   });
 
   const curBal = S.bal + totalPnl;
-  const pnlPct = completed.length ? (totalPnl / S.bal * 100) : 0;
+  const pnlPct = hasClosed ? (totalPnl / S.bal * 100) : 0;
+  const sym = S.sym;
+  const fmt = v => sym + Math.round(v).toLocaleString();
 
-  // Hero
   const pnlEl = document.getElementById('port-total-pnl');
-  if (!completed.length && discTrades.length) {
+  const pnlPctEl = document.getElementById('port-pnl-pct');
+  if (!hasClosed) {
     pnlEl.textContent = '—';
     pnlEl.style.color = 'var(--text2)';
-    const pnlPctEl = document.getElementById('port-pnl-pct');
-    pnlPctEl.textContent = discTrades.length + ' Baron fills · discipline only (no fake P&L)';
-    pnlPctEl.style.color = 'var(--accent)';
-    document.getElementById('port-start-bal').textContent = S.sym + S.bal.toLocaleString();
-    document.getElementById('port-cur-bal').textContent = S.sym + S.bal.toLocaleString();
-    document.getElementById('port-cur-bal').style.color = 'var(--accent)';
+    if (discTrades.length) {
+      pnlPctEl.textContent = discTrades.length + ' logged · ' + completed.length + ' closed with P&L';
+      if (pendingTrades.length) pnlPctEl.textContent += ' · ' + pendingTrades.length + ' need Journal review';
+    } else if (pendingTrades.length) {
+      pnlPctEl.textContent = pendingTrades.length + ' synced fills — confirm stops in Journal to unlock stats';
+    } else {
+      pnlPctEl.textContent = 'Log exits in Journal to see P&L stats';
+    }
+    pnlPctEl.style.color = 'var(--text2)';
+    document.getElementById('port-start-bal').textContent = sym + S.bal.toLocaleString();
+    document.getElementById('port-cur-bal').textContent = sym + S.bal.toLocaleString();
+    document.getElementById('port-cur-bal').style.color = 'var(--text2)';
   } else {
-  pnlEl.textContent = (totalPnl >= 0 ? '+' : '') + S.sym + Math.round(Math.abs(totalPnl)).toLocaleString();
-  pnlEl.style.color = totalPnl >= 0 ? 'var(--text)' : 'var(--red)';
-  const pnlPctEl = document.getElementById('port-pnl-pct');
-  pnlPctEl.textContent = (pnlPct >= 0 ? '+' : '') + pnlPct.toFixed(1) + '%';
-  pnlPctEl.style.color = pnlPct >= 0 ? 'var(--accent)' : 'var(--red)';
-  document.getElementById('port-start-bal').textContent = S.sym + S.bal.toLocaleString();
-  document.getElementById('port-cur-bal').textContent = S.sym + Math.round(curBal).toLocaleString();
-  document.getElementById('port-cur-bal').style.color = totalPnl >= 0 ? 'var(--accent)' : 'var(--red)';
+    pnlEl.textContent = (totalPnl >= 0 ? '+' : '') + sym + Math.round(Math.abs(totalPnl)).toLocaleString();
+    pnlEl.style.color = totalPnl >= 0 ? 'var(--text)' : 'var(--red)';
+    pnlPctEl.textContent = (pnlPct >= 0 ? '+' : '') + pnlPct.toFixed(1) + '% on ' + sym + S.bal.toLocaleString() + ' base';
+    pnlPctEl.style.color = pnlPct >= 0 ? 'var(--accent)' : 'var(--red)';
+    document.getElementById('port-start-bal').textContent = sym + S.bal.toLocaleString();
+    document.getElementById('port-cur-bal').textContent = sym + Math.round(curBal).toLocaleString();
+    document.getElementById('port-cur-bal').style.color = totalPnl >= 0 ? 'var(--accent)' : 'var(--red)';
   }
-  document.getElementById('port-open').textContent = S.trades.filter(t=>!t.exit).length;
+  document.getElementById('port-open').textContent = S.trades.filter(t => !t.exit && !t.incomplete).length + pendingTrades.length;
 
-  // KPIs
-  const fmt = v => S.sym + Math.round(v).toLocaleString();
-  document.getElementById('kpi-trades').textContent = completed.length || discTrades.length;
-  document.getElementById('kpi-wr').textContent = winRate.toFixed(0) + '%';
-  document.getElementById('kpi-wr').style.color = winRate >= 50 ? 'var(--accent)' : 'var(--red)';
-  document.getElementById('kpi-pf').textContent = profitFactor.toFixed(2);
-  document.getElementById('kpi-pf').style.color = profitFactor >= 1 ? 'var(--accent)' : 'var(--red)';
-  document.getElementById('kpi-avgwin').textContent = fmt(avgWin);
-  document.getElementById('kpi-avgloss').textContent = fmt(avgLoss);
-  document.getElementById('kpi-rr').textContent = avgRR.toFixed(1);
-  document.getElementById('kpi-stop').textContent = stopDisc.toFixed(0) + '%';
+  const totalLogged = discTrades.length + pendingTrades.length;
+  document.getElementById('kpi-trades').textContent = totalLogged || completed.length;
+  const tradesLbl = document.getElementById('kpi-trades-lbl');
+  if (tradesLbl) {
+    tradesLbl.textContent = hasClosed
+      ? completed.length + ' closed'
+      : totalLogged
+        ? completed.length + ' closed · ' + Math.max(0, totalLogged - completed.length) + ' open'
+        : 'Trades';
+  }
+  document.getElementById('kpi-wr').textContent = fmtKpi(winRate, v => v.toFixed(0) + '%');
+  document.getElementById('kpi-wr').style.color = !hasClosed ? 'var(--text3)' : winRate >= 50 ? 'var(--accent)' : 'var(--red)';
+  document.getElementById('kpi-pf').textContent = fmtKpi(profitFactor, v => v >= 999 ? '999+' : v.toFixed(2));
+  document.getElementById('kpi-pf').style.color = !hasClosed ? 'var(--text3)' : profitFactor >= 1 ? 'var(--accent)' : 'var(--red)';
+  document.getElementById('kpi-avgwin').textContent = fmtKpi(avgWin, fmt);
+  document.getElementById('kpi-avgloss').textContent = fmtKpi(avgLoss, fmt);
+  document.getElementById('kpi-rr').textContent = fmtKpi(avgRR, v => v.toFixed(1));
+  document.getElementById('kpi-stop').textContent = discTrades.length ? stopDisc.toFixed(0) + '%' : '—';
   document.getElementById('kpi-stop').style.color = stopDisc >= 80 ? 'var(--accent)' : stopDisc >= 60 ? 'var(--amber)' : 'var(--red)';
-  document.getElementById('kpi-size').textContent = sizeDisc.toFixed(0) + '%';
+  document.getElementById('kpi-size').textContent = discTrades.length ? sizeDisc.toFixed(0) + '%' : '—';
   document.getElementById('kpi-size').style.color = sizeDisc >= 80 ? 'var(--accent)' : sizeDisc >= 60 ? 'var(--amber)' : 'var(--red)';
-  document.getElementById('kpi-dd').textContent = '-' + dd.toFixed(1) + '%';
-  document.getElementById('kpi-dd').style.color = dd > 10 ? 'var(--red)' : dd > 5 ? 'var(--amber)' : 'var(--text3)';
+  document.getElementById('kpi-dd').textContent = fmtKpi(dd, v => '-' + v.toFixed(1) + '%');
+  document.getElementById('kpi-dd').style.color = !hasClosed ? 'var(--text3)' : dd > 10 ? 'var(--red)' : dd > 5 ? 'var(--amber)' : 'var(--text3)';
 
   // Equity curve
   requestAnimationFrame(() => drawPortEquity(completed));
@@ -3315,14 +3346,20 @@ function loadPortfolio(period, tabEl) {
   const discPnl  = completed.filter(t=>t.stopOk&&t.sizeOk).reduce((s,t)=>s+t.pnl,0);
   const undiscPnl= completed.filter(t=>!t.stopOk||!t.sizeOk).reduce((s,t)=>s+t.pnl,0);
   document.getElementById('donut-disc-pct').textContent = discPct.toFixed(0) + '%';
-  document.getElementById('disc-pnl-good').textContent = (discPnl>=0?'+':'')+S.sym+Math.round(Math.abs(discPnl)).toLocaleString();
-  document.getElementById('disc-pnl-good').style.color = discPnl>=0?'var(--accent)':'var(--red)';
-  document.getElementById('disc-pnl-bad').textContent  = (undiscPnl>=0?'+':'')+S.sym+Math.round(Math.abs(undiscPnl)).toLocaleString();
-  document.getElementById('disc-pnl-bad').style.color  = undiscPnl>=0?'var(--accent)':'var(--red)';
+  document.getElementById('disc-pnl-good').textContent = hasClosed
+    ? (discPnl>=0?'+':'')+sym+Math.round(Math.abs(discPnl)).toLocaleString()
+    : '—';
+  document.getElementById('disc-pnl-good').style.color = hasClosed && discPnl>=0?'var(--accent)':'var(--text3)';
+  document.getElementById('disc-pnl-bad').textContent = hasClosed
+    ? (undiscPnl>=0?'+':'')+sym+Math.round(Math.abs(undiscPnl)).toLocaleString()
+    : '—';
+  document.getElementById('disc-pnl-bad').style.color = hasClosed && undiscPnl>=0?'var(--accent)':'var(--text3)';
   document.getElementById('disc-insight-text').textContent =
-    discPct >= 80
-      ? `${discPct.toFixed(0)}% of your trades followed all sizing and stop rules. Your disciplined trades generated ${(discPnl>=0?'+':'')+S.sym+Math.round(Math.abs(discPnl)).toLocaleString()}.`
-      : `Only ${discPct.toFixed(0)}% of trades were fully disciplined. Undisciplined trades cost you ${S.sym+Math.round(Math.abs(undiscPnl)).toLocaleString()} in lost edge.`;
+    !hasClosed && discTrades.length
+      ? `${discTrades.length} trades logged — stop discipline ${stopDisc.toFixed(0)}%, size discipline ${sizeDisc.toFixed(0)}%. Add exits in Journal to unlock P&L stats.`
+      : discPct >= 80
+      ? `${discPct.toFixed(0)}% of your trades followed all sizing and stop rules. Your disciplined trades generated ${(discPnl>=0?'+':'')+sym+Math.round(Math.abs(discPnl)).toLocaleString()}.`
+      : `Only ${discPct.toFixed(0)}% of trades were fully disciplined. Undisciplined trades cost you ${sym+Math.round(Math.abs(undiscPnl)).toLocaleString()} in lost edge.`;
   const stopDiscPct = discTrades.length ? discTrades.filter(t=>t.stopOk).length/discTrades.length*100 : 0;
   const sizeDiscPct = discTrades.length ? discTrades.filter(t=>t.sizeOk).length/discTrades.length*100 : 0;
   const discCount   = discTrades.filter(t=>t.stopOk&&t.sizeOk).length;
@@ -3354,11 +3391,18 @@ function loadPortfolio(period, tabEl) {
     const worst = completed.reduce((a,b) => b.pnl < a.pnl ? b : a);
     document.getElementById('best-sym').textContent  = best.instr;
     document.getElementById('best-date').textContent = best.date;
-    document.getElementById('best-pnl').textContent  = '+' + S.sym + Math.abs(best.pnl).toLocaleString();
+    document.getElementById('best-pnl').textContent  = '+' + sym + Math.abs(best.pnl).toLocaleString();
     document.getElementById('worst-sym').textContent  = worst.instr;
     document.getElementById('worst-date').textContent = worst.date;
-    document.getElementById('worst-pnl').textContent  = (worst.pnl<0?'-':'') + S.sym + Math.abs(worst.pnl).toLocaleString();
+    document.getElementById('worst-pnl').textContent  = (worst.pnl<0?'-':'') + sym + Math.abs(worst.pnl).toLocaleString();
     document.getElementById('worst-pnl').style.color  = worst.pnl < 0 ? 'var(--red)' : 'var(--accent)';
+  } else {
+    ['best-sym','best-date','worst-sym','worst-date'].forEach(id => {
+      const el = document.getElementById(id);
+      if (el) el.textContent = '—';
+    });
+    document.getElementById('best-pnl').textContent = '—';
+    document.getElementById('worst-pnl').textContent = '—';
   }
 
   // Instrument breakdown
@@ -3398,11 +3442,11 @@ function loadPortfolio(period, tabEl) {
   const shortT = completed.filter(t=>t.dir==='short');
   const longPnl  = longT.reduce((s,t)=>s+t.pnl,0);
   const shortPnl = shortT.reduce((s,t)=>s+t.pnl,0);
-  document.getElementById('pnl-long').textContent  = (longPnl>=0?'+':'')+S.sym+Math.round(Math.abs(longPnl)).toLocaleString();
-  document.getElementById('pnl-long').style.color  = longPnl>=0?'var(--accent)':'var(--red)';
+  document.getElementById('pnl-long').textContent  = longT.length ? (longPnl>=0?'+':'')+sym+Math.round(Math.abs(longPnl)).toLocaleString() : '—';
+  document.getElementById('pnl-long').style.color  = longT.length && longPnl>=0?'var(--accent)':'var(--text3)';
   document.getElementById('count-long').textContent  = longT.length + ' trade' + (longT.length!==1?'s':'');
-  document.getElementById('pnl-short').textContent = (shortPnl>=0?'+':'')+S.sym+Math.round(Math.abs(shortPnl)).toLocaleString();
-  document.getElementById('pnl-short').style.color = shortPnl>=0?'var(--accent)':'var(--red)';
+  document.getElementById('pnl-short').textContent = shortT.length ? (shortPnl>=0?'+':'')+sym+Math.round(Math.abs(shortPnl)).toLocaleString() : '—';
+  document.getElementById('pnl-short').style.color = shortT.length && shortPnl>=0?'var(--accent)':'var(--text3)';
   document.getElementById('count-short').textContent = shortT.length + ' trade' + (shortT.length!==1?'s':'');
 
   // Calendar heatmap
