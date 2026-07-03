@@ -1525,8 +1525,8 @@ body.light #equity-canvas{filter:invert(0)}
   </div>
 </div>
 
-<script src="js/baron.js?v=22"></script>
-<script src="js/coach.js?v=21"></script>
+<script src="js/baron.js?v=23"></script>
+<script src="js/coach.js?v=22"></script>
 <script src="js/onboarding.js?v=20"></script>
 <script src="js/sync.js?v=20"></script>
 <script>
@@ -1557,6 +1557,21 @@ try {
   const saved = localStorage.getItem('runnr_state');
   if (saved) { const p = JSON.parse(saved); Object.assign(S, p); }
 } catch(e) {}
+
+function normalizeTradePnls() {
+  if (!window.Baron?.resolveTradePnl) return;
+  let changed = false;
+  S.trades.forEach(t => {
+    if (t.disciplineOnly || Baron.isOpenTrade(t)) return;
+    const resolved = Baron.resolveTradePnl(t);
+    if (resolved != null && t.pnl !== resolved) {
+      t.pnl = resolved;
+      changed = true;
+    }
+  });
+  if (changed) persist();
+}
+normalizeTradePnls();
 
 window.S = S;
 
@@ -1593,6 +1608,13 @@ function persist() {
 // ── NAVIGATION ─────────────────────────────────────────────────────────────
 const pageMap = { home:'page-home', sizer:'page-sizer', journal:'page-journal', coach:'page-coach', portfolio:'page-portfolio', watchlist:'page-watchlist', sync:'page-sync', crypto:'page-crypto' };
 const navIdx  = { home:0, sizer:1, watchlist:2, journal:3, coach:4, portfolio:5 };
+let portPeriod = 'all';
+
+function refreshPortfolioIfVisible() {
+  if (document.getElementById('page-portfolio')?.classList.contains('active')) {
+    loadPortfolio(portPeriod, document.querySelector('.period-tab.active'));
+  }
+}
 
 function switchPage(key) {
   document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
@@ -2023,36 +2045,49 @@ function renderJournal() {
   }
   list.innerHTML = S.trades.map(t => {
     const isAlpaca = t.source === 'alpaca';
-    const fill = Number(t.fillPrice || t.entry || t.exit || 0);
-    const pnlCls = t.pnl >= 0 ? 'pos' : 'neg';
-    const pnlStr = t.disciplineOnly
-      ? '<span style="color:var(--accent);font-size:11px">discipline ✓</span>'
-      : t.incomplete && isAlpaca
-      ? (fill > 0 ? 'tap to review' : 'sync for price')
-      : (t.pnl >= 0 ? '+' : '') + S.sym + Math.abs(t.pnl || 0).toLocaleString();
+    const pnlStr = formatTradePnl(t, isAlpaca);
+    const pnlCls = Baron.isOpenTrade?.(t) ? '' : (resolveTradePnl(t) >= 0 ? 'pos' : 'neg');
     const stopFlag = t.incomplete ? '<span class="flag flag-incomplete">Stop ?</span>' :
       (t.stopOk ? '<span class="flag flag-ok">✓ Stop</span>' : '<span class="flag flag-no">✗ Stop</span>');
     const sizeFlag = t.incomplete ? '<span class="flag flag-incomplete">Size ?</span>' :
       (t.sizeOk ? '<span class="flag flag-ok">✓ Size</span>' : '<span class="flag flag-no">✗ Size</span>');
+    const fill = Number(t.fillPrice || t.entry || t.exit || 0);
     const priceLabel = fill > 0 ? `$${fill.toFixed(2)}` : 'price pending';
     const metaLine = isAlpaca
       ? `<span>${t.date}</span><span>${t.dir === 'long' ? 'BUY' : 'SELL'} ${t.size} @ ${priceLabel}</span><span>Alpaca</span>`
-      : `<span>${t.date}</span><span>${t.entry} → ${t.exit ?? '—'}</span><span>${t.size} units</span>`;
-    return `<div class="trade-entry" onclick="reviewTrade(${t.id})">
+      : `<span>${t.date}</span><span>${t.entry} → ${t.exit ?? 'open'}</span><span>${t.size} units</span>`;
+    const editable = !t.disciplineOnly;
+    return `<div class="trade-entry" ${editable ? `onclick="openTradeEditor(${t.id})"` : ''} style="${editable ? '' : 'cursor:default'}">
       <div class="te-top">
         <div style="display:flex;align-items:center;gap:6px">
           <span class="te-sym" onclick="event.stopPropagation();openStockDetail('${quoteSymbolFromInstr(t.instr).replace(/'/g, "\\'")}')" title="Live price">${t.instr.length > 12 ? t.instr.slice(0, 10) + '…' : t.instr}</span>
           <span style="font-size:11px;color:var(--text3)">${t.dir.toUpperCase()}</span>
         </div>
         <div style="display:flex;align-items:center;gap:8px">
-          <span class="te-pnl ${t.incomplete && isAlpaca ? '' : pnlCls}" style="${t.incomplete && isAlpaca ? 'color:var(--accent);font-size:12px' : ''}">${pnlStr}</span>
+          <span class="te-pnl ${pnlCls}" style="${t.incomplete && isAlpaca ? 'color:var(--accent);font-size:12px' : ''}">${pnlStr}</span>
           <button class="te-del" onclick="deleteTrade(${t.id}, event)" title="Delete entry">✕</button>
         </div>
       </div>
       <div class="te-meta">${metaLine}</div>
-      <div class="flags">${stopFlag}${sizeFlag}${t.incomplete?'<span class="flag flag-miss">Incomplete</span>':''}</div>
+      <div class="flags">${stopFlag}${sizeFlag}${t.incomplete?'<span class="flag flag-miss">Incomplete</span>':''}${Baron.isOpenTrade?.(t)?'<span class="flag" style="color:var(--amber)">Tap to close</span>':''}</div>
     </div>`;
   }).join('');
+}
+
+function formatTradePnl(t, isAlpaca) {
+  if (t.disciplineOnly) {
+    return '<span style="color:var(--accent);font-size:11px">discipline ✓</span>';
+  }
+  if (t.incomplete && isAlpaca) {
+    const fill = Number(t.fillPrice || t.entry || t.exit || 0);
+    return fill > 0 ? 'tap to review' : 'sync for price';
+  }
+  if (Baron.isOpenTrade?.(t)) {
+    return '<span style="color:var(--amber);font-size:12px">Open</span>';
+  }
+  const pnl = resolveTradePnl(t);
+  if (pnl == null) return '<span style="color:var(--text3);font-size:12px">—</span>';
+  return (pnl >= 0 ? '+' : '') + S.sym + Math.abs(pnl).toLocaleString();
 }
 
 function deleteTrade(id, e) {
@@ -2069,20 +2104,40 @@ function deleteTrade(id, e) {
   persist();
   renderJournal();
   updateHomeStats();
+  refreshPortfolioIfVisible();
   if (typeof renderCoachPage === 'function') renderCoachPage();
   if (window.RunnrGrowth) RunnrGrowth.renderDisciplineCard(S);
 }
 
-function reviewTrade(id) {
-  const t = S.trades.find(t => t.id === id);
-  if (!t || !t.incomplete) return;
+function openTradeEditor(id) {
+  const t = S.trades.find(x => x.id === id);
+  if (!t || t.disciplineOnly) return;
   S.editingTradeId = id;
-  openLogModal('cfd');
+  openLogModal(t.type || 'cfd');
+  S.flags = { stop: t.stopOk ? 'yes' : (t.incomplete ? null : 'no'), size: t.sizeOk ? 'yes' : (t.incomplete ? null : 'no') };
+  const title = document.querySelector('#modal-log .modal-title');
+  if (title) {
+    title.innerHTML = (Baron.isOpenTrade?.(t) ? 'Close Trade' : 'Edit Trade') +
+      ' <button class="modal-close" onclick="closeModal(\'modal-log\')">✕</button>';
+  }
   document.getElementById('log-instr').value = t.instr;
   document.getElementById('log-entry').value = t.entry || t.fillPrice || '';
-  document.getElementById('log-exit').value = t.exit || t.fillPrice || '';
+  document.getElementById('log-exit').value = t.exit ?? '';
   document.getElementById('log-size').value = t.size;
   document.getElementById('log-dir').value = t.dir || 'long';
+  ['stop-yes','stop-no','size-yes','size-no'].forEach(fid => {
+    const el = document.getElementById(fid);
+    if (!el) return;
+    el.style.background = '';
+    el.style.color = '';
+    el.style.borderColor = '';
+  });
+  if (S.flags.stop) setFlag('stop', S.flags.stop);
+  if (S.flags.size) setFlag('size', S.flags.size);
+}
+
+function reviewTrade(id) {
+  openTradeEditor(id);
 }
 
 function applyBaronRulesToAll(e) {
@@ -2167,30 +2222,34 @@ function getSizerDraft(type) {
 }
 
 function tradePnlFromDraft(draft) {
-  const { entry, exit, size, dir, pair } = draft;
-  if (!exit || !entry) return null;
-  if (pair && window.Baron?.tradePnl) {
-    return Math.round(Baron.tradePnl(pair, entry, exit, size || 1, dir));
+  if (!draft?.entry || draft.exit == null || draft.exit === '') return null;
+  const pair = draft.pair || window.Baron?.parseForexPair?.(draft.instr);
+  const size = draft.size || 1;
+  const dir = draft.dir || 'long';
+  if (window.Baron?.tradePnl) {
+    return Math.round(Baron.tradePnl(pair, draft.entry, draft.exit, size, dir));
   }
-  return Math.round((dir === 'long' ? exit - entry : entry - exit) * (size || 1));
+  return Math.round((dir === 'long' ? draft.exit - draft.entry : draft.entry - draft.exit) * size);
 }
 
 function commitLog(draft) {
   if (!draft?.instr || !draft?.entry) return false;
+  const pair = draft.pair || window.Baron?.parseForexPair?.(draft.instr);
   const patch = {
     instr: draft.instr,
     dir: draft.dir || 'long',
     entry: draft.entry,
-    exit: draft.exit || null,
+    exit: draft.exit ?? null,
     stop: draft.stop || null,
     target: draft.target || null,
     size: draft.size || 1,
-    pnl: tradePnlFromDraft(draft),
+    pnl: tradePnlFromDraft({ ...draft, pair }),
     stopOk: !!draft.stopOk,
     sizeOk: !!draft.sizeOk,
     incomplete: !!draft.incomplete,
     type: draft.type || 'cfd',
   };
+  if (pair) patch.pair = pair;
   if (draft.leverage) patch.leverage = draft.leverage;
   if (S.editingTradeId) {
     const t = S.trades.find(x => x.id === S.editingTradeId);
@@ -2206,6 +2265,7 @@ function commitLog(draft) {
   persist();
   renderJournal();
   updateHomeStats();
+  refreshPortfolioIfVisible();
   if (typeof renderCoachPage === 'function') renderCoachPage();
   return true;
 }
@@ -2263,8 +2323,10 @@ function setFlag(type, val) {
 }
 
 function saveLog() {
+  const instr = document.getElementById('log-instr').value.trim();
+  const pair = window.Baron?.parseForexPair?.(instr);
   const draft = {
-    instr: document.getElementById('log-instr').value,
+    instr,
     entry: parseFloat(document.getElementById('log-entry').value),
     exit: parseFloat(document.getElementById('log-exit').value) || null,
     size: parseFloat(document.getElementById('log-size').value),
@@ -2272,12 +2334,14 @@ function saveLog() {
     stopOk: S.flags.stop === 'yes',
     sizeOk: S.flags.size === 'yes',
     incomplete: !S.flags.stop || !S.flags.size,
-    type: 'cfd',
-    pair: window.Baron?.parseForexPair?.(document.getElementById('log-instr').value),
+    type: pair ? 'cfd' : 'shares',
+    pair,
   };
   if (!draft.instr || !draft.entry) return;
   if (!commitLog(draft)) return;
   closeModal('modal-log');
+  const title = document.querySelector('#modal-log .modal-title');
+  if (title) title.innerHTML = 'Log Trade <button class="modal-close" onclick="closeModal(\'modal-log\')">✕</button>';
 }
 
 // ── WATCHLIST ──────────────────────────────────────────────────────────────
@@ -3297,23 +3361,7 @@ function filterByPeriod(trades, period) {
 
 /** Realized P&L when stored value missing or zero but entry/exit exist. */
 function resolveTradePnl(t) {
-  if (t.disciplineOnly) return null;
-  const entry = parseFloat(t.entry ?? (t.dir === 'long' ? t.fillPrice : null));
-  const exit = parseFloat(t.exit ?? (t.dir === 'short' ? t.fillPrice : null));
-  const hasRoundTrip = entry > 0 && exit > 0 && entry !== exit;
-  const stored = t.pnl;
-  if (stored != null && stored !== '' && !Number.isNaN(Number(stored))) {
-    const n = Number(stored);
-    if (n !== 0 || !hasRoundTrip) return n;
-  }
-  if (!hasRoundTrip) return null;
-  const size = parseFloat(t.size) || 1;
-  const dir = t.dir || 'long';
-  const pair = window.Baron?.parseForexPair?.(t.instr);
-  if (pair && window.Baron?.tradePnl) {
-    return Math.round(Baron.tradePnl(pair, entry, exit, size, dir));
-  }
-  return Math.round((dir === 'long' ? exit - entry : entry - exit) * size);
+  return window.Baron?.resolveTradePnl?.(t) ?? null;
 }
 
 function filterTrades(period) {
@@ -3330,12 +3378,14 @@ function filterPendingTrades(period) {
 }
 
 function loadPortfolio(period, tabEl) {
+  portPeriod = period;
   document.querySelectorAll('.period-tab').forEach(t => t.classList.remove('active'));
   if (tabEl) tabEl.classList.add('active');
 
   const trades = filterTrades(period);
   const discTrades = filterDisciplineTrades(period);
   const pendingTrades = filterPendingTrades(period);
+  const openTrades = filterByPeriod(S.trades.filter(t => Baron.isOpenTrade?.(t)), period);
   const completed = trades.map(t => ({ ...t, pnl: resolveTradePnl(t) }));
   const hasClosed = completed.length > 0;
   const fmtKpi = (val, formatter) => hasClosed ? formatter(val) : '—';
@@ -3373,6 +3423,7 @@ function loadPortfolio(period, tabEl) {
     pnlEl.style.color = 'var(--text2)';
     if (discTrades.length) {
       pnlPctEl.textContent = discTrades.length + ' logged · ' + completed.length + ' closed with P&L';
+      if (openTrades.length) pnlPctEl.textContent += ' · ' + openTrades.length + ' open';
       if (pendingTrades.length) pnlPctEl.textContent += ' · ' + pendingTrades.length + ' need Journal review';
     } else if (pendingTrades.length) {
       pnlPctEl.textContent = pendingTrades.length + ' synced fills — confirm stops in Journal to unlock stats';
@@ -3392,7 +3443,7 @@ function loadPortfolio(period, tabEl) {
     document.getElementById('port-cur-bal').textContent = sym + Math.round(curBal).toLocaleString();
     document.getElementById('port-cur-bal').style.color = totalPnl >= 0 ? 'var(--accent)' : 'var(--red)';
   }
-  document.getElementById('port-open').textContent = S.trades.filter(t => !t.exit && !t.incomplete).length + pendingTrades.length;
+  document.getElementById('port-open').textContent = S.trades.filter(t => Baron.isOpenTrade?.(t)).length + pendingTrades.length;
 
   const totalLogged = discTrades.length + pendingTrades.length;
   document.getElementById('kpi-trades').textContent = totalLogged || completed.length;
@@ -3488,34 +3539,48 @@ function loadPortfolio(period, tabEl) {
   // Instrument breakdown
   const instrMap = {};
   completed.forEach(t => {
-    if (!instrMap[t.instr]) instrMap[t.instr] = { pnl:0, count:0, wins:0 };
+    if (!instrMap[t.instr]) instrMap[t.instr] = { pnl:0, count:0, wins:0, open:0, openRisk:0 };
     instrMap[t.instr].pnl   += t.pnl;
     instrMap[t.instr].count += 1;
     if (t.pnl > 0) instrMap[t.instr].wins += 1;
   });
-  const instrArr = Object.entries(instrMap).sort((a,b) => Math.abs(b[1].pnl) - Math.abs(a[1].pnl));
-  const maxAbsPnl = Math.max(...instrArr.map(([,v]) => Math.abs(v.pnl)), 1);
-  document.getElementById('port-instr-breakdown').innerHTML = instrArr.length ? instrArr.map(([sym,v],i) => {
-    const barW = (Math.abs(v.pnl)/maxAbsPnl*100).toFixed(0);
+  openTrades.forEach(t => {
+    if (!instrMap[t.instr]) instrMap[t.instr] = { pnl:0, count:0, wins:0, open:0, openRisk:0 };
+    instrMap[t.instr].open += 1;
+    const pair = t.pair || Baron.parseForexPair?.(t.instr);
+    const risk = Baron.riskAtStop?.(pair, t.entry, t.stop, t.size) || 0;
+    instrMap[t.instr].openRisk += risk;
+  });
+  const instrArr = Object.entries(instrMap).sort((a,b) => {
+    const scoreA = Math.abs(a[1].pnl) + a[1].openRisk;
+    const scoreB = Math.abs(b[1].pnl) + b[1].openRisk;
+    return scoreB - scoreA;
+  });
+  const maxAbsPnl = Math.max(...instrArr.map(([,v]) => Math.max(Math.abs(v.pnl), v.openRisk)), 1);
+  document.getElementById('port-instr-breakdown').innerHTML = instrArr.length ? instrArr.map(([instr,v],i) => {
+    const barW = (Math.max(Math.abs(v.pnl), v.openRisk)/maxAbsPnl*100).toFixed(0);
     const col = INSTR_COLORS[i % INSTR_COLORS.length];
-    const wr = (v.wins/v.count*100).toFixed(0);
+    const wr = v.count ? (v.wins/v.count*100).toFixed(0) : '—';
+    const pnlLabel = v.open && !v.count
+      ? `<span class="instr-pnl" style="color:var(--amber)">Open · ${S.sym}${Math.round(v.openRisk).toLocaleString()} at risk</span>`
+      : `<span class="instr-pnl" style="color:${v.pnl>=0?'var(--accent)':'var(--red)'}">${v.pnl>=0?'+':''}${S.sym}${Math.abs(Math.round(v.pnl)).toLocaleString()}${v.open ? ` · ${v.open} open` : ''}</span>`;
     return `<div class="instr-row">
       <div class="instr-dot" style="background:${col}"></div>
       <div style="flex:1">
         <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:3px">
-          <span class="instr-name">${sym}</span>
-          <span class="instr-pnl" style="color:${v.pnl>=0?'var(--accent)':'var(--red)'}">${v.pnl>=0?'+':''}${S.sym}${Math.abs(Math.round(v.pnl)).toLocaleString()}</span>
+          <span class="instr-name">${instr}</span>
+          ${pnlLabel}
         </div>
         <div style="height:4px;background:var(--surface3);border-radius:2px;overflow:hidden">
-          <div style="height:100%;width:${barW}%;background:${col};border-radius:2px;opacity:${v.pnl>=0?1:0.6}"></div>
+          <div style="height:100%;width:${barW}%;background:${col};border-radius:2px;opacity:${v.pnl>=0||v.open?1:0.6}"></div>
         </div>
         <div style="display:flex;justify-content:space-between;margin-top:2px">
-          <span class="instr-trades">${v.count} trade${v.count>1?'s':''}</span>
-          <span class="instr-trades">${wr}% win rate</span>
+          <span class="instr-trades">${v.count + v.open} position${(v.count + v.open)!==1?'s':''}</span>
+          <span class="instr-trades">${v.count ? wr + '% win rate' : 'tap Journal to close'}</span>
         </div>
       </div>
     </div>`;
-  }).join('') : '<div style="font-size:12px;color:var(--text3);padding:8px 0">No completed trades in this period</div>';
+  }).join('') : '<div style="font-size:12px;color:var(--text3);padding:8px 0">No trades in this period</div>';
 
   // Long vs Short
   const longT  = completed.filter(t=>t.dir==='long');

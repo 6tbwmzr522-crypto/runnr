@@ -75,6 +75,30 @@ const Baron = {
     return Math.abs(this.tradePnl(pair, entry, target, units, target > entry ? "long" : "short"));
   },
 
+  /** Realized P&L when stored value missing but entry/exit exist (forex-aware). */
+  resolveTradePnl(t) {
+    if (!t || t.disciplineOnly) return null;
+    const entry = parseFloat(t.entry ?? (t.dir === "long" ? t.fillPrice : null));
+    const exit = parseFloat(t.exit ?? (t.dir === "short" ? t.fillPrice : null));
+    const hasRoundTrip = entry > 0 && exit > 0 && entry !== exit;
+    const stored = t.pnl;
+    if (stored != null && stored !== "" && !Number.isNaN(Number(stored))) {
+      const n = Number(stored);
+      if (n !== 0 || !hasRoundTrip) return n;
+    }
+    if (!hasRoundTrip) return null;
+    const pair = t.pair || this.parseForexPair(t.instr);
+    const size = parseFloat(t.size) || 1;
+    const dir = t.dir || "long";
+    return Math.round(this.tradePnl(pair, entry, exit, size, dir));
+  },
+
+  isOpenTrade(t) {
+    if (!t || t.incomplete || t.disciplineOnly) return false;
+    const exit = t.exit ?? (t.dir === "short" ? t.fillPrice : null);
+    return exit == null || exit === "" || Number.isNaN(Number(exit));
+  },
+
   /** Risk-based share count with Baron 10% cap */
   sizeShares(balance, riskPct, entry, stop) {
     if (!entry || !stop || entry === stop) return { shares: 0, risk: 0 };

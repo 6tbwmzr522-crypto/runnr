@@ -12,7 +12,13 @@ const CoachEngine = {
   },
 
   completed(trades) {
-    return trades.filter((t) => !t.incomplete && !t.disciplineOnly && t.exit != null && t.pnl != null);
+    return trades
+      .filter((t) => !t.incomplete && !t.disciplineOnly && !window.Baron?.isOpenTrade?.(t))
+      .map((t) => {
+        const pnl = window.Baron?.resolveTradePnl?.(t) ?? t.pnl;
+        return pnl != null ? { ...t, pnl } : null;
+      })
+      .filter(Boolean);
   },
 
   forDiscipline(trades) {
