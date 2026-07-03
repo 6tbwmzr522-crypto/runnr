@@ -738,10 +738,16 @@ body.light #equity-canvas{filter:invert(0)}
               <option value="short">Short (Sell)</option>
             </select>
           </div>
+          <div class="field">
+            <label>Size — optional</label>
+            <input id="cfd-manual-size" type="number" min="0" step="any" placeholder="Leave blank for 1% risk auto-size" oninput="calcCFD()">
+            <div style="font-size:10px;color:var(--text3);margin-top:4px;line-height:1.35">Try broker quantities (e.g. 2,858 on T212) to preview risk &amp; reward.</div>
+          </div>
         </div>
         <div class="result-box" id="cfd-result">
           <div class="result-main" id="cfd-units">—</div>
           <div class="result-label" id="cfd-units-lbl">MAX UNITS / CONTRACTS</div>
+          <div id="cfd-risk-pct" style="display:none;font-size:11px;color:var(--text2);margin-top:2px"></div>
           <div class="result-sub">
             <div class="result-sub-item"><div class="val" id="cfd-risk-amt">—</div><div class="lbl" id="cfd-risk-lbl">RISK</div></div>
             <div class="result-sub-item"><div class="val" id="cfd-rr">—</div><div class="lbl">R:R</div></div>
@@ -750,7 +756,7 @@ body.light #equity-canvas{filter:invert(0)}
           <div id="cfd-forex-hint" style="display:none;font-size:11px;color:var(--text2);margin-top:8px;line-height:1.4"></div>
           <div class="rr-verdict" id="cfd-verdict" style="display:none"></div>
         </div>
-        <button class="btn" onclick="openLogModal('cfd')">Log This Trade</button>
+        <button class="btn" onclick="fillLogFromSizer('cfd')">Log This Trade</button>
       </div>
 
       <!-- Shares Tab -->
@@ -769,10 +775,14 @@ body.light #equity-canvas{filter:invert(0)}
             <div class="field"><label>Stop Loss</label><input id="sh-stop" type="number" placeholder="0.00" oninput="calcShares()"></div>
           </div>
           <div class="field"><label>Target Price</label><input id="sh-target" type="number" placeholder="0.00" oninput="calcShares()"></div>
+          <div class="field">
+            <label>Size — optional</label>
+            <input id="sh-manual-size" type="number" min="0" step="any" placeholder="Leave blank for 1% risk auto-size" oninput="calcShares()">
+          </div>
         </div>
         <div class="result-box">
           <div class="result-main" id="sh-units">—</div>
-          <div class="result-label">MAX SHARES</div>
+          <div class="result-label" id="sh-units-lbl">MAX SHARES</div>
           <div class="result-sub">
             <div class="result-sub-item"><div class="val" id="sh-risk">—</div><div class="lbl" id="sh-risk-lbl">RISK</div></div>
             <div class="result-sub-item"><div class="val" id="sh-rr">—</div><div class="lbl">R:R</div></div>
@@ -780,7 +790,7 @@ body.light #equity-canvas{filter:invert(0)}
           </div>
           <div class="rr-verdict" id="sh-verdict" style="display:none"></div>
         </div>
-        <button class="btn" onclick="openLogModal('shares')">Log This Trade</button>
+        <button class="btn" onclick="fillLogFromSizer('shares')">Log This Trade</button>
       </div>
 
       <!-- Options Tab -->
@@ -881,7 +891,7 @@ body.light #equity-canvas{filter:invert(0)}
     <div class="page" id="page-journal">
       <div class="section-hdr" style="margin-bottom:12px">
         <h3 style="font-size:15px">Trade Journal</h3>
-        <button class="btn btn-sm" onclick="openLogModal('cfd')" style="background:var(--accent);color:#070d0b;font-family:var(--font-head);font-size:12px;font-weight:700;border:none;cursor:pointer;padding:7px 14px;border-radius:20px">+ Log Trade</button>
+        <button class="btn btn-sm" onclick="fillLogFromSizer('cfd')" style="background:var(--accent);color:#070d0b;font-family:var(--font-head);font-size:12px;font-weight:700;border:none;cursor:pointer;padding:7px 14px;border-radius:20px">+ Log Trade</button>
       </div>
       <div id="journal-hint" style="display:none;margin-bottom:12px;padding:12px 14px;background:var(--accent-dim);border:1px solid var(--border);border-radius:var(--r-sm);font-size:12px;color:var(--text2);line-height:1.5"></div>
       <div id="journal-list"></div>
@@ -1122,7 +1132,7 @@ body.light #equity-canvas{filter:invert(0)}
         <strong>Perpetual reminder:</strong> funding rates typically run 0.01–0.03% every 8 hours. On a leveraged long, costs compound — factor this into your hold time.
       </div>
 
-      <button class="btn" onclick="openLogModal('cfd')">Log This Trade</button>
+      <button class="btn" onclick="fillLogFromSizer('cfd')">Log This Trade</button>
     </div>
 
 
@@ -1497,7 +1507,7 @@ body.light #equity-canvas{filter:invert(0)}
   </div>
 </div>
 
-<script src="js/baron.js?v=21"></script>
+<script src="js/baron.js?v=22"></script>
 <script src="js/coach.js?v=21"></script>
 <script src="js/onboarding.js?v=20"></script>
 <script src="js/sync.js?v=20"></script>
@@ -1724,9 +1734,15 @@ function calcCFD() {
   const sized = (typeof Baron !== 'undefined' && Baron.sizeForex)
     ? Baron.sizeForex(S.bal, S.risk, entry, stop, instr)
     : { units: Math.floor(maxRisk / stopDist), risk: Math.floor(maxRisk / stopDist) * stopDist, pair: null };
-  const units = sized.units;
   const pair = sized.pair;
-  let riskAmt = sized.risk;
+  const suggested = sized.units;
+  const manualRaw = document.getElementById('cfd-manual-size')?.value;
+  const manual = manualRaw ? parseFloat(manualRaw) : NaN;
+  const useManual = manualRaw !== '' && !isNaN(manual) && manual > 0;
+  const units = useManual ? Math.floor(manual) : suggested;
+  const riskAmt = (typeof Baron !== 'undefined' && Baron.riskAtStop)
+    ? Baron.riskAtStop(pair, entry, stop, units)
+    : units * stopDist;
   let reward = null;
   if (pair && typeof Baron !== 'undefined') {
     reward = Baron.rewardAtTarget(pair, entry, target, units);
@@ -1735,27 +1751,45 @@ function calcCFD() {
   }
   const rr = target ? Math.abs(target - entry) / stopDist : null;
   const sym = S.sym;
+  const riskPct = S.bal > 0 ? (riskAmt / S.bal * 100) : 0;
   document.getElementById('cfd-units').textContent = units.toLocaleString();
   document.getElementById('cfd-risk-amt').textContent = sym + Math.round(riskAmt).toLocaleString();
+  document.getElementById('cfd-risk-amt').style.color = riskAmt > maxRisk * 1.05 ? 'var(--amber)' : '';
   document.getElementById('cfd-rr').textContent = rr ? rr.toFixed(1) : '—';
   document.getElementById('cfd-reward').textContent = reward ? sym + Math.round(reward).toLocaleString() : '—';
   const unitsLbl = document.getElementById('cfd-units-lbl');
-  if (unitsLbl) unitsLbl.textContent = pair ? `MAX UNITS (${pair.base} NOTIONAL)` : 'MAX UNITS / CONTRACTS';
+  if (unitsLbl) {
+    unitsLbl.textContent = useManual
+      ? (pair ? `YOUR SIZE (${pair.base} NOTIONAL)` : 'YOUR SIZE')
+      : (pair ? `MAX UNITS (${pair.base} NOTIONAL)` : 'MAX UNITS / CONTRACTS');
+  }
   const riskLbl = document.getElementById('cfd-risk-lbl');
   const rewLbl = document.getElementById('cfd-reward-lbl');
   if (riskLbl) riskLbl.textContent = pair ? 'RISK AT STOP' : 'RISK';
   if (rewLbl) rewLbl.textContent = pair ? 'REWARD AT TARGET' : 'REWARD';
+  const riskPctEl = document.getElementById('cfd-risk-pct');
+  if (riskPctEl) {
+    if (useManual && units > 0) {
+      riskPctEl.style.display = 'block';
+      riskPctEl.textContent = `${riskPct.toFixed(2)}% of account at stop` + (riskAmt > maxRisk * 1.05 ? ' — above your ' + S.risk + '% budget' : '');
+      riskPctEl.style.color = riskAmt > maxRisk * 1.05 ? 'var(--amber)' : 'var(--text2)';
+    } else riskPctEl.style.display = 'none';
+  }
   const hint = document.getElementById('cfd-forex-hint');
   if (hint) {
-    if (pair) {
+    if (useManual && pair) {
       hint.style.display = 'block';
-      hint.textContent = `True ${S.risk}% risk sizing — enter ${units.toLocaleString()} ${pair.base} units in your broker (e.g. T212).`;
+      hint.textContent = `Scenario at ${units.toLocaleString()} ${pair.base} units — 1% risk auto-size is ${suggested.toLocaleString()}.`;
+    } else if (pair) {
+      hint.style.display = 'block';
+      hint.textContent = `True ${S.risk}% risk sizing — enter ${suggested.toLocaleString()} ${pair.base} units in your broker (e.g. T212).`;
     } else hint.style.display = 'none';
   }
   showVerdict('cfd-verdict', rr);
 }
 
 function calcShares() {
+  const instr = document.getElementById('sh-instr')?.value || '';
   const entry = parseFloat(document.getElementById('sh-entry').value);
   const stop  = parseFloat(document.getElementById('sh-stop').value);
   const target= parseFloat(document.getElementById('sh-target').value);
@@ -1763,13 +1797,24 @@ function calcShares() {
   const maxRisk = S.bal * S.risk / 100;
   const stopDist = Math.abs(entry - stop);
   if (!stopDist) return;
-  const shares = Math.floor(maxRisk / stopDist);
+  const sized = (typeof Baron !== 'undefined' && Baron.sizeShares)
+    ? Baron.sizeShares(S.bal, S.risk, entry, stop)
+    : { shares: Math.floor(maxRisk / stopDist), risk: Math.floor(maxRisk / stopDist) * stopDist };
+  const suggested = sized.shares;
+  const manualRaw = document.getElementById('sh-manual-size')?.value;
+  const manual = manualRaw ? parseFloat(manualRaw) : NaN;
+  const useManual = manualRaw !== '' && !isNaN(manual) && manual > 0;
+  const shares = useManual ? Math.floor(manual) : suggested;
+  const riskAmt = shares * stopDist;
   const rr = target ? Math.abs(target - entry) / stopDist : null;
   const reward = target ? Math.abs(target - entry) * shares : null;
   document.getElementById('sh-units').textContent = shares.toLocaleString();
-  document.getElementById('sh-risk').textContent = S.sym + Math.round(shares * stopDist).toLocaleString();
+  document.getElementById('sh-risk').textContent = S.sym + Math.round(riskAmt).toLocaleString();
+  document.getElementById('sh-risk').style.color = riskAmt > maxRisk * 1.05 ? 'var(--amber)' : '';
   document.getElementById('sh-rr').textContent = rr ? rr.toFixed(1) : '—';
   document.getElementById('sh-reward').textContent = reward ? S.sym + Math.round(reward).toLocaleString() : '—';
+  const unitsLbl = document.getElementById('sh-units-lbl');
+  if (unitsLbl) unitsLbl.textContent = useManual ? 'YOUR SHARES' : 'MAX SHARES';
   const shRiskLbl = document.getElementById('sh-risk-lbl');
   const shRewLbl = document.getElementById('sh-reward-lbl');
   if (shRiskLbl) shRiskLbl.textContent = 'RISK';
@@ -2066,6 +2111,25 @@ function openLogModal(type) {
   openModal('modal-log');
 }
 
+function fillLogFromSizer(type) {
+  openLogModal(type);
+  if (type === 'cfd') {
+    const units = document.getElementById('cfd-units')?.textContent?.replace(/,/g, '') || '';
+    document.getElementById('log-instr').value = document.getElementById('cfd-instr')?.value || '';
+    document.getElementById('log-entry').value = document.getElementById('cfd-entry')?.value || '';
+    document.getElementById('log-exit').value = '';
+    document.getElementById('log-size').value = units;
+    document.getElementById('log-dir').value = document.getElementById('cfd-dir')?.value || 'long';
+  } else if (type === 'shares') {
+    const shares = document.getElementById('sh-units')?.textContent?.replace(/,/g, '') || '';
+    document.getElementById('log-instr').value = document.getElementById('sh-instr')?.value || '';
+    document.getElementById('log-entry').value = document.getElementById('sh-entry')?.value || '';
+    document.getElementById('log-exit').value = '';
+    document.getElementById('log-size').value = shares;
+    document.getElementById('log-dir').value = 'long';
+  }
+}
+
 function setFlag(type, val) {
   S.flags[type] = val;
   const yes = document.getElementById(type+'-yes');
@@ -2309,6 +2373,7 @@ function sizefromWatch(id) {
     document.getElementById('cfd-stop').value  = w.stop;
     document.getElementById('cfd-target').value= w.target;
     document.getElementById('cfd-dir').value   = w.dir;
+    document.getElementById('cfd-manual-size').value = '';
     calcCFD();
   }, 50);
 }

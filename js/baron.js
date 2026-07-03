@@ -53,6 +53,14 @@ const Baron = {
     return { units: Math.max(0, units), risk, pair };
   },
 
+  riskAtStop(pair, entry, stop, units) {
+    const stopDist = Math.abs(entry - stop);
+    if (!stopDist || !units) return 0;
+    if (!pair) return units * stopDist;
+    if (pair.quote === "USD") return units * stopDist;
+    return (units * stopDist) / entry;
+  },
+
   /** Signed P&L in account currency (USD/EUR/GBP) for CFD units. */
   tradePnl(pair, entry, exit, units, dir) {
     const sign = dir === "long" ? 1 : -1;
