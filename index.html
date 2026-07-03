@@ -756,7 +756,8 @@ body.light #equity-canvas{filter:invert(0)}
           <div id="cfd-forex-hint" style="display:none;font-size:11px;color:var(--text2);margin-top:8px;line-height:1.4"></div>
           <div class="rr-verdict" id="cfd-verdict" style="display:none"></div>
         </div>
-        <button class="btn" onclick="fillLogFromSizer('cfd')">Log This Trade</button>
+        <button class="btn" onclick="saveLogFromSizer('cfd')">Log This Trade</button>
+        <button type="button" class="btn btn-ghost" style="margin-top:8px;font-size:12px;width:100%" onclick="fillLogFromSizer('cfd')">Review or edit before saving</button>
       </div>
 
       <!-- Shares Tab -->
@@ -790,7 +791,8 @@ body.light #equity-canvas{filter:invert(0)}
           </div>
           <div class="rr-verdict" id="sh-verdict" style="display:none"></div>
         </div>
-        <button class="btn" onclick="fillLogFromSizer('shares')">Log This Trade</button>
+        <button class="btn" onclick="saveLogFromSizer('shares')">Log This Trade</button>
+        <button type="button" class="btn btn-ghost" style="margin-top:8px;font-size:12px;width:100%" onclick="fillLogFromSizer('shares')">Review or edit before saving</button>
       </div>
 
       <!-- Options Tab -->
@@ -891,7 +893,7 @@ body.light #equity-canvas{filter:invert(0)}
     <div class="page" id="page-journal">
       <div class="section-hdr" style="margin-bottom:12px">
         <h3 style="font-size:15px">Trade Journal</h3>
-        <button class="btn btn-sm" onclick="fillLogFromSizer('cfd')" style="background:var(--accent);color:#070d0b;font-family:var(--font-head);font-size:12px;font-weight:700;border:none;cursor:pointer;padding:7px 14px;border-radius:20px">+ Log Trade</button>
+        <button class="btn btn-sm" onclick="saveLogFromSizer('cfd')" style="background:var(--accent);color:#070d0b;font-family:var(--font-head);font-size:12px;font-weight:700;border:none;cursor:pointer;padding:7px 14px;border-radius:20px">+ Log Trade</button>
       </div>
       <div id="journal-hint" style="display:none;margin-bottom:12px;padding:12px 14px;background:var(--accent-dim);border:1px solid var(--border);border-radius:var(--r-sm);font-size:12px;color:var(--text2);line-height:1.5"></div>
       <div id="journal-list"></div>
@@ -1132,7 +1134,8 @@ body.light #equity-canvas{filter:invert(0)}
         <strong>Perpetual reminder:</strong> funding rates typically run 0.01–0.03% every 8 hours. On a leveraged long, costs compound — factor this into your hold time.
       </div>
 
-      <button class="btn" onclick="fillLogFromSizer('cfd')">Log This Trade</button>
+      <button class="btn" onclick="saveLogFromSizer('crypto')">Log This Trade</button>
+      <button type="button" class="btn btn-ghost" style="margin-top:8px;font-size:12px;width:100%" onclick="fillLogFromSizer('crypto')">Review or edit before saving</button>
     </div>
 
 
@@ -2099,6 +2102,99 @@ function applyBaronRulesToAll(e) {
 }
 
 // ── LOG MODAL ──────────────────────────────────────────────────────────────
+function getSizerDraft(type) {
+  const maxRisk = S.bal * S.risk / 100;
+  if (type === 'cfd') {
+    const instr = document.getElementById('cfd-instr')?.value?.trim() || '';
+    const entry = parseFloat(document.getElementById('cfd-entry')?.value);
+    const stop = parseFloat(document.getElementById('cfd-stop')?.value);
+    const target = parseFloat(document.getElementById('cfd-target')?.value);
+    const dir = document.getElementById('cfd-dir')?.value || 'long';
+    const size = parseFloat(document.getElementById('cfd-units')?.textContent?.replace(/,/g, ''));
+    if (!instr || !entry || !stop || !size) return null;
+    const pair = window.Baron?.parseForexPair?.(instr);
+    const riskAmt = window.Baron?.riskAtStop
+      ? Baron.riskAtStop(pair, entry, stop, size)
+      : size * Math.abs(entry - stop);
+    return {
+      type: 'cfd', instr, entry, stop, target: target || null, dir, size, exit: null,
+      pair, withinRules: riskAmt <= maxRisk * 1.05,
+    };
+  }
+  if (type === 'shares') {
+    const instr = document.getElementById('sh-instr')?.value?.trim() || '';
+    const entry = parseFloat(document.getElementById('sh-entry')?.value);
+    const stop = parseFloat(document.getElementById('sh-stop')?.value);
+    const target = parseFloat(document.getElementById('sh-target')?.value);
+    const size = parseFloat(document.getElementById('sh-units')?.textContent?.replace(/,/g, ''));
+    if (!instr || !entry || !stop || !size) return null;
+    const riskAmt = size * Math.abs(entry - stop);
+    return {
+      type: 'shares', instr, entry, stop, target: target || null, dir: 'long', size, exit: null,
+      pair: null, withinRules: riskAmt <= maxRisk * 1.05,
+    };
+  }
+  if (type === 'crypto') {
+    const instr = document.getElementById('cry-instr')?.value?.trim() || '';
+    const entry = parseFloat(document.getElementById('cry-entry')?.value);
+    const stop = parseFloat(document.getElementById('cry-stop')?.value);
+    const target = parseFloat(document.getElementById('cry-target')?.value);
+    const size = parseFloat(document.getElementById('cry-units')?.textContent?.replace(/,/g, ''));
+    const leverage = parseInt(document.getElementById('cry-lev')?.value, 10) || 1;
+    if (!instr || !entry || !stop || !size) return null;
+    const riskAmt = size * Math.abs(entry - stop);
+    return {
+      type: 'crypto', instr, entry, stop, target: target || null, dir: 'long', size, exit: null,
+      pair: null, leverage, withinRules: riskAmt <= maxRisk * 1.05,
+    };
+  }
+  return null;
+}
+
+function tradePnlFromDraft(draft) {
+  const { entry, exit, size, dir, pair } = draft;
+  if (!exit || !entry) return null;
+  if (pair && window.Baron?.tradePnl) {
+    return Math.round(Baron.tradePnl(pair, entry, exit, size || 1, dir));
+  }
+  return Math.round((dir === 'long' ? exit - entry : entry - exit) * (size || 1));
+}
+
+function commitLog(draft) {
+  if (!draft?.instr || !draft?.entry) return false;
+  const patch = {
+    instr: draft.instr,
+    dir: draft.dir || 'long',
+    entry: draft.entry,
+    exit: draft.exit || null,
+    stop: draft.stop || null,
+    target: draft.target || null,
+    size: draft.size || 1,
+    pnl: tradePnlFromDraft(draft),
+    stopOk: !!draft.stopOk,
+    sizeOk: !!draft.sizeOk,
+    incomplete: !!draft.incomplete,
+    type: draft.type || 'cfd',
+  };
+  if (draft.leverage) patch.leverage = draft.leverage;
+  if (S.editingTradeId) {
+    const t = S.trades.find(x => x.id === S.editingTradeId);
+    if (t) Object.assign(t, patch);
+    S.editingTradeId = null;
+  } else {
+    S.trades.unshift({
+      id: Date.now(),
+      date: new Date().toLocaleDateString('en-GB', { month: 'short', day: 'numeric' }),
+      ...patch,
+    });
+  }
+  persist();
+  renderJournal();
+  updateHomeStats();
+  if (typeof renderCoachPage === 'function') renderCoachPage();
+  return true;
+}
+
 function openLogModal(type) {
   S.flags = { stop: null, size: null };
   ['stop-yes','stop-no','size-yes','size-no'].forEach(id => {
@@ -2109,23 +2205,36 @@ function openLogModal(type) {
   openModal('modal-log');
 }
 
-function fillLogFromSizer(type) {
-  openLogModal(type);
-  if (type === 'cfd') {
-    const units = document.getElementById('cfd-units')?.textContent?.replace(/,/g, '') || '';
-    document.getElementById('log-instr').value = document.getElementById('cfd-instr')?.value || '';
-    document.getElementById('log-entry').value = document.getElementById('cfd-entry')?.value || '';
-    document.getElementById('log-exit').value = '';
-    document.getElementById('log-size').value = units;
-    document.getElementById('log-dir').value = document.getElementById('cfd-dir')?.value || 'long';
-  } else if (type === 'shares') {
-    const shares = document.getElementById('sh-units')?.textContent?.replace(/,/g, '') || '';
-    document.getElementById('log-instr').value = document.getElementById('sh-instr')?.value || '';
-    document.getElementById('log-entry').value = document.getElementById('sh-entry')?.value || '';
-    document.getElementById('log-exit').value = '';
-    document.getElementById('log-size').value = shares;
-    document.getElementById('log-dir').value = 'long';
+function saveLogFromSizer(type) {
+  const draft = getSizerDraft(type);
+  if (!draft) {
+    showToast('Sizer', 'Add instrument, entry, stop & size first');
+    return;
   }
+  draft.stopOk = true;
+  draft.sizeOk = draft.withinRules !== false;
+  draft.incomplete = !draft.stopOk || !draft.sizeOk;
+  if (!commitLog(draft)) return;
+  const msg = draft.incomplete
+    ? 'Logged — size flagged for review in Journal'
+    : 'Logged ✓ — sized & stopped like a pro';
+  showToast(draft.instr, msg);
+}
+
+function fillLogFromSizer(type) {
+  const draft = getSizerDraft(type);
+  if (!draft) {
+    showToast('Sizer', 'Add instrument, entry, stop & size first');
+    return;
+  }
+  openLogModal(type);
+  document.getElementById('log-instr').value = draft.instr;
+  document.getElementById('log-entry').value = draft.entry;
+  document.getElementById('log-exit').value = draft.exit || '';
+  document.getElementById('log-size').value = draft.size;
+  document.getElementById('log-dir').value = draft.dir || 'long';
+  setFlag('stop', 'yes');
+  setFlag('size', draft.withinRules !== false ? 'yes' : 'no');
 }
 
 function setFlag(type, val) {
@@ -2139,34 +2248,21 @@ function setFlag(type, val) {
 }
 
 function saveLog() {
-  const instr = document.getElementById('log-instr').value;
-  const entry = parseFloat(document.getElementById('log-entry').value);
-  const exit  = parseFloat(document.getElementById('log-exit').value);
-  const size  = parseFloat(document.getElementById('log-size').value);
-  const dir   = document.getElementById('log-dir').value;
-  if (!instr || !entry) return;
-  const pnl = exit ? Math.round((dir==='long' ? exit-entry : entry-exit) * (size||1)) : 0;
-  const patch = {
-    instr, dir, entry, exit: exit||null, size: size||1, pnl,
+  const draft = {
+    instr: document.getElementById('log-instr').value,
+    entry: parseFloat(document.getElementById('log-entry').value),
+    exit: parseFloat(document.getElementById('log-exit').value) || null,
+    size: parseFloat(document.getElementById('log-size').value),
+    dir: document.getElementById('log-dir').value,
     stopOk: S.flags.stop === 'yes',
     sizeOk: S.flags.size === 'yes',
-    incomplete: !S.flags.stop || !S.flags.size
+    incomplete: !S.flags.stop || !S.flags.size,
+    type: 'cfd',
+    pair: window.Baron?.parseForexPair?.(document.getElementById('log-instr').value),
   };
-  if (S.editingTradeId) {
-    const t = S.trades.find(x => x.id === S.editingTradeId);
-    if (t) Object.assign(t, patch);
-    S.editingTradeId = null;
-  } else {
-    S.trades.unshift({
-      id: Date.now(), type: 'cfd',
-      date: new Date().toLocaleDateString('en-GB',{month:'short',day:'numeric'}),
-      ...patch
-    });
-  }
-  persist();
+  if (!draft.instr || !draft.entry) return;
+  if (!commitLog(draft)) return;
   closeModal('modal-log');
-  renderJournal();
-  updateHomeStats();
 }
 
 // ── WATCHLIST ──────────────────────────────────────────────────────────────
