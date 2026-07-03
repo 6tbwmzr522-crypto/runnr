@@ -1192,7 +1192,6 @@ body.light #equity-canvas{filter:invert(0)}
         <div class="ph-val" id="port-total-pnl">+€2,313</div>
         <div class="ph-sub">
           <span id="port-pnl-pct" style="color:var(--accent)">+23.1%</span>
-          <span style="color:var(--text3)"> on €10,000 base</span>
         </div>
         <div style="display:flex;gap:16px;margin-top:12px">
           <div><div style="font-size:10px;color:var(--text3)">Starting</div><div style="font-family:var(--font-mono);font-size:14px" id="port-start-bal">€10,000</div></div>
@@ -1524,6 +1523,8 @@ body.light #equity-canvas{filter:invert(0)}
     <div class="modal-title">Settings <button class="modal-close" onclick="closeModal('modal-settings')">✕</button></div>
     <div class="field"><label>Account Balance</label><input id="set-bal" type="number" placeholder="10000"></div>
     <div id="set-bal-hint" style="font-size:11px;color:var(--accent);margin:-6px 0 10px;display:none">Synced from Alpaca — tap Sync to refresh</div>
+    <div class="field"><label>Portfolio P&amp;L base</label><input id="set-port-base" type="number" placeholder="100000"></div>
+    <div style="font-size:11px;color:var(--text3);margin:-6px 0 10px">Starting balance for Portfolio % — separate from live Alpaca equity</div>
     <div class="field"><label>Risk % per Trade</label><input id="set-risk" type="number" placeholder="1" step="0.5"></div>
     <div class="field"><label>Currency</label>
       <select id="set-currency">
@@ -1573,6 +1574,7 @@ const S = {
   profileHandle: '',
   coachDigestEnabled: true,
   brokerSync: { alpaca: { connected: false, lastSync: null, imported: 0 }, importedOrderIds: [] },
+  journalBaseBal: 0,
 };
 
 try {
@@ -1664,6 +1666,28 @@ function migrateWatchlistThesis() {
 }
 migrateWatchlistThesis();
 
+function portfolioBaseBal() {
+  return S.journalBaseBal > 0 ? S.journalBaseBal : S.bal;
+}
+
+function migratePortfolioBase() {
+  if (S.journalBaseBal > 0) return;
+  if (!S.balFromAlpaca || !S.bal || !window.Baron?.resolveTradePnl) return;
+  const closedPnl = S.trades
+    .filter(t => !t.incomplete && !t.disciplineOnly)
+    .reduce((s, t) => {
+      const p = Baron.resolveTradePnl(t);
+      return p != null ? s + p : s;
+    }, 0);
+  if (closedPnl === 0) return;
+  const inferred = Math.round(S.bal - closedPnl);
+  if (inferred > 0) {
+    S.journalBaseBal = inferred;
+    persist();
+  }
+}
+migratePortfolioBase();
+
 function persist() {
   try { localStorage.setItem('runnr_state', JSON.stringify(S)); } catch(e) {}
 }
@@ -1694,6 +1718,8 @@ function switchPage(key) {
 // ── SETTINGS ───────────────────────────────────────────────────────────────
 function saveSettings() {
   S.bal = parseFloat(document.getElementById('set-bal').value) || S.bal;
+  const portBase = parseFloat(document.getElementById('set-port-base').value);
+  if (portBase > 0) S.journalBaseBal = Math.round(portBase);
   S.risk = parseFloat(document.getElementById('set-risk').value) || S.risk;
   S.sym = document.getElementById('set-currency').value;
   S.balManualOverride = true;
@@ -1707,6 +1733,8 @@ function saveSettings() {
 }
 function openSettingsModal() {
   document.getElementById('set-bal').value = S.bal;
+  const portBaseEl = document.getElementById('set-port-base');
+  if (portBaseEl) portBaseEl.value = S.journalBaseBal > 0 ? S.journalBaseBal : '';
   document.getElementById('set-risk').value = S.risk;
   const cur = document.getElementById('set-currency');
   if (cur) cur.value = S.sym || '€';
@@ -3628,6 +3656,7 @@ function filterPendingTrades(period) {
 }
 
 function loadPortfolio(period, tabEl) {
+  migratePortfolioBase();
   portPeriod = period;
   document.querySelectorAll('.period-tab').forEach(t => t.classList.remove('active'));
   if (tabEl) tabEl.classList.add('active');
@@ -3653,7 +3682,8 @@ function loadPortfolio(period, tabEl) {
   const stopDisc    = discTrades.filter(t=>t.stopOk).length / Math.max(discTrades.length,1) * 100;
   const sizeDisc    = discTrades.filter(t=>t.sizeOk).length / Math.max(discTrades.length,1) * 100;
 
-  let peak = S.bal, dd = 0, runBal = S.bal;
+  const baseBal = portfolioBaseBal();
+  let peak = baseBal, dd = 0, runBal = baseBal;
   completed.forEach(t => {
     runBal += t.pnl;
     if (runBal > peak) peak = runBal;
@@ -3661,13 +3691,14 @@ function loadPortfolio(period, tabEl) {
     if (curDD > dd) dd = curDD;
   });
 
-  const curBal = S.bal + totalPnl;
-  const pnlPct = hasClosed ? (totalPnl / S.bal * 100) : 0;
+  const curBal = baseBal + totalPnl;
+  const pnlPct = hasClosed ? (totalPnl / baseBal * 100) : 0;
   const sym = S.sym;
   const fmt = v => sym + Math.round(v).toLocaleString();
 
   const pnlEl = document.getElementById('port-total-pnl');
   const pnlPctEl = document.getElementById('port-pnl-pct');
+  if (pnlPctEl?.parentElement) pnlPctEl.parentElement.replaceChildren(pnlPctEl);
   if (!hasClosed) {
     pnlEl.textContent = '—';
     pnlEl.style.color = 'var(--text2)';
@@ -3681,15 +3712,15 @@ function loadPortfolio(period, tabEl) {
       pnlPctEl.textContent = 'Log exits in Journal to see P&L stats';
     }
     pnlPctEl.style.color = 'var(--text2)';
-    document.getElementById('port-start-bal').textContent = sym + S.bal.toLocaleString();
-    document.getElementById('port-cur-bal').textContent = sym + S.bal.toLocaleString();
+    document.getElementById('port-start-bal').textContent = sym + baseBal.toLocaleString();
+    document.getElementById('port-cur-bal').textContent = sym + baseBal.toLocaleString();
     document.getElementById('port-cur-bal').style.color = 'var(--text2)';
   } else {
     pnlEl.textContent = (totalPnl >= 0 ? '+' : '') + sym + Math.round(Math.abs(totalPnl)).toLocaleString();
     pnlEl.style.color = totalPnl >= 0 ? 'var(--text)' : 'var(--red)';
-    pnlPctEl.textContent = (pnlPct >= 0 ? '+' : '') + pnlPct.toFixed(1) + '% on ' + sym + S.bal.toLocaleString() + ' base';
+    pnlPctEl.textContent = (pnlPct >= 0 ? '+' : '') + pnlPct.toFixed(1) + '% on ' + sym + baseBal.toLocaleString() + ' base';
     pnlPctEl.style.color = pnlPct >= 0 ? 'var(--accent)' : 'var(--red)';
-    document.getElementById('port-start-bal').textContent = sym + S.bal.toLocaleString();
+    document.getElementById('port-start-bal').textContent = sym + baseBal.toLocaleString();
     document.getElementById('port-cur-bal').textContent = sym + Math.round(curBal).toLocaleString();
     document.getElementById('port-cur-bal').style.color = totalPnl >= 0 ? 'var(--accent)' : 'var(--red)';
   }
@@ -3860,7 +3891,8 @@ function drawPortEquity(trades) {
   ctx.scale(dpr,dpr);
 
   // Build equity line
-  let bal = S.bal;
+  const startBal = portfolioBaseBal();
+  let bal = startBal;
   const points = [bal];
   trades.forEach(t => { bal += t.pnl; points.push(bal); });
 
@@ -3880,13 +3912,13 @@ function drawPortEquity(trades) {
   // Flat baseline
   ctx.beginPath();
   ctx.setLineDash([4,4]);
-  ctx.moveTo(0, toY(S.bal)); ctx.lineTo(W, toY(S.bal));
+  ctx.moveTo(0, toY(startBal)); ctx.lineTo(W, toY(startBal));
   ctx.strokeStyle = 'rgba(255,255,255,0.1)'; ctx.lineWidth=1; ctx.stroke();
   ctx.setLineDash([]);
 
   // Area fill
   const lastY = toY(points[points.length-1]);
-  const isUp = points[points.length-1] >= S.bal;
+  const isUp = points[points.length-1] >= startBal;
   const grad = ctx.createLinearGradient(0,0,0,H);
   grad.addColorStop(0, isUp ? 'rgba(0,229,160,0.3)' : 'rgba(255,77,109,0.25)');
   grad.addColorStop(1, 'rgba(0,0,0,0)');
