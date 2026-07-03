@@ -726,7 +726,7 @@ body.light #equity-canvas{filter:invert(0)}
       <div id="sizer-cfd">
         <div class="card">
           <div class="card-title">CFD / Forex Position Sizer</div>
-          <div class="field"><label>Instrument</label><input id="cfd-instr" placeholder="EURUSD, GOLD, US500..." value="AAPL CFD"></div>
+          <div class="field"><label>Instrument</label><input id="cfd-instr" placeholder="EURUSD, GOLD, US500..." value="AAPL CFD" oninput="calcCFD()"></div>
           <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
             <div class="field"><label>Entry Price</label><input id="cfd-entry" type="number" placeholder="0.00" oninput="calcCFD()"></div>
             <div class="field"><label>Stop Loss</label><input id="cfd-stop" type="number" placeholder="0.00" oninput="calcCFD()"></div>
@@ -1497,8 +1497,8 @@ body.light #equity-canvas{filter:invert(0)}
   </div>
 </div>
 
-<script src="js/baron.js?v=20"></script>
-<script src="js/coach.js?v=20"></script>
+<script src="js/baron.js?v=21"></script>
+<script src="js/coach.js?v=21"></script>
 <script src="js/onboarding.js?v=20"></script>
 <script src="js/sync.js?v=20"></script>
 <script>
@@ -1711,45 +1711,27 @@ function showVerdict(elId, rr) {
   else el.style.display='none';
 }
 
-function parseForexPair(instr) {
-  const FX = ['USD','EUR','GBP','JPY','CHF','AUD','NZD','CAD'];
-  const s = (instr || '').toUpperCase().replace(/[^A-Z]/g, '');
-  if (s.length !== 6 || !FX.includes(s.slice(0, 3)) || !FX.includes(s.slice(3, 6))) return null;
-  return { base: s.slice(0, 3), quote: s.slice(3, 6) };
-}
-
-/** T212-style CFD P&L: units = base-currency notional; USD pairs use price diff directly. */
-function cfdForexPnl(pair, entry, stop, target, units) {
-  const stopDist = Math.abs(entry - stop);
-  const targetDist = target ? Math.abs(target - entry) : 0;
-  if (pair.quote === 'USD') {
-    return { risk: units * stopDist, reward: target ? units * targetDist : null };
-  }
-  return {
-    risk: units * stopDist / entry,
-    reward: target ? units * targetDist / entry : null,
-  };
-}
-
 function calcCFD() {
   const instr = document.getElementById('cfd-instr')?.value || '';
   const entry = parseFloat(document.getElementById('cfd-entry').value);
   const stop  = parseFloat(document.getElementById('cfd-stop').value);
   const target= parseFloat(document.getElementById('cfd-target').value);
+  const dir   = document.getElementById('cfd-dir').value;
   if (!entry || !stop) return;
   const maxRisk = S.bal * S.risk / 100;
   const stopDist = Math.abs(entry - stop);
   if (!stopDist) return;
-  const units = Math.floor(maxRisk / stopDist);
-  const pair = parseForexPair(instr);
-  let riskAmt, reward;
-  if (pair) {
-    const pnl = cfdForexPnl(pair, entry, stop, target, units);
-    riskAmt = pnl.risk;
-    reward = pnl.reward;
-  } else {
-    riskAmt = units * stopDist;
-    reward = target ? Math.abs(target - entry) * units : null;
+  const sized = (typeof Baron !== 'undefined' && Baron.sizeForex)
+    ? Baron.sizeForex(S.bal, S.risk, entry, stop, instr)
+    : { units: Math.floor(maxRisk / stopDist), risk: Math.floor(maxRisk / stopDist) * stopDist, pair: null };
+  const units = sized.units;
+  const pair = sized.pair;
+  let riskAmt = sized.risk;
+  let reward = null;
+  if (pair && typeof Baron !== 'undefined') {
+    reward = Baron.rewardAtTarget(pair, entry, target, units);
+  } else if (target) {
+    reward = Math.abs(target - entry) * units;
   }
   const rr = target ? Math.abs(target - entry) / stopDist : null;
   const sym = S.sym;
@@ -1765,9 +1747,9 @@ function calcCFD() {
   if (rewLbl) rewLbl.textContent = pair ? 'REWARD AT TARGET' : 'REWARD';
   const hint = document.getElementById('cfd-forex-hint');
   if (hint) {
-    if (pair && riskAmt < maxRisk * 0.75) {
+    if (pair) {
       hint.style.display = 'block';
-      hint.textContent = `Broker-style units — actual risk at stop ≈ ${sym}${Math.round(riskAmt).toLocaleString()} (your ${S.risk}% budget is ${sym}${Math.round(maxRisk).toLocaleString()}).`;
+      hint.textContent = `True ${S.risk}% risk sizing — enter ${units.toLocaleString()} ${pair.base} units in your broker (e.g. T212).`;
     } else hint.style.display = 'none';
   }
   showVerdict('cfd-verdict', rr);

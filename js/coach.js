@@ -115,7 +115,14 @@ const CoachEngine = {
 
     let properShares = size;
     let capped = false;
-    if (window.Baron && typeof Baron.sizeShares === "function" && stopDist > 0) {
+    const pair = window.Baron?.parseForexPair?.(trade.instr);
+    const stopPrice = stop && stop !== entry
+      ? stop
+      : (dir === "long" ? entry - stopDist : entry + stopDist);
+    if (pair && window.Baron?.sizeForex) {
+      const sized = Baron.sizeForex(balance, riskPct, entry, stopPrice, trade.instr);
+      properShares = sized.units;
+    } else if (window.Baron && typeof Baron.sizeShares === "function" && stopDist > 0) {
       const sized = Baron.sizeShares(balance, riskPct, entry, dir === "long" ? entry - stopDist : entry + stopDist);
       properShares = sized.shares;
       capped = sized.capped;
@@ -127,17 +134,24 @@ const CoachEngine = {
     }
 
     const sign = dir === "long" ? 1 : -1;
-    const actualPnl = Math.round((exit - entry) * sign * size);
-    const properPnl = Math.round((exit - entry) * sign * properShares);
+    const pnlAt = (px, units) => pair && Baron.tradePnl
+      ? Baron.tradePnl(pair, entry, px, units, dir)
+      : (px - entry) * sign * units;
+    const actualPnl = Math.round(pnlAt(exit, size));
+    const properPnl = Math.round(pnlAt(exit, properShares));
     const oversizeUnits = Math.max(0, size - properShares);
     const oversizeCost = oversizeUnits > 0
-      ? Math.round((exit - entry) * sign * oversizeUnits)
+      ? Math.round(pnlAt(exit, oversizeUnits))
       : 0;
 
     const noStop = !trade.stopOk && trade.stopOk !== true;
     const oversize = size > properShares * 1.05;
     const riskAmount = balance * (riskPct / 100);
-    const extraRisk = oversize ? Math.round((size - properShares) * stopDist) : 0;
+    const extraRisk = oversize
+      ? Math.round(pair && Baron.sizeForex
+        ? Baron.sizeForex(balance, riskPct, entry, stopPrice, trade.instr).risk * (size / properShares - 1)
+        : (size - properShares) * stopDist)
+      : 0;
 
     let disciplineCost = 0;
     if (actualPnl < 0 && oversizeCost < 0) disciplineCost = Math.abs(oversizeCost);

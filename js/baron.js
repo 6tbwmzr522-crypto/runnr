@@ -8,6 +8,7 @@ const Baron = {
     "CVX", "XLE", "JPM", "V", "COST",
   ],
   COMMODITIES: ["GLD", "SLV", "COPX", "USO"],
+  FX_MAJORS: ["USD", "EUR", "GBP", "JPY", "CHF", "AUD", "NZD", "CAD"],
   STRATEGY: {
     risk_pct: 1,
     atr_stop_mult: 2,
@@ -22,6 +23,48 @@ const Baron = {
 
   isCommodity(sym) {
     return this.COMMODITIES.includes(sym);
+  },
+
+  parseForexPair(instr) {
+    const s = (instr || "").toUpperCase().replace(/[^A-Z]/g, "");
+    if (s.length !== 6) return null;
+    const base = s.slice(0, 3);
+    const quote = s.slice(3, 6);
+    if (!this.FX_MAJORS.includes(base) || !this.FX_MAJORS.includes(quote)) return null;
+    return { base, quote };
+  },
+
+  /** True 1% risk sizing for T212-style forex CFD (base-currency notional). */
+  sizeForex(balance, riskPct, entry, stop, instr) {
+    const stopDist = Math.abs(entry - stop);
+    if (!entry || !stop || !stopDist) return { units: 0, risk: 0, pair: null };
+    const maxRisk = balance * (riskPct / 100);
+    const pair = this.parseForexPair(instr);
+    if (!pair) {
+      const units = Math.floor(maxRisk / stopDist);
+      return { units, risk: units * stopDist, pair: null };
+    }
+    const units = pair.quote === "USD"
+      ? Math.floor(maxRisk / stopDist)
+      : Math.floor((maxRisk * entry) / stopDist);
+    const risk = pair.quote === "USD"
+      ? units * stopDist
+      : (units * stopDist) / entry;
+    return { units: Math.max(0, units), risk, pair };
+  },
+
+  /** Signed P&L in account currency (USD/EUR/GBP) for CFD units. */
+  tradePnl(pair, entry, exit, units, dir) {
+    const sign = dir === "long" ? 1 : -1;
+    const move = (exit - entry) * sign;
+    if (!pair) return move * units;
+    if (pair.quote === "USD") return move * units;
+    return (units * move) / entry;
+  },
+
+  rewardAtTarget(pair, entry, target, units) {
+    if (!target) return null;
+    return Math.abs(this.tradePnl(pair, entry, target, units, target > entry ? "long" : "short"));
   },
 
   /** Risk-based share count with Baron 10% cap */
