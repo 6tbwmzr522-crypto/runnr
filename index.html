@@ -123,8 +123,10 @@ body::before{content:'';position:fixed;inset:0;background:radial-gradient(ellips
 /* ── INPUTS ── */
 .field{margin-bottom:12px}
 .field label{display:block;font-size:9px;font-weight:500;color:var(--gold);letter-spacing:0.32em;text-transform:uppercase;margin-bottom:6px}
-.field input,.field select{width:100%;background:var(--surface2);border:1px solid var(--border);border-radius:var(--r-sm);padding:12px 14px;color:var(--text);font-family:var(--font-mono);font-size:15px;font-weight:400;outline:none;transition:border-color 0.2s}
-.field input:focus,.field select:focus{border-color:var(--gold)}
+.field input,.field select,.field textarea{width:100%;background:var(--surface2);border:1px solid var(--border);border-radius:var(--r-sm);padding:12px 14px;color:var(--text);font-size:15px;font-weight:400;outline:none;transition:border-color 0.2s}
+.field input,.field select{font-family:var(--font-mono)}
+.field textarea{font-family:var(--font-body);font-size:14px;line-height:1.45;resize:vertical;min-height:56px}
+.field input:focus,.field select:focus,.field textarea:focus{border-color:var(--gold)}
 .field select option{background:var(--surface2)}
 
 /* ── BUTTONS ── */
@@ -209,9 +211,10 @@ body::before{content:'';position:fixed;inset:0;background:radial-gradient(ellips
 .wds-levels span em{font-style:normal;font-size:8px;color:var(--text3);letter-spacing:0.12em;margin-right:3px;text-transform:uppercase}
 .wds-levels .stop{color:var(--red)}
 .wds-levels .tgt{color:var(--accent)}
-.wds-actions{display:flex;gap:8px;justify-content:flex-end;margin-bottom:6px}
+.wds-actions{display:flex;flex-wrap:wrap;gap:8px;justify-content:flex-end;margin-bottom:6px}
 .wds-actions button{font-size:11px;font-weight:600;padding:6px 12px;border-radius:10px;cursor:pointer;border:none;font-family:var(--font-body)}
-.wds-thesis{font-size:11px;color:var(--text3);line-height:1.4;border-top:1px solid var(--border);padding-top:8px;margin-top:2px}
+.wds-thesis{font-family:var(--font-head);font-size:12px;color:var(--text2);line-height:1.45;border-top:1px solid var(--border);padding-top:8px;margin-top:2px;font-style:italic}
+.wcr-remark{font-size:10px;color:var(--text3);font-style:italic;margin-top:4px;line-height:1.35;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
 .watch-compact-row{align-items:flex-start}
 .watch-compact-row .wcr-block{flex:1;min-width:0}
 .watch-compact-row .wcr-line1{display:flex;align-items:center;gap:8px}
@@ -1498,7 +1501,7 @@ body.light #equity-canvas{filter:invert(0)}
       <div class="field"><label>Stop Loss</label><input id="w-stop" type="number" placeholder="0.00"></div>
       <div class="field"><label>Target</label><input id="w-target" type="number" placeholder="0.00"></div>
     </div>
-    <div class="field"><label>Thesis</label><input id="w-thesis" placeholder="Why this setup..."></div>
+    <div class="field"><label>Market remarks</label><textarea id="w-thesis" rows="2" placeholder="Quick read — catalyst, level, macro context…"></textarea></div>
     <button class="btn" onclick="saveWatch()">Add to Watchlist</button>
   </div>
 </div>
@@ -2486,11 +2489,21 @@ function selectWatch(id) {
 }
 window.selectWatch = selectWatch;
 
+function watchRemark(w) {
+  const t = (w.thesis && w.thesis !== BARON_THESIS_PLACEHOLDER) ? String(w.thesis).trim() : '';
+  return t;
+}
+
+function escHtml(s) {
+  return String(s || '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/"/g, '&quot;');
+}
+
 function renderWatchCompactRow(w) {
   const lp = liveprices[w.sym];
   const livePrice = lp && lp.price ? fmtPrice(lp.price) : '—';
   const st = watchRowStatus(w, lp);
   const selected = watchId(S.selectedWatchId) === watchId(w.id);
+  const remark = watchRemark(w);
   return `<div class="watch-compact-row ${selected ? 'watch-compact-selected' : ''}" role="button" tabindex="0" onclick="selectWatch(${w.id})" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();selectWatch(${w.id})}">
     <div class="wcr-block">
       <div class="wcr-line1">
@@ -2499,6 +2512,7 @@ function renderWatchCompactRow(w) {
         <span class="wcr-live">${livePrice}</span>
       </div>
       ${selected ? '' : `<div class="wcr-sub">${w.entry} · stop ${w.stop} · target ${w.target} · ${w.rr.toFixed(1)}R</div>`}
+      ${remark ? `<div class="wcr-remark">${escHtml(remark)}</div>` : ''}
     </div>
     <div class="ai-status ${st.cls}">${st.text.replace(/^●\s*/, '')}</div>
   </div>`;
@@ -2508,7 +2522,7 @@ function renderWatchDetailCard(w) {
   const rrColor = w.rr >= 2 ? 'var(--accent)' : w.rr >= 1.5 ? 'var(--amber)' : 'var(--red)';
   const lp = liveprices[w.sym];
   const needsLevels = !w.entry || !w.stop || !w.target || w.needsLevels;
-  const thesis = w.thesis && w.thesis !== BARON_THESIS_PLACEHOLDER ? w.thesis : '';
+  const thesis = watchRemark(w);
   return `<div class="watch-detail-slim watch-detail-panel" id="wi-${w.id}">
     <div class="live-price-row" id="lp-row-${w.id}">
       ${lp && lp.price ? renderLivePriceRow(lp, w) : '<span class="lp-loading">⟳ Fetching price…</span>'}
@@ -2524,9 +2538,11 @@ function renderWatchDetailCard(w) {
       ${needsLevels ? `<button onclick="event.stopPropagation();openWatchEditor(${w.id})" style="background:var(--gold-dim);color:var(--gold);border:1px solid var(--border)">Set levels</button>` : ''}
       <button onclick="event.stopPropagation();sizefromWatch(${w.id})" style="background:var(--accent-dim);color:var(--accent)">→ Size it</button>
       <button onclick="event.stopPropagation();openStockDetail('${w.sym}')" style="background:var(--surface3);color:var(--text2);border:1px solid var(--border)">Chart</button>
+      <button onclick="event.stopPropagation();openWatchEditor(${w.id})" style="background:transparent;color:var(--text3);border:1px solid var(--border)">${thesis ? 'Edit remark' : '+ Remark'}</button>
     </div>
-    ${thesis ? `<div class="wds-thesis">${thesis}</div>` : ''}
-    ${needsLevels && !thesis ? `<div class="wds-thesis" style="border-top:none;padding-top:0;color:var(--amber)">Baron ticker — tap Set levels to add entry, stop &amp; target from your chart.</div>` : ''}
+    ${thesis ? `<div class="wds-thesis">${escHtml(thesis)}</div>` : ''}
+    ${needsLevels && !thesis ? `<div class="wds-thesis" style="border-top:none;padding-top:0;color:var(--amber);font-style:normal;font-family:var(--font-body);font-size:11px">Baron ticker — set levels &amp; add a quick market remark.</div>` : ''}
+    ${!needsLevels && !thesis ? `<div class="wds-thesis" style="border-top:none;padding-top:0;color:var(--text3);font-style:normal;font-family:var(--font-body);font-size:11px">Tap + Remark for a one-line read on this setup.</div>` : ''}
   </div>`;
 }
 
