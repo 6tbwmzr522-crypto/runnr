@@ -94,9 +94,14 @@ const Baron = {
   },
 
   isOpenTrade(t) {
-    if (!t || t.incomplete || t.disciplineOnly) return false;
-    const exit = t.exit ?? (t.dir === "short" ? t.fillPrice : null);
-    return exit == null || exit === "" || Number.isNaN(Number(exit));
+    if (!t || t.disciplineOnly) return false;
+    const entry = parseFloat(t.entry ?? t.fillPrice);
+    const exitRaw = t.exit ?? (t.dir === "short" ? t.fillPrice : null);
+    if (exitRaw == null || exitRaw === "") return true;
+    const exit = parseFloat(exitRaw);
+    if (Number.isNaN(exit) || exit === 0) return true;
+    if (entry > 0 && exit > 0 && Math.abs(entry - exit) < 1e-9) return true;
+    return false;
   },
 
   /** Risk-based share count with Baron 10% cap */

@@ -173,8 +173,9 @@ body::before{content:'';position:fixed;inset:0;background:radial-gradient(ellips
 .delta-down{color:var(--red)}
 
 /* ── JOURNAL ENTRIES ── */
-.trade-entry{background:rgba(245,242,236,0.02);border:1px solid var(--border);border-radius:var(--r-sm);padding:12px;margin-bottom:8px;cursor:pointer;transition:border-color 0.2s,background 0.2s}
-.trade-entry:hover{border-color:var(--border-strong);background:rgba(201,169,110,0.04)}
+.trade-entry{background:rgba(245,242,236,0.02);border:1px solid var(--border);border-radius:var(--r-sm);padding:12px;margin-bottom:8px;cursor:default;transition:border-color 0.2s,background 0.2s}
+.trade-entry-editable{cursor:pointer}
+.trade-entry-editable:hover{border-color:var(--border-strong);background:rgba(201,169,110,0.04)}
 .trade-entry .te-top{display:flex;justify-content:space-between;align-items:center;margin-bottom:6px}
 .trade-entry .te-sym{font-family:var(--font-head);font-size:17px;font-weight:400;color:var(--accent);cursor:pointer;font-style:italic}
 .trade-entry .te-sym:hover{color:var(--gold-light)}
@@ -1525,7 +1526,7 @@ body.light #equity-canvas{filter:invert(0)}
   </div>
 </div>
 
-<script src="js/baron.js?v=23"></script>
+<script src="js/baron.js?v=24"></script>
 <script src="js/coach.js?v=22"></script>
 <script src="js/onboarding.js?v=20"></script>
 <script src="js/sync.js?v=20"></script>
@@ -1583,20 +1584,23 @@ function isOptionSymbol(sym) {
 
 function sanitizeAlpacaJournal() {
   const before = S.trades.length;
+  let patched = false;
   S.trades = S.trades.filter(t => !(t.source === 'alpaca' && isOptionSymbol(t.instr)));
   S.trades.forEach(t => {
-    if (t.source === 'alpaca' || t.baronRules) {
+    if (t.source === 'alpaca' && !t.baronRules && t.disciplineOnly) {
+      t.disciplineOnly = false;
+      patched = true;
+    }
+    if (t.baronRules) {
       t.disciplineOnly = true;
       t.pnl = null;
-      if (t.baronRules || t.source === 'alpaca') {
-        t.stopOk = t.stopOk !== false;
-        t.sizeOk = t.sizeOk !== false;
-        t.incomplete = false;
-      }
+      t.stopOk = t.stopOk !== false;
+      t.sizeOk = t.sizeOk !== false;
+      t.incomplete = false;
+      patched = true;
     }
   });
-  if (S.trades.length !== before) persist();
-  else if (S.trades.some(t => t.disciplineOnly && t.pnl != null)) persist();
+  if (S.trades.length !== before || patched || S.trades.some(t => t.disciplineOnly && t.pnl != null)) persist();
 }
 
 sanitizeAlpacaJournal();
@@ -2024,7 +2028,31 @@ function calcOptions() {
 }
 
 // ── JOURNAL ────────────────────────────────────────────────────────────────
+let journalClickBound = false;
+
+function tradeId(v) {
+  const n = Number(v);
+  return Number.isFinite(n) ? n : v;
+}
+
+function isTradeEditable(t) {
+  return !!t && !t.disciplineOnly;
+}
+
+function bindJournalClicks() {
+  const list = document.getElementById('journal-list');
+  if (!list || journalClickBound) return;
+  journalClickBound = true;
+  list.addEventListener('click', (e) => {
+    if (e.target.closest('.te-del') || e.target.closest('.te-sym')) return;
+    const row = e.target.closest('.trade-entry[data-trade-id]');
+    if (!row || row.dataset.editable !== '1') return;
+    openTradeEditor(row.dataset.tradeId);
+  });
+}
+
 function renderJournal() {
+  bindJournalClicks();
   const list = document.getElementById('journal-list');
   const hint = document.getElementById('journal-hint');
   const alpacaPending = S.trades.filter(t => t.source === 'alpaca' && t.incomplete);
@@ -2056,8 +2084,8 @@ function renderJournal() {
     const metaLine = isAlpaca
       ? `<span>${t.date}</span><span>${t.dir === 'long' ? 'BUY' : 'SELL'} ${t.size} @ ${priceLabel}</span><span>Alpaca</span>`
       : `<span>${t.date}</span><span>${t.entry} → ${t.exit ?? 'open'}</span><span>${t.size} units</span>`;
-    const editable = !t.disciplineOnly;
-    return `<div class="trade-entry" ${editable ? `onclick="openTradeEditor(${t.id})"` : ''} style="${editable ? '' : 'cursor:default'}">
+    const editable = isTradeEditable(t);
+    return `<div class="trade-entry${editable ? ' trade-entry-editable' : ''}" data-trade-id="${t.id}" data-editable="${editable ? '1' : '0'}">
       <div class="te-top">
         <div style="display:flex;align-items:center;gap:6px">
           <span class="te-sym" onclick="event.stopPropagation();openStockDetail('${quoteSymbolFromInstr(t.instr).replace(/'/g, "\\'")}')" title="Live price">${t.instr.length > 12 ? t.instr.slice(0, 10) + '…' : t.instr}</span>
@@ -2069,7 +2097,7 @@ function renderJournal() {
         </div>
       </div>
       <div class="te-meta">${metaLine}</div>
-      <div class="flags">${stopFlag}${sizeFlag}${t.incomplete?'<span class="flag flag-miss">Incomplete</span>':''}${Baron.isOpenTrade?.(t)?'<span class="flag" style="color:var(--amber)">Tap to close</span>':''}</div>
+      <div class="flags">${stopFlag}${sizeFlag}${t.incomplete?'<span class="flag flag-miss">Incomplete</span>':''}${Baron.isOpenTrade?.(t)?'<span class="flag" style="color:var(--amber)">Tap to close</span>':(editable?'<span class="flag" style="color:var(--text3)">Tap to edit</span>':'')}</div>
     </div>`;
   }).join('');
 }
@@ -2092,15 +2120,16 @@ function formatTradePnl(t, isAlpaca) {
 
 function deleteTrade(id, e) {
   if (e) { e.stopPropagation(); e.preventDefault(); }
-  const t = S.trades.find(x => x.id === id);
+  id = tradeId(id);
+  const t = S.trades.find(x => tradeId(x.id) === id);
   if (!t) return;
   const label = t.instr + (t.date ? ' (' + t.date + ')' : '');
   if (!confirm('Delete ' + label + ' from journal?')) return;
-  S.trades = S.trades.filter(x => x.id !== id);
+  S.trades = S.trades.filter(x => tradeId(x.id) !== id);
   if (t.externalId && S.brokerSync?.importedOrderIds) {
     S.brokerSync.importedOrderIds = S.brokerSync.importedOrderIds.filter(x => x !== t.externalId);
   }
-  if (S.editingTradeId === id) S.editingTradeId = null;
+  if (tradeId(S.editingTradeId) === id) S.editingTradeId = null;
   persist();
   renderJournal();
   updateHomeStats();
@@ -2110,20 +2139,20 @@ function deleteTrade(id, e) {
 }
 
 function openTradeEditor(id) {
-  const t = S.trades.find(x => x.id === id);
-  if (!t || t.disciplineOnly) return;
+  id = tradeId(id);
+  const t = S.trades.find(x => tradeId(x.id) === id);
+  if (!isTradeEditable(t)) return;
   S.editingTradeId = id;
   openLogModal(t.type || 'cfd');
-  S.flags = { stop: t.stopOk ? 'yes' : (t.incomplete ? null : 'no'), size: t.sizeOk ? 'yes' : (t.incomplete ? null : 'no') };
   const title = document.querySelector('#modal-log .modal-title');
   if (title) {
     title.innerHTML = (Baron.isOpenTrade?.(t) ? 'Close Trade' : 'Edit Trade') +
       ' <button class="modal-close" onclick="closeModal(\'modal-log\')">✕</button>';
   }
   document.getElementById('log-instr').value = t.instr;
-  document.getElementById('log-entry').value = t.entry || t.fillPrice || '';
-  document.getElementById('log-exit').value = t.exit ?? '';
-  document.getElementById('log-size').value = t.size;
+  document.getElementById('log-entry').value = t.entry ?? t.fillPrice ?? '';
+  document.getElementById('log-exit').value = Baron.isOpenTrade?.(t) ? '' : (t.exit ?? '');
+  document.getElementById('log-size').value = t.size ?? '';
   document.getElementById('log-dir').value = t.dir || 'long';
   ['stop-yes','stop-no','size-yes','size-no'].forEach(fid => {
     const el = document.getElementById(fid);
@@ -2132,9 +2161,12 @@ function openTradeEditor(id) {
     el.style.color = '';
     el.style.borderColor = '';
   });
-  if (S.flags.stop) setFlag('stop', S.flags.stop);
-  if (S.flags.size) setFlag('size', S.flags.size);
+  if (t.stopOk) setFlag('stop', 'yes');
+  else if (!t.incomplete || t.stopOk === false) setFlag('stop', 'no');
+  if (t.sizeOk) setFlag('size', 'yes');
+  else if (!t.incomplete || t.sizeOk === false) setFlag('size', 'no');
 }
+window.openTradeEditor = openTradeEditor;
 
 function reviewTrade(id) {
   openTradeEditor(id);
@@ -2252,8 +2284,20 @@ function commitLog(draft) {
   if (pair) patch.pair = pair;
   if (draft.leverage) patch.leverage = draft.leverage;
   if (S.editingTradeId) {
-    const t = S.trades.find(x => x.id === S.editingTradeId);
-    if (t) Object.assign(t, patch);
+    const t = S.trades.find(x => tradeId(x.id) === tradeId(S.editingTradeId));
+    if (t) {
+      Object.assign(t, {
+        ...patch,
+        stop: draft.stop ?? t.stop ?? null,
+        target: draft.target ?? t.target ?? null,
+        pair: patch.pair ?? t.pair ?? null,
+        type: draft.type || t.type || 'cfd',
+        source: t.source,
+        externalId: t.externalId,
+        fillPrice: t.fillPrice,
+        date: t.date,
+      });
+    }
     S.editingTradeId = null;
   } else {
     S.trades.unshift({
@@ -2324,17 +2368,26 @@ function setFlag(type, val) {
 
 function saveLog() {
   const instr = document.getElementById('log-instr').value.trim();
-  const pair = window.Baron?.parseForexPair?.(instr);
+  const existing = S.editingTradeId
+    ? S.trades.find(x => tradeId(x.id) === tradeId(S.editingTradeId))
+    : null;
+  const exitRaw = document.getElementById('log-exit').value;
+  const exit = exitRaw !== '' && exitRaw != null ? parseFloat(exitRaw) : null;
+  const pair = window.Baron?.parseForexPair?.(instr) || existing?.pair || null;
+  const stopOk = S.flags.stop === 'yes' || (S.flags.stop == null && existing?.stopOk);
+  const sizeOk = S.flags.size === 'yes' || (S.flags.size == null && existing?.sizeOk);
   const draft = {
     instr,
     entry: parseFloat(document.getElementById('log-entry').value),
-    exit: parseFloat(document.getElementById('log-exit').value) || null,
+    exit: Number.isFinite(exit) ? exit : null,
     size: parseFloat(document.getElementById('log-size').value),
     dir: document.getElementById('log-dir').value,
-    stopOk: S.flags.stop === 'yes',
-    sizeOk: S.flags.size === 'yes',
-    incomplete: !S.flags.stop || !S.flags.size,
-    type: pair ? 'cfd' : 'shares',
+    stop: existing?.stop ?? null,
+    target: existing?.target ?? null,
+    stopOk: !!stopOk,
+    sizeOk: !!sizeOk,
+    incomplete: !stopOk || !sizeOk,
+    type: existing?.type || (pair ? 'cfd' : 'shares'),
     pair,
   };
   if (!draft.instr || !draft.entry) return;
@@ -2342,6 +2395,7 @@ function saveLog() {
   closeModal('modal-log');
   const title = document.querySelector('#modal-log .modal-title');
   if (title) title.innerHTML = 'Log Trade <button class="modal-close" onclick="closeModal(\'modal-log\')">✕</button>';
+  showToast(draft.instr, draft.exit != null ? 'Trade updated ✓' : 'Trade saved ✓');
 }
 
 // ── WATCHLIST ──────────────────────────────────────────────────────────────
