@@ -69,6 +69,7 @@ def market_brief(
     entry: float | None = None,
     stop: float | None = None,
     target: float | None = None,
+    refresh: bool = False,
 ):
     """Recent headline or AI one-liner for watchlist context (cached 30m)."""
     try:
@@ -78,6 +79,7 @@ def market_brief(
             entry=entry,
             stop=stop,
             target=target,
+            refresh=refresh,
         )
     except Exception as exc:
         raise HTTPException(status_code=502, detail=f"Brief fetch failed: {exc}") from exc

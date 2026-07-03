@@ -5,6 +5,7 @@ from __future__ import annotations
 import json
 import re
 import time
+from urllib.error import HTTPError
 from urllib.parse import quote as url_quote
 from urllib.request import Request, urlopen
 
@@ -97,6 +98,10 @@ def headline_remark(headlines: list[dict], symbol: str) -> str:
     return title
 
 
+def ai_key_configured() -> bool:
+    return bool((settings.openai_api_key or "").strip())
+
+
 def _openai_remark(
     symbol: str,
     headlines: list[dict],
@@ -105,10 +110,10 @@ def _openai_remark(
     entry: float | None = None,
     stop: float | None = None,
     target: float | None = None,
-) -> str | None:
-    key = settings.openai_api_key.strip()
+) -> tuple[str | None, str | None]:
+    key = (settings.openai_api_key or "").strip()
     if not key:
-        return None
+        return None, "OPENAI_API_KEY not set on API server"
 
     lines = "\n".join(f"- {h['title']}" for h in headlines[:4])
     setup = ""
@@ -168,9 +173,15 @@ Rules:
         )
         if len(text) > 160:
             text = text[:157].rstrip() + "…"
-        return text or None
-    except Exception:
-        return None
+        return text or None, None
+    except HTTPError as exc:
+        try:
+            body = exc.read().decode()[:240]
+        except Exception:
+            body = str(exc)
+        return None, f"OpenAI HTTP {exc.code}: {body}"
+    except Exception as exc:
+        return None, f"OpenAI error: {exc}"
 
 
 def build_market_brief(
@@ -180,16 +191,19 @@ def build_market_brief(
     entry: float | None = None,
     stop: float | None = None,
     target: float | None = None,
+    refresh: bool = False,
 ) -> dict:
     sym = normalize_yahoo_symbol(symbol)
-    cache_key = f"{sym}|{direction}|{entry}|{stop}|{target}"
+    ai_on = ai_key_configured()
+    cache_key = f"{sym}|{direction}|{entry}|{stop}|{target}|ai={ai_on}"
     now = time.time()
-    cached = _CACHE.get(cache_key)
-    if cached and now - cached[0] < _CACHE_TTL:
-        return cached[1]
+    if not refresh:
+        cached = _CACHE.get(cache_key)
+        if cached and now - cached[0] < _CACHE_TTL:
+            return cached[1]
 
     headlines = fetch_headlines(sym)
-    ai = _openai_remark(
+    ai, ai_error = _openai_remark(
         symbol,
         headlines,
         direction=direction,
@@ -204,6 +218,7 @@ def build_market_brief(
             "mode": "ai",
             "source": "openai",
             "headline": headlines[0]["title"] if headlines else None,
+            "ai_enabled": True,
         }
     else:
         remark = headline_remark(headlines, sym)
@@ -213,6 +228,8 @@ def build_market_brief(
             "mode": "headline" if remark else "fallback",
             "source": "yahoo",
             "headline": remark or None,
+            "ai_enabled": ai_on,
+            "ai_error": ai_error if ai_on else None,
         }
 
     _CACHE[cache_key] = (now, result)

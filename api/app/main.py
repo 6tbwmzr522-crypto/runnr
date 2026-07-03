@@ -37,4 +37,11 @@ app.include_router(quotes.router, prefix="/api/v1/quotes", tags=["quotes"])
 
 @app.get("/health")
 def health():
-    return {"status": "ok", "service": "runnr-api"}
+    key = (settings.openai_api_key or "").strip()
+    return {
+        "status": "ok",
+        "service": "runnr-api",
+        "ai_configured": bool(key),
+        "ai_model": settings.openai_model,
+        "ai_key_prefix": key[:7] + "…" if len(key) > 8 else None,
+    }
