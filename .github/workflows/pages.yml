@@ -40,12 +40,6 @@ jobs:
         uses: actions/deploy-pages@v4
         continue-on-error: true
 
-      - name: Re-upload artifact (deploy retry)
-        if: steps.deployment.outcome == 'failure'
-        uses: actions/upload-pages-artifact@v3
-        with:
-          path: _site
-
       - id: deployment_retry
         if: steps.deployment.outcome == 'failure'
         uses: actions/deploy-pages@v4
