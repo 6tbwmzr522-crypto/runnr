@@ -80,6 +80,7 @@ body::before{content:'';position:fixed;inset:0;background:radial-gradient(ellips
 .disc-leg-item .dl-val,.disc-leg-item .dl-count,.disc-ring-inner,.disc-meta-row strong,
 .ob-aha-cost,.ob-compare strong,.field input,.field select,.risk-pill,.badge,.tier-labels,
 .broker-card .bk-status,.alert-item .ai-trigger,.home-price-chip,.period-tab,.cal-labels span,
+.market-tile .m-price,.market-tile .m-chg,
 .rule-card .r-status,.opt-portfolio-input input,.badge-row .badge{
   font-family:var(--font-num);
   font-weight:300;
@@ -156,6 +157,14 @@ body::before{content:'';position:fixed;inset:0;background:radial-gradient(ellips
 
 /* ── STAT GRID ── */
 .stat-grid{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:12px}
+.market-grid{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+.market-tile{background:var(--surface2);border:1px solid var(--border);border-radius:var(--r-sm);padding:10px 12px;cursor:pointer;transition:border-color 0.2s}
+.market-tile:active{border-color:var(--border-strong)}
+.market-tile .m-label{font-size:9px;color:var(--gold);text-transform:uppercase;letter-spacing:0.1em;margin-bottom:4px}
+.market-tile .m-price{font-family:var(--font-num);font-size:17px;font-weight:300;line-height:1.1;color:var(--text)}
+.market-tile .m-chg{font-size:10px;margin-top:3px}
+.market-tile .m-session{font-size:8px;color:var(--text3);margin-top:2px;text-transform:uppercase;letter-spacing:0.06em}
+.market-tile.loading{opacity:0.55;pointer-events:none}
 .stat-item{background:rgba(245,242,236,0.02);border:1px solid var(--border);border-radius:var(--r-sm);padding:12px}
 .stat-val{font-family:var(--font-mono);font-size:24px;font-weight:500;color:var(--gold-light);line-height:1}
 .stat-lbl{font-size:9px;color:var(--text3);letter-spacing:0.32em;text-transform:uppercase;margin-top:4px}
@@ -702,13 +711,16 @@ body.light #equity-canvas{filter:invert(0)}
         <div id="home-broker-preview"></div>
       </div>
 
-      <!-- Watchlist snapshot -->
+      <!-- Global markets -->
       <div class="card">
         <div class="section-hdr">
-          <h3>Watchlist</h3>
-          <button class="see-all" onclick="switchPage('watchlist')">See all</button>
+          <h3>Global Markets</h3>
+          <span id="home-markets-updated" style="font-size:10px;color:var(--text3)">↻ Loading…</span>
         </div>
-        <div id="home-watchlist-preview"></div>
+        <div style="font-size:10px;color:var(--text3);margin-bottom:8px;letter-spacing:0.08em;text-transform:uppercase">Indices</div>
+        <div class="market-grid" id="home-markets-indices"></div>
+        <div style="font-size:10px;color:var(--text3);margin:12px 0 8px;letter-spacing:0.08em;text-transform:uppercase">Commodities</div>
+        <div class="market-grid" id="home-markets-commodities"></div>
       </div>
 
     </div>
@@ -1587,7 +1599,7 @@ function switchPage(key) {
   if (key === 'watchlist') { renderWatchlist(); renderNotifSettings(); if (!feedLastUpdate) refreshAllPrices(); }
   if (key === 'coach') { renderCoachPage(); drawEquityCurve(); }
   if (key === 'portfolio') loadPortfolio('all', document.querySelector('.period-tab'));
-  if (key === 'home') { renderHomePreviews(); updateHomeStats(); renderHomeBrokerPreview(); }
+  if (key === 'home') { renderHomePreviews(); updateHomeStats(); renderHomeBrokerPreview(); refreshHomeMarkets(); }
   if (key === 'sync') renderSyncPage();
 }
 
@@ -2411,35 +2423,88 @@ function isNearEntry(price, entry, dir) {
 }
 
 function renderHomePreviews() {
-  const el = document.getElementById('home-watchlist-preview');
-  const preview = S.watchlist.slice(0, 2);
-  if (!preview.length) { el.innerHTML = '<div style="font-size:12px;color:var(--text3)">No setups — add one in Watchlist</div>'; return; }
-  el.innerHTML = preview.map(w => {
-    const lp = liveprices[w.sym];
-    const isNear = lp && isNearEntry(lp.price, w.entry, w.dir);
-    let priceChip = '';
-    if (lp && lp.price) {
-      const chipColor = (lp.change||0) >= 0 ? 'var(--accent)' : 'var(--red)';
-      const chipArrow = (lp.change||0) >= 0 ? '▲' : '▼';
-      priceChip = '<span class="home-price-chip" style="color:' + chipColor + '">'
-        + fmtPrice(lp.price)
-        + ' <span style="font-size:9px">' + chipArrow + Math.abs(lp.changePct||0).toFixed(1) + '%</span>'
-        + '</span>';
-    }
-    return `
-    <div style="display:flex;justify-content:space-between;align-items:center;padding:8px 0;border-bottom:1px solid var(--border)">
-      <div>
-        <span style="font-family:var(--font-head);font-weight:700;font-size:14px;cursor:pointer;color:var(--accent)" onclick="openStockDetail('${w.sym}')">${w.sym} ↗</span>
-        <span class="wi-dir dir-${w.dir}" style="margin-left:6px;font-size:10px;padding:2px 7px;border-radius:10px;font-weight:700">${w.dir.toUpperCase()}</span>
-        ${isNear ? '<span style="font-size:10px;color:var(--amber);margin-left:4px">● Near entry</span>' : ''}
-        ${priceChip}
-      </div>
-      <div style="text-align:right">
-        <div style="font-family:var(--font-mono);font-size:11px;color:var(--text3)">${w.entry} → ${w.target}</div>
-        <div style="font-size:10px;color:var(--accent)">R:R ${w.rr.toFixed(1)}</div>
-      </div>
-    </div>`;
-  }).join('');
+  paintHomeMarkets();
+}
+
+const HOME_MARKETS = {
+  indices: [
+    { sym: '^GSPC', label: 'S&P 500' },
+    { sym: '^IXIC', label: 'NASDAQ' },
+    { sym: 'EURUSD=X', label: 'EUR/USD' },
+    { sym: '^N225', label: 'Nikkei' },
+    { sym: '000001.SS', label: 'Shanghai' },
+  ],
+  commodities: [
+    { sym: 'CL=F', label: 'WTI Oil' },
+    { sym: 'NG=F', label: 'Nat Gas' },
+    { sym: 'GC=F', label: 'Gold' },
+    { sym: 'SI=F', label: 'Silver' },
+    { sym: 'HG=F', label: 'Copper' },
+  ],
+};
+const homeMarketCache = {};
+let homeMarketsRefreshing = false;
+
+function parseQuickQuote(json) {
+  const chart = json?.chart?.result?.[0];
+  if (!chart) return null;
+  const meta = chart.meta || {};
+  const closes = (chart.indicators?.quote?.[0]?.close || []).filter(Boolean);
+  const price = meta.regularMarketPrice || meta.preMarketPrice || meta.postMarketPrice || closes[closes.length - 1];
+  const prev = meta.previousClose || meta.chartPreviousClose || closes[closes.length - 2];
+  if (price == null || isNaN(price)) return null;
+  const change = prev != null ? price - prev : 0;
+  const changePct = prev ? (change / prev) * 100 : 0;
+  return { price, change, changePct, session: parseMarketSession(meta) };
+}
+
+function renderMarketTile(item, data) {
+  const loading = !data;
+  const up = (data?.change || 0) >= 0;
+  const chgColor = loading ? 'var(--text3)' : up ? 'var(--accent)' : 'var(--red)';
+  const arrow = loading ? '' : up ? '▲' : '▼';
+  const price = loading ? '—' : fmtPrice(data.price);
+  const chg = loading ? '…' : arrow + ' ' + Math.abs(data.changePct || 0).toFixed(2) + '%';
+  const session = loading ? '' : sessionDisplayLabel(data.session, item.sym);
+  return `<div class="market-tile${loading ? ' loading' : ''}" onclick="openStockDetail('${item.sym.replace(/'/g, "\\'")}')">
+    <div class="m-label">${item.label}</div>
+    <div class="m-price">${price}</div>
+    <div class="m-chg" style="color:${chgColor}">${chg}</div>
+    ${session ? `<div class="m-session">${session}</div>` : ''}
+  </div>`;
+}
+
+function paintHomeMarkets() {
+  const paint = (id, list) => {
+    const el = document.getElementById(id);
+    if (!el) return;
+    el.innerHTML = list.map(item => renderMarketTile(item, homeMarketCache[item.sym])).join('');
+  };
+  paint('home-markets-indices', HOME_MARKETS.indices);
+  paint('home-markets-commodities', HOME_MARKETS.commodities);
+}
+
+async function refreshHomeMarkets() {
+  if (homeMarketsRefreshing) return;
+  homeMarketsRefreshing = true;
+  const stamp = document.getElementById('home-markets-updated');
+  const all = [...HOME_MARKETS.indices, ...HOME_MARKETS.commodities];
+  paintHomeMarkets();
+  await Promise.allSettled(all.map(async (item) => {
+    const cached = homeMarketCache[item.sym];
+    if (cached && Date.now() - cached.ts < STOCK_CACHE_MS) return;
+    try {
+      const json = await fetchYahooChart(item.sym, '1m', '1d');
+      const q = parseQuickQuote(json);
+      if (q) homeMarketCache[item.sym] = { ...q, ts: Date.now() };
+    } catch (e) { /* keep stale or dash */ }
+  }));
+  paintHomeMarkets();
+  if (stamp) {
+    const live = all.filter(i => homeMarketCache[i.sym]).length;
+    stamp.textContent = live ? '↻ ' + new Date().toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' }) + ' · tap for chart' : '↻ Unavailable';
+  }
+  homeMarketsRefreshing = false;
 }
 
 function saveWatch() {
@@ -3121,8 +3186,12 @@ async function refreshAllPrices() {
 
 function startFeedTimer() {
   refreshAllPrices();
+  refreshHomeMarkets().catch(() => {});
   if (feedTimer) clearInterval(feedTimer);
-  feedTimer = setInterval(refreshAllPrices, 60000);
+  feedTimer = setInterval(() => {
+    refreshAllPrices();
+    refreshHomeMarkets().catch(() => {});
+  }, 60000);
 }
 
 function fmtPrice(p) {
@@ -4506,6 +4575,7 @@ function initApp() {
     try { startFeedTimer(); } catch (e) {}
     try { updateFGDisplay(72); drawFGGauge(72); } catch (e) {}
     fetchFearGreed().catch(() => {});
+    refreshHomeMarkets().catch(() => {});
     if (RunnrSync.isLoggedIn()) RunnrSync.refreshStatus().catch(() => {});
   }, 400);
 }
