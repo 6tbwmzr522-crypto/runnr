@@ -198,6 +198,9 @@ body::before{content:'';position:fixed;inset:0;background:radial-gradient(ellips
 .watch-compact-row:last-child{border-bottom:none}
 .watch-compact-row:hover{background:rgba(201,169,110,0.05)}
 .watch-compact-row.watch-compact-selected{background:rgba(0,229,160,0.07);border-radius:var(--r-sm);margin:0 -6px;padding-left:6px;padding-right:6px;border-left:2px solid var(--accent)}
+.watch-compact-selected:has(+ .watch-inline-detail){border-bottom:none;border-radius:var(--r-sm) var(--r-sm) 0 0;margin-bottom:0}
+.watch-inline-detail{padding:0 0 6px;border-bottom:1px solid var(--border)}
+.watch-inline-detail .watch-detail-panel{margin:0;border-radius:0 0 var(--r-sm) var(--r-sm);border-top:none}
 .watch-detail-panel{margin-bottom:12px}
 .watch-item.watch-urgent{border-left-color:var(--amber)}
 .watch-item .wi-top{display:flex;justify-content:space-between;align-items:flex-start}
@@ -2357,11 +2360,16 @@ function renderWatchlist() {
     list.innerHTML = '<div class="empty-state"><div class="es-icon">👁</div>No setups yet. Add your first watch.</div>';
     return;
   }
-  const compact = S.watchlist.map(w => renderWatchCompactRow(w)).join('');
-  const selected = S.watchlist.find(w => watchId(w.id) === watchId(S.selectedWatchId));
-  const detail = selected ? `<div id="watchlist-detail">${renderWatchDetailCard(selected)}</div>` : '';
-  const hint = selected ? '' : '<div style="font-size:11px;color:var(--text3);text-align:center;margin:8px 0 12px">Tap a ticker above to open setup details</div>';
-  list.innerHTML = `<div class="watch-compact-list">${compact}</div>${hint}${detail}`;
+  const selectedId = watchId(S.selectedWatchId);
+  const rows = S.watchlist.map(w => {
+    let html = renderWatchCompactRow(w);
+    if (watchId(w.id) === selectedId) {
+      html += `<div id="watchlist-detail" class="watch-inline-detail">${renderWatchDetailCard(w)}</div>`;
+    }
+    return html;
+  }).join('');
+  const hint = selectedId ? '' : '<div style="font-size:11px;color:var(--text3);text-align:center;margin:8px 0 12px">Tap a ticker to open setup details</div>';
+  list.innerHTML = `<div class="watch-compact-list">${rows}</div>${hint}`;
 }
 
 function renderLivePriceRow(lp, w) {
