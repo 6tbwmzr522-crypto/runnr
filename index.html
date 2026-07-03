@@ -1542,7 +1542,7 @@ body.light #equity-canvas{filter:invert(0)}
   </div>
 </div>
 
-<script src="js/baron.js?v=24"></script>
+<script src="js/baron.js?v=25"></script>
 <script src="js/coach.js?v=22"></script>
 <script src="js/onboarding.js?v=20"></script>
 <script src="js/sync.js?v=20"></script>
@@ -1563,6 +1563,7 @@ const S = {
   ],
   flags: { stop: null, size: null },
   editingTradeId: null,
+  editingWatchId: null,
   optType: 'call',
   onboardingComplete: false,
   profileHandle: '',
@@ -1598,6 +1599,8 @@ function isOptionSymbol(sym) {
   return /[CP]\d{6,}/.test(s);
 }
 
+const BARON_THESIS_PLACEHOLDER = 'Baron universe — set levels from chart';
+
 function migrateTradeEditability() {
   let changed = false;
   S.trades.forEach(t => {
@@ -1606,6 +1609,16 @@ function migrateTradeEditability() {
       changed = true;
     }
   });
+  if ((S._journalMig || 0) < 2) {
+    S.trades.forEach(t => {
+      if (t.disciplineOnly) {
+        delete t.disciplineOnly;
+        changed = true;
+      }
+    });
+    S._journalMig = 2;
+    changed = true;
+  }
   if (changed) persist();
 }
 
@@ -1632,6 +1645,20 @@ function sanitizeAlpacaJournal() {
 
 sanitizeAlpacaJournal();
 migrateTradeEditability();
+
+function migrateWatchlistThesis() {
+  let changed = false;
+  S.watchlist.forEach(w => {
+    if (w.thesis === BARON_THESIS_PLACEHOLDER) {
+      w.thesis = '';
+      w.needsLevels = !w.entry || !w.stop || !w.target;
+      changed = true;
+    }
+    if ((!w.entry || !w.stop || !w.target) && w.baron) w.needsLevels = true;
+  });
+  if (changed) persist();
+}
+migrateWatchlistThesis();
 
 function persist() {
   try { localStorage.setItem('runnr_state', JSON.stringify(S)); } catch(e) {}
@@ -2064,7 +2091,7 @@ function tradeId(v) {
 }
 
 function isTradeEditable(t) {
-  return !!t && !t.disciplineOnly;
+  return !!t;
 }
 
 function bindJournalClicks() {
@@ -2122,7 +2149,7 @@ function renderJournal() {
         </div>
         <div style="display:flex;align-items:center;gap:6px;flex-shrink:0">
           <span class="te-pnl ${pnlCls}" style="${t.incomplete && isAlpaca ? 'color:var(--accent);font-size:12px' : ''}">${pnlStr}</span>
-          ${editable ? `<button type="button" class="te-edit" onclick="event.stopPropagation();openTradeEditor('${t.id}')">${editLabel}</button>` : ''}
+          ${editable ? `<button type="button" class="te-edit" onclick="event.stopPropagation();event.preventDefault();openTradeEditor('${t.id}')">${editLabel}</button>` : ''}
           <button type="button" class="te-del" onclick="deleteTrade('${t.id}', event)" title="Delete entry">✕</button>
         </div>
       </div>
@@ -2171,7 +2198,7 @@ function deleteTrade(id, e) {
 function openTradeEditor(id) {
   id = tradeId(id);
   const t = S.trades.find(x => tradeId(x.id) === id);
-  if (!isTradeEditable(t)) return;
+  if (!t) return;
   S.editingTradeId = id;
   openLogModal(t.type || 'cfd');
   const title = document.querySelector('#modal-log .modal-title');
@@ -2316,7 +2343,7 @@ function commitLog(draft) {
   if (S.editingTradeId) {
     const t = S.trades.find(x => tradeId(x.id) === tradeId(S.editingTradeId));
     if (t) {
-      Object.assign(t, {
+      const next = {
         ...patch,
         stop: draft.stop ?? t.stop ?? null,
         target: draft.target ?? t.target ?? null,
@@ -2326,7 +2353,12 @@ function commitLog(draft) {
         externalId: t.externalId,
         fillPrice: t.fillPrice,
         date: t.date,
-      });
+      };
+      if (t.disciplineOnly && draft.exit != null) {
+        delete next.disciplineOnly;
+        next.baronRules = false;
+      }
+      Object.assign(t, next);
     }
     S.editingTradeId = null;
   } else {
@@ -2475,22 +2507,26 @@ function renderWatchCompactRow(w) {
 function renderWatchDetailCard(w) {
   const rrColor = w.rr >= 2 ? 'var(--accent)' : w.rr >= 1.5 ? 'var(--amber)' : 'var(--red)';
   const lp = liveprices[w.sym];
+  const needsLevels = !w.entry || !w.stop || !w.target || w.needsLevels;
+  const thesis = w.thesis && w.thesis !== BARON_THESIS_PLACEHOLDER ? w.thesis : '';
   return `<div class="watch-detail-slim watch-detail-panel" id="wi-${w.id}">
     <div class="live-price-row" id="lp-row-${w.id}">
       ${lp && lp.price ? renderLivePriceRow(lp, w) : '<span class="lp-loading">⟳ Fetching price…</span>'}
     </div>
     <div class="wds-levels">
-      <span><em>Entry</em>${w.entry}</span>
-      <span class="stop"><em>Stop</em>${w.stop}</span>
-      <span class="tgt"><em>Target</em>${w.target}</span>
+      <span><em>Entry</em>${w.entry || '—'}</span>
+      <span class="stop"><em>Stop</em>${w.stop || '—'}</span>
+      <span class="tgt"><em>Target</em>${w.target || '—'}</span>
       <span><em>R:R</em><span style="color:${rrColor}">${w.rr.toFixed(1)}</span></span>
       <span><em>Dir</em>${w.dir.toUpperCase()}</span>
     </div>
     <div class="wds-actions">
+      ${needsLevels ? `<button onclick="event.stopPropagation();openWatchEditor(${w.id})" style="background:var(--gold-dim);color:var(--gold);border:1px solid var(--border)">Set levels</button>` : ''}
       <button onclick="event.stopPropagation();sizefromWatch(${w.id})" style="background:var(--accent-dim);color:var(--accent)">→ Size it</button>
       <button onclick="event.stopPropagation();openStockDetail('${w.sym}')" style="background:var(--surface3);color:var(--text2);border:1px solid var(--border)">Chart</button>
     </div>
-    ${w.thesis ? `<div class="wds-thesis">${w.thesis}</div>` : ''}
+    ${thesis ? `<div class="wds-thesis">${thesis}</div>` : ''}
+    ${needsLevels && !thesis ? `<div class="wds-thesis" style="border-top:none;padding-top:0;color:var(--amber)">Baron ticker — tap Set levels to add entry, stop &amp; target from your chart.</div>` : ''}
   </div>`;
 }
 
@@ -2658,18 +2694,51 @@ async function refreshHomeMarkets() {
   homeMarketsRefreshing = false;
 }
 
+function openWatchEditor(id) {
+  id = watchId(id);
+  const w = S.watchlist.find(x => watchId(x.id) === id);
+  if (!w) return;
+  S.editingWatchId = id;
+  document.getElementById('w-sym').value = w.sym;
+  document.getElementById('w-dir').value = w.dir || 'long';
+  document.getElementById('w-entry').value = w.entry || '';
+  document.getElementById('w-stop').value = w.stop || '';
+  document.getElementById('w-target').value = w.target || '';
+  document.getElementById('w-thesis').value = (w.thesis && w.thesis !== BARON_THESIS_PLACEHOLDER) ? w.thesis : '';
+  const title = document.querySelector('#modal-add-watch .modal-title');
+  if (title) title.innerHTML = 'Edit Setup <button class="modal-close" onclick="closeModal(\'modal-add-watch\')">✕</button>';
+  const btn = document.querySelector('#modal-add-watch .btn');
+  if (btn) btn.textContent = 'Save Setup';
+  openModal('modal-add-watch');
+}
+window.openWatchEditor = openWatchEditor;
+
 function saveWatch() {
   const sym = document.getElementById('w-sym').value.toUpperCase();
   if (!sym) return;
   const entry = parseFloat(document.getElementById('w-entry').value)||0;
   const stop  = parseFloat(document.getElementById('w-stop').value)||0;
   const target= parseFloat(document.getElementById('w-target').value)||0;
+  const thesis = document.getElementById('w-thesis').value.trim();
   const rr = (entry && stop && target) ? parseFloat(((Math.abs(target-entry)/Math.abs(entry-stop)).toFixed(1))) : 0;
-  const id = Date.now();
-  S.watchlist.unshift({ id, sym, dir: document.getElementById('w-dir').value, entry, stop, target, thesis: document.getElementById('w-thesis').value, rr, urgent: false });
-  S.selectedWatchId = id;
+  if (S.editingWatchId != null) {
+    const w = S.watchlist.find(x => watchId(x.id) === watchId(S.editingWatchId));
+    if (w) {
+      Object.assign(w, { sym, dir: document.getElementById('w-dir').value, entry, stop, target, thesis, rr, needsLevels: !(entry && stop && target) });
+      if (entry && stop && target) delete w.needsLevels;
+    }
+    S.editingWatchId = null;
+  } else {
+    const id = Date.now();
+    S.watchlist.unshift({ id, sym, dir: document.getElementById('w-dir').value, entry, stop, target, thesis, rr, urgent: false });
+    S.selectedWatchId = id;
+  }
   persist();
   closeModal('modal-add-watch');
+  const title = document.querySelector('#modal-add-watch .modal-title');
+  if (title) title.innerHTML = 'Add Setup <button class="modal-close" onclick="closeModal(\'modal-add-watch\')">✕</button>';
+  const btn = document.querySelector('#modal-add-watch .btn');
+  if (btn) btn.textContent = 'Add to Watchlist';
   renderWatchlist();
 }
 

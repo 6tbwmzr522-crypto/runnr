@@ -165,10 +165,11 @@ const Baron = {
         entry: 0,
         stop: 0,
         target: 0,
-        thesis: "Baron universe — set levels from chart",
+        thesis: "",
         rr: this.STRATEGY.atr_tp_mult / this.STRATEGY.atr_stop_mult,
         urgent: false,
         baron: true,
+        needsLevels: true,
       });
       existing.add(sym);
       added++;
