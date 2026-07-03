@@ -741,12 +741,13 @@ body.light #equity-canvas{filter:invert(0)}
         </div>
         <div class="result-box" id="cfd-result">
           <div class="result-main" id="cfd-units">—</div>
-          <div class="result-label">MAX UNITS / CONTRACTS</div>
+          <div class="result-label" id="cfd-units-lbl">MAX UNITS / CONTRACTS</div>
           <div class="result-sub">
-            <div class="result-sub-item"><div class="val" id="cfd-risk-amt">—</div><div class="lbl">RISK €</div></div>
+            <div class="result-sub-item"><div class="val" id="cfd-risk-amt">—</div><div class="lbl" id="cfd-risk-lbl">RISK</div></div>
             <div class="result-sub-item"><div class="val" id="cfd-rr">—</div><div class="lbl">R:R</div></div>
-            <div class="result-sub-item"><div class="val" id="cfd-reward">—</div><div class="lbl">REWARD €</div></div>
+            <div class="result-sub-item"><div class="val" id="cfd-reward">—</div><div class="lbl" id="cfd-reward-lbl">REWARD</div></div>
           </div>
+          <div id="cfd-forex-hint" style="display:none;font-size:11px;color:var(--text2);margin-top:8px;line-height:1.4"></div>
           <div class="rr-verdict" id="cfd-verdict" style="display:none"></div>
         </div>
         <button class="btn" onclick="openLogModal('cfd')">Log This Trade</button>
@@ -773,9 +774,9 @@ body.light #equity-canvas{filter:invert(0)}
           <div class="result-main" id="sh-units">—</div>
           <div class="result-label">MAX SHARES</div>
           <div class="result-sub">
-            <div class="result-sub-item"><div class="val" id="sh-risk">—</div><div class="lbl">RISK €</div></div>
+            <div class="result-sub-item"><div class="val" id="sh-risk">—</div><div class="lbl" id="sh-risk-lbl">RISK</div></div>
             <div class="result-sub-item"><div class="val" id="sh-rr">—</div><div class="lbl">R:R</div></div>
-            <div class="result-sub-item"><div class="val" id="sh-reward">—</div><div class="lbl">REWARD €</div></div>
+            <div class="result-sub-item"><div class="val" id="sh-reward">—</div><div class="lbl" id="sh-reward-lbl">REWARD</div></div>
           </div>
           <div class="rr-verdict" id="sh-verdict" style="display:none"></div>
         </div>
@@ -1710,22 +1711,65 @@ function showVerdict(elId, rr) {
   else el.style.display='none';
 }
 
+function parseForexPair(instr) {
+  const FX = ['USD','EUR','GBP','JPY','CHF','AUD','NZD','CAD'];
+  const s = (instr || '').toUpperCase().replace(/[^A-Z]/g, '');
+  if (s.length !== 6 || !FX.includes(s.slice(0, 3)) || !FX.includes(s.slice(3, 6))) return null;
+  return { base: s.slice(0, 3), quote: s.slice(3, 6) };
+}
+
+/** T212-style CFD P&L: units = base-currency notional; USD pairs use price diff directly. */
+function cfdForexPnl(pair, entry, stop, target, units) {
+  const stopDist = Math.abs(entry - stop);
+  const targetDist = target ? Math.abs(target - entry) : 0;
+  if (pair.quote === 'USD') {
+    return { risk: units * stopDist, reward: target ? units * targetDist : null };
+  }
+  return {
+    risk: units * stopDist / entry,
+    reward: target ? units * targetDist / entry : null,
+  };
+}
+
 function calcCFD() {
+  const instr = document.getElementById('cfd-instr')?.value || '';
   const entry = parseFloat(document.getElementById('cfd-entry').value);
   const stop  = parseFloat(document.getElementById('cfd-stop').value);
   const target= parseFloat(document.getElementById('cfd-target').value);
-  const dir   = document.getElementById('cfd-dir').value;
   if (!entry || !stop) return;
   const maxRisk = S.bal * S.risk / 100;
   const stopDist = Math.abs(entry - stop);
   if (!stopDist) return;
   const units = Math.floor(maxRisk / stopDist);
-  const reward = target ? Math.abs(target - entry) * units : null;
+  const pair = parseForexPair(instr);
+  let riskAmt, reward;
+  if (pair) {
+    const pnl = cfdForexPnl(pair, entry, stop, target, units);
+    riskAmt = pnl.risk;
+    reward = pnl.reward;
+  } else {
+    riskAmt = units * stopDist;
+    reward = target ? Math.abs(target - entry) * units : null;
+  }
   const rr = target ? Math.abs(target - entry) / stopDist : null;
+  const sym = S.sym;
   document.getElementById('cfd-units').textContent = units.toLocaleString();
-  document.getElementById('cfd-risk-amt').textContent = S.sym + Math.round(units * stopDist).toLocaleString();
+  document.getElementById('cfd-risk-amt').textContent = sym + Math.round(riskAmt).toLocaleString();
   document.getElementById('cfd-rr').textContent = rr ? rr.toFixed(1) : '—';
-  document.getElementById('cfd-reward').textContent = reward ? S.sym + Math.round(reward).toLocaleString() : '—';
+  document.getElementById('cfd-reward').textContent = reward ? sym + Math.round(reward).toLocaleString() : '—';
+  const unitsLbl = document.getElementById('cfd-units-lbl');
+  if (unitsLbl) unitsLbl.textContent = pair ? `MAX UNITS (${pair.base} NOTIONAL)` : 'MAX UNITS / CONTRACTS';
+  const riskLbl = document.getElementById('cfd-risk-lbl');
+  const rewLbl = document.getElementById('cfd-reward-lbl');
+  if (riskLbl) riskLbl.textContent = pair ? 'RISK AT STOP' : 'RISK';
+  if (rewLbl) rewLbl.textContent = pair ? 'REWARD AT TARGET' : 'REWARD';
+  const hint = document.getElementById('cfd-forex-hint');
+  if (hint) {
+    if (pair && riskAmt < maxRisk * 0.75) {
+      hint.style.display = 'block';
+      hint.textContent = `Broker-style units — actual risk at stop ≈ ${sym}${Math.round(riskAmt).toLocaleString()} (your ${S.risk}% budget is ${sym}${Math.round(maxRisk).toLocaleString()}).`;
+    } else hint.style.display = 'none';
+  }
   showVerdict('cfd-verdict', rr);
 }
 
@@ -1744,6 +1788,10 @@ function calcShares() {
   document.getElementById('sh-risk').textContent = S.sym + Math.round(shares * stopDist).toLocaleString();
   document.getElementById('sh-rr').textContent = rr ? rr.toFixed(1) : '—';
   document.getElementById('sh-reward').textContent = reward ? S.sym + Math.round(reward).toLocaleString() : '—';
+  const shRiskLbl = document.getElementById('sh-risk-lbl');
+  const shRewLbl = document.getElementById('sh-reward-lbl');
+  if (shRiskLbl) shRiskLbl.textContent = 'RISK';
+  if (shRewLbl) shRewLbl.textContent = 'REWARD';
   showVerdict('sh-verdict', rr);
 }
 
