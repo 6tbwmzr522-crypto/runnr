@@ -5,7 +5,7 @@
 <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
 <script>
 (function () {
-  var V = "20";
+  var V = "21";
   try {
     if (localStorage.getItem("runnr_app_v") !== V) {
       localStorage.setItem("runnr_app_v", V);
@@ -581,6 +581,11 @@ body.light #equity-canvas{filter:invert(0)}
 .disc-meta-row{display:flex;justify-content:space-between;font-size:11px;color:var(--text3);margin-top:4px}
 .disc-meta-row strong{color:var(--text);font-family:var(--font-mono)}
 #share-canvas{display:block;width:100%;max-width:320px;margin:0 auto;border-radius:var(--r-sm);border:1px solid var(--border)}
+#session-banner{display:none;align-items:center;justify-content:space-between;gap:10px;margin:0 16px 10px;padding:10px 12px;background:var(--gold-dim);border:1px solid var(--border-strong);border-radius:var(--r-sm);font-size:12px;color:var(--text2);cursor:pointer}
+#session-banner .session-banner-text{flex:1;line-height:1.4}
+#header-sync-pill{font-size:11px;padding:4px 8px;border-radius:999px;border:1px solid var(--border);color:var(--text3);cursor:pointer;white-space:nowrap}
+#header-sync-pill.on{border-color:var(--accent);color:var(--accent);background:var(--accent-dim)}
+#sync-auth-error{font-size:12px;color:var(--red);min-height:16px;margin:8px 0 4px}
 </style>
 </head>
 <body>
@@ -593,9 +598,15 @@ body.light #equity-canvas{filter:invert(0)}
       <div class="logo">runnr</div>
     </div>
     <div style="display:flex;gap:8px;align-items:center"><button id="theme-toggle" onclick="toggleTheme()">☀ Light</button>
+      <span id="header-sync-pill" onclick="headerSyncTap()" title="Broker sync account">Sign in</span>
       <span id="acct-display" style="font-size:14px;color:var(--text2);cursor:pointer;font-style:italic" onclick="openModal('modal-settings')">€10,000 ✎</span>
       <div class="tier-badge" id="tier-badge">🌱 NOVICE</div>
     </div>
+  </div>
+
+  <div id="session-banner" onclick="openSyncAuthModal()">
+    <span class="session-banner-text">Sign in to sync Alpaca — your journal stays on this device.</span>
+    <button type="button" style="background:none;border:none;color:var(--text3);font-size:16px;cursor:pointer;padding:0 4px" onclick="event.stopPropagation();hideSessionBanner()">✕</button>
   </div>
 
   <!-- PAGES -->
@@ -1444,13 +1455,13 @@ body.light #equity-canvas{filter:invert(0)}
 <div class="modal-overlay" id="modal-sync-auth" onclick="closeModalOutside(event,'modal-sync-auth')">
   <div class="modal" onclick="event.stopPropagation()">
     <div class="modal-title">Runnr account <button class="modal-close" onclick="closeModal('modal-sync-auth')">✕</button></div>
-    <div style="font-size:12px;color:var(--text2);margin-bottom:14px">One login to sync brokers across devices.</div>
+    <div style="font-size:12px;color:var(--text2);margin-bottom:14px">One sign-in for Alpaca sync. Same email always works — new or returning.</div>
     <form id="sync-auth-form">
       <div class="field"><label for="sync-email">Email</label><input id="sync-email" name="email" type="email" placeholder="you@example.com" autocomplete="username" required inputmode="email" autocapitalize="none" autocorrect="off"></div>
       <div class="field"><label for="sync-password">Password</label><input id="sync-password" name="password" type="password" placeholder="8+ characters" autocomplete="current-password" required minlength="8"></div>
-      <button class="btn" type="submit" id="sync-login-btn">Log in</button>
-      <button class="btn btn-ghost" style="margin-top:8px" type="button" id="sync-register-btn">Create account</button>
-      <button class="btn btn-ghost" style="margin-top:8px;font-size:12px" type="button" onclick="RunnrSync.logout(); renderSyncPage(); renderHomeBrokerPreview(); closeModal('modal-sync-auth');">Log out</button>
+      <div id="sync-auth-error"></div>
+      <button class="btn" type="submit" id="sync-login-btn">Continue</button>
+      <button class="btn btn-ghost" style="margin-top:8px;font-size:12px" type="button" onclick="RunnrSync.logout(); hideSessionBanner(); renderHeaderSyncPill(); renderSyncPage(); renderHomeBrokerPreview(); closeModal('modal-sync-auth');">Log out on this device</button>
     </form>
   </div>
 </div>
@@ -1550,7 +1561,7 @@ body.light #equity-canvas{filter:invert(0)}
 <script src="js/baron.js?v=25"></script>
 <script src="js/coach.js?v=22"></script>
 <script src="js/onboarding.js?v=20"></script>
-<script src="js/sync.js?v=20"></script>
+<script src="js/sync.js?v=24"></script>
 <script>
 // ── STATE ──────────────────────────────────────────────────────────────────
 const S = {
@@ -4256,6 +4267,57 @@ function renderAvailableBrokers() {
   }
 }
 
+function showSessionBanner(text) {
+  const el = document.getElementById('session-banner');
+  if (!el) return;
+  const span = el.querySelector('.session-banner-text');
+  if (span && text) span.textContent = text;
+  el.style.display = 'flex';
+}
+
+function hideSessionBanner() {
+  const el = document.getElementById('session-banner');
+  if (el) el.style.display = 'none';
+}
+
+function renderHeaderSyncPill() {
+  const el = document.getElementById('header-sync-pill');
+  if (!el) return;
+  if (RunnrSync.isLoggedIn()) {
+    const who = (RunnrSync.sessionEmail() || 'Signed in').split('@')[0];
+    el.textContent = '✓ ' + who;
+    el.classList.add('on');
+    el.title = 'Signed in — tap for Sync';
+    hideSessionBanner();
+  } else {
+    el.textContent = 'Sign in';
+    el.classList.remove('on');
+    el.title = 'Sign in for Alpaca sync';
+  }
+}
+
+function headerSyncTap() {
+  if (RunnrSync.isLoggedIn()) switchPage('sync');
+  else openSyncAuthModal();
+}
+
+function handleRunnrAuthExpired(msg) {
+  renderHeaderSyncPill();
+  renderSyncAuthBanner();
+  const m = String(msg || '');
+  if (/user not found|create your account|sign in again/i.test(m)) {
+    showSessionBanner('Tap Sign in — same email + password. If the server reset, Continue will recreate your account.');
+  } else {
+    showSessionBanner('Session ended — tap Sign in (email is remembered).');
+  }
+}
+window.onRunnrAuthExpired = handleRunnrAuthExpired;
+
+function showSyncAuthError(text) {
+  const el = document.getElementById('sync-auth-error');
+  if (el) el.textContent = text || '';
+}
+
 function renderSyncAuthBanner() {
   const el = document.getElementById('sync-auth-banner');
   if (!el) return;
@@ -4266,8 +4328,8 @@ function renderSyncAuthBanner() {
       <button class="btn btn-sm btn-ghost" onclick="openSyncAuthModal()">Account</button>
     </div>`;
   } else {
-    el.innerHTML = `<div class="card-sm" style="font-size:12px;color:var(--text2);margin-bottom:4px">Log in once to store broker keys safely.</div>
-      <button class="btn btn-sm" onclick="openSyncAuthModal()">Log in / Sign up</button>`;
+    el.innerHTML = `<div class="card-sm" style="font-size:12px;color:var(--text2);margin-bottom:4px">Sign in once — Alpaca keys stay on this phone.</div>
+      <button class="btn btn-sm" onclick="openSyncAuthModal()">Sign in</button>`;
   }
 }
 
@@ -4329,11 +4391,12 @@ function renderSyncPage() {
 }
 
 function openSyncAuthModal() {
+  showSyncAuthError('');
   openModal('modal-sync-auth');
   setTimeout(() => {
     const email = document.getElementById('sync-email');
     const remembered = localStorage.getItem('runnr_remember_email') || RunnrSync.sessionEmail();
-    if (email && remembered && !email.value) email.value = remembered;
+    if (email && remembered) email.value = remembered;
     if (email) email.focus();
   }, 250);
 }
@@ -4354,64 +4417,47 @@ function validateSyncAuth(email, password) {
   return '';
 }
 
-async function submitSyncLogin() {
+async function submitSyncContinue() {
   const { email, password } = readSyncAuthFields();
   const err = validateSyncAuth(email, password);
   if (err) {
-    alert(err);
+    showSyncAuthError(err);
     return;
   }
+  showSyncAuthError('');
   const btn = document.getElementById('sync-login-btn');
-  if (btn) { btn.disabled = true; btn.textContent = 'Logging in…'; }
+  if (btn) { btn.disabled = true; btn.textContent = 'Signing in…'; }
   try {
-    await RunnrSync.login(email, password);
+    await RunnrSync.signIn(email, password);
     localStorage.setItem('runnr_remember_email', email);
+    hideSessionBanner();
     closeModal('modal-sync-auth');
     await RunnrSync.tryAutoReconnectAlpaca();
     await RunnrSync.refreshStatus();
+    renderHeaderSyncPill();
     renderSyncPage();
     renderHomeBrokerPreview();
     updateHomeStats();
   } catch (e) {
     const msg = String(e.message || e);
-    if (/invalid email or password/i.test(msg)) {
-      alert('Login failed — wrong email or password.\n\nIf Runnr was reset on the server, tap Create account once with the same email.');
+    if (/wrong password/i.test(msg)) {
+      showSyncAuthError('Wrong password for this email.');
+    } else if (/invalid email or password/i.test(msg)) {
+      showSyncAuthError('Could not sign in — check email and password.');
     } else {
-      alert('Login failed: ' + msg);
+      showSyncAuthError(msg);
     }
   } finally {
-    if (btn) { btn.disabled = false; btn.textContent = 'Log in'; }
+    if (btn) { btn.disabled = false; btn.textContent = 'Continue'; }
   }
 }
 
+async function submitSyncLogin() {
+  return submitSyncContinue();
+}
+
 async function submitSyncRegister() {
-  const { email, password } = readSyncAuthFields();
-  const err = validateSyncAuth(email, password);
-  if (err) {
-    alert(err);
-    return;
-  }
-  const btn = document.getElementById('sync-register-btn');
-  if (btn) { btn.disabled = true; btn.textContent = 'Creating…'; }
-  try {
-    await RunnrSync.register(email, password);
-    localStorage.setItem('runnr_remember_email', email);
-    closeModal('modal-sync-auth');
-    await RunnrSync.tryAutoReconnectAlpaca();
-    await RunnrSync.refreshStatus();
-    renderSyncPage();
-    renderHomeBrokerPreview();
-    updateHomeStats();
-  } catch (e) {
-    const msg = String(e.message || e);
-    if (/already registered/i.test(msg)) {
-      alert('That email already exists — use Log in with your password.');
-    } else {
-      alert('Sign up failed: ' + msg);
-    }
-  } finally {
-    if (btn) { btn.disabled = false; btn.textContent = 'Create account'; }
-  }
+  return submitSyncContinue();
 }
 
 function connectBroker(name) {
@@ -4479,11 +4525,10 @@ async function submitAlpacaConnect() {
     alert('Alpaca connected — tap Sync now to pull trades.');
   } catch (e) {
     const msg = String(e.message || e);
-    if (/session expired|user not found|invalid token|missing bearer/i.test(msg)) {
+    if (RunnrSync.isAuthError?.(msg)) {
       RunnrSync.logout();
-      renderSyncPage();
+      handleRunnrAuthExpired(msg);
       openSyncAuthModal();
-      alert('Session expired — log in again (same email is fine).');
       return;
     }
     alert('Connect failed: ' + msg);
@@ -4531,11 +4576,10 @@ async function runBrokerSync() {
     }
   } catch (e) {
     const msg = String(e.message || e);
-    if (/session expired|user not found|invalid token|missing bearer/i.test(msg)) {
+    if (RunnrSync.isAuthError?.(msg)) {
       RunnrSync.logout();
-      renderSyncPage();
+      handleRunnrAuthExpired(msg);
       openSyncAuthModal();
-      alert('Server lost your account (deploy reset). Create your account once more — same email is fine.');
       return;
     }
     if (/alpaca not connected/i.test(msg)) {
@@ -4548,6 +4592,7 @@ async function runBrokerSync() {
 }
 
 function bootRunnrSync() {
+  renderHeaderSyncPill();
   renderSyncAuthBanner();
   if (!RunnrSync.isLoggedIn()) {
     renderSyncPage();
@@ -4557,7 +4602,7 @@ function bootRunnrSync() {
   RunnrSync.verifySession()
     .then((ok) => {
       if (!ok) {
-        renderSyncAuthBanner();
+        handleRunnrAuthExpired('Session expired');
         renderSyncPage();
         renderHomeBrokerPreview();
         return null;
@@ -4569,6 +4614,7 @@ function bootRunnrSync() {
       return RunnrSync.repairJournalIfNeeded();
     })
     .then(() => {
+      renderHeaderSyncPill();
       renderSyncPage();
       renderHomeBrokerPreview();
       renderJournal();
@@ -4924,11 +4970,7 @@ function initSyncAuthForm() {
   form.dataset.bound = '1';
   form.addEventListener('submit', (e) => {
     e.preventDefault();
-    submitSyncLogin();
-  });
-  document.getElementById('sync-register-btn')?.addEventListener('click', (e) => {
-    e.preventDefault();
-    submitSyncRegister();
+    submitSyncContinue();
   });
 }
 

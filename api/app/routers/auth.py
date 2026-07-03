@@ -1,8 +1,8 @@
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter, Depends, HTTPException
 
-from app.auth import create_access_token, hash_password, verify_password
+from app.auth import create_access_token, get_current_user, hash_password, verify_password
 from app.db import get_db
-from app.models.auth import LoginRequest, RegisterRequest, TokenResponse
+from app.models.auth import LoginRequest, MeResponse, RegisterRequest, TokenResponse
 
 router = APIRouter(prefix="/auth", tags=["auth"])
 
@@ -19,7 +19,7 @@ def register(body: RegisterRequest):
             if verify_password(body.password, existing["password_hash"]):
                 token = create_access_token(existing["id"], existing["email"])
                 return TokenResponse(access_token=token, email=existing["email"])
-            raise HTTPException(status_code=400, detail="Email already registered — use Log in")
+            raise HTTPException(status_code=400, detail="Wrong password for this email")
         cur = conn.execute(
             "INSERT INTO users (email, password_hash) VALUES (?, ?)",
             (email, hash_password(body.password)),
@@ -27,6 +27,11 @@ def register(body: RegisterRequest):
         user_id = cur.lastrowid
     token = create_access_token(user_id, email)
     return TokenResponse(access_token=token, email=email)
+
+
+@router.get("/me", response_model=MeResponse)
+def me(user: dict = Depends(get_current_user)):
+    return MeResponse(id=user["id"], email=user["email"])
 
 
 @router.post("/login", response_model=TokenResponse)

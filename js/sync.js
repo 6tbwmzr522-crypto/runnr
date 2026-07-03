@@ -16,6 +16,21 @@ const RunnrSync = (() => {
     return "https://api.runnr.fyi";
   }
 
+  function ensureApiUrl() {
+    const host = location.hostname || "";
+    if (host === "runnr.fyi" || host === "www.runnr.fyi" || host.endsWith(".github.io")) {
+      const current = localStorage.getItem(URL_KEY);
+      if (!current || /railway\.app/i.test(current)) {
+        localStorage.setItem(URL_KEY, "https://api.runnr.fyi");
+      }
+    }
+  }
+  ensureApiUrl();
+
+  function isAuthError(msg) {
+    return /session expired|user not found|invalid token|missing bearer/i.test(String(msg || ""));
+  }
+
   function token() {
     return localStorage.getItem(TOKEN_KEY) || "";
   }
@@ -94,6 +109,19 @@ const RunnrSync = (() => {
     return data;
   }
 
+  /** Log in, or create account if this email is new (covers server DB resets). */
+  async function signIn(email, password) {
+    try {
+      return await login(email, password);
+    } catch (e) {
+      const msg = String(e.message || e);
+      if (/invalid email or password/i.test(msg)) {
+        return await register(email, password);
+      }
+      throw e;
+    }
+  }
+
   function logout() {
     setToken("");
     localStorage.removeItem(ALPACA_LOCAL_KEY);
@@ -148,11 +176,11 @@ const RunnrSync = (() => {
   async function verifySession() {
     if (!isLoggedIn()) return false;
     try {
-      await request("/api/v1/brokers/alpaca/status");
+      await request("/api/v1/auth/me");
       return true;
     } catch (e) {
       const msg = String(e.message || e);
-      if (/user not found|session expired|invalid token|missing bearer/i.test(msg)) {
+      if (isAuthError(msg)) {
         setToken("");
         return false;
       }
@@ -377,6 +405,7 @@ const RunnrSync = (() => {
     isLoggedIn,
     register,
     login,
+    signIn,
     logout,
     alpacaStatus,
     connectAlpaca,
@@ -394,5 +423,7 @@ const RunnrSync = (() => {
     applyAlpacaBalance,
     formatAgo,
     tradeNeedsPriceFix,
+    isAuthError,
+    ensureApiUrl,
   };
 })();

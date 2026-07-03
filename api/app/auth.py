@@ -11,7 +11,7 @@ from app.db import get_db
 bearer = HTTPBearer(auto_error=False)
 
 ALGORITHM = "HS256"
-ACCESS_TOKEN_HOURS = 24 * 30
+ACCESS_TOKEN_HOURS = 24 * 365
 
 
 def hash_password(password: str) -> str:
@@ -47,6 +47,6 @@ def get_current_user(
     if not row:
         raise HTTPException(
             status_code=401,
-            detail="Session expired — please log out and create your account again",
+            detail="Session expired — sign in again with the same email",
         )
     return {"id": row["id"], "email": row["email"]}
