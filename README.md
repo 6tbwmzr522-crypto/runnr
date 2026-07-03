@@ -57,7 +57,7 @@ runnr/
 
 ## Runnr API (broker sync)
 
-Deploy `api/` to Railway (root directory: `api`). Set `RUNNR_SECRET_KEY` and `RUNNR_ENCRYPTION_KEY`.
+Deploy `api/` to Railway (root directory: `api`). Set `RUNNR_SECRET_KEY` and `RUNNR_ENCRYPTION_KEY`. Optional: `OPENAI_API_KEY` enables AI one-line watchlist remarks (otherwise Yahoo headline fallback).
 
 Local: `cd api && uvicorn app.main:app --reload --port 8090` — docs at `/docs`.
 

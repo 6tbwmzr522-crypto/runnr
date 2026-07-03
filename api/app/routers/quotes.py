@@ -4,6 +4,8 @@ from urllib.request import Request, urlopen
 
 from fastapi import APIRouter, HTTPException, Query
 
+from app.market_brief import build_market_brief
+
 router = APIRouter()
 
 
@@ -58,6 +60,27 @@ def fear_greed_index():
         }
     except Exception as exc:
         raise HTTPException(status_code=502, detail=f"Fear & Greed fetch failed: {exc}") from exc
+
+
+@router.get("/{symbol}/brief")
+def market_brief(
+    symbol: str,
+    direction: str | None = Query(default=None, pattern="^(long|short)$"),
+    entry: float | None = None,
+    stop: float | None = None,
+    target: float | None = None,
+):
+    """Recent headline or AI one-liner for watchlist context (cached 30m)."""
+    try:
+        return build_market_brief(
+            symbol,
+            direction=direction,
+            entry=entry,
+            stop=stop,
+            target=target,
+        )
+    except Exception as exc:
+        raise HTTPException(status_code=502, detail=f"Brief fetch failed: {exc}") from exc
 
 
 @router.get("/{symbol}")
