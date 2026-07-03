@@ -180,7 +180,8 @@ body::before{content:'';position:fixed;inset:0;background:radial-gradient(ellips
 .trade-entry .te-sym{font-family:var(--font-head);font-size:17px;font-weight:400;color:var(--accent);cursor:pointer;font-style:italic}
 .trade-entry .te-sym:hover{color:var(--gold-light)}
 .trade-entry .te-del{background:transparent;border:none;color:var(--text3);font-size:14px;padding:2px 6px;cursor:pointer;border-radius:6px;line-height:1}
-.trade-entry .te-del:hover{color:var(--red);background:var(--red-dim)}
+.trade-entry .te-edit{background:var(--surface3);border:1px solid var(--border);color:var(--gold);font-size:10px;font-weight:600;padding:4px 10px;border-radius:10px;cursor:pointer;white-space:nowrap}
+.trade-entry .te-edit:hover{border-color:var(--gold);background:var(--gold-dim)}
 .trade-entry .te-pnl{font-family:var(--font-mono);font-size:15px;font-weight:500}
 .te-pnl.pos{color:var(--accent)}
 .te-pnl.neg{color:var(--red)}
@@ -201,7 +202,22 @@ body::before{content:'';position:fixed;inset:0;background:radial-gradient(ellips
 .watch-compact-row.watch-compact-selected{background:rgba(0,229,160,0.07);border-radius:var(--r-sm);margin:0 -6px;padding-left:6px;padding-right:6px;border-left:2px solid var(--accent)}
 .watch-compact-selected:has(+ .watch-inline-detail){border-bottom:none;border-radius:var(--r-sm) var(--r-sm) 0 0;margin-bottom:0}
 .watch-inline-detail{padding:0 0 6px;border-bottom:1px solid var(--border)}
-.watch-inline-detail .watch-detail-panel{margin:0;border-radius:0 0 var(--r-sm) var(--r-sm);border-top:none}
+.watch-inline-detail .watch-detail-panel{margin:0;border-radius:0 0 var(--r-sm) var(--r-sm);border-top:none;border-left:none;background:transparent;padding:10px 0 4px}
+.watch-detail-slim{padding:0 4px 6px}
+.watch-detail-slim .live-price-row{margin:0 0 8px;padding:8px 10px}
+.wds-levels{display:flex;flex-wrap:wrap;gap:6px 12px;font-family:var(--font-mono);font-size:11px;color:var(--text2);margin-bottom:10px}
+.wds-levels span em{font-style:normal;font-size:8px;color:var(--text3);letter-spacing:0.12em;margin-right:3px;text-transform:uppercase}
+.wds-levels .stop{color:var(--red)}
+.wds-levels .tgt{color:var(--accent)}
+.wds-actions{display:flex;gap:8px;justify-content:flex-end;margin-bottom:6px}
+.wds-actions button{font-size:11px;font-weight:600;padding:6px 12px;border-radius:10px;cursor:pointer;border:none;font-family:var(--font-body)}
+.wds-thesis{font-size:11px;color:var(--text3);line-height:1.4;border-top:1px solid var(--border);padding-top:8px;margin-top:2px}
+.watch-compact-row{align-items:flex-start}
+.watch-compact-row .wcr-block{flex:1;min-width:0}
+.watch-compact-row .wcr-line1{display:flex;align-items:center;gap:8px}
+.watch-compact-row .wcr-live{margin-left:auto;font-family:var(--font-mono);font-size:13px;color:var(--text)}
+.watch-compact-row .wcr-sub{font-size:10px;color:var(--text3);margin-top:3px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.watch-compact-row .wcr-dir{font-size:9px;text-transform:uppercase;letter-spacing:0.08em;color:var(--text3)}
 .watch-detail-panel{margin-bottom:12px}
 .watch-item.watch-urgent{border-left-color:var(--amber)}
 .watch-item .wi-top{display:flex;justify-content:space-between;align-items:flex-start}
@@ -672,9 +688,9 @@ body.light #equity-canvas{filter:invert(0)}
             <div id="fg-needle-label" style="text-align:center;font-size:10px;color:var(--text3);margin-top:2px;font-family:var(--font-mono)">CNN Fear & Greed</div>
           </div>
           <div class="fg-info">
-            <div class="fg-value" id="fg-value">72</div>
-            <div class="fg-label" id="fg-label" style="color:#f59e0b">GREED</div>
-            <div class="fg-desc" id="fg-desc">Market is showing signs of greed. Traders may be overexposed — consider tightening position sizes.</div>
+            <div class="fg-value" id="fg-value">—</div>
+            <div class="fg-label" id="fg-label" style="color:var(--text3)">LOADING</div>
+            <div class="fg-desc" id="fg-desc">Fetching CNN Fear & Greed…</div>
             <div class="fg-zones">
               <span class="fg-zone" id="fz-ef" style="background:rgba(220,38,38,0.2);color:#ef4444">Extreme Fear</span>
               <span class="fg-zone" id="fz-f"  style="background:rgba(249,115,22,0.2);color:#f97316">Fear</span>
@@ -682,7 +698,7 @@ body.light #equity-canvas{filter:invert(0)}
               <span class="fg-zone" id="fz-g"  style="background:rgba(132,204,22,0.2);color:#84cc16">Greed</span>
               <span class="fg-zone" id="fz-eg" style="background:rgba(34,197,94,0.2);color:#22c55e">Extreme Greed</span>
             </div>
-            <div class="fg-updated">↻ Live — CNN Fear & Greed Index</div>
+            <div class="fg-updated" id="fg-updated">↻ Loading CNN Fear & Greed…</div>
           </div>
         </div>
       </div>
@@ -1582,6 +1598,17 @@ function isOptionSymbol(sym) {
   return /[CP]\d{6,}/.test(s);
 }
 
+function migrateTradeEditability() {
+  let changed = false;
+  S.trades.forEach(t => {
+    if (t.disciplineOnly && !t.baronRules) {
+      delete t.disciplineOnly;
+      changed = true;
+    }
+  });
+  if (changed) persist();
+}
+
 function sanitizeAlpacaJournal() {
   const before = S.trades.length;
   let patched = false;
@@ -1604,6 +1631,7 @@ function sanitizeAlpacaJournal() {
 }
 
 sanitizeAlpacaJournal();
+migrateTradeEditability();
 
 function persist() {
   try { localStorage.setItem('runnr_state', JSON.stringify(S)); } catch(e) {}
@@ -2085,19 +2113,21 @@ function renderJournal() {
       ? `<span>${t.date}</span><span>${t.dir === 'long' ? 'BUY' : 'SELL'} ${t.size} @ ${priceLabel}</span><span>Alpaca</span>`
       : `<span>${t.date}</span><span>${t.entry} → ${t.exit ?? 'open'}</span><span>${t.size} units</span>`;
     const editable = isTradeEditable(t);
+    const editLabel = Baron.isOpenTrade?.(t) ? 'Close' : 'Edit';
     return `<div class="trade-entry${editable ? ' trade-entry-editable' : ''}" data-trade-id="${t.id}" data-editable="${editable ? '1' : '0'}">
       <div class="te-top">
-        <div style="display:flex;align-items:center;gap:6px">
+        <div style="display:flex;align-items:center;gap:6px;min-width:0">
           <span class="te-sym" onclick="event.stopPropagation();openStockDetail('${quoteSymbolFromInstr(t.instr).replace(/'/g, "\\'")}')" title="Live price">${t.instr.length > 12 ? t.instr.slice(0, 10) + '…' : t.instr}</span>
           <span style="font-size:11px;color:var(--text3)">${t.dir.toUpperCase()}</span>
         </div>
-        <div style="display:flex;align-items:center;gap:8px">
+        <div style="display:flex;align-items:center;gap:6px;flex-shrink:0">
           <span class="te-pnl ${pnlCls}" style="${t.incomplete && isAlpaca ? 'color:var(--accent);font-size:12px' : ''}">${pnlStr}</span>
-          <button class="te-del" onclick="deleteTrade(${t.id}, event)" title="Delete entry">✕</button>
+          ${editable ? `<button type="button" class="te-edit" onclick="event.stopPropagation();openTradeEditor('${t.id}')">${editLabel}</button>` : ''}
+          <button type="button" class="te-del" onclick="deleteTrade('${t.id}', event)" title="Delete entry">✕</button>
         </div>
       </div>
       <div class="te-meta">${metaLine}</div>
-      <div class="flags">${stopFlag}${sizeFlag}${t.incomplete?'<span class="flag flag-miss">Incomplete</span>':''}${Baron.isOpenTrade?.(t)?'<span class="flag" style="color:var(--amber)">Tap to close</span>':(editable?'<span class="flag" style="color:var(--text3)">Tap to edit</span>':'')}</div>
+      <div class="flags">${stopFlag}${sizeFlag}${t.incomplete?'<span class="flag flag-miss">Incomplete</span>':''}</div>
     </div>`;
   }).join('');
 }
@@ -2428,47 +2458,39 @@ function renderWatchCompactRow(w) {
   const lp = liveprices[w.sym];
   const livePrice = lp && lp.price ? fmtPrice(lp.price) : '—';
   const st = watchRowStatus(w, lp);
-  const isNear = lp && isNearEntry(lp.price, w.entry, w.dir);
   const selected = watchId(S.selectedWatchId) === watchId(w.id);
   return `<div class="watch-compact-row ${selected ? 'watch-compact-selected' : ''}" role="button" tabindex="0" onclick="selectWatch(${w.id})" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();selectWatch(${w.id})}">
-    <div class="ai-sym">${w.sym}</div>
-    <div class="ai-info">
-      <div class="ai-trigger">Entry: ${w.entry} · Live: ${livePrice}${isNear ? ' <span style="color:var(--amber)">● near</span>' : ''}</div>
-      <div class="ai-band">Stop ${w.stop} → Target ${w.target} · R:R ${w.rr.toFixed(1)}</div>
+    <div class="wcr-block">
+      <div class="wcr-line1">
+        <div class="ai-sym">${w.sym}</div>
+        <span class="wcr-dir">${w.dir}</span>
+        <span class="wcr-live">${livePrice}</span>
+      </div>
+      ${selected ? '' : `<div class="wcr-sub">${w.entry} · stop ${w.stop} · target ${w.target} · ${w.rr.toFixed(1)}R</div>`}
     </div>
-    <div class="ai-status ${st.cls}">${st.text}</div>
+    <div class="ai-status ${st.cls}">${st.text.replace(/^●\s*/, '')}</div>
   </div>`;
 }
 
 function renderWatchDetailCard(w) {
   const rrColor = w.rr >= 2 ? 'var(--accent)' : w.rr >= 1.5 ? 'var(--amber)' : 'var(--red)';
   const lp = liveprices[w.sym];
-  const isNear = lp && isNearEntry(lp.price, w.entry, w.dir);
-  return `<div class="watch-item watch-detail-panel ${isNear?'watch-urgent':''}" id="wi-${w.id}">
-    <div class="wi-top">
-      <div style="display:flex;align-items:center;gap:6px;flex-wrap:wrap">
-        <span class="wi-sym">${w.sym}</span>
-        ${isNear ? '<span style="font-size:10px;color:var(--amber);animation:pulse 2s infinite">● Near entry</span>' : ''}
-      </div>
-      <span class="wi-dir dir-${w.dir}">${w.dir.toUpperCase()}</span>
-    </div>
+  return `<div class="watch-detail-slim watch-detail-panel" id="wi-${w.id}">
     <div class="live-price-row" id="lp-row-${w.id}">
-      ${lp && lp.price ? renderLivePriceRow(lp, w) : '<span class="lp-loading">⟳ Fetching live price...</span>'}
+      ${lp && lp.price ? renderLivePriceRow(lp, w) : '<span class="lp-loading">⟳ Fetching price…</span>'}
     </div>
-    ${lp && lp.price ? renderDistBar(lp.price, w) : ''}
-    <div class="wi-prices">
-      <div class="wi-price"><div class="p-val">${w.entry}</div><div class="p-lbl">Entry</div></div>
-      <div class="wi-price"><div class="p-val" style="color:var(--red)">${w.stop}</div><div class="p-lbl">Stop</div></div>
-      <div class="wi-price"><div class="p-val" style="color:var(--accent)">${w.target}</div><div class="p-lbl">Target</div></div>
+    <div class="wds-levels">
+      <span><em>Entry</em>${w.entry}</span>
+      <span class="stop"><em>Stop</em>${w.stop}</span>
+      <span class="tgt"><em>Target</em>${w.target}</span>
+      <span><em>R:R</em><span style="color:${rrColor}">${w.rr.toFixed(1)}</span></span>
+      <span><em>Dir</em>${w.dir.toUpperCase()}</span>
     </div>
-    <div style="margin-top:8px;display:flex;justify-content:space-between;align-items:center">
-      <div style="font-size:11px;color:var(--text3)">R:R <span style="color:${rrColor};font-family:var(--font-mono);font-weight:600">${w.rr.toFixed(1)}</span></div>
-      <div style="display:flex;gap:6px">
-        <button onclick="event.stopPropagation();sizefromWatch(${w.id})" style="background:var(--accent-dim);color:var(--accent);font-size:11px;font-weight:700;padding:4px 10px;border-radius:10px;cursor:pointer;border:none;font-family:var(--font-head)">→ Size it</button>
-        <button onclick="event.stopPropagation();openStockDetail('${w.sym}')" style="background:var(--surface3);color:var(--text2);font-size:11px;font-weight:700;padding:4px 10px;border-radius:10px;cursor:pointer;border:1px solid var(--border);font-family:var(--font-head)">📊 Data</button>
-      </div>
+    <div class="wds-actions">
+      <button onclick="event.stopPropagation();sizefromWatch(${w.id})" style="background:var(--accent-dim);color:var(--accent)">→ Size it</button>
+      <button onclick="event.stopPropagation();openStockDetail('${w.sym}')" style="background:var(--surface3);color:var(--text2);border:1px solid var(--border)">Chart</button>
     </div>
-    ${w.thesis ? `<div class="wi-thesis">"${w.thesis}"</div>` : ''}
+    ${w.thesis ? `<div class="wds-thesis">${w.thesis}</div>` : ''}
   </div>`;
 }
 
@@ -3317,9 +3339,11 @@ function startFeedTimer() {
   refreshAllPrices();
   refreshHomeMarkets().catch(() => {});
   if (feedTimer) clearInterval(feedTimer);
+  let fgTick = 0;
   feedTimer = setInterval(() => {
     refreshAllPrices();
     refreshHomeMarkets().catch(() => {});
+    if (++fgTick % 15 === 0) fetchFearGreed().catch(() => {});
   }, 60000);
 }
 
@@ -4592,7 +4616,7 @@ function drawFGGauge(value) {
   ctx.fillText(value, cx, cy - 8);
 }
 
-function updateFGDisplay(value) {
+function updateFGDisplay(value, meta = {}) {
   const zones = [
     { max: 25, label: 'EXTREME FEAR', color: '#ef4444', zoneId: 'fz-ef',
       desc: 'Extreme fear in the market. Historically a buying signal — but volatility is high. Be cautious with sizing.' },
@@ -4621,6 +4645,22 @@ function updateFGDisplay(value) {
   });
 
   drawFGGauge(value);
+
+  const upd = document.getElementById('fg-updated');
+  if (upd) {
+    const ts = new Date().toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' });
+    if (meta.live) {
+      const rating = meta.rating ? ' · ' + meta.rating : '';
+      upd.textContent = '↻ Live · CNN Fear & Greed · ' + ts + rating;
+      upd.style.color = 'var(--accent)';
+    } else if (meta.fallback) {
+      upd.textContent = '↻ Offline — daily estimate only (not live)';
+      upd.style.color = 'var(--amber)';
+    } else {
+      upd.textContent = '↻ Updated ' + ts;
+      upd.style.color = 'var(--text3)';
+    }
+  }
 }
 
 async function fetchFearGreed() {
@@ -4630,7 +4670,7 @@ async function fetchFearGreed() {
     if (res.ok) {
       const data = await res.json();
       const value = Math.round(data.score || 50);
-      updateFGDisplay(value);
+      updateFGDisplay(value, { live: true, rating: data.rating || '' });
       return;
     }
   } catch(e) {}
@@ -4638,7 +4678,7 @@ async function fetchFearGreed() {
   const seed = Math.floor(Date.now() / (1000 * 60 * 60 * 24));
   const pseudo = ((seed * 9301 + 49297) % 233280) / 233280;
   const fallback = Math.round(35 + pseudo * 50);
-  updateFGDisplay(fallback);
+  updateFGDisplay(fallback, { fallback: true });
 }
 
 // ── BARON INTEGRATION ─────────────────────────────────────────────────────
@@ -4703,7 +4743,6 @@ function initApp() {
   }
   setTimeout(() => {
     try { startFeedTimer(); } catch (e) {}
-    try { updateFGDisplay(72); drawFGGauge(72); } catch (e) {}
     fetchFearGreed().catch(() => {});
     refreshHomeMarkets().catch(() => {});
     if (RunnrSync.isLoggedIn()) RunnrSync.refreshStatus().catch(() => {});
