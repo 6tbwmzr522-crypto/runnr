@@ -1726,7 +1726,6 @@ function calcCFD() {
   const entry = parseFloat(document.getElementById('cfd-entry').value);
   const stop  = parseFloat(document.getElementById('cfd-stop').value);
   const target= parseFloat(document.getElementById('cfd-target').value);
-  const dir   = document.getElementById('cfd-dir').value;
   if (!entry || !stop) return;
   const maxRisk = S.bal * S.risk / 100;
   const stopDist = Math.abs(entry - stop);
@@ -1789,7 +1788,6 @@ function calcCFD() {
 }
 
 function calcShares() {
-  const instr = document.getElementById('sh-instr')?.value || '';
   const entry = parseFloat(document.getElementById('sh-entry').value);
   const stop  = parseFloat(document.getElementById('sh-stop').value);
   const target= parseFloat(document.getElementById('sh-target').value);
