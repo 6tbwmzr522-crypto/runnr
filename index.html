@@ -3177,6 +3177,11 @@ async function openStockDetail(sym) {
     };
 
     stockCache[cacheKey] = { data, ts: Date.now() };
+    const watchItem = S.watchlist.find(w => w.sym === displaySym);
+    if (watchItem) {
+      watchItem.quoteSym = sym;
+      persist();
+    }
     renderStockModal(displaySym, data);
 
   } catch(e) {
