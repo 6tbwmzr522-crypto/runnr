@@ -5,7 +5,7 @@
 <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
 <script>
 (function () {
-  var V = "23";
+  var V = "24";
   try {
     if (localStorage.getItem("runnr_app_v") !== V) {
       localStorage.setItem("runnr_app_v", V);
@@ -265,7 +265,7 @@ body::before{content:'';position:fixed;inset:0;background:radial-gradient(ellips
 #equity-canvas{width:100%;height:120px;border-radius:var(--r-sm)}
 
 /* ── MODAL ── */
-.modal-overlay{position:fixed;inset:0;background:rgba(4,6,10,0.82);backdrop-filter:blur(4px);z-index:100;display:flex;align-items:flex-end;justify-content:center;opacity:0;pointer-events:none;transition:opacity 0.25s}
+.modal-overlay{position:fixed;inset:0;background:rgba(4,6,10,0.82);backdrop-filter:blur(4px);z-index:250;display:flex;align-items:flex-end;justify-content:center;opacity:0;pointer-events:none;transition:opacity 0.25s}
 .modal-overlay.open{opacity:1;pointer-events:all}
 .modal{background:var(--surface);border:1px solid var(--border-strong);border-radius:var(--r) var(--r) 0 0;padding:22px 20px;width:100%;max-width:430px;max-height:85vh;overflow-y:auto;transform:translateY(30px);transition:transform 0.28s ease}
 .modal-overlay.open .modal{transform:translateY(0)}
@@ -1466,11 +1466,11 @@ body.light #equity-canvas{filter:invert(0)}
   <div class="modal" onclick="event.stopPropagation()">
     <div class="modal-title">Runnr account <button class="modal-close" onclick="closeModal('modal-sync-auth')">✕</button></div>
     <div style="font-size:12px;color:var(--text2);margin-bottom:14px">One sign-in for Alpaca sync. Same email always works — new or returning.</div>
-    <form id="sync-auth-form">
-      <div class="field"><label for="sync-email">Email</label><input id="sync-email" name="email" type="email" placeholder="you@example.com" autocomplete="username" required inputmode="email" autocapitalize="none" autocorrect="off"></div>
+    <form id="sync-auth-form" onsubmit="event.preventDefault(); submitSyncContinue(); return false;">
+      <div class="field"><label for="sync-email">Email</label><input id="sync-email" name="email" type="email" placeholder="you@example.com" autocomplete="email" required inputmode="email" autocapitalize="none" autocorrect="off"></div>
       <div class="field"><label for="sync-password">Password</label><input id="sync-password" name="password" type="password" placeholder="8+ characters" autocomplete="current-password" required minlength="8" autocapitalize="none" autocorrect="off" spellcheck="false"></div>
       <div id="sync-auth-error"></div>
-      <button class="btn" type="submit" id="sync-login-btn">Continue</button>
+      <button class="btn" type="button" id="sync-login-btn" onclick="submitSyncContinue()">Continue</button>
       <button class="btn btn-ghost" style="margin-top:8px;font-size:12px" type="button" onclick="RunnrSync.logout(); hideSessionBanner(); renderHeaderSyncPill(); renderSyncPage(); renderHomeBrokerPreview(); closeModal('modal-sync-auth');">Log out on this device</button>
     </form>
   </div>
@@ -1571,7 +1571,7 @@ body.light #equity-canvas{filter:invert(0)}
 <script src="js/baron.js?v=25"></script>
 <script src="js/coach.js?v=22"></script>
 <script src="js/onboarding.js?v=20"></script>
-<script src="js/sync.js?v=25"></script>
+<script src="js/sync.js?v=26"></script>
 <script>
 // ── STATE ──────────────────────────────────────────────────────────────────
 const S = {
@@ -4453,9 +4453,9 @@ function handleRunnrAuthExpired(msg) {
   renderSyncAuthBanner();
   const m = String(msg || '');
   if (/user not found|create your account|sign in again/i.test(m)) {
-    showSessionBanner('Tap Sign in — same email + password. If the server reset, Continue will recreate your account.');
+    showSessionBanner('Tap Sign in — same email + password. Continue will recreate your account if needed.');
   } else {
-    showSessionBanner('Session ended — tap Sign in (email is remembered).');
+    showSessionBanner('Session ended — tap Sign in in the header (email is remembered).');
   }
 }
 window.onRunnrAuthExpired = handleRunnrAuthExpired;
@@ -4538,6 +4538,7 @@ function renderSyncPage() {
 }
 
 function openSyncAuthModal() {
+  if (window.RunnrGrowth?.close) RunnrGrowth.close();
   showSyncAuthError('');
   openModal('modal-sync-auth');
   setTimeout(() => {
@@ -4579,12 +4580,21 @@ async function submitSyncContinue() {
   if (btn) { btn.disabled = true; btn.textContent = 'Signing in…'; }
   try {
     await RunnrSync.signIn(email, password);
+    if (!RunnrSync.isLoggedIn()) {
+      throw new Error('Login did not stick — turn off Private Browsing in Safari');
+    }
+    const sessionOk = await RunnrSync.verifySession();
+    if (!sessionOk) {
+      RunnrSync.logout();
+      throw new Error('Session could not be verified — try again on Wi‑Fi');
+    }
     localStorage.setItem('runnr_remember_email', email);
     hideSessionBanner();
     closeModal('modal-sync-auth');
     await RunnrSync.tryAutoReconnectAlpaca();
     await RunnrSync.refreshStatus();
     renderHeaderSyncPill();
+    renderSyncAuthBanner();
     renderSyncPage();
     renderHomeBrokerPreview();
     updateHomeStats();
@@ -5136,6 +5146,7 @@ function initApp() {
     RunnrGrowth.renderHomeBanner(S);
     RunnrGrowth.scheduleDigestCheck(S);
     setTimeout(() => {
+      if (document.getElementById('modal-sync-auth')?.classList.contains('open')) return;
       if (RunnrGrowth.shouldShowOnboarding(S)) RunnrGrowth.open(S);
     }, 600);
   }
