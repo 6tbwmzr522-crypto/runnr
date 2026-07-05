@@ -82,12 +82,12 @@ const RunnrSync = (() => {
     return !price;
   }
 
-  async function request(path, options = {}) {
+  async function request(path, options = {}, timeoutMs = 20000) {
     ensureApiUrl();
     const headers = { "Content-Type": "application/json", ...(options.headers || {}) };
     if (token()) headers.Authorization = "Bearer " + token();
     const ctrl = new AbortController();
-    const timer = setTimeout(() => ctrl.abort(), 20000);
+    const timer = setTimeout(() => ctrl.abort(), timeoutMs);
     let res;
     try {
       res = await fetch(apiBase() + path, { ...options, headers, signal: ctrl.signal });
@@ -148,11 +148,19 @@ const RunnrSync = (() => {
   }
 
   async function resetPassword(email, newPassword) {
+    ensureApiUrl();
+    if (!storageOk()) {
+      throw new Error("Safari blocked saving your login — turn off Private Browsing or allow site data for runnr.fyi");
+    }
     const creds = normalizeAuth(email, newPassword);
-    const data = await request("/api/v1/auth/reset-password", {
-      method: "POST",
-      body: JSON.stringify({ email: creds.email, new_password: creds.password }),
-    });
+    const data = await request(
+      "/api/v1/auth/reset-password",
+      {
+        method: "POST",
+        body: JSON.stringify({ email: creds.email, new_password: creds.password }),
+      },
+      12000
+    );
     setToken(data.access_token, data.email || creds.email);
     localStorage.setItem("runnr_remember_email", creds.email);
     return data;
