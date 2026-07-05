@@ -32,7 +32,7 @@ jobs:
 
       - uses: actions/configure-pages@v5
 
-      - uses: actions/upload-pages-artifact@v3
+      - uses: actions/upload-pages-artifact@v4
         with:
           path: _site
 
@@ -40,12 +40,42 @@ jobs:
         uses: actions/deploy-pages@v4
         continue-on-error: true
 
+      - name: Wait before retry
+        if: steps.deployment.outcome == 'failure'
+        run: sleep 25
+
+      - uses: actions/upload-pages-artifact@v4
+        if: steps.deployment.outcome == 'failure'
+        with:
+          path: _site
+
       - id: deployment_retry
         if: steps.deployment.outcome == 'failure'
         uses: actions/deploy-pages@v4
+        continue-on-error: true
+
+      - name: Wait before final retry
+        if: steps.deployment.outcome == 'failure' && steps.deployment_retry.outcome == 'failure'
+        run: sleep 25
+
+      - uses: actions/upload-pages-artifact@v4
+        if: steps.deployment.outcome == 'failure' && steps.deployment_retry.outcome == 'failure'
+        with:
+          path: _site
+
+      - id: deployment_retry2
+        if: steps.deployment.outcome == 'failure' && steps.deployment_retry.outcome == 'failure'
+        uses: actions/deploy-pages@v4
+        continue-on-error: true
 
       - name: Verify Pages deploy
-        if: steps.deployment.outcome == 'failure' && steps.deployment_retry.outcome != 'success'
+        if: always()
         run: |
-          echo "GitHub Pages deploy failed — re-run workflow from Actions tab."
+          if [ "${{ steps.deployment.outcome }}" = "success" ] \
+            || [ "${{ steps.deployment_retry.outcome }}" = "success" ] \
+            || [ "${{ steps.deployment_retry2.outcome }}" = "success" ]; then
+            echo "GitHub Pages deploy succeeded."
+            exit 0
+          fi
+          echo "GitHub Pages deploy failed after 3 attempts — use Actions → Re-run workflow."
           exit 1
