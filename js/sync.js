@@ -430,6 +430,104 @@ const RunnrSync = (() => {
     }
   }
 
+  const DEMO_TRADE_IDS = new Set([1, 2, 3, 4]);
+  const DEMO_WATCH_SYMS = new Set(["RACE", "ASTS", "EURUSD"]);
+  let pushTimer = null;
+  let _cloudPushPaused = false;
+
+  function hasMeaningfulState(s) {
+    if (!s) return false;
+    const trades = s.trades || [];
+    if (trades.some((t) => t.source === "alpaca" || !DEMO_TRADE_IDS.has(t.id))) return true;
+    const wl = s.watchlist || [];
+    if (wl.some((w) => !DEMO_WATCH_SYMS.has(String(w.sym || "").toUpperCase()))) return true;
+    if (wl.length !== 3) return true;
+    if (Number(s.journalBaseBal) > 0) return true;
+    if (s.balFromAlpaca || s.balManualOverride) return true;
+    if (s.bal !== 10000 || (s.sym && s.sym !== "€")) return true;
+    if (s.onboardingComplete) return true;
+    if (s.profileHandle) return true;
+    return false;
+  }
+
+  function applyRemoteState(remote) {
+    if (!window.S || !remote) return false;
+    _cloudPushPaused = true;
+    try {
+      Object.keys(window.S).forEach((k) => delete window.S[k]);
+      Object.assign(window.S, remote);
+      ensureBrokerState();
+      try {
+        localStorage.setItem("runnr_state", JSON.stringify(window.S));
+      } catch (e) {}
+      return true;
+    } finally {
+      _cloudPushPaused = false;
+    }
+  }
+
+  async function pullProfileState() {
+    if (!isLoggedIn() || !window.S) return false;
+    const data = await request("/api/v1/profile/state");
+    if (!data?.state || !hasMeaningfulState(data.state)) return false;
+    return applyRemoteState(data.state);
+  }
+
+  async function pushProfileState() {
+    if (!isLoggedIn() || !window.S || _cloudPushPaused) return false;
+    await request("/api/v1/profile/state", {
+      method: "PUT",
+      body: JSON.stringify({ state: window.S }),
+    });
+    return true;
+  }
+
+  function pushProfileStateDebounced() {
+    clearTimeout(pushTimer);
+    pushTimer = setTimeout(() => {
+      pushProfileState().catch(() => {});
+    }, 1500);
+  }
+
+  /** Pull cloud profile on login, or push local data if cloud is empty. */
+  async function syncProfileState() {
+    if (!isLoggedIn()) return { action: "none" };
+    const data = await request("/api/v1/profile/state");
+    const serverHas = !!(data?.state && hasMeaningfulState(data.state));
+    const localHas = hasMeaningfulState(window.S);
+
+    function stateScore(s) {
+      const trades = (s.trades || []).filter((t) => t.source === "alpaca" || !DEMO_TRADE_IDS.has(t.id)).length;
+      const wl = (s.watchlist || []).length;
+      const extras = (s.journalBaseBal > 0 ? 5 : 0) + (s.onboardingComplete ? 1 : 0) + (s.profileHandle ? 1 : 0);
+      return trades * 2 + wl + extras;
+    }
+
+    if (serverHas && !localHas) {
+      applyRemoteState(data.state);
+      return { action: "pulled", updated_at: data.updated_at };
+    }
+    if (!serverHas && localHas) {
+      await pushProfileState();
+      return { action: "pushed" };
+    }
+    if (serverHas && localHas) {
+      const serverScore = stateScore(data.state);
+      const localScore = stateScore(window.S);
+      if (serverScore > localScore) {
+        applyRemoteState(data.state);
+        return { action: "pulled", updated_at: data.updated_at };
+      }
+      if (localScore > serverScore) {
+        await pushProfileState();
+        return { action: "pushed" };
+      }
+      applyRemoteState(data.state);
+      return { action: "pulled", updated_at: data.updated_at };
+    }
+    return { action: "empty" };
+  }
+
   return {
     apiBase,
     token,
@@ -459,5 +557,11 @@ const RunnrSync = (() => {
     isAuthError,
     ensureApiUrl,
     storageOk,
+    syncProfileState,
+    pullProfileState,
+    pushProfileState,
+    pushProfileStateDebounced,
+    hasMeaningfulState,
+    applyRemoteState,
   };
 })();

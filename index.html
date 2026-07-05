@@ -1571,7 +1571,7 @@ body.light #equity-canvas{filter:invert(0)}
 <script src="js/baron.js?v=25"></script>
 <script src="js/coach.js?v=22"></script>
 <script src="js/onboarding.js?v=20"></script>
-<script src="js/sync.js?v=26"></script>
+<script src="js/sync.js?v=27"></script>
 <script>
 // ── STATE ──────────────────────────────────────────────────────────────────
 const S = {
@@ -1711,6 +1711,25 @@ migratePortfolioBase();
 
 function persist() {
   try { localStorage.setItem('runnr_state', JSON.stringify(S)); } catch(e) {}
+  if (RunnrSync?.isLoggedIn?.() && RunnrSync?.hasMeaningfulState?.(S)) {
+    RunnrSync.pushProfileStateDebounced?.();
+  }
+}
+
+function refreshAfterProfileSync() {
+  normalizeTradePnls();
+  migratePortfolioBase();
+  seedQuoteCacheFromWatchlist();
+  feedLastUpdate = null;
+  renderJournal();
+  renderWatchlist();
+  updateHomeStats();
+  renderHomePreviews();
+  refreshPortfolioIfVisible();
+  renderCoachPage();
+  renderSyncPage();
+  renderHomeBrokerPreview();
+  refreshAllPrices().catch(() => {});
 }
 
 // ── NAVIGATION ─────────────────────────────────────────────────────────────
@@ -1729,7 +1748,12 @@ function switchPage(key) {
   document.getElementById(pageMap[key] || 'page-home').classList.add('active');
   document.querySelectorAll('.nav-btn').forEach((b,i) => b.classList.toggle('active', i === (navIdx[key] ?? -1) || b.dataset.nav === key));
   if (key === 'journal') renderJournal();
-  if (key === 'watchlist') { renderWatchlist(); renderNotifSettings(); if (!feedLastUpdate) refreshAllPrices(); refreshWatchBriefs(); }
+  if (key === 'watchlist') {
+    renderWatchlist();
+    renderNotifSettings();
+    if (!feedLastUpdate || watchlistNeedsPriceRefresh()) refreshAllPrices();
+    else refreshWatchBriefs();
+  }
   if (key === 'coach') { renderCoachPage(); drawEquityCurve(); }
   if (key === 'portfolio') loadPortfolio('all', document.querySelector('.period-tab'));
   if (key === 'home') { renderHomePreviews(); updateHomeStats(); renderHomeBrokerPreview(); refreshHomeMarkets(); }
@@ -2983,6 +3007,14 @@ const QUOTE_SUFFIXES = ['.DE', '.L', '.PA', '.AS', '.MI', '.SW', '.MC', '.OL', '
 const quoteSymbolCache = {};
 const resolveInflight = {};
 
+function seedQuoteCacheFromWatchlist() {
+  (S.watchlist || []).forEach((w) => {
+    const key = String(w.sym || '').trim().toUpperCase();
+    if (key && w.quoteSym) quoteSymbolCache[key] = w.quoteSym;
+  });
+}
+seedQuoteCacheFromWatchlist();
+
 function isLikelyUsEquity(sym) {
   const base = String(sym || '').split('.')[0].toUpperCase();
   if (window.Baron?.EQUITIES?.includes(base)) return true;
@@ -3615,6 +3647,14 @@ let feedTimer = null;
 let feedLastUpdate = null;
 let feedFetching = false;
 
+function watchlistNeedsPriceRefresh() {
+  if (!S.watchlist.length) return false;
+  return S.watchlist.some((w) => {
+    const lp = liveprices[w.sym];
+    return !lp || !lp.price;
+  });
+}
+
 function setFeedStatus(state, msg) {
   const dot = document.getElementById('feed-dot');
   const txt = document.getElementById('feed-status-text');
@@ -3667,29 +3707,35 @@ async function refreshAllPrices() {
   if (feedFetching) return;
   feedFetching = true;
   setFeedStatus('loading', 'Updating prices...');
-  const syms = [...new Set(S.watchlist.map(w => w.sym))];
-  if (!syms.length) { setFeedStatus('error', 'No symbols'); feedFetching = false; return; }
-  let liveCount = 0;
-  await Promise.all(syms.map(async sym => {
-    const w = S.watchlist.find(item => item.sym === sym);
-    const data = await fetchLivePrice(sym, w?.quoteSym);
-    if (data) {
-      liveprices[sym] = data;
-      if (!data.stale) liveCount++;
-      const w = S.watchlist.find(w => w.sym === sym);
-      if (w) w.urgent = isNearEntry(data.price, w.entry, w.dir);
-    }
-  }));
-  feedLastUpdate = new Date();
-  feedFetching = false;
-  const ts = feedLastUpdate.getHours() + ':' + String(feedLastUpdate.getMinutes()).padStart(2,'0');
-  if (liveCount === syms.length) setFeedStatus('live', 'Live · ' + ts);
-  else if (liveCount > 0)        setFeedStatus('live', liveCount + '/' + syms.length + ' live · ' + ts);
-  else                            setFeedStatus('error', 'Estimated · ' + ts);
-  if (document.getElementById('page-watchlist').classList.contains('active')) renderWatchlist();
-  renderHomePreviews();
-  checkPriceAlerts();
-  renderNotifSettings();
+  try {
+    seedQuoteCacheFromWatchlist();
+    const syms = [...new Set(S.watchlist.map(w => w.sym))];
+    if (!syms.length) { setFeedStatus('error', 'No symbols'); return; }
+    let liveCount = 0;
+    await Promise.all(syms.map(async sym => {
+      const w = S.watchlist.find(item => item.sym === sym);
+      const data = await fetchLivePrice(sym, w?.quoteSym);
+      if (data) {
+        liveprices[sym] = data;
+        if (!data.stale) liveCount++;
+        const w = S.watchlist.find(w => w.sym === sym);
+        if (w) w.urgent = isNearEntry(data.price, w.entry, w.dir);
+      }
+    }));
+    feedLastUpdate = new Date();
+    const ts = feedLastUpdate.getHours() + ':' + String(feedLastUpdate.getMinutes()).padStart(2,'0');
+    if (liveCount === syms.length) setFeedStatus('live', 'Live · ' + ts);
+    else if (liveCount > 0)        setFeedStatus('live', liveCount + '/' + syms.length + ' live · ' + ts);
+    else                            setFeedStatus('error', 'Estimated · ' + ts);
+    if (document.getElementById('page-watchlist').classList.contains('active')) renderWatchlist();
+    renderHomePreviews();
+    checkPriceAlerts();
+    renderNotifSettings();
+  } catch (e) {
+    setFeedStatus('error', 'Price fetch failed — tap ↻ Refresh');
+  } finally {
+    feedFetching = false;
+  }
 }
 
 function startFeedTimer() {
@@ -4470,12 +4516,12 @@ function renderSyncAuthBanner() {
   if (!el) return;
   if (RunnrSync.isLoggedIn()) {
     const who = RunnrSync.sessionEmail() || 'your account';
-    el.innerHTML = `<div class="card-sm" style="display:flex;justify-content:space-between;align-items:center;gap:8px">
-      <span style="font-size:12px;color:var(--text2)">✓ ${who}</span>
+    el.innerHTML = `<div class="card-sm" style="display:flex;justify-content:space-between;align-items:center;gap:8px;flex-wrap:wrap">
+      <span style="font-size:12px;color:var(--text2)">✓ ${who} · journal & watchlist sync</span>
       <button class="btn btn-sm btn-ghost" onclick="openSyncAuthModal()">Account</button>
     </div>`;
   } else {
-    el.innerHTML = `<div class="card-sm" style="font-size:12px;color:var(--text2);margin-bottom:4px">Sign in once — Alpaca keys stay on this phone.</div>
+    el.innerHTML = `<div class="card-sm" style="font-size:12px;color:var(--text2);margin-bottom:4px">Sign in to sync your journal, watchlist, and settings across devices.</div>
       <button class="btn btn-sm" onclick="openSyncAuthModal()">Sign in</button>`;
   }
 }
@@ -4591,6 +4637,8 @@ async function submitSyncContinue() {
     localStorage.setItem('runnr_remember_email', email);
     hideSessionBanner();
     closeModal('modal-sync-auth');
+    const profile = await RunnrSync.syncProfileState();
+    refreshAfterProfileSync();
     await RunnrSync.tryAutoReconnectAlpaca();
     await RunnrSync.refreshStatus();
     renderHeaderSyncPill();
@@ -4598,6 +4646,11 @@ async function submitSyncContinue() {
     renderSyncPage();
     renderHomeBrokerPreview();
     updateHomeStats();
+    if (profile.action === 'pulled') {
+      alert('Profile loaded — your journal and watchlist are synced from the cloud.');
+    } else if (profile.action === 'pushed') {
+      alert('Profile saved — this device is now backed up to your account.');
+    }
   } catch (e) {
     const msg = String(e.message || e);
     if (/wrong password/i.test(msg)) {
@@ -4769,6 +4822,11 @@ function bootRunnrSync() {
         renderHomeBrokerPreview();
         return null;
       }
+      return RunnrSync.syncProfileState();
+    })
+    .then((profile) => {
+      if (profile === null) return null;
+      if (profile.action !== 'none') refreshAfterProfileSync();
       return RunnrSync.tryAutoReconnectAlpaca();
     })
     .then((result) => {
