@@ -265,9 +265,12 @@ body::before{content:'';position:fixed;inset:0;background:radial-gradient(ellips
 #equity-canvas{width:100%;height:120px;border-radius:var(--r-sm)}
 
 /* ── MODAL ── */
-.modal-overlay{position:fixed;inset:0;background:rgba(4,6,10,0.82);backdrop-filter:blur(4px);z-index:250;display:flex;align-items:flex-end;justify-content:center;opacity:0;pointer-events:none;transition:opacity 0.25s}
-.modal-overlay.open{opacity:1;pointer-events:all}
-.modal{background:var(--surface);border:1px solid var(--border-strong);border-radius:var(--r) var(--r) 0 0;padding:22px 20px;width:100%;max-width:430px;max-height:85vh;overflow-y:auto;transform:translateY(30px);transition:transform 0.28s ease}
+.modal-overlay{position:fixed;inset:0;background:rgba(4,6,10,0.92);z-index:10000;display:flex;align-items:flex-end;justify-content:center;opacity:0;pointer-events:none;transition:opacity 0.25s;-webkit-transform:translateZ(0);transform:translateZ(0)}
+.modal-overlay.open{opacity:1;pointer-events:auto}
+.modal{background:var(--surface);border:1px solid var(--border-strong);border-radius:var(--r) var(--r) 0 0;padding:22px 20px  calc(22px + var(--safe-bottom));width:100%;max-width:430px;max-height:90vh;overflow-y:auto;-webkit-overflow-scrolling:touch;transform:translateY(30px);transition:transform 0.28s ease;touch-action:manipulation}
+@supports (backdrop-filter: blur(4px)) {
+  .modal-overlay{background:rgba(4,6,10,0.82);backdrop-filter:blur(4px)}
+}
 .modal-overlay.open .modal{transform:translateY(0)}
 .modal-title{font-family:var(--font-head);font-size:22px;font-weight:300;font-style:italic;margin-bottom:16px;display:flex;justify-content:space-between;align-items:center;color:var(--text)}
 .modal-close{background:var(--surface3);border:1px solid var(--border);color:var(--gold);width:28px;height:28px;border-radius:50%;font-size:16px;cursor:pointer;display:flex;align-items:center;justify-content:center}
@@ -554,7 +557,7 @@ body.light #equity-canvas{filter:invert(0)}
 .alert-toast .at-close{position:absolute;top:8px;right:10px;background:none;border:none;color:var(--text3);cursor:pointer;font-size:16px}
 
 /* ── ONBOARDING & DISCIPLINE SCORE ── */
-#onboarding-overlay{position:fixed;inset:0;background:var(--bg);z-index:200;display:flex;flex-direction:column;opacity:0;pointer-events:none;transition:opacity 0.25s;max-width:430px;margin:0 auto}
+#onboarding-overlay{position:fixed;inset:0;background:var(--bg);z-index:400;display:flex;flex-direction:column;opacity:0;pointer-events:none;transition:opacity 0.25s;max-width:430px;margin:0 auto}
 #onboarding-overlay.open{opacity:1;pointer-events:all}
 .ob-top{padding:16px 20px;display:flex;align-items:center;justify-content:space-between;border-bottom:1px solid var(--border);flex-shrink:0}
 .ob-progress-wrap{height:3px;background:var(--surface3);flex-shrink:0}
@@ -583,9 +586,10 @@ body.light #equity-canvas{filter:invert(0)}
 #share-canvas{display:block;width:100%;max-width:320px;margin:0 auto;border-radius:var(--r-sm);border:1px solid var(--border)}
 #session-banner{display:none;align-items:center;justify-content:space-between;gap:10px;margin:0 16px 10px;padding:10px 12px;background:var(--gold-dim);border:1px solid var(--border-strong);border-radius:var(--r-sm);font-size:12px;color:var(--text2);cursor:pointer}
 #session-banner .session-banner-text{flex:1;line-height:1.4}
-#header-sync-pill{font-size:11px;padding:4px 8px;border-radius:999px;border:1px solid var(--border);color:var(--text3);cursor:pointer;white-space:nowrap}
+#header-sync-pill{font-size:11px;padding:4px 8px;border-radius:999px;border:1px solid var(--border);color:var(--text3);cursor:pointer;white-space:nowrap;touch-action:manipulation;-webkit-tap-highlight-color:transparent;user-select:none}
 #header-sync-pill.on{border-color:var(--accent);color:var(--accent);background:var(--accent-dim)}
 #sync-auth-error{font-size:12px;color:var(--red);min-height:16px;margin:8px 0 4px}
+.sync-auth-error{font-size:12px;color:var(--red);min-height:16px;margin:8px 0 4px}
 .home-footer{text-align:center;padding:28px 16px 40px;margin-top:4px;border-top:1px solid var(--border)}
 .home-footer-mark{font-size:10px;letter-spacing:0.16em;text-transform:uppercase;color:var(--text3);margin-bottom:8px}
 .home-footer-brand{font-family:var(--font-head);font-size:15px;font-weight:500;color:var(--gold);letter-spacing:0.05em}
@@ -1073,6 +1077,19 @@ body.light #equity-canvas{filter:invert(0)}
       <div style="font-family:var(--font-head);font-size:18px;font-weight:700;margin-bottom:4px">Broker Sync</div>
       <div style="font-size:12px;color:var(--text3);margin-bottom:12px">Connect once. Pull real trades into your journal.</div>
       <div id="sync-auth-banner" style="margin-bottom:12px"></div>
+      <div id="sync-inline-auth" class="card" style="display:none;margin-bottom:12px">
+        <div class="card-title">Runnr account</div>
+        <div style="font-size:12px;color:var(--text2);margin-bottom:12px">Sign in to sync journal &amp; watchlist across devices.</div>
+        <form id="sync-inline-form" onsubmit="event.preventDefault(); submitSyncContinue(); return false;">
+          <div class="field"><label for="sync-email-inline">Email</label><input id="sync-email-inline" type="email" placeholder="you@example.com" autocomplete="email" inputmode="email" autocapitalize="none" autocorrect="off"></div>
+          <div class="field"><label for="sync-password-inline" id="sync-password-label-inline">Password</label><input id="sync-password-inline" type="password" placeholder="8+ characters" autocomplete="current-password" minlength="8" autocapitalize="none" autocorrect="off" spellcheck="false"></div>
+          <div class="field" id="sync-password2-field-inline" style="display:none"><label for="sync-password2-inline">Confirm new password</label><input id="sync-password2-inline" type="password" placeholder="Type again" minlength="8" autocapitalize="none" autocorrect="off" spellcheck="false"></div>
+          <div id="sync-auth-error-inline" class="sync-auth-error"></div>
+          <button class="btn" type="button" id="sync-login-btn-inline" onclick="submitSyncContinue()">Continue</button>
+          <button class="btn btn-ghost" type="button" style="margin-top:8px;font-size:12px" id="sync-forgot-btn-inline" onclick="toggleSyncResetMode()">Forgot password? Set a new one</button>
+          <button class="btn btn-ghost" type="button" style="margin-top:8px;font-size:12px;display:none" id="sync-back-login-btn-inline" onclick="toggleSyncResetMode(false)">← Back to sign in</button>
+        </form>
+      </div>
       <div id="sync-connected" style="margin-bottom:12px"></div>
       <button class="btn" id="sync-connect-alpaca-btn" style="margin-bottom:8px;width:100%;display:none" onclick="connectBroker('Alpaca')">Connect Alpaca</button>
       <button class="btn btn-ghost" style="margin-bottom:16px;width:100%" onclick="runBrokerSync()">↻ Sync now</button>
@@ -1760,7 +1777,10 @@ function switchPage(key) {
   if (key === 'coach') { renderCoachPage(); drawEquityCurve(); }
   if (key === 'portfolio') loadPortfolio('all', document.querySelector('.period-tab'));
   if (key === 'home') { renderHomePreviews(); updateHomeStats(); renderHomeBrokerPreview(); refreshHomeMarkets(); }
-  if (key === 'sync') renderSyncPage();
+  if (key === 'sync') {
+    renderSyncPage();
+    if (!RunnrSync.isLoggedIn()) updateSyncAuthVisibility();
+  }
 }
 
 // ── SETTINGS ───────────────────────────────────────────────────────────────
@@ -4510,22 +4530,48 @@ function handleRunnrAuthExpired(msg) {
 window.onRunnrAuthExpired = handleRunnrAuthExpired;
 
 function showSyncAuthError(text) {
-  const el = document.getElementById('sync-auth-error');
-  if (el) el.textContent = text || '';
+  document.querySelectorAll('#sync-auth-error, #sync-auth-error-inline, .sync-auth-error').forEach((el) => {
+    el.textContent = text || '';
+  });
+}
+
+const isIOS = /iPhone|iPad|iPod/i.test(navigator.userAgent)
+  || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
+
+function syncAuthUsesInline() {
+  return isIOS || document.getElementById('page-sync')?.classList.contains('active');
+}
+
+function prefillSyncAuthEmail() {
+  const remembered = localStorage.getItem('runnr_remember_email') || RunnrSync.sessionEmail() || '';
+  ['sync-email', 'sync-email-inline'].forEach((id) => {
+    const el = document.getElementById(id);
+    if (el && remembered) el.value = remembered;
+  });
+}
+
+function updateSyncAuthVisibility() {
+  const inline = document.getElementById('sync-inline-auth');
+  if (!inline) return;
+  inline.style.display = RunnrSync.isLoggedIn() ? 'none' : 'block';
+  if (!RunnrSync.isLoggedIn()) prefillSyncAuthEmail();
 }
 
 function renderSyncAuthBanner() {
   const el = document.getElementById('sync-auth-banner');
+  updateSyncAuthVisibility();
   if (!el) return;
   if (RunnrSync.isLoggedIn()) {
     const who = RunnrSync.sessionEmail() || 'your account';
     el.innerHTML = `<div class="card-sm" style="display:flex;justify-content:space-between;align-items:center;gap:8px;flex-wrap:wrap">
       <span style="font-size:12px;color:var(--text2)">✓ ${who} · journal & watchlist sync</span>
-      <button class="btn btn-sm btn-ghost" onclick="openSyncAuthModal()">Account</button>
+      <button class="btn btn-sm btn-ghost" type="button" onclick="openSyncAuthModal()">Account</button>
     </div>`;
+  } else if (syncAuthUsesInline()) {
+    el.innerHTML = `<div style="font-size:12px;color:var(--text2);margin-bottom:4px">Use the form below to sign in.</div>`;
   } else {
     el.innerHTML = `<div class="card-sm" style="font-size:12px;color:var(--text2);margin-bottom:4px">Sign in to sync your journal, watchlist, and settings across devices.</div>
-      <button class="btn btn-sm" onclick="openSyncAuthModal()">Sign in</button>`;
+      <button class="btn btn-sm" type="button" onclick="openSyncAuthModal()">Sign in</button>`;
   }
 }
 
@@ -4588,37 +4634,51 @@ function renderSyncPage() {
 
 function openSyncAuthModal() {
   if (window.RunnrGrowth?.close) RunnrGrowth.close();
+  window._runnrAuthPending = true;
   toggleSyncResetMode(false);
   showSyncAuthError('');
+  switchPage('sync');
+  updateSyncAuthVisibility();
+  prefillSyncAuthEmail();
+  if (syncAuthUsesInline()) {
+    setTimeout(() => {
+      document.getElementById('sync-inline-auth')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    }, 100);
+    return;
+  }
   openModal('modal-sync-auth');
   setTimeout(() => {
     const email = document.getElementById('sync-email');
-    const remembered = localStorage.getItem('runnr_remember_email') || RunnrSync.sessionEmail();
-    if (email && remembered) email.value = remembered;
     if (email) email.focus();
-  }, 250);
+  }, 300);
 }
 
 function readSyncAuthFields() {
-  const email = (document.getElementById('sync-email')?.value || '').trim().toLowerCase();
-  const password = (document.getElementById('sync-password')?.value || '').trim();
-  return { email, password };
+  const useInline = syncAuthUsesInline() && !document.getElementById('modal-sync-auth')?.classList.contains('open');
+  const email = (document.getElementById(useInline ? 'sync-email-inline' : 'sync-email')?.value || '').trim().toLowerCase();
+  const password = (document.getElementById(useInline ? 'sync-password-inline' : 'sync-password')?.value || '').trim();
+  return { email, password, useInline };
 }
 
 let syncResetMode = false;
 
 function toggleSyncResetMode(on) {
   syncResetMode = on !== false;
-  const p2 = document.getElementById('sync-password2-field');
-  const label = document.getElementById('sync-password-label');
-  const btn = document.getElementById('sync-login-btn');
-  const forgot = document.getElementById('sync-forgot-btn');
-  const back = document.getElementById('sync-back-login-btn');
-  if (p2) p2.style.display = syncResetMode ? 'block' : 'none';
-  if (label) label.textContent = syncResetMode ? 'New password' : 'Password';
-  if (btn) btn.textContent = syncResetMode ? 'Set new password & sign in' : 'Continue';
-  if (forgot) forgot.style.display = syncResetMode ? 'none' : 'block';
-  if (back) back.style.display = syncResetMode ? 'block' : 'none';
+  [
+    ['sync-password2-field', 'sync-password-label', 'sync-login-btn', 'sync-forgot-btn', 'sync-back-login-btn'],
+    ['sync-password2-field-inline', 'sync-password-label-inline', 'sync-login-btn-inline', 'sync-forgot-btn-inline', 'sync-back-login-btn-inline'],
+  ].forEach(([p2, label, btn, forgot, back]) => {
+    const p2El = document.getElementById(p2);
+    const labelEl = document.getElementById(label);
+    const btnEl = document.getElementById(btn);
+    const forgotEl = document.getElementById(forgot);
+    const backEl = document.getElementById(back);
+    if (p2El) p2El.style.display = syncResetMode ? 'block' : 'none';
+    if (labelEl) labelEl.textContent = syncResetMode ? 'New password' : 'Password';
+    if (btnEl) btnEl.textContent = syncResetMode ? 'Set new password & sign in' : 'Continue';
+    if (forgotEl) forgotEl.style.display = syncResetMode ? 'none' : 'block';
+    if (backEl) backEl.style.display = syncResetMode ? 'block' : 'none';
+  });
   showSyncAuthError('');
 }
 window.toggleSyncResetMode = toggleSyncResetMode;
@@ -4644,8 +4704,11 @@ async function submitSyncContinue() {
     return;
   }
   showSyncAuthError('');
-  const btn = document.getElementById('sync-login-btn');
-  if (btn) { btn.disabled = true; btn.textContent = 'Signing in…'; }
+  const btnIds = ['sync-login-btn', 'sync-login-btn-inline'];
+  btnIds.forEach((id) => {
+    const btn = document.getElementById(id);
+    if (btn) { btn.disabled = true; btn.textContent = 'Signing in…'; }
+  });
   try {
     await RunnrSync.signIn(email, password);
     if (!RunnrSync.isLoggedIn()) {
@@ -4669,13 +4732,19 @@ async function submitSyncContinue() {
       showSyncAuthError(msg || 'Sign in failed — try again');
     }
   } finally {
-    if (btn) { btn.disabled = false; btn.textContent = syncResetMode ? 'Set new password & sign in' : 'Continue'; }
+    btnIds.forEach((id) => {
+      const btn = document.getElementById(id);
+      if (btn) {
+        btn.disabled = false;
+        btn.textContent = syncResetMode ? 'Set new password & sign in' : 'Continue';
+      }
+    });
   }
 }
 
 async function submitSyncResetPassword() {
-  const { email, password } = readSyncAuthFields();
-  const confirm = (document.getElementById('sync-password2')?.value || '').trim();
+  const { email, password, useInline } = readSyncAuthFields();
+  const confirm = (document.getElementById(useInline ? 'sync-password2-inline' : 'sync-password2')?.value || '').trim();
   const err = validateSyncAuth(email, password);
   if (err) {
     showSyncAuthError(err);
@@ -4686,14 +4755,17 @@ async function submitSyncResetPassword() {
     return;
   }
   showSyncAuthError('');
-  const btn = document.getElementById('sync-login-btn');
-  if (btn) { btn.disabled = true; btn.textContent = 'Updating…'; }
+  const btnIds = ['sync-login-btn', 'sync-login-btn-inline'];
+  btnIds.forEach((id) => {
+    const btn = document.getElementById(id);
+    if (btn) { btn.disabled = true; btn.textContent = 'Updating…'; }
+  });
   try {
     await RunnrSync.resetPassword(email, password);
     if (!RunnrSync.isLoggedIn()) throw new Error('Password updated but login did not stick');
     await finishSyncSignIn(email);
     toggleSyncResetMode(false);
-    alert('Password updated — you are signed in.');
+    showToast('Runnr', 'Password updated — you are signed in.');
   } catch (e) {
     const msg = String(e.message || e);
     if (/no account with this email/i.test(msg)) {
@@ -4702,28 +4774,45 @@ async function submitSyncResetPassword() {
       showSyncAuthError(msg || 'Could not reset password — try again');
     }
   } finally {
-    if (btn) { btn.disabled = false; btn.textContent = syncResetMode ? 'Set new password & sign in' : 'Continue'; }
+    btnIds.forEach((id) => {
+      const btn = document.getElementById(id);
+      if (btn) {
+        btn.disabled = false;
+        btn.textContent = syncResetMode ? 'Set new password & sign in' : 'Continue';
+      }
+    });
   }
 }
 
 async function finishSyncSignIn(email) {
   localStorage.setItem('runnr_remember_email', email);
+  window._runnrAuthPending = false;
   hideSessionBanner();
   closeModal('modal-sync-auth');
-  const profile = await RunnrSync.syncProfileState();
-  refreshAfterProfileSync();
-  await RunnrSync.tryAutoReconnectAlpaca();
-  await RunnrSync.refreshStatus();
+  document.body.style.overflow = '';
+  updateSyncAuthVisibility();
   renderHeaderSyncPill();
   renderSyncAuthBanner();
-  renderSyncPage();
-  renderHomeBrokerPreview();
-  updateHomeStats();
-  if (profile.action === 'pulled') {
-    alert('Profile loaded — your journal and watchlist are synced from the cloud.');
-  } else if (profile.action === 'pushed') {
-    alert('Profile saved — this device is now backed up to your account.');
-  }
+  showToast('Runnr', 'Signed in — syncing your profile…');
+
+  setTimeout(async () => {
+    try {
+      const profile = await RunnrSync.syncProfileState();
+      refreshAfterProfileSync();
+      await RunnrSync.tryAutoReconnectAlpaca();
+      await RunnrSync.refreshStatus();
+      renderSyncPage();
+      renderHomeBrokerPreview();
+      updateHomeStats();
+      if (profile.action === 'pulled') {
+        showToast('Runnr', 'Journal & watchlist synced from cloud');
+      } else if (profile.action === 'pushed') {
+        showToast('Runnr', 'Profile backed up to your account');
+      }
+    } catch (e) {
+      showToast('Runnr', 'Signed in — pull to refresh if data looks empty');
+    }
+  }, 80);
 }
 
 async function submitSyncLogin() {
@@ -5021,8 +5110,17 @@ function drawEquityCurve() {
 }
 
 // ── MODALS ────────────────────────────────────────────────────────────────
-function openModal(id) { document.getElementById(id).classList.add('open'); }
-function closeModal(id) { document.getElementById(id).classList.remove('open'); }
+function openModal(id) {
+  if (window.RunnrGrowth?.close) RunnrGrowth.close();
+  const el = document.getElementById(id);
+  if (!el) return;
+  el.classList.add('open');
+  document.body.style.overflow = 'hidden';
+}
+function closeModal(id) {
+  document.getElementById(id)?.classList.remove('open');
+  if (!document.querySelector('.modal-overlay.open')) document.body.style.overflow = '';
+}
 function closeModalOutside(e, id) { if (e.target.id === id) closeModal(id); }
 
 // ── TIER BADGE ────────────────────────────────────────────────────────────
@@ -5244,12 +5342,14 @@ function registerServiceWorker() {
 }
 
 function initSyncAuthForm() {
-  const form = document.getElementById('sync-auth-form');
-  if (!form || form.dataset.bound) return;
-  form.dataset.bound = '1';
-  form.addEventListener('submit', (e) => {
-    e.preventDefault();
-    submitSyncContinue();
+  ['sync-auth-form', 'sync-inline-form'].forEach((formId) => {
+    const form = document.getElementById(formId);
+    if (!form || form.dataset.bound) return;
+    form.dataset.bound = '1';
+    form.addEventListener('submit', (e) => {
+      e.preventDefault();
+      submitSyncContinue();
+    });
   });
 }
 
@@ -5264,6 +5364,8 @@ function initApp() {
     RunnrGrowth.scheduleDigestCheck(S);
     setTimeout(() => {
       if (document.getElementById('modal-sync-auth')?.classList.contains('open')) return;
+      if (window._runnrAuthPending) return;
+      if (!RunnrSync.isLoggedIn() && document.getElementById('page-sync')?.classList.contains('active')) return;
       if (RunnrGrowth.shouldShowOnboarding(S)) RunnrGrowth.open(S);
     }, 600);
   }
