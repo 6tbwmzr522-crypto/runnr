@@ -5,7 +5,7 @@
 <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
 <script>
 (function () {
-  var V = "21";
+  var V = "22";
   try {
     if (localStorage.getItem("runnr_app_v") !== V) {
       localStorage.setItem("runnr_app_v", V);
@@ -1503,7 +1503,7 @@ body.light #equity-canvas{filter:invert(0)}
 <div class="modal-overlay" id="modal-add-watch" onclick="closeModalOutside(event,'modal-add-watch')">
   <div class="modal">
     <div class="modal-title">Add Setup <button class="modal-close" onclick="closeModal('modal-add-watch')">✕</button></div>
-    <div class="field"><label>Symbol</label><input id="w-sym" placeholder="RACE, EURUSD..."></div>
+    <div class="field"><label>Symbol</label><input id="w-sym" placeholder="RACE, BMW, EURUSD..." onblur="previewWatchSymbolPrice()"><div id="w-sym-hint" style="font-size:11px;color:var(--text3);margin-top:4px;min-height:14px"></div></div>
     <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
       <div class="field"><label>Direction</label><select id="w-dir"><option value="long">Long</option><option value="short">Short</option></select></div>
       <div class="field"><label>Entry Zone</label><input id="w-entry" type="number" placeholder="0.00"></div>
@@ -2862,16 +2862,20 @@ function saveWatch() {
   const target= parseFloat(document.getElementById('w-target').value)||0;
   const thesis = document.getElementById('w-thesis').value.trim();
   const rr = (entry && stop && target) ? parseFloat(((Math.abs(target-entry)/Math.abs(entry-stop)).toFixed(1))) : 0;
+  let savedWatch = null;
   if (S.editingWatchId != null) {
     const w = S.watchlist.find(x => watchId(x.id) === watchId(S.editingWatchId));
     if (w) {
       Object.assign(w, { sym, dir: document.getElementById('w-dir').value, entry, stop, target, thesis, rr, needsLevels: !(entry && stop && target) });
       if (entry && stop && target) delete w.needsLevels;
+      delete w.quoteSym;
+      savedWatch = w;
     }
     S.editingWatchId = null;
   } else {
     const id = Date.now();
-    S.watchlist.unshift({ id, sym, dir: document.getElementById('w-dir').value, entry, stop, target, thesis, rr, urgent: false });
+    savedWatch = { id, sym, dir: document.getElementById('w-dir').value, entry, stop, target, thesis, rr, urgent: false };
+    S.watchlist.unshift(savedWatch);
     S.selectedWatchId = id;
   }
   persist();
@@ -2881,7 +2885,57 @@ function saveWatch() {
   const btn = document.querySelector('#modal-add-watch .btn');
   if (btn) btn.textContent = 'Add to Watchlist';
   renderWatchlist();
+  if (savedWatch) hydrateWatchQuote(savedWatch);
 }
+
+async function hydrateWatchQuote(w) {
+  if (!w?.sym) return;
+  try {
+    const resolved = await resolveQuoteSymbol(w.sym);
+    w.quoteSym = resolved;
+    const data = await fetchLivePrice(w.sym, resolved);
+    if (data?.price > 0) {
+      liveprices[w.sym] = data;
+      if (!w.entry) {
+        w.entry = parseFloat(data.price.toFixed(data.price < 1 ? 4 : data.price < 100 ? 2 : 1));
+        if (w.stop && w.target && w.entry && w.stop !== w.entry) {
+          w.rr = parseFloat((Math.abs(w.target - w.entry) / Math.abs(w.entry - w.stop)).toFixed(1));
+        }
+        delete w.needsLevels;
+      }
+      w.urgent = isNearEntry(data.price, w.entry, w.dir);
+      persist();
+    }
+  } catch (e) {}
+  renderWatchlist();
+  renderHomePreviews();
+}
+
+async function previewWatchSymbolPrice() {
+  const hint = document.getElementById('w-sym-hint');
+  const symEl = document.getElementById('w-sym');
+  if (!hint || !symEl) return;
+  const sym = symEl.value.trim().toUpperCase();
+  if (!sym) { hint.textContent = ''; return; }
+  hint.textContent = '⟳ Looking up live price…';
+  try {
+    const resolved = await resolveQuoteSymbol(sym);
+    const data = await fetchLivePrice(sym, resolved);
+    const entryEl = document.getElementById('w-entry');
+    if (data?.price > 0) {
+      const via = resolved !== normalizeQuoteSymbol(sym) ? ` · ${resolved}` : '';
+      hint.innerHTML = `Live: <strong style="color:var(--accent)">${fmtPrice(data.price)}</strong>${via}`;
+      if (entryEl && !parseFloat(entryEl.value)) {
+        entryEl.placeholder = data.price.toFixed(data.price < 1 ? 4 : 2);
+      }
+    } else {
+      hint.textContent = 'No quote — try exchange suffix (e.g. BMW.DE, VOW3.DE)';
+    }
+  } catch (e) {
+    hint.textContent = 'Could not fetch price — try BMW.DE for XETRA listings';
+  }
+}
+window.previewWatchSymbolPrice = previewWatchSymbolPrice;
 
 function sizefromWatch(id) {
   const w = S.watchlist.find(w => w.id === id);
@@ -2913,6 +2967,76 @@ function normalizeQuoteSymbol(sym) {
   if (s.includes('-') || s.includes('=')) return s;
   if (CRYPTO_SYMS.includes(s)) return s + '-USD';
   return s;
+}
+
+const QUOTE_SUFFIXES = ['.DE', '.L', '.PA', '.AS', '.MI', '.SW', '.MC', '.OL', '.CO', '.HE', '.BR', '.WA', '.VI', '.TO'];
+const quoteSymbolCache = {};
+const resolveInflight = {};
+
+function isLikelyUsEquity(sym) {
+  const base = String(sym || '').split('.')[0].toUpperCase();
+  if (window.Baron?.EQUITIES?.includes(base)) return true;
+  if (window.Baron?.COMMODITIES?.includes(base)) return true;
+  return false;
+}
+
+function extractPriceFromMeta(meta) {
+  if (!meta) return 0;
+  const session = parseMarketSession(meta);
+  let price = parseFloat(meta.regularMarketPrice);
+  if (session === 'premarket' && meta.preMarketPrice) price = parseFloat(meta.preMarketPrice);
+  else if (session === 'postmarket' && meta.postMarketPrice) price = parseFloat(meta.postMarketPrice);
+  if (!price || isNaN(price)) price = parseFloat(meta.previousClose || meta.chartPreviousClose);
+  return price > 0 && !isNaN(price) ? price : 0;
+}
+
+async function probeQuoteSymbol(sym) {
+  try {
+    const json = await fetchYahooChart(sym, '1m', '1d');
+    const meta = json?.chart?.result?.[0]?.meta;
+    const price = extractPriceFromMeta(meta);
+    if (price > 0) return { sym, meta, price };
+  } catch (e) {}
+  return null;
+}
+
+async function doResolveQuoteSymbol(key) {
+  const normalized = normalizeQuoteSymbol(key);
+  if (normalized.includes('.') || normalized.includes('-') || normalized.includes('=')) {
+    const hit = await probeQuoteSymbol(normalized);
+    if (hit) return hit.sym;
+    return normalized;
+  }
+
+  const hit = await probeQuoteSymbol(normalized);
+  if (hit) return hit.sym;
+
+  if (/^[A-Z]{1,6}$/.test(key) && !isLikelyUsEquity(key)) {
+    for (const suf of QUOTE_SUFFIXES) {
+      const candidate = key + suf;
+      if (candidate === normalized) continue;
+      const alt = await probeQuoteSymbol(candidate);
+      if (alt) return alt.sym;
+    }
+  }
+
+  return normalized;
+}
+
+async function resolveQuoteSymbol(displaySym) {
+  const key = String(displaySym || '').trim().toUpperCase();
+  if (!key) return key;
+  if (quoteSymbolCache[key]) return quoteSymbolCache[key];
+  if (resolveInflight[key]) return resolveInflight[key];
+  resolveInflight[key] = doResolveQuoteSymbol(key).then((resolved) => {
+    quoteSymbolCache[key] = resolved;
+    return resolved;
+  }).finally(() => { delete resolveInflight[key]; });
+  return resolveInflight[key];
+}
+
+function watchQuoteSym(w) {
+  return w?.quoteSym || quoteSymbolCache[w?.sym] || normalizeQuoteSymbol(w?.sym || '');
 }
 
 function quoteSymbolFromInstr(instr) {
@@ -2957,14 +3081,15 @@ async function fetchYahooChart(sym, interval, range) {
 }
 
 async function openStockDetail(sym) {
-  sym = normalizeQuoteSymbol(sym);
-  const displaySym = sym.replace('-USD', '');
-  document.getElementById('sd-modal-title').textContent = displaySym + ' — Market Data';
+  const displaySym = String(sym || '').trim().toUpperCase();
+  sym = await resolveQuoteSymbol(displaySym);
+  document.getElementById('sd-modal-title').textContent = displaySym + (sym !== displaySym ? ' · ' + sym : '') + ' — Market Data';
   document.getElementById('sd-modal-body').innerHTML = '<div class="sd-loading">⟳ Fetching live data for ' + displaySym + '...</div>';
   openModal('modal-stock');
 
-  if (stockCache[sym] && (Date.now() - stockCache[sym].ts < STOCK_CACHE_MS)) {
-    renderStockModal(sym, stockCache[sym].data);
+  const cacheKey = displaySym;
+  if (stockCache[cacheKey] && (Date.now() - stockCache[cacheKey].ts < STOCK_CACHE_MS)) {
+    renderStockModal(displaySym, stockCache[cacheKey].data);
     return;
   }
 
@@ -2981,8 +3106,9 @@ async function openStockDetail(sym) {
     const lows   = chart.indicators.quote[0].low.filter(Boolean);
     const vols   = chart.indicators.quote[0].volume.filter(Boolean);
 
-    const regularPrice = liveMeta.regularMarketPrice || meta.regularMarketPrice || closes[closes.length-1];
-    const prevClose = liveMeta.previousClose || meta.previousClose || meta.chartPreviousClose || closes[closes.length-2];
+    const regularPrice = extractPriceFromMeta(liveMeta) || extractPriceFromMeta(meta) || closes[closes.length - 1];
+    const prevClose = liveMeta.previousClose || meta.previousClose || meta.chartPreviousClose || closes[closes.length - 2];
+    if (!regularPrice || !closes.length) throw new Error('no price data');
     const session = parseMarketSession(liveMeta);
     const pmPrice = liveMeta.preMarketPrice || meta.preMarketPrice || null;
     const postPrice = liveMeta.postMarketPrice || meta.postMarketPrice || null;
@@ -3046,18 +3172,22 @@ async function openStockDetail(sym) {
       session,
       sessionLabel: sessionDisplayLabel(session, sym),
       closes: closes.slice(-50),
-      sym: displaySym
+      sym: displaySym.replace('-USD', ''),
+      quoteSym: sym
     };
 
-    stockCache[sym] = { data, ts: Date.now() };
-    renderStockModal(sym, data);
+    stockCache[cacheKey] = { data, ts: Date.now() };
+    renderStockModal(displaySym, data);
 
   } catch(e) {
     // Fallback with simulated realistic data
-    const seed = sym.split('').reduce((a,c) => a + c.charCodeAt(0), 0);
+    const seed = displaySym.split('').reduce((a,c) => a + c.charCodeAt(0), 0);
     const pseudo = n => ((seed * n * 9301 + 49297) % 233280) / 233280;
-    const watchItem = S.watchlist.find(w => w.sym === sym);
-    const base = watchItem ? watchItem.entry : 100 + pseudo(7) * 400;
+    const watchItem = S.watchlist.find(w => w.sym === displaySym);
+    const livePx = liveprices[displaySym]?.price;
+    const base = (watchItem?.entry > 0) ? watchItem.entry
+      : (livePx > 0) ? livePx
+      : 100 + pseudo(7) * 400;
     const data = {
       current: base,
       prevClose: base * (1 - 0.005 + pseudo(2) * 0.01),
@@ -3074,10 +3204,10 @@ async function openStockDetail(sym) {
       postPrice: null, postChange: null, postPct: null,
       session: 'closed', sessionLabel: 'Last Close',
       closes: Array.from({length:50}, (_,i) => base * (0.9 + pseudo(i+20) * 0.2)),
-      sym, simulated: true
+      sym: displaySym.replace('-USD', ''), simulated: true
     };
-    stockCache[sym] = { data, ts: Date.now() };
-    renderStockModal(sym, data);
+    stockCache[cacheKey] = { data, ts: Date.now() };
+    renderStockModal(displaySym, data);
   }
 }
 
@@ -3484,36 +3614,37 @@ function fetchWithTimeout(url, ms) {
   return fetch(url, { signal: ctrl.signal }).finally(() => clearTimeout(timer));
 }
 
-async function fetchLivePrice(sym) {
-  sym = normalizeQuoteSymbol(sym);
+async function fetchLivePrice(displaySym, resolvedSym) {
+  const key = String(displaySym || '').trim().toUpperCase();
+  const sym = resolvedSym || await resolveQuoteSymbol(key);
+  quoteSymbolCache[key] = sym;
+  const w = S.watchlist.find(item => item.sym === key);
+  if (w) w.quoteSym = sym;
   try {
     const json = await fetchYahooChart(sym, '1m', '1d');
     const result = json && json.chart && json.chart.result && json.chart.result[0];
     if (!result) throw new Error('no result');
     const meta = result.meta;
     const session = parseMarketSession(meta);
-    let price = parseFloat(meta.regularMarketPrice || meta.previousClose);
-    if (session === 'premarket' && meta.preMarketPrice) price = parseFloat(meta.preMarketPrice);
-    else if (session === 'postmarket' && meta.postMarketPrice) price = parseFloat(meta.postMarketPrice);
-    const prev  = parseFloat(meta.previousClose || price);
+    let price = extractPriceFromMeta(meta);
+    const prev  = parseFloat(meta.previousClose || meta.chartPreviousClose || price);
     if (!price || isNaN(price)) throw new Error('bad price');
     const change    = price - prev;
     const changePct = prev > 0 ? (change / prev) * 100 : 0;
     const now = new Date();
     const ts  = now.getHours() + ':' + String(now.getMinutes()).padStart(2,'0');
-    return { price, change, changePct, timestamp: ts, stale: false, sym };
+    return { price, change, changePct, timestamp: ts, stale: false, sym: key, quoteSym: sym };
   } catch(e) {
-    // Graceful fallback — estimate from entry price
-    const w = S.watchlist.find(w => w.sym === sym);
-    if (!w || !w.entry) return null;
-    const seed  = sym.split('').reduce((a,c) => a + c.charCodeAt(0), 0);
+    const watch = w || S.watchlist.find(item => item.sym === key);
+    const seed  = key.split('').reduce((a,c) => a + c.charCodeAt(0), 0);
     const noise = ((seed * (Date.now() % 99991)) % 1000) / 1000 * 0.014 - 0.007;
-    const price = parseFloat((w.entry * (1 + noise)).toFixed(w.entry < 10 ? 5 : w.entry < 100 ? 3 : 2));
-    const change = parseFloat((price - w.entry).toFixed(2));
-    const changePct = parseFloat((change / w.entry * 100).toFixed(2));
+    const anchor = watch?.entry > 0 ? watch.entry : 100 + (seed % 400);
+    const price = parseFloat((anchor * (1 + noise)).toFixed(anchor < 10 ? 5 : anchor < 100 ? 3 : 2));
+    const change = parseFloat((price - anchor).toFixed(2));
+    const changePct = anchor > 0 ? parseFloat((change / anchor * 100).toFixed(2)) : 0;
     const now = new Date();
     const ts  = now.getHours() + ':' + String(now.getMinutes()).padStart(2,'0') + ' est';
-    return { price, change, changePct, timestamp: ts, stale: true, sym };
+    return { price, change, changePct, timestamp: ts, stale: true, sym: key, quoteSym: sym };
   }
 }
 
@@ -3525,7 +3656,8 @@ async function refreshAllPrices() {
   if (!syms.length) { setFeedStatus('error', 'No symbols'); feedFetching = false; return; }
   let liveCount = 0;
   await Promise.all(syms.map(async sym => {
-    const data = await fetchLivePrice(sym);
+    const w = S.watchlist.find(item => item.sym === sym);
+    const data = await fetchLivePrice(sym, w?.quoteSym);
     if (data) {
       liveprices[sym] = data;
       if (!data.stale) liveCount++;
