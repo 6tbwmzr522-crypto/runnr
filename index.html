@@ -5,7 +5,7 @@
 <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
 <script>
 (function () {
-  var V = "22";
+  var V = "23";
   try {
     if (localStorage.getItem("runnr_app_v") !== V) {
       localStorage.setItem("runnr_app_v", V);
@@ -1468,7 +1468,7 @@ body.light #equity-canvas{filter:invert(0)}
     <div style="font-size:12px;color:var(--text2);margin-bottom:14px">One sign-in for Alpaca sync. Same email always works — new or returning.</div>
     <form id="sync-auth-form">
       <div class="field"><label for="sync-email">Email</label><input id="sync-email" name="email" type="email" placeholder="you@example.com" autocomplete="username" required inputmode="email" autocapitalize="none" autocorrect="off"></div>
-      <div class="field"><label for="sync-password">Password</label><input id="sync-password" name="password" type="password" placeholder="8+ characters" autocomplete="current-password" required minlength="8"></div>
+      <div class="field"><label for="sync-password">Password</label><input id="sync-password" name="password" type="password" placeholder="8+ characters" autocomplete="current-password" required minlength="8" autocapitalize="none" autocorrect="off" spellcheck="false"></div>
       <div id="sync-auth-error"></div>
       <button class="btn" type="submit" id="sync-login-btn">Continue</button>
       <button class="btn btn-ghost" style="margin-top:8px;font-size:12px" type="button" onclick="RunnrSync.logout(); hideSessionBanner(); renderHeaderSyncPill(); renderSyncPage(); renderHomeBrokerPreview(); closeModal('modal-sync-auth');">Log out on this device</button>
@@ -1571,7 +1571,7 @@ body.light #equity-canvas{filter:invert(0)}
 <script src="js/baron.js?v=25"></script>
 <script src="js/coach.js?v=22"></script>
 <script src="js/onboarding.js?v=20"></script>
-<script src="js/sync.js?v=24"></script>
+<script src="js/sync.js?v=25"></script>
 <script>
 // ── STATE ──────────────────────────────────────────────────────────────────
 const S = {
@@ -4549,10 +4549,9 @@ function openSyncAuthModal() {
 }
 
 function readSyncAuthFields() {
-  const form = document.getElementById('sync-auth-form');
-  if (!form) return { email: '', password: '' };
-  const email = (form.elements.email?.value || '').trim();
-  const password = form.elements.password?.value || '';
+  // Read inputs directly — iOS Safari autofill often skips form.elements
+  const email = (document.getElementById('sync-email')?.value || '').trim();
+  const password = document.getElementById('sync-password')?.value || '';
   return { email, password };
 }
 
@@ -4569,6 +4568,10 @@ async function submitSyncContinue() {
   const err = validateSyncAuth(email, password);
   if (err) {
     showSyncAuthError(err);
+    return;
+  }
+  if (RunnrSync.storageOk && !RunnrSync.storageOk()) {
+    showSyncAuthError('Safari blocked storage — turn off Private Browsing, or open runnr.fyi in a normal tab (not Private).');
     return;
   }
   showSyncAuthError('');
@@ -4591,8 +4594,10 @@ async function submitSyncContinue() {
       showSyncAuthError('Wrong password for this email.');
     } else if (/invalid email or password/i.test(msg)) {
       showSyncAuthError('Could not sign in — check email and password.');
-    } else {
+    } else if (/cannot reach|timed out|private browsing|blocked saving/i.test(msg)) {
       showSyncAuthError(msg);
+    } else {
+      showSyncAuthError(msg || 'Sign in failed — try again');
     }
   } finally {
     if (btn) { btn.disabled = false; btn.textContent = 'Continue'; }

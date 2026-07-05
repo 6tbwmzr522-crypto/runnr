@@ -17,15 +17,25 @@ const RunnrSync = (() => {
   }
 
   function ensureApiUrl() {
-    const host = location.hostname || "";
-    if (host === "runnr.fyi" || host === "www.runnr.fyi" || host.endsWith(".github.io")) {
+    try {
       const current = localStorage.getItem(URL_KEY);
       if (!current || /railway\.app/i.test(current)) {
         localStorage.setItem(URL_KEY, "https://api.runnr.fyi");
       }
-    }
+    } catch (e) {}
   }
   ensureApiUrl();
+
+  function storageOk() {
+    try {
+      const k = "__runnr_storage_test__";
+      localStorage.setItem(k, "1");
+      localStorage.removeItem(k);
+      return true;
+    } catch (e) {
+      return false;
+    }
+  }
 
   function isAuthError(msg) {
     return /session expired|user not found|invalid token|missing bearer/i.test(String(msg || ""));
@@ -36,12 +46,16 @@ const RunnrSync = (() => {
   }
 
   function setToken(t, email) {
-    if (t) {
-      localStorage.setItem(TOKEN_KEY, t);
-      if (email) localStorage.setItem(EMAIL_KEY, email);
-    } else {
-      localStorage.removeItem(TOKEN_KEY);
-      localStorage.removeItem(EMAIL_KEY);
+    try {
+      if (t) {
+        localStorage.setItem(TOKEN_KEY, t);
+        if (email) localStorage.setItem(EMAIL_KEY, email);
+      } else {
+        localStorage.removeItem(TOKEN_KEY);
+        localStorage.removeItem(EMAIL_KEY);
+      }
+    } catch (e) {
+      throw new Error("Safari blocked saving your login — turn off Private Browsing or allow site data for runnr.fyi");
     }
   }
 
@@ -69,9 +83,24 @@ const RunnrSync = (() => {
   }
 
   async function request(path, options = {}) {
+    ensureApiUrl();
     const headers = { "Content-Type": "application/json", ...(options.headers || {}) };
     if (token()) headers.Authorization = "Bearer " + token();
-    const res = await fetch(apiBase() + path, { ...options, headers });
+    const ctrl = new AbortController();
+    const timer = setTimeout(() => ctrl.abort(), 20000);
+    let res;
+    try {
+      res = await fetch(apiBase() + path, { ...options, headers, signal: ctrl.signal });
+    } catch (e) {
+      const msg = String(e.message || e);
+      if (e.name === "AbortError") throw new Error("Request timed out — check your connection and try again");
+      if (/failed to fetch|load failed|networkerror|network error/i.test(msg)) {
+        throw new Error("Cannot reach Runnr server — check Wi‑Fi or mobile data");
+      }
+      throw e;
+    } finally {
+      clearTimeout(timer);
+    }
     let data = null;
     try {
       data = await res.json();
@@ -111,6 +140,10 @@ const RunnrSync = (() => {
 
   /** Log in, or create account if this email is new (covers server DB resets). */
   async function signIn(email, password) {
+    ensureApiUrl();
+    if (!storageOk()) {
+      throw new Error("Safari blocked saving your login — turn off Private Browsing or allow site data for runnr.fyi");
+    }
     try {
       return await login(email, password);
     } catch (e) {
@@ -425,5 +458,6 @@ const RunnrSync = (() => {
     tradeNeedsPriceFix,
     isAuthError,
     ensureApiUrl,
+    storageOk,
   };
 })();
