@@ -120,21 +120,41 @@ const RunnrSync = (() => {
   }
 
   async function register(email, password) {
+    const creds = normalizeAuth(email, password);
     const data = await request("/api/v1/auth/register", {
       method: "POST",
-      body: JSON.stringify({ email, password }),
+      body: JSON.stringify(creds),
     });
-    setToken(data.access_token, data.email || email);
+    setToken(data.access_token, data.email || creds.email);
     return data;
   }
 
+  function normalizeAuth(email, password) {
+    return {
+      email: String(email || "").trim().toLowerCase(),
+      password: String(password || "").trim(),
+    };
+  }
+
   async function login(email, password) {
+    const creds = normalizeAuth(email, password);
     const data = await request("/api/v1/auth/login", {
       method: "POST",
-      body: JSON.stringify({ email, password }),
+      body: JSON.stringify(creds),
     });
-    setToken(data.access_token, data.email || email);
-    localStorage.setItem("runnr_remember_email", email);
+    setToken(data.access_token, data.email || creds.email);
+    localStorage.setItem("runnr_remember_email", creds.email);
+    return data;
+  }
+
+  async function resetPassword(email, newPassword) {
+    const creds = normalizeAuth(email, newPassword);
+    const data = await request("/api/v1/auth/reset-password", {
+      method: "POST",
+      body: JSON.stringify({ email: creds.email, new_password: creds.password }),
+    });
+    setToken(data.access_token, data.email || creds.email);
+    localStorage.setItem("runnr_remember_email", creds.email);
     return data;
   }
 
@@ -537,6 +557,7 @@ const RunnrSync = (() => {
     register,
     login,
     signIn,
+    resetPassword,
     logout,
     alpacaStatus,
     connectAlpaca,

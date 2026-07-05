@@ -1465,12 +1465,15 @@ body.light #equity-canvas{filter:invert(0)}
 <div class="modal-overlay" id="modal-sync-auth" onclick="closeModalOutside(event,'modal-sync-auth')">
   <div class="modal" onclick="event.stopPropagation()">
     <div class="modal-title">Runnr account <button class="modal-close" onclick="closeModal('modal-sync-auth')">✕</button></div>
-    <div style="font-size:12px;color:var(--text2);margin-bottom:14px">One sign-in for Alpaca sync. Same email always works — new or returning.</div>
+    <div style="font-size:12px;color:var(--text2);margin-bottom:14px">One sign-in syncs journal & watchlist across devices.</div>
     <form id="sync-auth-form" onsubmit="event.preventDefault(); submitSyncContinue(); return false;">
       <div class="field"><label for="sync-email">Email</label><input id="sync-email" name="email" type="email" placeholder="you@example.com" autocomplete="email" required inputmode="email" autocapitalize="none" autocorrect="off"></div>
-      <div class="field"><label for="sync-password">Password</label><input id="sync-password" name="password" type="password" placeholder="8+ characters" autocomplete="current-password" required minlength="8" autocapitalize="none" autocorrect="off" spellcheck="false"></div>
+      <div class="field"><label for="sync-password" id="sync-password-label">Password</label><input id="sync-password" name="password" type="password" placeholder="8+ characters" autocomplete="current-password" required minlength="8" autocapitalize="none" autocorrect="off" spellcheck="false"></div>
+      <div class="field" id="sync-password2-field" style="display:none"><label for="sync-password2">Confirm new password</label><input id="sync-password2" type="password" placeholder="Type again" minlength="8" autocapitalize="none" autocorrect="off" spellcheck="false"></div>
       <div id="sync-auth-error"></div>
       <button class="btn" type="button" id="sync-login-btn" onclick="submitSyncContinue()">Continue</button>
+      <button class="btn btn-ghost" style="margin-top:8px;font-size:12px" type="button" id="sync-forgot-btn" onclick="toggleSyncResetMode()">Forgot password? Set a new one</button>
+      <button class="btn btn-ghost" style="margin-top:8px;font-size:12px;display:none" type="button" id="sync-back-login-btn" onclick="toggleSyncResetMode(false)">← Back to sign in</button>
       <button class="btn btn-ghost" style="margin-top:8px;font-size:12px" type="button" onclick="RunnrSync.logout(); hideSessionBanner(); renderHeaderSyncPill(); renderSyncPage(); renderHomeBrokerPreview(); closeModal('modal-sync-auth');">Log out on this device</button>
     </form>
   </div>
@@ -1571,7 +1574,7 @@ body.light #equity-canvas{filter:invert(0)}
 <script src="js/baron.js?v=25"></script>
 <script src="js/coach.js?v=22"></script>
 <script src="js/onboarding.js?v=20"></script>
-<script src="js/sync.js?v=27"></script>
+<script src="js/sync.js?v=28"></script>
 <script>
 // ── STATE ──────────────────────────────────────────────────────────────────
 const S = {
@@ -4585,6 +4588,7 @@ function renderSyncPage() {
 
 function openSyncAuthModal() {
   if (window.RunnrGrowth?.close) RunnrGrowth.close();
+  toggleSyncResetMode(false);
   showSyncAuthError('');
   openModal('modal-sync-auth');
   setTimeout(() => {
@@ -4596,11 +4600,28 @@ function openSyncAuthModal() {
 }
 
 function readSyncAuthFields() {
-  // Read inputs directly — iOS Safari autofill often skips form.elements
-  const email = (document.getElementById('sync-email')?.value || '').trim();
-  const password = document.getElementById('sync-password')?.value || '';
+  const email = (document.getElementById('sync-email')?.value || '').trim().toLowerCase();
+  const password = (document.getElementById('sync-password')?.value || '').trim();
   return { email, password };
 }
+
+let syncResetMode = false;
+
+function toggleSyncResetMode(on) {
+  syncResetMode = on !== false;
+  const p2 = document.getElementById('sync-password2-field');
+  const label = document.getElementById('sync-password-label');
+  const btn = document.getElementById('sync-login-btn');
+  const forgot = document.getElementById('sync-forgot-btn');
+  const back = document.getElementById('sync-back-login-btn');
+  if (p2) p2.style.display = syncResetMode ? 'block' : 'none';
+  if (label) label.textContent = syncResetMode ? 'New password' : 'Password';
+  if (btn) btn.textContent = syncResetMode ? 'Set new password & sign in' : 'Continue';
+  if (forgot) forgot.style.display = syncResetMode ? 'none' : 'block';
+  if (back) back.style.display = syncResetMode ? 'block' : 'none';
+  showSyncAuthError('');
+}
+window.toggleSyncResetMode = toggleSyncResetMode;
 
 function validateSyncAuth(email, password) {
   if (!email) return 'Enter your email address.';
@@ -4611,6 +4632,7 @@ function validateSyncAuth(email, password) {
 }
 
 async function submitSyncContinue() {
+  if (syncResetMode) return submitSyncResetPassword();
   const { email, password } = readSyncAuthFields();
   const err = validateSyncAuth(email, password);
   if (err) {
@@ -4634,36 +4656,73 @@ async function submitSyncContinue() {
       RunnrSync.logout();
       throw new Error('Session could not be verified — try again on Wi‑Fi');
     }
-    localStorage.setItem('runnr_remember_email', email);
-    hideSessionBanner();
-    closeModal('modal-sync-auth');
-    const profile = await RunnrSync.syncProfileState();
-    refreshAfterProfileSync();
-    await RunnrSync.tryAutoReconnectAlpaca();
-    await RunnrSync.refreshStatus();
-    renderHeaderSyncPill();
-    renderSyncAuthBanner();
-    renderSyncPage();
-    renderHomeBrokerPreview();
-    updateHomeStats();
-    if (profile.action === 'pulled') {
-      alert('Profile loaded — your journal and watchlist are synced from the cloud.');
-    } else if (profile.action === 'pushed') {
-      alert('Profile saved — this device is now backed up to your account.');
-    }
+    await finishSyncSignIn(email);
   } catch (e) {
     const msg = String(e.message || e);
     if (/wrong password/i.test(msg)) {
-      showSyncAuthError('Wrong password for this email.');
+      showSyncAuthError('Wrong password for this email — tap “Forgot password?” below to set a new one.');
     } else if (/invalid email or password/i.test(msg)) {
-      showSyncAuthError('Could not sign in — check email and password.');
+      showSyncAuthError('Could not sign in — check email and password, or set a new password below.');
     } else if (/cannot reach|timed out|private browsing|blocked saving/i.test(msg)) {
       showSyncAuthError(msg);
     } else {
       showSyncAuthError(msg || 'Sign in failed — try again');
     }
   } finally {
-    if (btn) { btn.disabled = false; btn.textContent = 'Continue'; }
+    if (btn) { btn.disabled = false; btn.textContent = syncResetMode ? 'Set new password & sign in' : 'Continue'; }
+  }
+}
+
+async function submitSyncResetPassword() {
+  const { email, password } = readSyncAuthFields();
+  const confirm = (document.getElementById('sync-password2')?.value || '').trim();
+  const err = validateSyncAuth(email, password);
+  if (err) {
+    showSyncAuthError(err);
+    return;
+  }
+  if (password !== confirm) {
+    showSyncAuthError('Passwords do not match — type the same new password twice.');
+    return;
+  }
+  showSyncAuthError('');
+  const btn = document.getElementById('sync-login-btn');
+  if (btn) { btn.disabled = true; btn.textContent = 'Updating…'; }
+  try {
+    await RunnrSync.resetPassword(email, password);
+    if (!RunnrSync.isLoggedIn()) throw new Error('Password updated but login did not stick');
+    await finishSyncSignIn(email);
+    toggleSyncResetMode(false);
+    alert('Password updated — you are signed in.');
+  } catch (e) {
+    const msg = String(e.message || e);
+    if (/no account with this email/i.test(msg)) {
+      showSyncAuthError('No account for this email — switch back to sign in and tap Continue to create one.');
+    } else {
+      showSyncAuthError(msg || 'Could not reset password — try again');
+    }
+  } finally {
+    if (btn) { btn.disabled = false; btn.textContent = syncResetMode ? 'Set new password & sign in' : 'Continue'; }
+  }
+}
+
+async function finishSyncSignIn(email) {
+  localStorage.setItem('runnr_remember_email', email);
+  hideSessionBanner();
+  closeModal('modal-sync-auth');
+  const profile = await RunnrSync.syncProfileState();
+  refreshAfterProfileSync();
+  await RunnrSync.tryAutoReconnectAlpaca();
+  await RunnrSync.refreshStatus();
+  renderHeaderSyncPill();
+  renderSyncAuthBanner();
+  renderSyncPage();
+  renderHomeBrokerPreview();
+  updateHomeStats();
+  if (profile.action === 'pulled') {
+    alert('Profile loaded — your journal and watchlist are synced from the cloud.');
+  } else if (profile.action === 'pushed') {
+    alert('Profile saved — this device is now backed up to your account.');
   }
 }
 

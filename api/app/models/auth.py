@@ -20,3 +20,8 @@ class TokenResponse(BaseModel):
 class MeResponse(BaseModel):
     id: int
     email: EmailStr
+
+
+class ResetPasswordRequest(BaseModel):
+    email: EmailStr
+    new_password: str = Field(min_length=8, max_length=128)
