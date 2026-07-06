@@ -26,7 +26,7 @@ jobs:
       - name: Build static site
         run: |
           mkdir -p _site
-          cp index.html sw.js manifest.webmanifest .nojekyll _site/
+          cp index.html login.html sw.js manifest.webmanifest .nojekyll _site/
           cp -r js icons _site/
           echo "runnr.fyi" > _site/CNAME
 

@@ -5,7 +5,7 @@
 <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
 <script>
 (function () {
-  var V = "36";
+  var V = "37";
   try {
     if (localStorage.getItem("runnr_app_v") !== V) {
       localStorage.setItem("runnr_app_v", V);
@@ -1089,6 +1089,11 @@ body.light #equity-canvas{filter:invert(0)}
       <div style="font-family:var(--font-head);font-size:18px;font-weight:700;margin-bottom:4px">Broker Sync</div>
       <div style="font-size:12px;color:var(--text3);margin-bottom:12px">Connect once. Pull real trades into your journal.</div>
       <div id="sync-auth-banner" style="margin-bottom:12px"></div>
+      <div id="sync-mobile-login" class="card" style="display:none;margin-bottom:12px">
+        <div class="card-title">Sign in on iPhone</div>
+        <div style="font-size:12px;color:var(--text2);margin-bottom:14px;line-height:1.45">The in-app form can freeze on Safari. Use the simple sign-in page — same email and password as your Mac.</div>
+        <a class="btn" id="sync-mobile-login-link" href="login.html" style="display:block;text-align:center;text-decoration:none;line-height:1.2;padding:16px">Open sign in page</a>
+      </div>
       <div id="sync-inline-auth" class="card" style="display:none;margin-bottom:12px">
         <div class="card-title">Sign in</div>
         <div style="font-size:12px;color:var(--text2);margin-bottom:12px">Sync journal &amp; watchlist across devices.</div>
@@ -4598,9 +4603,17 @@ function prefillSyncAuthEmail() {
 function updateSyncAuthVisibility() {
   const signin = document.getElementById('sync-inline-auth');
   const reset = document.getElementById('sync-reset-auth');
+  const mobile = document.getElementById('sync-mobile-login');
   const loggedOut = !RunnrSync.isLoggedIn();
-  if (signin) signin.style.display = loggedOut ? 'block' : 'none';
-  if (reset) reset.style.display = loggedOut ? 'block' : 'none';
+  if (isIOS && loggedOut) {
+    if (mobile) mobile.style.display = 'block';
+    if (signin) signin.style.display = 'none';
+    if (reset) reset.style.display = 'none';
+  } else {
+    if (mobile) mobile.style.display = 'none';
+    if (signin) signin.style.display = loggedOut ? 'block' : 'none';
+    if (reset) reset.style.display = loggedOut ? 'block' : 'none';
+  }
   if (loggedOut) prefillSyncAuthEmail();
 }
 
@@ -4621,7 +4634,9 @@ function renderSyncAuthBanner() {
       <button class="btn btn-sm btn-ghost" type="button" onclick="openSyncAuthModal()">Account</button>
     </div>`;
   } else if (syncAuthUsesInline()) {
-    el.innerHTML = `<div style="font-size:12px;color:var(--text2);margin-bottom:4px">Use <strong>Sign in</strong> with the same email + password as your Mac. Reset only if you changed your password.</div>`;
+    el.innerHTML = isIOS
+      ? `<div style="font-size:12px;color:var(--text2);margin-bottom:4px">Tap <strong>Open sign in page</strong> below — same password as your Mac.</div>`
+      : `<div style="font-size:12px;color:var(--text2);margin-bottom:4px">Use <strong>Sign in</strong> with the same email + password as your Mac.</div>`;
   } else {
     el.innerHTML = `<div class="card-sm" style="font-size:12px;color:var(--text2);margin-bottom:4px">Sign in to sync your journal, watchlist, and settings across devices.</div>
       <button class="btn btn-sm" type="button" onclick="openSyncAuthModal()">Sign in</button>`;
@@ -4695,6 +4710,10 @@ function openSyncAuthModal() {
   switchPage('sync');
   updateSyncAuthVisibility();
   prefillSyncAuthEmail();
+  if (isIOS && !RunnrSync.isLoggedIn()) {
+    scrollSyncAuthIntoView('sync-mobile-login');
+    return;
+  }
   if (syncAuthUsesInline()) {
     scrollSyncAuthIntoView('sync-inline-auth');
     return;
@@ -5502,6 +5521,24 @@ function initApp() {
   try { renderBaronPills(); } catch (e) {}
   try { initSyncAuthForm(); } catch (e) {}
   registerServiceWorker();
+  if (/[?&]signedin=1/.test(location.search) && RunnrSync.isLoggedIn()) {
+    history.replaceState(null, '', location.pathname + location.hash);
+    switchPage('sync');
+    RunnrSync.syncProfileState()
+      .then((profile) => {
+        if (profile && profile.action !== 'none') refreshAfterProfileSync();
+        return RunnrSync.tryAutoReconnectAlpaca();
+      })
+      .then(() => RunnrSync.refreshStatus())
+      .then(() => {
+        renderHeaderSyncPill();
+        renderSyncPage();
+        renderHomeBrokerPreview();
+        updateHomeStats();
+        showToast('Runnr', 'Signed in — profile synced');
+      })
+      .catch(() => showToast('Runnr', 'Signed in'));
+  }
   if (window.RunnrGrowth) {
     RunnrGrowth.renderHomeBanner(S);
     RunnrGrowth.scheduleDigestCheck(S);
