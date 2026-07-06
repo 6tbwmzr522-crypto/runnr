@@ -137,6 +137,10 @@ const RunnrSync = (() => {
   }
 
   async function login(email, password) {
+    ensureApiUrl();
+    if (!storageOk()) {
+      throw new Error("Safari blocked saving your login — turn off Private Browsing or allow site data for runnr.fyi");
+    }
     const creds = normalizeAuth(email, password);
     const data = await request("/api/v1/auth/login", {
       method: "POST",

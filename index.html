@@ -5,7 +5,7 @@
 <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
 <script>
 (function () {
-  var V = "24";
+  var V = "36";
   try {
     if (localStorage.getItem("runnr_app_v") !== V) {
       localStorage.setItem("runnr_app_v", V);
@@ -591,6 +591,11 @@ body.light #equity-canvas{filter:invert(0)}
 #sync-auth-error{font-size:12px;color:var(--red);min-height:16px;margin:8px 0 4px}
 .sync-auth-error{font-size:12px;color:var(--red);min-height:16px;margin:8px 0 4px}
 #sync-reset-error{font-size:13px;color:var(--red);min-height:18px;margin:10px 0 6px;line-height:1.4;font-weight:500}
+#sync-signin-status{font-size:13px;padding:10px 12px;border-radius:var(--r-sm);margin:8px 0;display:none;line-height:1.4}
+#sync-signin-status.show{display:block}
+#sync-signin-status.working{background:var(--gold-dim);color:var(--text2);border:1px solid var(--border)}
+#sync-signin-status.ok{background:var(--accent-dim);color:var(--accent);border:1px solid var(--accent2)}
+#sync-signin-status.err{background:rgba(255,77,109,0.12);color:var(--red);border:1px solid rgba(255,77,109,0.35)}
 #sync-reset-status{font-size:13px;padding:10px 12px;border-radius:var(--r-sm);margin:8px 0;display:none;line-height:1.4}
 #sync-reset-status.show{display:block}
 #sync-reset-status.working{background:var(--gold-dim);color:var(--text2);border:1px solid var(--border)}
@@ -1091,7 +1096,8 @@ body.light #equity-canvas{filter:invert(0)}
           <div class="field"><label for="sync-email-inline">Email</label><input id="sync-email-inline" type="email" placeholder="you@example.com" autocomplete="username" inputmode="email" autocapitalize="none" autocorrect="off"></div>
           <div class="field"><label for="sync-password-inline">Password</label><input id="sync-password-inline" type="password" placeholder="8+ characters" autocomplete="current-password" minlength="8" autocapitalize="none" autocorrect="off" spellcheck="false"></div>
           <div id="sync-auth-error-inline" class="sync-auth-error"></div>
-          <button class="btn" type="button" id="sync-login-btn-inline">Continue</button>
+          <div id="sync-signin-status"></div>
+          <button class="btn" type="button" id="sync-login-btn-inline" onclick="submitSyncContinue();return false">Continue</button>
         </form>
       </div>
       <div id="sync-reset-auth" class="card" style="display:none;margin-bottom:12px">
@@ -1103,7 +1109,7 @@ body.light #equity-canvas{filter:invert(0)}
           <div class="field"><label for="sync-reset-password2">Confirm new password</label><input id="sync-reset-password2" type="password" placeholder="Type again" autocomplete="new-password" minlength="8" autocapitalize="none" autocorrect="off" spellcheck="false"></div>
           <div id="sync-reset-error" class="sync-auth-error"></div>
           <div id="sync-reset-status"></div>
-          <button class="btn" type="button" id="sync-reset-btn">Set new password &amp; sign in</button>
+          <button class="btn" type="button" id="sync-reset-btn" onclick="submitSyncResetPassword();return false">Set new password &amp; sign in</button>
         </form>
       </div>
       <div id="sync-connected" style="margin-bottom:12px"></div>
@@ -1605,7 +1611,7 @@ body.light #equity-canvas{filter:invert(0)}
 <script src="js/baron.js?v=25"></script>
 <script src="js/coach.js?v=22"></script>
 <script src="js/onboarding.js?v=20"></script>
-<script src="js/sync.js?v=29"></script>
+<script src="js/sync.js?v=30"></script>
 <script>
 // ── STATE ──────────────────────────────────────────────────────────────────
 const S = {
@@ -4615,7 +4621,7 @@ function renderSyncAuthBanner() {
       <button class="btn btn-sm btn-ghost" type="button" onclick="openSyncAuthModal()">Account</button>
     </div>`;
   } else if (syncAuthUsesInline()) {
-    el.innerHTML = `<div style="font-size:12px;color:var(--text2);margin-bottom:4px">Sign in below — or scroll to Reset password if needed.</div>`;
+    el.innerHTML = `<div style="font-size:12px;color:var(--text2);margin-bottom:4px">Use <strong>Sign in</strong> with the same email + password as your Mac. Reset only if you changed your password.</div>`;
   } else {
     el.innerHTML = `<div class="card-sm" style="font-size:12px;color:var(--text2);margin-bottom:4px">Sign in to sync your journal, watchlist, and settings across devices.</div>
       <button class="btn btn-sm" type="button" onclick="openSyncAuthModal()">Sign in</button>`;
@@ -4697,11 +4703,46 @@ function openSyncAuthModal() {
   setTimeout(() => document.getElementById('sync-email')?.focus(), 300);
 }
 
+function showSyncSignInStatus(text, kind) {
+  const el = document.getElementById('sync-signin-status');
+  if (!el) return;
+  if (!text) {
+    el.className = '';
+    el.textContent = '';
+    return;
+  }
+  el.className = 'show ' + (kind || 'working');
+  el.textContent = text;
+  scrollSyncAuthIntoView('sync-inline-auth');
+}
+
+function readFieldValue(...ids) {
+  for (const id of ids) {
+    const el = document.getElementById(id);
+    if (!el) continue;
+    const v = String(el.value || '').trim();
+    if (v) return v;
+  }
+  return '';
+}
+
+function waitForIosFields(ms) {
+  return isIOS ? new Promise((r) => setTimeout(r, ms || 150)) : Promise.resolve();
+}
+
 function readSyncSignInFields() {
-  const useInline = syncAuthUsesInline() && !document.getElementById('modal-sync-auth')?.classList.contains('open');
-  const email = (document.getElementById(useInline ? 'sync-email-inline' : 'sync-email')?.value || '').trim().toLowerCase();
-  const password = (document.getElementById(useInline ? 'sync-password-inline' : 'sync-password')?.value || '').trim();
-  return { email, password };
+  const modalOpen = document.getElementById('modal-sync-auth')?.classList.contains('open');
+  const useInline = !modalOpen && (isIOS || document.getElementById('page-sync')?.classList.contains('active'));
+  if (useInline) {
+    return {
+      email: readFieldValue('sync-email-inline', 'sync-reset-email', 'sync-email').toLowerCase(),
+      password: readFieldValue('sync-password-inline', 'sync-password'),
+    };
+  }
+  return {
+    email: readFieldValue('sync-email', 'sync-email-inline').toLowerCase(),
+    password: readFieldValue('sync-password', 'sync-password-inline'),
+  };
 }
 
 function readSyncResetFields() {
@@ -4749,41 +4790,46 @@ function validateSyncAuth(email, password) {
 
 async function submitSyncContinue() {
   dismissSyncKeyboard();
+  await waitForIosFields(150);
   const { email, password } = readSyncSignInFields();
   const err = validateSyncAuth(email, password);
   if (err) {
     showSyncAuthError(err);
+    showSyncSignInStatus(err, 'err');
     return;
   }
   if (RunnrSync.storageOk && !RunnrSync.storageOk()) {
-    showSyncAuthError('Safari blocked storage — turn off Private Browsing, or open runnr.fyi in a normal tab (not Private).');
+    const msg = 'Safari blocked storage — turn off Private Browsing, or open runnr.fyi in a normal tab (not Private).';
+    showSyncAuthError(msg);
+    showSyncSignInStatus(msg, 'err');
     return;
   }
   showSyncAuthError('');
+  showSyncSignInStatus('Signing in…', 'working');
   setSyncAuthBusy(true, 'signin');
   try {
-    await RunnrSync.signIn(email, password);
+    await RunnrSync.login(email, password);
     if (!RunnrSync.isLoggedIn()) {
       throw new Error('Login did not stick — turn off Private Browsing in Safari');
     }
-    const sessionOk = await RunnrSync.verifySession();
-    if (!sessionOk) {
-      RunnrSync.logout();
-      throw new Error('Session could not be verified — try again on Wi‑Fi');
-    }
-    await finishSyncSignIn(email);
+    showSyncSignInStatus('Signed in — loading your profile…', 'ok');
+    finishSyncSignIn(email);
     showToast('Runnr', 'Signed in');
   } catch (e) {
     const msg = String(e.message || e);
-    if (/wrong password/i.test(msg)) {
-      showSyncAuthError('Wrong password — scroll down to Reset password and set a new one.');
-      scrollSyncAuthIntoView('sync-reset-auth');
-    } else if (/invalid email or password/i.test(msg)) {
-      showSyncAuthError('Could not sign in — check email and password, or reset below.');
-    } else if (/cannot reach|timed out|private browsing|blocked saving/i.test(msg)) {
+    showSyncSignInStatus('', '');
+    if (/invalid email or password/i.test(msg)) {
+      showSyncAuthError('Wrong email or password — use the same password that works on your Mac.');
+      showSyncSignInStatus('Wrong email or password', 'err');
+    } else if (/wrong password/i.test(msg)) {
+      showSyncAuthError('Wrong password — use the same password as on your Mac, or reset below.');
+      showSyncSignInStatus('Wrong password', 'err');
+    } else if (/cannot reach|timed out|private browsing|blocked saving|failed to fetch|network/i.test(msg)) {
       showSyncAuthError(msg);
+      showSyncSignInStatus(msg, 'err');
     } else {
       showSyncAuthError(msg || 'Sign in failed — try again');
+      showSyncSignInStatus(msg || 'Sign in failed', 'err');
     }
   } finally {
     setSyncAuthBusy(false, 'signin');
@@ -4795,6 +4841,7 @@ let _syncResetRunning = false;
 async function submitSyncResetPassword() {
   if (_syncResetRunning) return;
   dismissSyncKeyboard();
+  await waitForIosFields(150);
   const { email, password, confirm } = readSyncResetFields();
   const err = validateSyncAuth(email, password);
   if (err) {
@@ -5401,16 +5448,10 @@ function bindAuthButton(id, handler) {
   const btn = document.getElementById(id);
   if (!btn || btn.dataset.bound) return;
   btn.dataset.bound = '1';
-  let lastTap = 0;
-  const run = (e) => {
-    if (e) { e.preventDefault(); e.stopPropagation(); }
-    const now = Date.now();
-    if (now - lastTap < 500) return;
-    lastTap = now;
+  btn.addEventListener('click', (e) => {
+    e.preventDefault();
     handler();
-  };
-  btn.addEventListener('click', run);
-  btn.addEventListener('touchend', run, { passive: false });
+  });
 }
 
 function initSyncAuthForm() {
