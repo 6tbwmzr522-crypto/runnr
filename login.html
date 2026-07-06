@@ -221,13 +221,23 @@
     signinBtn.disabled = true;
     setStatus("Signing in…", "work");
     try {
-      const data = await apiPost("/api/v1/auth/login", { email: fields.email, password: fields.password });
+      let data;
+      try {
+        data = await apiPost("/api/v1/auth/login", { email: fields.email, password: fields.password });
+      } catch (loginErr) {
+        const loginMsg = String(loginErr.message || loginErr);
+        if (!/invalid email or password/i.test(loginMsg)) throw loginErr;
+        setStatus("Creating your account…", "work");
+        data = await apiPost("/api/v1/auth/register", { email: fields.email, password: fields.password });
+      }
       saveSession(data.access_token, data.email || fields.email);
       goHome();
     } catch (e) {
       const msg = String(e.message || e);
-      if (/invalid email or password/i.test(msg)) {
-        setStatus("Wrong email or password — use the same as on your Mac.", "err");
+      if (/wrong password/i.test(msg)) {
+        setStatus("Wrong password for this email — tap Forgot password below to set a new one.", "err");
+      } else if (/invalid email or password/i.test(msg)) {
+        setStatus("Could not sign in — check email and password.", "err");
       } else if (/abort/i.test(msg)) {
         setStatus("Timed out — check your connection and try again.", "err");
       } else {
@@ -249,16 +259,24 @@
     signinBtn.disabled = true;
     setStatus("Updating password…", "work");
     try {
-      const data = await apiPost("/api/v1/auth/reset-password", {
-        email: fields.email,
-        new_password: fields.password,
-      });
+      let data;
+      try {
+        data = await apiPost("/api/v1/auth/reset-password", {
+          email: fields.email,
+          new_password: fields.password,
+        });
+      } catch (resetErr) {
+        const resetMsg = String(resetErr.message || resetErr);
+        if (!/no account/i.test(resetMsg)) throw resetErr;
+        setStatus("No account yet — creating one with this password…", "work");
+        data = await apiPost("/api/v1/auth/register", { email: fields.email, password: fields.password });
+      }
       saveSession(data.access_token, data.email || fields.email);
       goHome();
     } catch (e) {
       const msg = String(e.message || e);
-      if (/no account/i.test(msg)) {
-        setStatus("No account for this email — use Sign in to create one.", "err");
+      if (/wrong password/i.test(msg)) {
+        setStatus("Account exists but password is wrong — try Sign in with your Mac password first.", "err");
       } else if (/abort/i.test(msg)) {
         setStatus("Timed out — check your connection.", "err");
       } else {

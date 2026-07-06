@@ -5,7 +5,7 @@
 <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
 <script>
 (function () {
-  var V = "37";
+  var V = "38";
   try {
     if (localStorage.getItem("runnr_app_v") !== V) {
       localStorage.setItem("runnr_app_v", V);
@@ -1102,7 +1102,7 @@ body.light #equity-canvas{filter:invert(0)}
           <div class="field"><label for="sync-password-inline">Password</label><input id="sync-password-inline" type="password" placeholder="8+ characters" autocomplete="current-password" minlength="8" autocapitalize="none" autocorrect="off" spellcheck="false"></div>
           <div id="sync-auth-error-inline" class="sync-auth-error"></div>
           <div id="sync-signin-status"></div>
-          <button class="btn" type="button" id="sync-login-btn-inline" onclick="submitSyncContinue();return false">Continue</button>
+          <button class="btn" type="button" id="sync-login-btn-inline">Continue</button>
         </form>
       </div>
       <div id="sync-reset-auth" class="card" style="display:none;margin-bottom:12px">
@@ -1114,7 +1114,7 @@ body.light #equity-canvas{filter:invert(0)}
           <div class="field"><label for="sync-reset-password2">Confirm new password</label><input id="sync-reset-password2" type="password" placeholder="Type again" autocomplete="new-password" minlength="8" autocapitalize="none" autocorrect="off" spellcheck="false"></div>
           <div id="sync-reset-error" class="sync-auth-error"></div>
           <div id="sync-reset-status"></div>
-          <button class="btn" type="button" id="sync-reset-btn" onclick="submitSyncResetPassword();return false">Set new password &amp; sign in</button>
+          <button class="btn" type="button" id="sync-reset-btn">Set new password &amp; sign in</button>
         </form>
       </div>
       <div id="sync-connected" style="margin-bottom:12px"></div>
@@ -1804,6 +1804,10 @@ function switchPage(key) {
   if (key === 'home') { renderHomePreviews(); updateHomeStats(); renderHomeBrokerPreview(); refreshHomeMarkets(); }
   if (key === 'sync') {
     renderSyncPage();
+    if (!RunnrSync.isLoggedIn() && isIOS) {
+      window.location.href = 'login.html';
+      return;
+    }
     if (!RunnrSync.isLoggedIn()) updateSyncAuthVisibility();
   }
 }
@@ -4609,11 +4613,11 @@ function updateSyncAuthVisibility() {
     if (mobile) mobile.style.display = 'block';
     if (signin) signin.style.display = 'none';
     if (reset) reset.style.display = 'none';
-  } else {
-    if (mobile) mobile.style.display = 'none';
-    if (signin) signin.style.display = loggedOut ? 'block' : 'none';
-    if (reset) reset.style.display = loggedOut ? 'block' : 'none';
+    return;
   }
+  if (mobile) mobile.style.display = 'none';
+  if (signin) signin.style.display = loggedOut ? 'block' : 'none';
+  if (reset) reset.style.display = loggedOut ? 'block' : 'none';
   if (loggedOut) prefillSyncAuthEmail();
 }
 
@@ -4782,20 +4786,16 @@ function readSyncResetFields() {
 
 function setSyncAuthBusy(busy, mode) {
   const ids = mode === 'reset' ? ['sync-reset-btn'] : ['sync-login-btn', 'sync-login-btn-inline'];
+  const idleText = mode === 'reset' ? 'Set new password & sign in' : 'Continue';
   ids.forEach((id) => {
     const btn = document.getElementById(id);
     if (!btn) return;
-    btn.disabled = busy;
-    if (busy) {
-      btn.dataset.prevLabel = btn.textContent;
-      btn.textContent = mode === 'reset' ? 'Updating…' : 'Signing in…';
-    } else {
-      btn.textContent = btn.dataset.prevLabel || (mode === 'reset' ? 'Set new password & sign in' : 'Continue');
-    }
+    btn.disabled = !!busy;
+    btn.textContent = busy ? (mode === 'reset' ? 'Updating…' : 'Signing in…') : idleText;
   });
+  clearTimeout(window._syncAuthBusyTimer);
   if (busy) {
-    clearTimeout(window._syncAuthBusyTimer);
-    window._syncAuthBusyTimer = setTimeout(() => setSyncAuthBusy(false, mode), 30000);
+    window._syncAuthBusyTimer = setTimeout(() => setSyncAuthBusy(false, mode), 20000);
   }
 }
 
@@ -4807,7 +4807,10 @@ function validateSyncAuth(email, password) {
   return '';
 }
 
+let _syncSignInRunning = false;
+
 async function submitSyncContinue() {
+  if (_syncSignInRunning) return;
   dismissSyncKeyboard();
   await waitForIosFields(150);
   const { email, password } = readSyncSignInFields();
@@ -4825,9 +4828,10 @@ async function submitSyncContinue() {
   }
   showSyncAuthError('');
   showSyncSignInStatus('Signing in…', 'working');
+  _syncSignInRunning = true;
   setSyncAuthBusy(true, 'signin');
   try {
-    await RunnrSync.login(email, password);
+    await RunnrSync.signIn(email, password);
     if (!RunnrSync.isLoggedIn()) {
       throw new Error('Login did not stick — turn off Private Browsing in Safari');
     }
@@ -4837,12 +4841,12 @@ async function submitSyncContinue() {
   } catch (e) {
     const msg = String(e.message || e);
     showSyncSignInStatus('', '');
-    if (/invalid email or password/i.test(msg)) {
-      showSyncAuthError('Wrong email or password — use the same password that works on your Mac.');
-      showSyncSignInStatus('Wrong email or password', 'err');
-    } else if (/wrong password/i.test(msg)) {
-      showSyncAuthError('Wrong password — use the same password as on your Mac, or reset below.');
+    if (/wrong password/i.test(msg)) {
+      showSyncAuthError('Wrong password for this email — scroll down to Reset password, or use the same password as on your Mac.');
       showSyncSignInStatus('Wrong password', 'err');
+    } else if (/invalid email or password/i.test(msg)) {
+      showSyncAuthError('Could not sign in — check email and password.');
+      showSyncSignInStatus('Sign in failed', 'err');
     } else if (/cannot reach|timed out|private browsing|blocked saving|failed to fetch|network/i.test(msg)) {
       showSyncAuthError(msg);
       showSyncSignInStatus(msg, 'err');
@@ -4851,6 +4855,7 @@ async function submitSyncContinue() {
       showSyncSignInStatus(msg || 'Sign in failed', 'err');
     }
   } finally {
+    _syncSignInRunning = false;
     setSyncAuthBusy(false, 'signin');
   }
 }
@@ -4894,7 +4899,7 @@ async function submitSyncResetPassword() {
     const msg = String(e.message || e);
     showSyncResetStatus('', '');
     if (/no account with this email/i.test(msg)) {
-      showSyncResetError('No account for this email — use Sign in above with Continue to create one.');
+      showSyncResetError('No account yet — use Sign in above with Continue (creates your account).');
     } else if (/cannot reach|timed out|failed to fetch|network/i.test(msg)) {
       showSyncResetError('Cannot reach server — check Wi‑Fi or mobile data and try again.');
     } else if (/private browsing|blocked saving/i.test(msg)) {
