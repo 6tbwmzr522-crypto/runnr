@@ -9,6 +9,11 @@ class Settings(BaseSettings):
     runnr_encryption_key: str = ""
     openai_api_key: str = ""
     openai_model: str = "gpt-4o-mini"
+    finnhub_api_key: str = ""
+    quote_cache_ttl: int = 45
+    quote_stale_ttl: int = 300
+    fear_greed_cache_ttl: int = 900
+    brief_refresh_cooldown_s: int = 3600
     database_path: str = os.environ.get("DATABASE_PATH", "/data/runnr.db")
     cors_origins: str = (
         "http://localhost:8080,"

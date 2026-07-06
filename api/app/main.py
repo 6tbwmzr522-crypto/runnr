@@ -28,6 +28,7 @@ app.add_middleware(
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
+    expose_headers=["X-Runnr-Cache", "X-Runnr-Cache-Age"],
 )
 
 app.include_router(auth.router, prefix="/api/v1")
@@ -39,13 +40,20 @@ app.include_router(quotes.router, prefix="/api/v1/quotes", tags=["quotes"])
 @app.get("/health")
 def health():
     from app.db import DB_PATH
+    from app.quote_cache import fear_greed_cache, quote_cache
 
     key = (settings.openai_api_key or "").strip()
+    fh = (settings.finnhub_api_key or "").strip()
     return {
         "status": "ok",
         "service": "runnr-api",
         "database_path": DB_PATH,
         "ai_configured": bool(key),
         "ai_model": settings.openai_model,
-        "ai_key_prefix": key[:7] + "…" if len(key) > 8 else None,
+        "finnhub_configured": bool(fh),
+        "quote_cache_ttl_s": settings.quote_cache_ttl,
+        "caches": {
+            "quotes": quote_cache.stats(),
+            "fear_greed": fear_greed_cache.stats(),
+        },
     }

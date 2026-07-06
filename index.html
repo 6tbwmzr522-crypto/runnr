@@ -5,7 +5,7 @@
 <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
 <script>
 (function () {
-  var V = "40";
+  var V = "41";
   try {
     if (localStorage.getItem("runnr_app_v") !== V) {
       localStorage.setItem("runnr_app_v", V);
@@ -586,6 +586,8 @@ body.light #equity-canvas{filter:invert(0)}
 #share-canvas{display:block;width:100%;max-width:320px;margin:0 auto;border-radius:var(--r-sm);border:1px solid var(--border)}
 #session-banner{display:none;align-items:center;justify-content:space-between;gap:10px;margin:0 16px 10px;padding:10px 12px;background:var(--gold-dim);border:1px solid var(--border-strong);border-radius:var(--r-sm);font-size:12px;color:var(--text2);cursor:pointer}
 #session-banner .session-banner-text{flex:1;line-height:1.4}
+#traffic-banner{display:none;align-items:center;justify-content:space-between;gap:10px;margin:0 16px 10px;padding:10px 12px;background:rgba(255,181,71,0.1);border:1px solid rgba(255,181,71,0.35);border-radius:var(--r-sm);font-size:12px;color:var(--text2)}
+#traffic-banner .traffic-banner-text{flex:1;line-height:1.4}
 #header-sync-pill{font-size:11px;padding:4px 8px;border-radius:999px;border:1px solid var(--border);color:var(--text3);cursor:pointer;white-space:nowrap;touch-action:manipulation;-webkit-tap-highlight-color:transparent;user-select:none}
 #header-sync-pill.on{border-color:var(--accent);color:var(--accent);background:var(--accent-dim)}
 #sync-auth-error{font-size:12px;color:var(--red);min-height:16px;margin:8px 0 4px}
@@ -627,6 +629,11 @@ body.light #equity-canvas{filter:invert(0)}
   <div id="session-banner" onclick="openSyncAuthModal()">
     <span class="session-banner-text">Sign in to sync Alpaca — your journal stays on this device.</span>
     <button type="button" style="background:none;border:none;color:var(--text3);font-size:16px;cursor:pointer;padding:0 4px" onclick="event.stopPropagation();hideSessionBanner()">✕</button>
+  </div>
+
+  <div id="traffic-banner">
+    <span class="traffic-banner-text">High traffic — live prices may lag. Journal &amp; Alpaca sync still work.</span>
+    <button type="button" style="background:none;border:none;color:var(--text3);font-size:16px;cursor:pointer;padding:0 4px" onclick="dismissTrafficBanner()">✕</button>
   </div>
 
   <!-- PAGES -->
@@ -3044,7 +3051,8 @@ function sizefromWatch(id) {
 
 // Cache to avoid re-fetching (short TTL for live quotes)
 const stockCache = {};
-const STOCK_CACHE_MS = 60000;
+const STOCK_CACHE_MS = 90000;
+const FEED_POLL_MS = 90000;
 
 const CRYPTO_SYMS = ['BTC','ETH','SOL','DOGE','XRP','ADA','AVAX','LINK','BNB','LTC','DOT','MATIC','SHIB'];
 
@@ -3172,7 +3180,55 @@ async function fetchYahooChart(sym, interval, range) {
   const url = base + '/api/v1/quotes/' + encodeURIComponent(sym) + '?interval=' + interval + '&range=' + range;
   const res = await fetchWithTimeout(url, 7000);
   if (!res.ok) throw new Error('fetch failed');
-  return res.json();
+  const data = await res.json();
+  const meta = data._runnr || {};
+  data._runnrCache = meta.cache || res.headers.get('X-Runnr-Cache') || 'miss';
+  data._runnrSource = meta.source || 'yahoo';
+  trackQuoteCache(data._runnrCache);
+  return data;
+}
+
+let quoteCacheHits = 0;
+let quoteCacheMisses = 0;
+let quoteStaleCount = 0;
+let trafficBannerDismissed = false;
+
+function trackQuoteCache(status) {
+  if (status === 'hit') quoteCacheHits++;
+  else if (status === 'stale') quoteStaleCount++;
+  else quoteCacheMisses++;
+}
+
+function showTrafficBanner(msg) {
+  if (trafficBannerDismissed) return;
+  const el = document.getElementById('traffic-banner');
+  if (!el) return;
+  const span = el.querySelector('.traffic-banner-text');
+  if (span && msg) span.textContent = msg;
+  el.style.display = 'flex';
+}
+
+function dismissTrafficBanner() {
+  trafficBannerDismissed = true;
+  const el = document.getElementById('traffic-banner');
+  if (el) el.style.display = 'none';
+}
+
+function hideTrafficBanner() {
+  const el = document.getElementById('traffic-banner');
+  if (el && !trafficBannerDismissed) el.style.display = 'none';
+}
+
+function updateTrafficBanner(liveCount, total) {
+  if (trafficBannerDismissed || !total) return;
+  const ratio = liveCount / total;
+  if (ratio === 0) {
+    showTrafficBanner('Prices unavailable — high load or market closed. Journal & Alpaca sync still work.');
+  } else if (ratio < 0.5 || quoteStaleCount > quoteCacheHits) {
+    showTrafficBanner('High traffic — live prices may lag. Journal & Alpaca sync still work.');
+  } else {
+    hideTrafficBanner();
+  }
 }
 
 async function openStockDetail(sym) {
@@ -3741,7 +3797,9 @@ async function fetchLivePrice(displaySym, resolvedSym) {
     const changePct = prev > 0 ? (change / prev) * 100 : 0;
     const now = new Date();
     const ts  = now.getHours() + ':' + String(now.getMinutes()).padStart(2,'0');
-    return { price, change, changePct, timestamp: ts, stale: false, sym: key, quoteSym: sym };
+    const cacheStatus = json._runnrCache || 'miss';
+    const staleQuote = cacheStatus === 'stale';
+    return { price, change, changePct, timestamp: ts, stale: staleQuote, sym: key, quoteSym: sym };
   } catch(e) {
     const watch = w || S.watchlist.find(item => item.sym === key);
     const seed  = key.split('').reduce((a,c) => a + c.charCodeAt(0), 0);
@@ -3780,6 +3838,7 @@ async function refreshAllPrices() {
     if (liveCount === syms.length) setFeedStatus('live', 'Live · ' + ts);
     else if (liveCount > 0)        setFeedStatus('live', liveCount + '/' + syms.length + ' live · ' + ts);
     else                            setFeedStatus('error', 'Estimated · ' + ts);
+    updateTrafficBanner(liveCount, syms.length);
     if (document.getElementById('page-watchlist').classList.contains('active')) renderWatchlist();
     renderHomePreviews();
     checkPriceAlerts();
@@ -3799,9 +3858,9 @@ function startFeedTimer() {
   feedTimer = setInterval(() => {
     refreshAllPrices();
     refreshHomeMarkets().catch(() => {});
-    if (++fgTick % 15 === 0) fetchFearGreed().catch(() => {});
+    if (++fgTick % 10 === 0) fetchFearGreed().catch(() => {});
     if (document.getElementById('page-watchlist')?.classList.contains('active')) refreshWatchBriefs();
-  }, 60000);
+  }, FEED_POLL_MS);
 }
 
 function fmtPrice(p) {

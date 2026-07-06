@@ -14,6 +14,7 @@ from app.config import settings
 FX_MAJORS = frozenset({"USD", "EUR", "GBP", "JPY", "CHF", "AUD", "NZD", "CAD"})
 CRYPTO = frozenset({"BTC", "ETH", "SOL", "DOGE", "XRP", "ADA", "AVAX", "LINK", "BNB"})
 
+_BRIEF_REFRESH: dict[str, float] = {}
 _CACHE: dict[str, tuple[float, dict]] = {}
 _CACHE_TTL = 30 * 60
 
@@ -197,10 +198,23 @@ def build_market_brief(
     ai_on = ai_key_configured()
     cache_key = f"{sym}|{direction}|{entry}|{stop}|{target}|ai={ai_on}"
     now = time.time()
-    if not refresh:
+    if refresh:
+        from app.config import settings
+
+        last = _BRIEF_REFRESH.get(sym, 0)
+        if now - last < settings.brief_refresh_cooldown_s:
+            cached = _CACHE.get(cache_key)
+            if cached:
+                out = dict(cached[1])
+                out["_runnr"] = {"cache": "hit", "refresh_limited": True}
+                return out
+        _BRIEF_REFRESH[sym] = now
+    elif not refresh:
         cached = _CACHE.get(cache_key)
         if cached and now - cached[0] < _CACHE_TTL:
-            return cached[1]
+            out = dict(cached[1])
+            out["_runnr"] = {"cache": "hit", "age_s": round(now - cached[0], 1)}
+            return out
 
     headlines = fetch_headlines(sym)
     ai, ai_error = _openai_remark(
@@ -233,4 +247,6 @@ def build_market_brief(
         }
 
     _CACHE[cache_key] = (now, result)
-    return result
+    out = dict(result)
+    out["_runnr"] = {"cache": "miss", "age_s": 0}
+    return out

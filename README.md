@@ -57,7 +57,21 @@ runnr/
 
 ## Runnr API (broker sync)
 
-Deploy `api/` to Railway (root directory: `api`). Set `RUNNR_SECRET_KEY` and `RUNNR_ENCRYPTION_KEY`. Optional: `OPENAI_API_KEY` enables AI one-line watchlist remarks (otherwise Yahoo headline fallback).
+Deploy `api/` to Railway (root directory: `api`). Mount a **Volume at `/data`** so SQLite survives redeploys.
+
+**Required env vars:** `RUNNR_SECRET_KEY`, `RUNNR_ENCRYPTION_KEY`
+
+**Optional (scaling / features):**
+
+| Variable | Default | Purpose |
+|----------|---------|---------|
+| `OPENAI_API_KEY` | — | AI watchlist remarks |
+| `FINNHUB_API_KEY` | — | Fallback live quotes when Yahoo throttles |
+| `QUOTE_CACHE_TTL` | `45` | Seconds to cache each symbol quote server-side |
+| `FEAR_GREED_CACHE_TTL` | `900` | Fear & Greed cache (15 min) |
+| `BRIEF_REFRESH_COOLDOWN_S` | `3600` | Min seconds between forced AI brief refreshes per symbol |
+
+`GET /health` reports quote cache hit rate — useful during influencer traffic spikes.
 
 Local: `cd api && uvicorn app.main:app --reload --port 8090` — docs at `/docs`.
 
