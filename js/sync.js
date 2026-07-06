@@ -428,6 +428,20 @@ const RunnrSync = (() => {
     return tryAutoReconnectAlpaca();
   }
 
+  /** After sign-in or profile pull — server keys first, optional trade sync. */
+  async function restoreAccountAlpaca(options = {}) {
+    if (!isLoggedIn()) return { connected: false };
+    const connected = await ensureAlpacaConnected();
+    if (!connected) return { connected: false };
+    if (!options.autoSync) return { connected: true };
+    try {
+      const sync = await runSync();
+      return { connected: true, sync };
+    } catch (e) {
+      return { connected: true, syncError: String(e.message || e) };
+    }
+  }
+
   async function runSync() {
     ensureBrokerState();
     if (!isLoggedIn()) throw new Error("Log in to Runnr first");
@@ -489,6 +503,8 @@ const RunnrSync = (() => {
       Object.keys(window.S).forEach((k) => delete window.S[k]);
       Object.assign(window.S, remote);
       ensureBrokerState();
+      // Broker link lives on the server (encrypted keys), not in cloud profile JSON.
+      if (window.S.brokerSync?.alpaca) window.S.brokerSync.alpaca.connected = false;
       try {
         localStorage.setItem("runnr_state", JSON.stringify(window.S));
       } catch (e) {}
@@ -580,6 +596,7 @@ const RunnrSync = (() => {
     verifySession,
     tryAutoReconnectAlpaca,
     ensureAlpacaConnected,
+    restoreAccountAlpaca,
     saveAlpacaLocal,
     loadAlpacaLocal,
     hasLocalAlpaca,
