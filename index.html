@@ -5,7 +5,7 @@
 <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
 <script>
 (function () {
-  var V = "38";
+  var V = "39";
   try {
     if (localStorage.getItem("runnr_app_v") !== V) {
       localStorage.setItem("runnr_app_v", V);
@@ -1088,6 +1088,11 @@ body.light #equity-canvas{filter:invert(0)}
     <div class="page" id="page-sync">
       <div style="font-family:var(--font-head);font-size:18px;font-weight:700;margin-bottom:4px">Broker Sync</div>
       <div style="font-size:12px;color:var(--text3);margin-bottom:12px">Connect once. Pull real trades into your journal.</div>
+      <div id="sync-login-gate" class="card" style="margin-bottom:12px;border-color:var(--accent2)">
+        <div class="card-title">Sign in</div>
+        <div style="font-size:13px;color:var(--text2);margin-bottom:14px;line-height:1.45">Sync journal &amp; watchlist from your Mac. Use the sign-in page — it works reliably on iPhone.</div>
+        <a class="btn" href="login.html" style="display:block;text-align:center;text-decoration:none;padding:16px;line-height:1.3">Open sign-in page</a>
+      </div>
       <div id="sync-auth-banner" style="margin-bottom:12px"></div>
       <div id="sync-mobile-login" class="card" style="display:none;margin-bottom:12px">
         <div class="card-title">Sign in on iPhone</div>
@@ -1804,10 +1809,6 @@ function switchPage(key) {
   if (key === 'home') { renderHomePreviews(); updateHomeStats(); renderHomeBrokerPreview(); refreshHomeMarkets(); }
   if (key === 'sync') {
     renderSyncPage();
-    if (!RunnrSync.isLoggedIn() && isIOS) {
-      window.location.href = 'login.html';
-      return;
-    }
     if (!RunnrSync.isLoggedIn()) updateSyncAuthVisibility();
   }
 }
@@ -4543,7 +4544,7 @@ function renderHeaderSyncPill() {
 
 function headerSyncTap() {
   if (RunnrSync.isLoggedIn()) switchPage('sync');
-  else openSyncAuthModal();
+  else window.location.href = 'login.html';
 }
 
 function handleRunnrAuthExpired(msg) {
@@ -4605,19 +4606,15 @@ function prefillSyncAuthEmail() {
 }
 
 function updateSyncAuthVisibility() {
+  const gate = document.getElementById('sync-login-gate');
   const signin = document.getElementById('sync-inline-auth');
   const reset = document.getElementById('sync-reset-auth');
   const mobile = document.getElementById('sync-mobile-login');
   const loggedOut = !RunnrSync.isLoggedIn();
-  if (isIOS && loggedOut) {
-    if (mobile) mobile.style.display = 'block';
-    if (signin) signin.style.display = 'none';
-    if (reset) reset.style.display = 'none';
-    return;
-  }
+  if (gate) gate.style.display = loggedOut ? 'block' : 'none';
+  if (signin) signin.style.display = 'none';
+  if (reset) reset.style.display = 'none';
   if (mobile) mobile.style.display = 'none';
-  if (signin) signin.style.display = loggedOut ? 'block' : 'none';
-  if (reset) reset.style.display = loggedOut ? 'block' : 'none';
   if (loggedOut) prefillSyncAuthEmail();
 }
 
@@ -4638,9 +4635,7 @@ function renderSyncAuthBanner() {
       <button class="btn btn-sm btn-ghost" type="button" onclick="openSyncAuthModal()">Account</button>
     </div>`;
   } else if (syncAuthUsesInline()) {
-    el.innerHTML = isIOS
-      ? `<div style="font-size:12px;color:var(--text2);margin-bottom:4px">Tap <strong>Open sign in page</strong> below — same password as your Mac.</div>`
-      : `<div style="font-size:12px;color:var(--text2);margin-bottom:4px">Use <strong>Sign in</strong> with the same email + password as your Mac.</div>`;
+    el.innerHTML = `<div style="font-size:12px;color:var(--text2);margin-bottom:4px">Tap <strong>Open sign-in page</strong> above.</div>`;
   } else {
     el.innerHTML = `<div class="card-sm" style="font-size:12px;color:var(--text2);margin-bottom:4px">Sign in to sync your journal, watchlist, and settings across devices.</div>
       <button class="btn btn-sm" type="button" onclick="openSyncAuthModal()">Sign in</button>`;
@@ -4705,25 +4700,11 @@ function renderSyncPage() {
 }
 
 function openSyncAuthModal() {
-  if (window.RunnrGrowth?.close) RunnrGrowth.close();
-  document.querySelectorAll('.modal-overlay.open').forEach((el) => el.classList.remove('open'));
-  document.body.style.overflow = '';
-  window._runnrAuthPending = true;
-  showSyncAuthError('');
-  showSyncResetError('');
-  switchPage('sync');
-  updateSyncAuthVisibility();
-  prefillSyncAuthEmail();
-  if (isIOS && !RunnrSync.isLoggedIn()) {
-    scrollSyncAuthIntoView('sync-mobile-login');
+  if (RunnrSync.isLoggedIn()) {
+    switchPage('sync');
     return;
   }
-  if (syncAuthUsesInline()) {
-    scrollSyncAuthIntoView('sync-inline-auth');
-    return;
-  }
-  openModal('modal-sync-auth');
-  setTimeout(() => document.getElementById('sync-email')?.focus(), 300);
+  window.location.href = 'login.html';
 }
 
 function showSyncSignInStatus(text, kind) {
