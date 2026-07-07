@@ -625,6 +625,39 @@ const RunnrSync = (() => {
     return merged;
   }
 
+  /** Diagnostic: who am I + what's local vs on the server. */
+  async function diagnose() {
+    const out = {
+      loggedIn: isLoggedIn(),
+      email: sessionEmail(),
+      tokenTail: (token() || "").slice(-6),
+      localWatchlist: (window.S?.watchlist || []).length,
+      localTrades: (window.S?.trades || []).length,
+      me: null,
+      serverWatchlist: null,
+      serverTrades: null,
+      error: null,
+    };
+    try {
+      const me = await request("/api/v1/auth/me");
+      out.me = { id: me?.id, email: me?.email };
+    } catch (e) { out.error = "me: " + String(e.message || e); }
+    try {
+      const data = await request("/api/v1/profile/state");
+      out.serverWatchlist = (data?.state?.watchlist || []).length;
+      out.serverTrades = (data?.state?.trades || []).length;
+      out.serverUpdated = data?.updated_at || null;
+    } catch (e) { out.error = (out.error ? out.error + " | " : "") + "state: " + String(e.message || e); }
+    return out;
+  }
+
+  /** Force-push current local state to the server (deterministic upload). */
+  async function forcePush() {
+    if (!isLoggedIn() || !window.S) return { ok: false };
+    await pushProfileState();
+    return { ok: true, watchlist: (window.S.watchlist || []).length };
+  }
+
   /** Pull watchlist from cloud and merge — for devices with corrupt/empty local list. */
   async function syncWatchlistFromCloud() {
     if (!isLoggedIn() || !window.S) return { ok: false };
@@ -699,6 +732,8 @@ const RunnrSync = (() => {
     storageOk,
     syncProfileState,
     syncWatchlistFromCloud,
+    diagnose,
+    forcePush,
     pullProfileState,
     pushProfileState,
     pushProfileStateDebounced,
