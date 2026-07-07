@@ -5,7 +5,7 @@
 <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
 <script>
 (function () {
-  var V = "44";
+  var V = "45";
   try {
     if (localStorage.getItem("runnr_app_v") !== V) {
       localStorage.setItem("runnr_app_v", V);
@@ -1628,7 +1628,7 @@ body.light #equity-canvas{filter:invert(0)}
 <script src="js/baron.js?v=25"></script>
 <script src="js/coach.js?v=22"></script>
 <script src="js/onboarding.js?v=20"></script>
-<script src="js/sync.js?v=32"></script>
+<script src="js/sync.js?v=33"></script>
 <script>
 // ── STATE ──────────────────────────────────────────────────────────────────
 const S = {
@@ -5144,6 +5144,10 @@ async function runBrokerSync() {
     return;
   }
   try {
+    try {
+      const profile = await RunnrSync.syncProfileState();
+      if (profile && profile.action !== 'none') refreshAfterProfileSync();
+    } catch (e) {}
     const connected = await ensureAlpacaLinked();
     renderSyncPage();
     if (!connected) {

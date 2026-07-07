@@ -551,19 +551,86 @@ const RunnrSync = (() => {
     }, 1500);
   }
 
+  function tradeKey(t) {
+    if (t.externalId) return "ext:" + t.externalId;
+    return "id:" + t.id;
+  }
+
+  function tradeRichness(t) {
+    let score = 0;
+    if (Number(t.fillPrice || t.entry || t.exit)) score += 2;
+    if (!t.incomplete) score += 2;
+    if (t.stopOk != null || t.sizeOk != null) score += 1;
+    if (t.pnl) score += 1;
+    return score;
+  }
+
+  /** Union trades from both devices; dedupe by external/id, keep the richer copy. */
+  function mergeTrades(localTrades, remoteTrades) {
+    const byKey = new Map();
+    const add = (t) => {
+      if (!t) return;
+      const key = tradeKey(t);
+      const prev = byKey.get(key);
+      if (!prev || tradeRichness(t) > tradeRichness(prev)) byKey.set(key, t);
+    };
+    (remoteTrades || []).forEach(add);
+    (localTrades || []).forEach(add);
+    let merged = [...byKey.values()];
+    const hasReal = merged.some((t) => t.source === "alpaca" || !DEMO_TRADE_IDS.has(t.id));
+    if (hasReal) merged = merged.filter((t) => t.source === "alpaca" || !DEMO_TRADE_IDS.has(t.id));
+    return merged;
+  }
+
+  function watchRichness(w) {
+    let score = 0;
+    ["entry", "stop", "target"].forEach((k) => { if (Number(w[k])) score += 1; });
+    if (w.thesis) score += 1;
+    if (w.dir) score += 1;
+    return score;
+  }
+
+  /** Union watchlist by symbol; keep the more detailed setup. */
+  function mergeWatchlist(localWl, remoteWl) {
+    const bySym = new Map();
+    const add = (w) => {
+      if (!w || !w.sym) return;
+      const key = String(w.sym).toUpperCase();
+      const prev = bySym.get(key);
+      if (!prev || watchRichness(w) > watchRichness(prev)) bySym.set(key, w);
+    };
+    (remoteWl || []).forEach(add);
+    (localWl || []).forEach(add);
+    let merged = [...bySym.values()];
+    const hasReal = merged.some((w) => !DEMO_WATCH_SYMS.has(String(w.sym || "").toUpperCase()));
+    if (hasReal) merged = merged.filter((w) => !DEMO_WATCH_SYMS.has(String(w.sym || "").toUpperCase()));
+    return merged;
+  }
+
+  /** Combine two full states without losing journal or watchlist from either side. */
+  function mergeProfiles(local, remote) {
+    const merged = {};
+    Object.assign(merged, remote || {});
+    Object.keys(local || {}).forEach((k) => {
+      if (merged[k] === undefined) merged[k] = local[k];
+    });
+    // Prefer configured scalar settings from whichever side has them.
+    if (local?.onboardingComplete) merged.onboardingComplete = true;
+    if (local?.profileHandle) merged.profileHandle = local.profileHandle;
+    if (Number(local?.journalBaseBal) > 0 && !(Number(remote?.journalBaseBal) > 0)) {
+      merged.journalBaseBal = local.journalBaseBal;
+    }
+    merged.trades = mergeTrades(local?.trades, remote?.trades);
+    merged.watchlist = mergeWatchlist(local?.watchlist, remote?.watchlist);
+    return merged;
+  }
+
   /** Pull cloud profile on login, or push local data if cloud is empty. */
   async function syncProfileState() {
     if (!isLoggedIn()) return { action: "none" };
     const data = await request("/api/v1/profile/state");
     const serverHas = !!(data?.state && hasMeaningfulState(data.state));
     const localHas = hasMeaningfulState(window.S);
-
-    function stateScore(s) {
-      const trades = (s.trades || []).filter((t) => t.source === "alpaca" || !DEMO_TRADE_IDS.has(t.id)).length;
-      const wl = (s.watchlist || []).length;
-      const extras = (s.journalBaseBal > 0 ? 5 : 0) + (s.onboardingComplete ? 1 : 0) + (s.profileHandle ? 1 : 0);
-      return trades * 2 + wl + extras;
-    }
 
     if (serverHas && !localHas) {
       applyRemoteState(data.state);
@@ -574,18 +641,10 @@ const RunnrSync = (() => {
       return { action: "pushed" };
     }
     if (serverHas && localHas) {
-      const serverScore = stateScore(data.state);
-      const localScore = stateScore(window.S);
-      if (serverScore > localScore) {
-        applyRemoteState(data.state);
-        return { action: "pulled", updated_at: data.updated_at };
-      }
-      if (localScore > serverScore) {
-        await pushProfileState();
-        return { action: "pushed" };
-      }
-      applyRemoteState(data.state);
-      return { action: "pulled", updated_at: data.updated_at };
+      const merged = mergeProfiles(window.S, data.state);
+      applyRemoteState(merged);
+      await pushProfileState();
+      return { action: "merged", updated_at: data.updated_at };
     }
     return { action: "empty" };
   }
