@@ -5,7 +5,7 @@
 <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
 <script>
 (function () {
-  var V = "41";
+  var V = "42";
   try {
     if (localStorage.getItem("runnr_app_v") !== V) {
       localStorage.setItem("runnr_app_v", V);
@@ -4606,6 +4606,19 @@ function headerSyncTap() {
   else window.location.href = 'login.html';
 }
 
+function signOutRunnr() {
+  if (!confirm('Log out of Runnr on this device? Your journal stays saved on this device.')) return;
+  RunnrSync.logout();
+  hideSessionBanner();
+  closeModal('modal-sync-auth');
+  renderHeaderSyncPill();
+  renderSyncPage();
+  renderHomeBrokerPreview();
+  updateHomeStats();
+  showToast('Runnr', 'Logged out on this device');
+}
+window.signOutRunnr = signOutRunnr;
+
 function handleRunnrAuthExpired(msg) {
   renderHeaderSyncPill();
   renderSyncAuthBanner();
@@ -4691,7 +4704,7 @@ function renderSyncAuthBanner() {
     const who = RunnrSync.sessionEmail() || 'your account';
     el.innerHTML = `<div class="card-sm" style="display:flex;justify-content:space-between;align-items:center;gap:8px;flex-wrap:wrap">
       <span style="font-size:12px;color:var(--text2)">✓ ${who} · journal & watchlist sync</span>
-      <button class="btn btn-sm btn-ghost" type="button" onclick="openSyncAuthModal()">Account</button>
+      <button class="btn btn-sm btn-ghost" type="button" onclick="signOutRunnr()">Log out</button>
     </div>`;
   } else if (syncAuthUsesInline()) {
     el.innerHTML = `<div style="font-size:12px;color:var(--text2);margin-bottom:4px">Tap <strong>Open sign-in page</strong> above.</div>`;
