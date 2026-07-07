@@ -5,7 +5,7 @@
 <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
 <script>
 (function () {
-  var V = "48";
+  var V = "49";
   try {
     if (localStorage.getItem("runnr_app_v") !== V) {
       localStorage.setItem("runnr_app_v", V);
@@ -1628,7 +1628,7 @@ body.light #equity-canvas{filter:invert(0)}
 <script src="js/baron.js?v=25"></script>
 <script src="js/coach.js?v=22"></script>
 <script src="js/onboarding.js?v=20"></script>
-<script src="js/sync.js?v=33"></script>
+<script src="js/sync.js?v=34"></script>
 <script>
 // ── STATE ──────────────────────────────────────────────────────────────────
 const S = {
@@ -1777,15 +1777,22 @@ let _watchlistCloudPulled = false;
 function maybePullWatchlistFromCloud() {
   if (_watchlistCloudPulled) return;
   if (!RunnrSync.isLoggedIn()) return;
+  normalizeWatchlist();
   if ((S.watchlist || []).length > 0) return;
   _watchlistCloudPulled = true;
   const el = document.getElementById('feed-status-text');
-  if (el) el.textContent = 'Syncing from cloud…';
-  RunnrSync.syncProfileState()
-    .then((profile) => {
-      if (profile && profile.action !== 'none') {
+  if (el) el.textContent = 'Syncing watchlist…';
+  const pull = typeof RunnrSync.syncWatchlistFromCloud === 'function'
+    ? RunnrSync.syncWatchlistFromCloud()
+    : RunnrSync.syncProfileState();
+  pull
+    .then((result) => {
+      const ok = result?.ok || (result && result.action !== 'none');
+      if (ok) {
+        normalizeWatchlist();
         refreshAfterProfileSync();
         renderWatchlist();
+        if (el) el.textContent = S.watchlist.length ? 'Live' : 'Watchlist empty';
       } else if (el) {
         el.textContent = 'Watchlist empty — add a setup';
       }
@@ -1796,12 +1803,37 @@ function maybePullWatchlistFromCloud() {
     });
 }
 
+async function forcePullWatchlist() {
+  _watchlistCloudPulled = false;
+  showToast('Runnr', 'Pulling watchlist…');
+  try {
+    const result = await RunnrSync.syncWatchlistFromCloud();
+    normalizeWatchlist();
+    if (result?.ok) {
+      refreshAfterProfileSync();
+      showToast('Runnr', 'Watchlist synced — ' + result.count + ' setup(s)');
+    } else {
+      showToast('Runnr', 'No watchlist in cloud yet — open Mac & tap Sync');
+    }
+  } catch (e) {
+    showToast('Runnr', 'Sync failed — try again');
+  }
+}
+window.forcePullWatchlist = forcePullWatchlist;
+
 function normalizeWatchlist() {
   if (!Array.isArray(S.watchlist)) { S.watchlist = []; return; }
+  S.watchlist = S.watchlist.filter((w) => {
+    if (!w || typeof w !== 'object') return false;
+    const sym = String(w.sym || '').trim();
+    if (!sym) return false;
+    w.sym = sym.toUpperCase();
+    return true;
+  });
   S.watchlist.forEach((w) => {
-    if (!w) return;
-    if (typeof w.rr !== 'number' || !isFinite(w.rr)) w.rr = watchRR(w);
     if (!w.dir) w.dir = 'long';
+    if (typeof w.rr !== 'number' || !isFinite(w.rr)) w.rr = watchRR(w);
+    if (w.id == null) w.id = Date.now() + Math.floor(Math.random() * 1000);
   });
 }
 
@@ -2815,8 +2847,15 @@ function renderWatchDetailCard(w) {
 
 function renderWatchlist() {
   const list = document.getElementById('watchlist-list');
+  if (!list) return;
+  normalizeWatchlist();
   if (!S.watchlist.length) {
-    list.innerHTML = '<div class="empty-state"><div class="es-icon">👁</div>No setups yet. Add your first watch.</div>';
+    list.innerHTML = '<div class="empty-state"><div class="es-icon">👁</div>No setups yet.'
+      + (RunnrSync.isLoggedIn()
+        ? ' <span style="color:var(--accent);cursor:pointer" onclick="forcePullWatchlist()">Pull from cloud</span> or add one.'
+        : ' Add your first watch.')
+      + '</div>';
+    maybePullWatchlistFromCloud();
     return;
   }
   const selectedId = watchId(S.selectedWatchId);
@@ -2829,13 +2868,23 @@ function renderWatchlist() {
       return html;
     } catch (e) { console.warn('skip bad watch item', w && w.sym, e); return ''; }
   }).join('');
+  if (!rows.trim()) {
+    S.watchlist = [];
+    list.innerHTML = '<div class="empty-state"><div class="es-icon">👁</div>Setups could not load.'
+      + ' <span style="color:var(--accent);cursor:pointer" onclick="forcePullWatchlist()">Pull from cloud</span></div>';
+    maybePullWatchlistFromCloud();
+    return;
+  }
   const hint = selectedId ? '' : '<div style="font-size:11px;color:var(--text3);text-align:center;margin:8px 0 12px">Tap a ticker to open setup details</div>';
   list.innerHTML = `<div class="watch-compact-list">${rows}</div>${hint}`;
   refreshWatchBriefs();
 }
 
 function renderLivePriceRow(lp, w) {
-  const isPos = lp.change >= 0;
+  if (!lp || !lp.price) return '<span class="lp-loading">⟳ Fetching price…</span>';
+  const change = Number(lp.change) || 0;
+  const changePct = Number(lp.changePct) || 0;
+  const isPos = change >= 0;
   const distPct = distToEntry(lp.price, w.entry);
   const isNear  = isNearEntry(lp.price, w.entry, w.dir);
   const entryReached = w.dir === 'long' ? lp.price <= w.entry : lp.price >= w.entry;
@@ -2849,7 +2898,7 @@ function renderLivePriceRow(lp, w) {
   return `
     <div class="lp-current">
       <span class="lp-price">${lp.price < 10 ? lp.price.toFixed(4) : lp.price < 100 ? lp.price.toFixed(3) : lp.price.toFixed(2)}</span>
-      <span class="${isPos?'lp-change-pos':'lp-change-neg'}">${isPos?'▲':'▼'} ${Math.abs(lp.change).toFixed(2)} (${Math.abs(lp.changePct).toFixed(2)}%)</span>
+      <span class="${isPos?'lp-change-pos':'lp-change-neg'}">${isPos?'▲':'▼'} ${Math.abs(change).toFixed(2)} (${Math.abs(changePct).toFixed(2)}%)</span>
     </div>
     <div class="lp-right">
       ${distLabel}
@@ -5270,11 +5319,15 @@ function bootRunnrSync() {
       return RunnrSync.repairJournalIfNeeded();
     })
     .then(() => {
+      normalizeWatchlist();
       renderHeaderSyncPill();
       renderSyncPage();
       renderHomeBrokerPreview();
       renderJournal();
       updateHomeStats();
+      if ((S.watchlist || []).length > 0) {
+        return RunnrSync.pushProfileState().catch(() => {});
+      }
     })
     .catch(() => {
       renderSyncPage();

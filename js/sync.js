@@ -625,6 +625,22 @@ const RunnrSync = (() => {
     return merged;
   }
 
+  /** Pull watchlist from cloud and merge — for devices with corrupt/empty local list. */
+  async function syncWatchlistFromCloud() {
+    if (!isLoggedIn() || !window.S) return { ok: false };
+    const data = await request("/api/v1/profile/state");
+    const remote = data?.state;
+    if (!remote?.watchlist?.length) return { ok: false };
+    ensureBrokerState();
+    window.S.watchlist = mergeWatchlist(window.S.watchlist, remote.watchlist);
+    if (!window.S.watchlist.length) return { ok: false };
+    try {
+      localStorage.setItem("runnr_state", JSON.stringify(window.S));
+    } catch (e) {}
+    await pushProfileState();
+    return { ok: true, count: window.S.watchlist.length };
+  }
+
   /** Pull cloud profile on login, or push local data if cloud is empty. */
   async function syncProfileState() {
     if (!isLoggedIn()) return { action: "none" };
@@ -682,6 +698,7 @@ const RunnrSync = (() => {
     ensureApiUrl,
     storageOk,
     syncProfileState,
+    syncWatchlistFromCloud,
     pullProfileState,
     pushProfileState,
     pushProfileStateDebounced,
