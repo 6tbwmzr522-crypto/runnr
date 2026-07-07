@@ -5,7 +5,7 @@
 <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
 <script>
 (function () {
-  var V = "51";
+  var V = "52";
   try {
     if (localStorage.getItem("runnr_app_v") !== V) {
       localStorage.setItem("runnr_app_v", V);
@@ -2828,22 +2828,26 @@ function watchRR(w) {
 }
 
 function renderWatchCompactRow(w) {
-  const lp = liveprices[w.sym];
+  const prices = typeof liveprices !== 'undefined' ? liveprices : {};
+  const lp = prices[w.sym];
   const livePrice = lp && lp.price ? fmtPrice(lp.price) : '—';
-  const st = watchRowStatus(w, lp);
+  let st = { cls: 'ai-status-armed', text: 'Armed' };
+  try { st = watchRowStatus(w, lp); } catch (e) {}
   const selected = watchId(S.selectedWatchId) === watchId(w.id);
   const remark = watchRemark(w);
+  let remarkHtml = '';
+  try { remarkHtml = remark ? `<div class="wcr-remark">${escHtml(remark)}</div>` : renderRemarkHtml(w); } catch (e) {}
   return `<div class="watch-compact-row ${selected ? 'watch-compact-selected' : ''}" role="button" tabindex="0" onclick="selectWatch(${w.id})" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();selectWatch(${w.id})}">
     <div class="wcr-block">
       <div class="wcr-line1">
-        <div class="ai-sym">${w.sym}</div>
+        <div class="ai-sym">${escHtml(w.sym)}</div>
         <span class="wcr-dir">${w.dir || ''}</span>
         <span class="wcr-live">${livePrice}</span>
       </div>
       ${selected ? '' : `<div class="wcr-sub">${w.entry || '—'} · stop ${w.stop || '—'} · target ${w.target || '—'} · ${watchRR(w).toFixed(1)}R</div>`}
-      ${remark ? `<div class="wcr-remark">${escHtml(remark)}</div>` : renderRemarkHtml(w)}
+      ${remarkHtml}
     </div>
-    <div class="ai-status ${st.cls}">${st.text.replace(/^●\s*/, '')}</div>
+    <div class="ai-status ${st.cls}">${String(st.text || '').replace(/^●\s*/, '')}</div>
   </div>`;
 }
 
@@ -2908,9 +2912,9 @@ function renderWatchlist() {
     } catch (e) { console.warn('skip bad watch item', w && w.sym, e); return ''; }
   }).join('');
   if (!rows.trim()) {
-    S.watchlist = [];
     list.innerHTML = '<div class="empty-state"><div class="es-icon">👁</div>Setups could not load.'
-      + ' <span style="color:var(--accent);cursor:pointer" onclick="forcePullWatchlist()">Pull from cloud</span></div>';
+      + ' <span style="color:var(--accent);cursor:pointer" onclick="forcePullWatchlist()">Pull from cloud</span>'
+      + '<div style="margin-top:12px;font-size:11px"><span style="color:var(--text3);cursor:pointer" onclick="diagnoseSyncNow()">Diagnose sync</span></div></div>';
     maybePullWatchlistFromCloud();
     return;
   }
@@ -3728,16 +3732,19 @@ function drawMiniChart(canvasId, closes, ma50val, ma200val) {
 // ── PUSH NOTIFICATIONS & PRICE ALERTS ────────────────────────────────────
 const alertState = {
   enabled: false,
-  permission: Notification.permission || 'default',
+  permission: 'default',
   fired: {}   // { 'SYM-entryPrice': timestamp } — prevents re-firing
 };
 
-// Restore saved alert state
+// Restore saved alert state (Notification API missing on iOS Safari — must not throw at boot)
 try {
+  if (typeof Notification !== 'undefined') {
+    alertState.permission = Notification.permission || 'default';
+  }
   const saved = JSON.parse(localStorage.getItem('runnr_alerts') || '{}');
-  if (saved.enabled)  alertState.enabled = saved.enabled;
-  if (saved.fired)    alertState.fired   = saved.fired;
-} catch(e) {}
+  if (saved.enabled) alertState.enabled = saved.enabled;
+  if (saved.fired) alertState.fired = saved.fired;
+} catch (e) {}
 
 function persistAlerts() {
   try { localStorage.setItem('runnr_alerts', JSON.stringify({ enabled: alertState.enabled, fired: alertState.fired })); } catch(e) {}
