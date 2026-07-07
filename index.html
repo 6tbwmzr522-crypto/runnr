@@ -5,7 +5,7 @@
 <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
 <script>
 (function () {
-  var V = "46";
+  var V = "47";
   try {
     if (localStorage.getItem("runnr_app_v") !== V) {
       localStorage.setItem("runnr_app_v", V);
@@ -1796,7 +1796,17 @@ function maybePullWatchlistFromCloud() {
     });
 }
 
+function normalizeWatchlist() {
+  if (!Array.isArray(S.watchlist)) { S.watchlist = []; return; }
+  S.watchlist.forEach((w) => {
+    if (!w) return;
+    if (typeof w.rr !== 'number' || !isFinite(w.rr)) w.rr = watchRR(w);
+    if (!w.dir) w.dir = 'long';
+  });
+}
+
 function refreshAfterProfileSync() {
+  normalizeWatchlist();
   normalizeTradePnls();
   migratePortfolioBase();
   seedQuoteCacheFromWatchlist();
@@ -2734,6 +2744,16 @@ function escHtml(s) {
   return String(s || '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/"/g, '&quot;');
 }
 
+function watchRR(w) {
+  if (!w) return 0;
+  const e = Number(w.entry), s = Number(w.stop), t = Number(w.target);
+  if (e && s && t && e !== s) {
+    const rr = Math.abs(t - e) / Math.abs(e - s);
+    if (isFinite(rr)) return rr;
+  }
+  return typeof w.rr === 'number' && isFinite(w.rr) ? w.rr : 0;
+}
+
 function renderWatchCompactRow(w) {
   const lp = liveprices[w.sym];
   const livePrice = lp && lp.price ? fmtPrice(lp.price) : '—';
@@ -2744,10 +2764,10 @@ function renderWatchCompactRow(w) {
     <div class="wcr-block">
       <div class="wcr-line1">
         <div class="ai-sym">${w.sym}</div>
-        <span class="wcr-dir">${w.dir}</span>
+        <span class="wcr-dir">${w.dir || ''}</span>
         <span class="wcr-live">${livePrice}</span>
       </div>
-      ${selected ? '' : `<div class="wcr-sub">${w.entry} · stop ${w.stop} · target ${w.target} · ${w.rr.toFixed(1)}R</div>`}
+      ${selected ? '' : `<div class="wcr-sub">${w.entry || '—'} · stop ${w.stop || '—'} · target ${w.target || '—'} · ${watchRR(w).toFixed(1)}R</div>`}
       ${remark ? `<div class="wcr-remark">${escHtml(remark)}</div>` : renderRemarkHtml(w)}
     </div>
     <div class="ai-status ${st.cls}">${st.text.replace(/^●\s*/, '')}</div>
@@ -2755,7 +2775,8 @@ function renderWatchCompactRow(w) {
 }
 
 function renderWatchDetailCard(w) {
-  const rrColor = w.rr >= 2 ? 'var(--accent)' : w.rr >= 1.5 ? 'var(--amber)' : 'var(--red)';
+  const rr = watchRR(w);
+  const rrColor = rr >= 2 ? 'var(--accent)' : rr >= 1.5 ? 'var(--amber)' : 'var(--red)';
   const lp = liveprices[w.sym];
   const needsLevels = !w.entry || !w.stop || !w.target || w.needsLevels;
   const thesis = watchRemark(w);
@@ -2773,8 +2794,8 @@ function renderWatchDetailCard(w) {
       <span><em>Entry</em>${w.entry || '—'}</span>
       <span class="stop"><em>Stop</em>${w.stop || '—'}</span>
       <span class="tgt"><em>Target</em>${w.target || '—'}</span>
-      <span><em>R:R</em><span style="color:${rrColor}">${w.rr.toFixed(1)}</span></span>
-      <span><em>Dir</em>${w.dir.toUpperCase()}</span>
+      <span><em>R:R</em><span style="color:${rrColor}">${rr.toFixed(1)}</span></span>
+      <span><em>Dir</em>${(w.dir || '').toUpperCase()}</span>
     </div>
     <div class="wds-actions">
       ${needsLevels ? `<button onclick="event.stopPropagation();openWatchEditor(${w.id})" style="background:var(--gold-dim);color:var(--gold);border:1px solid var(--border)">Set levels</button>` : ''}
@@ -5656,6 +5677,7 @@ function initSyncAuthForm() {
 }
 
 function initApp() {
+  try { normalizeWatchlist(); } catch (e) {}
   try { updateHomeStats(); } catch (e) {}
   try { renderHomePreviews(); } catch (e) {}
   try { renderBaronPills(); } catch (e) {}
