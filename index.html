@@ -5,7 +5,7 @@
 <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
 <script>
 (function () {
-  var V = "45";
+  var V = "46";
   try {
     if (localStorage.getItem("runnr_app_v") !== V) {
       localStorage.setItem("runnr_app_v", V);
@@ -1773,6 +1773,29 @@ function persist() {
   }
 }
 
+let _watchlistCloudPulled = false;
+function maybePullWatchlistFromCloud() {
+  if (_watchlistCloudPulled) return;
+  if (!RunnrSync.isLoggedIn()) return;
+  if ((S.watchlist || []).length > 0) return;
+  _watchlistCloudPulled = true;
+  const el = document.getElementById('feed-status-text');
+  if (el) el.textContent = 'Syncing from cloud…';
+  RunnrSync.syncProfileState()
+    .then((profile) => {
+      if (profile && profile.action !== 'none') {
+        refreshAfterProfileSync();
+        renderWatchlist();
+      } else if (el) {
+        el.textContent = 'Watchlist empty — add a setup';
+      }
+    })
+    .catch(() => {
+      _watchlistCloudPulled = false;
+      if (el) el.textContent = 'Tap ↻ Refresh';
+    });
+}
+
 function refreshAfterProfileSync() {
   normalizeTradePnls();
   migratePortfolioBase();
@@ -1810,6 +1833,7 @@ function switchPage(key) {
     renderNotifSettings();
     if (!feedLastUpdate || watchlistNeedsPriceRefresh()) refreshAllPrices();
     else refreshWatchBriefs();
+    maybePullWatchlistFromCloud();
   }
   if (key === 'coach') { renderCoachPage(); drawEquityCurve(); }
   if (key === 'portfolio') loadPortfolio('all', document.querySelector('.period-tab'));
