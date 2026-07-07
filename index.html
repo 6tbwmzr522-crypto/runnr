@@ -5,7 +5,7 @@
 <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
 <script>
 (function () {
-  var V = "47";
+  var V = "48";
   try {
     if (localStorage.getItem("runnr_app_v") !== V) {
       localStorage.setItem("runnr_app_v", V);
@@ -1806,20 +1806,21 @@ function normalizeWatchlist() {
 }
 
 function refreshAfterProfileSync() {
-  normalizeWatchlist();
-  normalizeTradePnls();
-  migratePortfolioBase();
-  seedQuoteCacheFromWatchlist();
+  const safe = (fn) => { try { fn(); } catch (e) { console.warn('refreshAfterProfileSync step failed', e); } };
+  safe(normalizeWatchlist);
+  safe(normalizeTradePnls);
+  safe(migratePortfolioBase);
+  safe(seedQuoteCacheFromWatchlist);
   feedLastUpdate = null;
-  renderJournal();
-  renderWatchlist();
-  updateHomeStats();
-  renderHomePreviews();
-  refreshPortfolioIfVisible();
-  renderCoachPage();
-  renderSyncPage();
-  renderHomeBrokerPreview();
-  refreshAllPrices().catch(() => {});
+  safe(renderJournal);
+  safe(renderWatchlist);
+  safe(updateHomeStats);
+  safe(renderHomePreviews);
+  safe(refreshPortfolioIfVisible);
+  safe(renderCoachPage);
+  safe(renderSyncPage);
+  safe(renderHomeBrokerPreview);
+  try { refreshAllPrices().catch(() => {}); } catch (e) {}
 }
 
 // ── NAVIGATION ─────────────────────────────────────────────────────────────
@@ -2299,6 +2300,7 @@ function renderJournal() {
     return;
   }
   list.innerHTML = S.trades.map(t => {
+    try {
     const isAlpaca = t.source === 'alpaca';
     const pnlStr = formatTradePnl(t, isAlpaca);
     const pnlCls = Baron.isOpenTrade?.(t) ? '' : (resolveTradePnl(t) >= 0 ? 'pos' : 'neg');
@@ -2328,6 +2330,7 @@ function renderJournal() {
       <div class="te-meta">${metaLine}</div>
       <div class="flags">${stopFlag}${sizeFlag}${t.incomplete?'<span class="flag flag-miss">Incomplete</span>':''}</div>
     </div>`;
+    } catch (e) { console.warn('skip bad trade', t && t.id, e); return ''; }
   }).join('');
 }
 
@@ -2818,11 +2821,13 @@ function renderWatchlist() {
   }
   const selectedId = watchId(S.selectedWatchId);
   const rows = S.watchlist.map(w => {
-    let html = renderWatchCompactRow(w);
-    if (watchId(w.id) === selectedId) {
-      html += `<div id="watchlist-detail" class="watch-inline-detail">${renderWatchDetailCard(w)}</div>`;
-    }
-    return html;
+    try {
+      let html = renderWatchCompactRow(w);
+      if (watchId(w.id) === selectedId) {
+        html += `<div id="watchlist-detail" class="watch-inline-detail">${renderWatchDetailCard(w)}</div>`;
+      }
+      return html;
+    } catch (e) { console.warn('skip bad watch item', w && w.sym, e); return ''; }
   }).join('');
   const hint = selectedId ? '' : '<div style="font-size:11px;color:var(--text3);text-align:center;margin:8px 0 12px">Tap a ticker to open setup details</div>';
   list.innerHTML = `<div class="watch-compact-list">${rows}</div>${hint}`;
@@ -5327,11 +5332,17 @@ function renderCoachPage() {
 
   const list = document.getElementById('coach-insights-list');
   if (list) {
-    list.innerHTML = CoachEngine.generateInsights(S.trades, S.sym).map(i => `
+    try {
+      list.innerHTML = CoachEngine.generateInsights(S.trades, S.sym).map(i => {
+        try {
+          return `
       <div class="coach-insight ci-${i.type}">
         <div class="ci-type">${i.title}</div>
         <div class="ci-text">${i.text}</div>
-      </div>`).join('');
+      </div>`;
+        } catch (e) { return ''; }
+      }).join('');
+    } catch (e) { console.warn('coach insights failed', e); }
   }
 }
 
