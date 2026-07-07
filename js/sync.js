@@ -442,6 +442,20 @@ const RunnrSync = (() => {
     }
   }
 
+  /** If this device still has Alpaca keys locally, upload them to the server account. */
+  async function pushLocalAlpacaToAccount() {
+    if (!isLoggedIn()) return false;
+    const creds = loadAlpacaLocal();
+    if (!creds?.key || !creds?.secret) return false;
+    try {
+      const st = await connectAlpaca(creds.key, creds.secret, creds.paper !== false);
+      applyAlpacaStatus({ ...st, connected: true });
+      return true;
+    } catch (e) {
+      return false;
+    }
+  }
+
   async function runSync() {
     ensureBrokerState();
     if (!isLoggedIn()) throw new Error("Log in to Runnr first");
@@ -597,6 +611,7 @@ const RunnrSync = (() => {
     tryAutoReconnectAlpaca,
     ensureAlpacaConnected,
     restoreAccountAlpaca,
+    pushLocalAlpacaToAccount,
     saveAlpacaLocal,
     loadAlpacaLocal,
     hasLocalAlpaca,

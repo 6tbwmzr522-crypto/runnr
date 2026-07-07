@@ -5,7 +5,7 @@
 <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
 <script>
 (function () {
-  var V = "42";
+  var V = "43";
   try {
     if (localStorage.getItem("runnr_app_v") !== V) {
       localStorage.setItem("runnr_app_v", V);
@@ -1507,7 +1507,7 @@ body.light #equity-canvas{filter:invert(0)}
 <div class="modal-overlay" id="modal-alpaca" onclick="closeModalOutside(event,'modal-alpaca')">
   <div class="modal">
     <div class="modal-title">Connect Alpaca <button class="modal-close" onclick="closeModal('modal-alpaca')">✕</button></div>
-    <div style="font-size:12px;color:var(--text2);margin-bottom:14px;line-height:1.5">Paste Alpaca paper keys once — they’re encrypted and saved to your Runnr account. Sign in on any device and Alpaca links automatically; no re-entry.</div>
+    <div style="font-size:12px;color:var(--text2);margin-bottom:14px;line-height:1.5">Paste Alpaca paper keys once — they’re encrypted and saved to your Runnr account. After that, every device you sign in on links automatically.</div>
     <div class="field"><label>API Key ID</label><input id="alpaca-key" placeholder="PK..." autocomplete="off"></div>
     <div class="field"><label>Secret Key</label><input id="alpaca-secret" type="password" placeholder="••••••••" autocomplete="off"></div>
     <div class="field"><label>Account</label>
@@ -1628,7 +1628,7 @@ body.light #equity-canvas{filter:invert(0)}
 <script src="js/baron.js?v=25"></script>
 <script src="js/coach.js?v=22"></script>
 <script src="js/onboarding.js?v=20"></script>
-<script src="js/sync.js?v=31"></script>
+<script src="js/sync.js?v=32"></script>
 <script>
 // ── STATE ──────────────────────────────────────────────────────────────────
 const S = {
@@ -1817,6 +1817,7 @@ function switchPage(key) {
   if (key === 'sync') {
     renderSyncPage();
     if (!RunnrSync.isLoggedIn()) updateSyncAuthVisibility();
+    else restoreAlpacaInBackground();
   }
 }
 
@@ -4726,7 +4727,7 @@ function renderConnectedBrokers() {
         <button class="btn btn-sm" onclick="reconnectAlpaca()">Reconnect</button>
       </div>`;
     } else if (RunnrSync.isLoggedIn()) {
-      el.innerHTML = `<div style="font-size:12px;color:var(--text3)">Tap Connect Alpaca below — if you linked on another device, we’ll pull it from your account automatically.</div>`;
+      el.innerHTML = `<div style="font-size:12px;color:var(--text3)">Checking your account for Alpaca… If nothing links, tap Connect Alpaca and paste keys once.</div>`;
     } else {
       el.innerHTML = `<div style="font-size:12px;color:var(--text3)">Log in first, then connect Alpaca below.</div>`;
     }
@@ -4769,6 +4770,22 @@ function renderSyncPage() {
   renderSyncAuthBanner();
   renderConnectedBrokers();
   renderAvailableBrokers();
+}
+
+let _alpacaRestorePending = false;
+function restoreAlpacaInBackground() {
+  if (!RunnrSync.isLoggedIn() || _alpacaRestorePending) return;
+  if (S.brokerSync?.alpaca?.connected) return;
+  _alpacaRestorePending = true;
+  RunnrSync.ensureAlpacaConnected()
+    .then((ok) => {
+      if (ok) {
+        renderSyncPage();
+        renderHomeBrokerPreview();
+        showToast('Runnr', 'Alpaca linked from your account');
+      }
+    })
+    .finally(() => { _alpacaRestorePending = false; });
 }
 
 function openSyncAuthModal() {
@@ -5106,9 +5123,13 @@ async function submitAlpacaConnect() {
 }
 
 async function ensureAlpacaLinked() {
-  if (typeof RunnrSync.tryAutoReconnectAlpaca === 'function') {
-    const ok = await RunnrSync.tryAutoReconnectAlpaca();
+  if (typeof RunnrSync.ensureAlpacaConnected === 'function') {
+    const ok = await RunnrSync.ensureAlpacaConnected();
     if (ok) return true;
+  }
+  if (typeof RunnrSync.pushLocalAlpacaToAccount === 'function') {
+    const pushed = await RunnrSync.pushLocalAlpacaToAccount();
+    if (pushed) return true;
   }
   if (typeof RunnrSync.refreshStatus === 'function') {
     await RunnrSync.refreshStatus();
@@ -5126,7 +5147,7 @@ async function runBrokerSync() {
     renderSyncPage();
     if (!connected) {
       openAlpacaModal();
-      alert('Alpaca isn’t linked to your Runnr account yet. Paste paper API keys once on any device — they’ll work everywhere you sign in.');
+      showToast('Runnr', 'Paste Alpaca keys once — saved to your account');
       return;
     }
     const { added, repaired } = await RunnrSync.runSync();
@@ -5154,7 +5175,7 @@ async function runBrokerSync() {
     }
     if (/alpaca not connected/i.test(msg)) {
       openAlpacaModal();
-      alert('Connect Alpaca once — keys save to your Runnr account and work on all devices.');
+      showToast('Runnr', 'Connect Alpaca once — works on all devices');
       return;
     }
     alert('Sync failed: ' + msg);
@@ -5182,7 +5203,12 @@ function bootRunnrSync() {
     .then((profile) => {
       if (profile === null) return null;
       if (profile.action !== 'none') refreshAfterProfileSync();
-      return RunnrSync.ensureAlpacaConnected();
+      return RunnrSync.ensureAlpacaConnected().then((ok) => {
+        if (!ok && RunnrSync.pushLocalAlpacaToAccount) {
+          return RunnrSync.pushLocalAlpacaToAccount();
+        }
+        return ok;
+      });
     })
     .then((result) => {
       if (result === null) return;

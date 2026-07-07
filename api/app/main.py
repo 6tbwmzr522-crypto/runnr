@@ -39,8 +39,22 @@ app.include_router(quotes.router, prefix="/api/v1/quotes", tags=["quotes"])
 
 @app.get("/health")
 def health():
+    import os
+
     from app.db import DB_PATH
     from app.quote_cache import fear_greed_cache, quote_cache
+
+    data_dir = "/data"
+    data_volume_ok = False
+    if os.path.isdir(data_dir):
+        probe = os.path.join(data_dir, ".runnr_write_probe")
+        try:
+            with open(probe, "w", encoding="utf-8") as fh:
+                fh.write("ok")
+            os.remove(probe)
+            data_volume_ok = True
+        except OSError:
+            data_volume_ok = False
 
     key = (settings.openai_api_key or "").strip()
     fh = (settings.finnhub_api_key or "").strip()
@@ -48,6 +62,7 @@ def health():
         "status": "ok",
         "service": "runnr-api",
         "database_path": DB_PATH,
+        "data_volume_ok": data_volume_ok,
         "ai_configured": bool(key),
         "ai_model": settings.openai_model,
         "finnhub_configured": bool(fh),
