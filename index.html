@@ -5,7 +5,7 @@
 <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
 <script>
 (function () {
-  var V = "50";
+  var V = "51";
   try {
     if (localStorage.getItem("runnr_app_v") !== V) {
       localStorage.setItem("runnr_app_v", V);
@@ -1660,6 +1660,11 @@ try {
   if (saved) { const p = JSON.parse(saved); Object.assign(S, p); }
 } catch(e) {}
 
+// Drop null/garbage entries so migrations & renderers can't crash on bad records.
+// A single null in trades/watchlist would otherwise throw at boot and blank the whole app.
+S.trades = Array.isArray(S.trades) ? S.trades.filter(t => t && typeof t === 'object') : [];
+S.watchlist = Array.isArray(S.watchlist) ? S.watchlist.filter(w => w && typeof w === 'object') : [];
+
 function normalizeTradePnls() {
   if (!window.Baron?.resolveTradePnl) return;
   let changed = false;
@@ -1727,8 +1732,8 @@ function sanitizeAlpacaJournal() {
   if (S.trades.length !== before || patched || S.trades.some(t => t.disciplineOnly && t.pnl != null)) persist();
 }
 
-sanitizeAlpacaJournal();
-migrateTradeEditability();
+try { sanitizeAlpacaJournal(); } catch (e) { console.warn('sanitizeAlpacaJournal failed', e); }
+try { migrateTradeEditability(); } catch (e) { console.warn('migrateTradeEditability failed', e); }
 
 function migrateWatchlistThesis() {
   let changed = false;
@@ -1742,7 +1747,7 @@ function migrateWatchlistThesis() {
   });
   if (changed) persist();
 }
-migrateWatchlistThesis();
+try { migrateWatchlistThesis(); } catch (e) { console.warn('migrateWatchlistThesis failed', e); }
 
 function portfolioBaseBal() {
   return S.journalBaseBal > 0 ? S.journalBaseBal : S.bal;
@@ -1764,7 +1769,7 @@ function migratePortfolioBase() {
     persist();
   }
 }
-migratePortfolioBase();
+try { migratePortfolioBase(); } catch (e) { console.warn('migratePortfolioBase failed', e); }
 
 function persist() {
   try { localStorage.setItem('runnr_state', JSON.stringify(S)); } catch(e) {}
@@ -1825,7 +1830,7 @@ async function diagnoseSyncNow() {
   try {
     const d = await RunnrSync.diagnose();
     const lines = [
-      'DEVICE: ' + (isIOS ? 'Phone' : 'Mac/Other'),
+      'DEVICE: ' + (/iPhone|iPad|iPod/i.test(navigator.userAgent) ? 'Phone' : 'Mac/Other'),
       'Logged in as: ' + (d.email || '—'),
       'Server account: ' + (d.me ? ('#' + d.me.id + ' ' + d.me.email) : 'FAILED'),
       'Token tail: …' + d.tokenTail,
