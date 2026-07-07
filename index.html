@@ -5,7 +5,7 @@
 <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
 <script>
 (function () {
-  var V = "43";
+  var V = "44";
   try {
     if (localStorage.getItem("runnr_app_v") !== V) {
       localStorage.setItem("runnr_app_v", V);
@@ -4767,6 +4767,7 @@ function renderHomeBrokerPreview() {
 }
 
 function renderSyncPage() {
+  renderHeaderSyncPill();
   renderSyncAuthBanner();
   renderConnectedBrokers();
   renderAvailableBrokers();
@@ -5632,8 +5633,10 @@ function initApp() {
   try { renderBaronPills(); } catch (e) {}
   try { initSyncAuthForm(); } catch (e) {}
   registerServiceWorker();
+  renderHeaderSyncPill();
   if (/[?&]signedin=1/.test(location.search) && RunnrSync.isLoggedIn()) {
     history.replaceState(null, '', location.pathname + location.hash);
+    renderHeaderSyncPill();
     switchPage('sync');
     RunnrSync.syncProfileState()
       .then((profile) => {
