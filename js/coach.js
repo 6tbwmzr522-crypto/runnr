@@ -397,6 +397,148 @@ const CoachEngine = {
       idealEnd: ideal,
     };
   },
+
+  sortTradesChrono(trades) {
+    return [...trades].sort((a, b) => {
+      const da = this.parseTradeDate(a.date);
+      const db = this.parseTradeDate(b.date);
+      if (!da && !db) return (a.id || 0) - (b.id || 0);
+      if (!da) return 1;
+      if (!db) return -1;
+      return da - db;
+    });
+  },
+
+  tradeSpanYears(trades) {
+    const dates = trades.map((t) => this.parseTradeDate(t.date)).filter(Boolean);
+    if (!dates.length) return 0;
+    if (dates.length === 1) return 1;
+    const min = Math.min(...dates.map((d) => d.getTime()));
+    const max = Math.max(...dates.map((d) => d.getTime()));
+    return Math.max((max - min) / (365.25 * 86400000), 0.25);
+  },
+
+  /** Equity curve + peak-to-trough drawdown for recovery factor. */
+  buildEquityCurve(trades, startBalance = 10000) {
+    const c = this.sortTradesChrono(trades);
+    let equity = startBalance;
+    let peak = startBalance;
+    let maxDrawdownAbs = 0;
+    let maxDrawdownPct = 0;
+    const points = [startBalance];
+    c.forEach((t) => {
+      equity += t.pnl;
+      points.push(equity);
+      if (equity > peak) peak = equity;
+      const dd = peak - equity;
+      if (dd > maxDrawdownAbs) {
+        maxDrawdownAbs = dd;
+        maxDrawdownPct = peak > 0 ? (dd / peak) * 100 : 0;
+      }
+    });
+    return {
+      points,
+      peak,
+      end: equity,
+      maxDrawdownAbs,
+      maxDrawdownPct,
+      netProfit: equity - startBalance,
+    };
+  },
+
+  /** PF 3.0 on 20 trades = noise; PF 1.25 on 2,000+ = institutional edge. */
+  profitFactorSignificance(pf, count) {
+    if (count < 30) {
+      return { tier: "none", label: "Too few trades", detail: "Need 30+ for any reading", pass: false };
+    }
+    if (count < 200) {
+      return {
+        tier: "early",
+        label: "Below 200-trade bar",
+        detail: `${count} trades — allocators want 200+ before trusting PF`,
+        pass: false,
+      };
+    }
+    if (count >= 2000 && pf >= 1.25) {
+      return {
+        tier: "institutional",
+        label: "Institutional-grade sample",
+        detail: `PF ${pf.toFixed(2)} over ${count.toLocaleString()} trades`,
+        pass: true,
+      };
+    }
+    if (count >= 200 && pf >= 1.5) {
+      return {
+        tier: "significant",
+        label: "Statistically meaningful",
+        detail: `PF ${pf.toFixed(2)} · ${count} trades (200+ met)`,
+        pass: true,
+      };
+    }
+    if (count >= 200 && pf >= 1.25) {
+      return {
+        tier: "adequate",
+        label: "Sample adequate",
+        detail: `PF ${pf.toFixed(2)} · ${count} trades — modest but real edge`,
+        pass: true,
+      };
+    }
+    return {
+      tier: "weak",
+      label: "Edge unclear",
+      detail: `PF ${pf.toFixed(2)} over ${count} trades despite sample size`,
+      pass: false,
+    };
+  },
+
+  /**
+   * Sortino, recovery factor, and PF significance — what allocators actually read.
+   * Sortino annualized from per-trade returns on running balance.
+   */
+  institutionalMetrics(trades, startBalance) {
+    const c = this.sortTradesChrono(this.completed(trades));
+    const base = this.metrics(trades);
+    const bal = Number(startBalance) > 0 ? Number(startBalance) : 10000;
+    const curve = this.buildEquityCurve(c, bal);
+    const years = this.tradeSpanYears(c) || 1;
+
+    const returns = [];
+    let runBal = bal;
+    c.forEach((t) => {
+      returns.push(runBal > 0 ? t.pnl / runBal : 0);
+      runBal += t.pnl;
+    });
+
+    const mean = returns.length ? returns.reduce((s, r) => s + r, 0) / returns.length : 0;
+    const downsideSq = returns.length
+      ? returns.reduce((s, r) => s + Math.min(r, 0) ** 2, 0) / returns.length
+      : 0;
+    const downsideDev = Math.sqrt(downsideSq);
+    const sortinoPerTrade = downsideDev > 0 ? mean / downsideDev : (mean > 0 ? 999 : 0);
+    const tradesPerYear = c.length / years;
+    const sortino = sortinoPerTrade * Math.sqrt(Math.max(tradesPerYear, 1));
+
+    const recoveryFactor = curve.maxDrawdownAbs > 0
+      ? curve.netProfit / curve.maxDrawdownAbs
+      : (curve.netProfit > 0 ? 999 : 0);
+    const recoveryFactorPerYear = years > 0 ? recoveryFactor / years : 0;
+    const pfSig = this.profitFactorSignificance(base.profitFactor, base.count);
+
+    return {
+      ...base,
+      sortino,
+      sortinoPerTrade,
+      recoveryFactor,
+      recoveryFactorPerYear,
+      maxDrawdownPct: curve.maxDrawdownPct,
+      maxDrawdownAbs: curve.maxDrawdownAbs,
+      netProfit: curve.netProfit,
+      tradeYears: years,
+      profitFactorSignificance: pfSig,
+      sortinoPass: sortino >= 2.0,
+      recoveryPass: recoveryFactor >= 3.0,
+    };
+  },
 };
 
 window.CoachEngine = CoachEngine;

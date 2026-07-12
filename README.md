@@ -2,7 +2,7 @@
 
 Mobile-first trading discipline app: position sizing, journal, watchlist, portfolio analytics, and Coach insights.
 
-Pairs with **Glacifraga Baron** — same 38-ticker universe and 1% / 2× ATR / 4× ATR risk model.
+Pairs with **Glacifraga Obsidian** — same 48-ticker universe and 1% / 2× ATR / 4× ATR risk model.
 
 ## Features
 
@@ -46,7 +46,7 @@ Live URL: `https://YOUR_USER.github.io/runnr/`
 ```
 runnr/
   index.html          # main app
-  js/baron.js         # Baron 38-ticker sizing
+  js/baron.js         # Obsidian 48-ticker sizing + benchmark
   js/coach.js         # journal insight engine
   js/sync.js          # Runnr API client (broker sync)
   api/                # small backend (Railway)

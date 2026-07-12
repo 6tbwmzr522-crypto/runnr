@@ -1,13 +1,18 @@
-/** Baron von Richstone — Glacifraga 38-ticker universe (shares + commodities) */
+/** Glacifraga Obsidian — 48-ticker universe (shares + commodities; was Baron 38) */
 const Baron = {
   EQUITIES: [
-    "AAPL", "MSFT", "NVDA", "SPY", "TSLA", "AMD", "META", "GOOGL",
-    "AMZN", "NFLX", "ORCL", "NOW", "ASTS", "URA", "ADBE",
-    "NVO", "IREN", "COIN", "ARM", "RDW", "AVAV", "SMR",
-    "AVGO", "TSM", "CAT", "GE", "LMT", "LLY", "ISRG",
-    "CVX", "XLE", "JPM", "V", "COST",
+    "AAPL", "MSFT", "NVDA", "AMD", "AVGO", "TSM", "ORCL", "NOW", "ADBE", "ARM", "LRCX",
+    "META", "GOOGL", "NFLX",
+    "AMZN", "TSLA",
+    "COST", "PM",
+    "NVO", "LLY", "ISRG", "ABBV", "AMGN",
+    "JPM", "V", "GS", "BK",
+    "CVX", "XLE", "XOM", "MPC", "VLO", "WMB", "PSX",
+    "CAT", "GE", "LMT", "AVAV", "PH",
+    "NEM",
+    "SPY", "URA",
   ],
-  COMMODITIES: ["GLD", "SLV", "COPX", "USO"],
+  COMMODITIES: ["GLD", "SLV", "COPX", "USO", "GDX", "IAU"],
   FX_MAJORS: ["USD", "EUR", "GBP", "JPY", "CHF", "AUD", "NZD", "CAD"],
   STRATEGY: {
     risk_pct: 1,
@@ -15,6 +20,47 @@ const Baron = {
     atr_tp_mult: 4,
     max_position_pct: 10,
     volume_note: "Breakout + 1% risk, 2× ATR stop, 4× ATR target",
+  },
+
+  /** Published backtest — Glacifraga Obsidian 48 (July 2026). */
+  INSTITUTIONAL_BENCHMARK: {
+    full: {
+      label: "GLACIFRAGA OBSIDIAN",
+      period: "2017–2026",
+      years: 9.7,
+      trades: 1130,
+      winRate: 46.5,
+      sharpe: 2.04,
+      sortino: 7.03,
+      profitFactor: 2.03,
+      maxDrawdownPct: 6.6,
+      netPnl: 688229,
+      cagr: 23.8,
+      initialCapital: 100000,
+      recoveryFactor: 26.31,
+    },
+    stress: {
+      label: "OBSIDIAN — stress window",
+      period: "2022–2026",
+      years: 4.5,
+      trades: 511,
+      winRate: 47.6,
+      sharpe: 2.07,
+      sortino: 5.35,
+      profitFactor: 2.16,
+      maxDrawdownPct: 23.1,
+      netPnl: 374244,
+      cagr: 41.5,
+      initialCapital: 100000,
+      recoveryFactor: 14.31,
+    },
+    thresholds: {
+      sortino: 2.0,
+      recoveryFactor: 3.0,
+      minTradesForPf: 200,
+      institutionalPf: 1.25,
+      institutionalPfTrades: 2000,
+    },
   },
 
   get watchlist() {

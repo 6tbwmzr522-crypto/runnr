@@ -5,7 +5,7 @@
 <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
 <script>
 (function () {
-  var V = "52";
+  var V = "53";
   try {
     if (localStorage.getItem("runnr_app_v") !== V) {
       localStorage.setItem("runnr_app_v", V);
@@ -1010,6 +1010,33 @@ body.light #equity-canvas{filter:invert(0)}
         </div>
       </div>
 
+      <!-- Institutional-grade metrics (allocators read these) -->
+      <div class="section-hdr" style="margin-bottom:10px;margin-top:4px">
+        <h3>Institutional Grade</h3>
+        <span style="font-size:10px;color:var(--text3);font-family:var(--font-mono)">SORTINO · RECOVERY · PF</span>
+      </div>
+      <div class="card" id="coach-institutional-card" style="margin-bottom:16px">
+        <div class="stat-grid" style="grid-template-columns:1fr 1fr 1fr;margin-bottom:10px">
+          <div class="stat-item">
+            <div class="stat-val" id="coach-sortino" style="font-size:24px">—</div>
+            <div class="stat-lbl">Sortino Ratio</div>
+            <div class="stat-delta" id="coach-sortino-verdict">target &gt; 2.0</div>
+          </div>
+          <div class="stat-item">
+            <div class="stat-val" id="coach-recovery" style="font-size:24px">—</div>
+            <div class="stat-lbl">Recovery Factor</div>
+            <div class="stat-delta" id="coach-recovery-verdict">net ÷ max DD</div>
+          </div>
+          <div class="stat-item">
+            <div class="stat-val" id="coach-pf-inst" style="font-size:24px">—</div>
+            <div class="stat-lbl">Profit Factor</div>
+            <div class="stat-delta" id="coach-pf-inst-verdict">200+ trades</div>
+          </div>
+        </div>
+        <div id="coach-inst-note" style="font-size:11px;color:var(--text3);line-height:1.5;margin-bottom:10px">—</div>
+        <div id="coach-baron-benchmark" style="font-size:11px;color:var(--text2);line-height:1.5;border-top:1px solid var(--border);padding-top:10px"></div>
+      </div>
+
       <!-- AI Insights -->
       <div class="section-hdr" style="margin-bottom:10px">
         <h3>Coach Insights</h3>
@@ -1625,8 +1652,8 @@ body.light #equity-canvas{filter:invert(0)}
   </div>
 </div>
 
-<script src="js/baron.js?v=25"></script>
-<script src="js/coach.js?v=22"></script>
+<script src="js/baron.js?v=27"></script>
+<script src="js/coach.js?v=23"></script>
 <script src="js/onboarding.js?v=20"></script>
 <script src="js/sync.js?v=35"></script>
 <script>
@@ -5432,6 +5459,47 @@ function renderCoachPage() {
       undiscEl.textContent = week.count ? `${bad} this week` : '—';
       undiscEl.className = 'stat-delta';
     }
+  }
+
+  const instBal = portfolioBaseBal() || S.bal || 10000;
+  const inst = CoachEngine.institutionalMetrics(S.trades, instBal);
+  const instColor = (pass) => pass ? 'var(--accent)' : (inst.count >= 30 ? 'var(--amber)' : 'var(--text3)');
+  const fmtInst = (v, digits = 2) => {
+    if (!inst.count) return '—';
+    if (v >= 999) return '999+';
+    return v.toFixed(digits);
+  };
+  set('coach-sortino', fmtInst(inst.sortino));
+  const sortinoEl = document.getElementById('coach-sortino');
+  if (sortinoEl) sortinoEl.style.color = instColor(inst.sortinoPass);
+  set('coach-sortino-verdict', inst.count
+    ? (inst.sortinoPass ? '✓ above 2.0' : 'target > 2.0')
+    : 'need closed trades');
+  set('coach-recovery', fmtInst(inst.recoveryFactor));
+  const recEl = document.getElementById('coach-recovery');
+  if (recEl) recEl.style.color = instColor(inst.recoveryPass);
+  set('coach-recovery-verdict', inst.count
+    ? `max DD ${inst.maxDrawdownPct.toFixed(1)}%`
+    : 'net ÷ max DD');
+  set('coach-pf-inst', inst.count ? inst.profitFactor.toFixed(2) : '—');
+  const pfInstEl = document.getElementById('coach-pf-inst');
+  if (pfInstEl) pfInstEl.style.color = instColor(inst.profitFactorSignificance.pass);
+  set('coach-pf-inst-verdict', inst.profitFactorSignificance.label);
+  const instNote = document.getElementById('coach-inst-note');
+  if (instNote) {
+    if (!inst.count) {
+      instNote.textContent = 'Log closed trades to compute Sortino and Recovery Factor. Profit factor needs 200+ trades before allocators treat it as real.';
+    } else {
+      instNote.textContent = `${inst.count} trades over ${inst.tradeYears.toFixed(1)}y · ${inst.profitFactorSignificance.detail}. Sortino penalises only downside vol (not upside). Recovery = net profit ÷ largest peak-to-trough drawdown (${S.sym}${Math.round(inst.maxDrawdownAbs).toLocaleString()}).`;
+    }
+  }
+  const baronBench = document.getElementById('coach-baron-benchmark');
+  if (baronBench && window.Baron?.INSTITUTIONAL_BENCHMARK) {
+    const b = Baron.INSTITUTIONAL_BENCHMARK.full;
+    const t = Baron.INSTITUTIONAL_BENCHMARK.thresholds;
+    baronBench.innerHTML = `<div style="font-family:var(--font-head);font-size:12px;font-weight:700;color:var(--gold);margin-bottom:4px">🪩 ${b.label} · published track record</div>`
+      + `${b.period} · ${b.trades} trades · Sortino ${b.sortino} · Recovery ${b.recoveryFactor} · PF ${b.profitFactor} · Sharpe ${b.sharpe} · max DD −${b.maxDrawdownPct}%`
+      + `<div style="font-size:10px;color:var(--text3);margin-top:4px">Institutional bars: Sortino &gt; ${t.sortino}, Recovery &gt; ${t.recoveryFactor}, PF ≥ ${t.institutionalPf} with ${t.minTradesForPf}+ trades (Baron: ${b.trades}).</div>`;
   }
 
   const list = document.getElementById('coach-insights-list');
