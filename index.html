@@ -5,7 +5,7 @@
 <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
 <script>
 (function () {
-  var V = "54";
+  var V = "55";
   try {
     if (localStorage.getItem("runnr_app_v") !== V) {
       localStorage.setItem("runnr_app_v", V);
@@ -619,20 +619,20 @@ body.light #equity-canvas{filter:invert(0)}
       <span class="brand-mark" aria-hidden="true"></span>
       <div class="logo">runnr</div>
     </div>
-    <div style="display:flex;gap:8px;align-items:center"><button id="theme-toggle" onclick="toggleTheme()">☀ Light</button>
-      <span id="header-sync-pill" onclick="headerSyncTap()" title="Broker sync account">Sign in</span>
+    <div style="display:flex;gap:8px;align-items:center"><button id="theme-toggle" onclick="toggleTheme()" data-i18n="common.light">☀ Light</button>
+      <span id="header-sync-pill" onclick="headerSyncTap()" data-i18n-title="common.signInTitle">Sign in</span>
       <span id="acct-display" style="font-size:14px;color:var(--text2);cursor:pointer;font-style:italic" onclick="openModal('modal-settings')">€10,000 ✎</span>
       <div class="tier-badge" id="tier-badge">🌱 NOVICE</div>
     </div>
   </div>
 
   <div id="session-banner" onclick="openSyncAuthModal()">
-    <span class="session-banner-text">Sign in to sync Alpaca — your journal stays on this device.</span>
+    <span class="session-banner-text" data-i18n="header.sessionBanner">Sign in to sync Alpaca — your journal stays on this device.</span>
     <button type="button" style="background:none;border:none;color:var(--text3);font-size:16px;cursor:pointer;padding:0 4px" onclick="event.stopPropagation();hideSessionBanner()">✕</button>
   </div>
 
   <div id="traffic-banner">
-    <span class="traffic-banner-text">High traffic — live prices may lag. Journal &amp; Alpaca sync still work.</span>
+    <span class="traffic-banner-text" data-i18n="header.trafficBanner">High traffic — live prices may lag. Journal &amp; Alpaca sync still work.</span>
     <button type="button" style="background:none;border:none;color:var(--text3);font-size:16px;cursor:pointer;padding:0 4px" onclick="dismissTrafficBanner()">✕</button>
   </div>
 
@@ -644,40 +644,40 @@ body.light #equity-canvas{filter:invert(0)}
 
       <div class="notif" id="home-coach-banner" onclick="switchPage('coach')">
         <div class="notif-dot"></div>
-        <span>Analyse your last trade — see what discipline would have saved</span>
+        <span data-i18n="home.coachBanner">Analyse your last trade — see what discipline would have saved</span>
       </div>
 
       <!-- Discipline score -->
       <div class="card highlight-card">
         <div class="section-hdr" style="margin-bottom:12px">
-          <h3>Discipline Score</h3>
-          <button class="see-all" onclick="RunnrGrowth.openShareModal(S)">Share ↗</button>
+          <h3 data-i18n="home.disciplineScore">Discipline Score</h3>
+          <button class="see-all" onclick="RunnrGrowth.openShareModal(S)" data-i18n="home.share">Share ↗</button>
         </div>
         <div class="discipline-card">
           <div class="disc-ring" id="disc-score-ring">
             <div class="disc-ring-inner" id="disc-score-val">—</div>
           </div>
           <div class="disc-meta">
-            <div style="font-size:12px;color:var(--text2)">Tier: <strong id="disc-tier-label" style="color:var(--accent)">Novice</strong></div>
-            <div class="disc-meta-row"><span>Stop</span><strong id="disc-stop-val">—</strong></div>
-            <div class="disc-meta-row"><span>Size</span><strong id="disc-size-val">—</strong></div>
-            <div class="disc-meta-row"><span>Log streak</span><strong id="disc-streak-val">0</strong></div>
+            <div style="font-size:12px;color:var(--text2)"><span data-i18n="home.tier">Tier</span>: <strong id="disc-tier-label" style="color:var(--accent)">Novice</strong></div>
+            <div class="disc-meta-row"><span data-i18n="home.stop">Stop</span><strong id="disc-stop-val">—</strong></div>
+            <div class="disc-meta-row"><span data-i18n="home.size">Size</span><strong id="disc-size-val">—</strong></div>
+            <div class="disc-meta-row"><span data-i18n="home.logStreak">Log streak</span><strong id="disc-streak-val">0</strong></div>
           </div>
         </div>
-        <button class="btn btn-sm btn-ghost" style="width:100%" onclick="RunnrGrowth.open(S)">↻ Analyse another trade</button>
+        <button class="btn btn-sm btn-ghost" style="width:100%" onclick="RunnrGrowth.open(S)" data-i18n="home.analyseTrade">↻ Analyse another trade</button>
       </div>
 
       <!-- Account snapshot -->
       <div class="highlight-card">
         <div style="display:flex;justify-content:space-between;align-items:flex-start">
           <div>
-            <div style="font-size:11px;color:var(--text3);letter-spacing:1px;text-transform:uppercase;font-weight:600;margin-bottom:4px">Account Balance</div>
+            <div style="font-size:11px;color:var(--text3);letter-spacing:1px;text-transform:uppercase;font-weight:600;margin-bottom:4px" data-i18n="home.accountBalance">Account Balance</div>
             <div id="home-bal" style="font-family:var(--font-num);font-size:36px;font-weight:300;color:var(--gold-light);line-height:1;letter-spacing:0.03em">€10,000</div>
             <div id="home-bal-source" style="font-size:10px;color:var(--accent);display:none;margin-top:2px"></div>
             <div id="home-risk-label" style="font-size:12px;color:var(--text3);margin-top:4px">Risk 1% = €100 per trade</div>
           </div>
           <div style="text-align:right">
-            <div style="font-size:10px;color:var(--text3);letter-spacing:0.8px;text-transform:uppercase;margin-bottom:6px">This week</div>
+            <div style="font-size:10px;color:var(--text3);letter-spacing:0.8px;text-transform:uppercase;margin-bottom:6px" data-i18n="home.thisWeek">This week</div>
             <div id="home-week-pnl" style="font-family:var(--font-num);font-size:20px;font-weight:300;color:var(--accent);letter-spacing:0.02em">—</div>
             <div id="home-week-stop" style="font-size:10px;color:var(--text3);margin-top:2px">Stop discipline: —</div>
           </div>
@@ -700,22 +700,22 @@ body.light #equity-canvas{filter:invert(0)}
       <div class="stat-grid">
         <div class="stat-item">
           <div class="stat-val" id="qs-stop">82%</div>
-          <div class="stat-lbl">Stop Discipline</div>
+          <div class="stat-lbl" data-i18n="home.statStop">Stop Discipline</div>
           <div class="stat-delta" id="qs-stop-delta">—</div>
         </div>
         <div class="stat-item">
           <div class="stat-val" id="qs-size">—</div>
-          <div class="stat-lbl">Size Discipline</div>
+          <div class="stat-lbl" data-i18n="home.statSize">Size Discipline</div>
           <div class="stat-delta" id="qs-size-delta">—</div>
         </div>
         <div class="stat-item">
           <div class="stat-val" id="qs-pf">1.8</div>
-          <div class="stat-lbl">Profit Factor</div>
+          <div class="stat-lbl" data-i18n="home.statPF">Profit Factor</div>
           <div class="stat-delta" id="qs-pf-delta">—</div>
         </div>
         <div class="stat-item">
           <div class="stat-val" id="qs-wr">58%</div>
-          <div class="stat-lbl">Win Rate</div>
+          <div class="stat-lbl" data-i18n="home.statWR">Win Rate</div>
           <div class="stat-delta" id="qs-wr-meta" style="color:var(--text3)">— trades</div>
         </div>
       </div>
@@ -723,7 +723,7 @@ body.light #equity-canvas{filter:invert(0)}
 
       <!-- Fear / Greed Index -->
       <div class="fg-card">
-        <div class="card-title">Market Sentiment</div>
+        <div class="card-title" data-i18n="home.marketSentiment">Market Sentiment</div>
         <div class="fg-wrap">
           <div class="fg-gauge-container">
             <canvas id="fg-canvas" width="140" height="80"></canvas>
@@ -768,7 +768,7 @@ body.light #equity-canvas{filter:invert(0)}
       <div class="card">
         <div class="section-hdr">
           <h3>Connected Brokers</h3>
-          <button class="see-all" onclick="switchPage('sync')">Manage</button>
+          <button class="see-all" onclick="switchPage('sync')" data-i18n="home.manage">Manage</button>
         </div>
         <div id="home-broker-preview"></div>
       </div>
@@ -1087,21 +1087,21 @@ body.light #equity-canvas{filter:invert(0)}
     <!-- ══ WATCHLIST ══════════════════════════════════════════════════════ -->
     <div class="page" id="page-watchlist">
       <div class="section-hdr" style="margin-bottom:6px">
-        <h3 style="font-size:15px">Watchlist</h3>
-        <button class="btn btn-sm btn-ghost" onclick="importBaronWatchlist()" style="margin-right:4px">🎩 Baron</button>
-        <button class="btn btn-sm" onclick="openModal('modal-add-watch')" style="background:var(--accent);color:#070d0b;font-family:var(--font-head);font-size:12px;font-weight:700;border:none;cursor:pointer;padding:7px 14px;border-radius:20px">+ Add Setup</button>
+        <h3 style="font-size:15px" data-i18n="watch.title">Watchlist</h3>
+        <button class="btn btn-sm btn-ghost" onclick="importBaronWatchlist()" style="margin-right:4px" data-i18n="watch.baron">🎩 Baron</button>
+        <button class="btn btn-sm" onclick="openModal('modal-add-watch')" style="background:var(--accent);color:#070d0b;font-family:var(--font-head);font-size:12px;font-weight:700;border:none;cursor:pointer;padding:7px 14px;border-radius:20px" data-i18n="watch.addSetup">+ Add Setup</button>
       </div>
       <div class="feed-status" style="margin-bottom:10px">
         <div class="feed-dot" id="feed-dot"></div>
-        <span id="feed-status-text">Fetching prices...</span>
-        <button onclick="refreshAllPrices()" style="background:none;border:none;color:var(--accent);font-size:10px;cursor:pointer;margin-left:4px;font-family:var(--font-body)">↻ Refresh</button>
+        <span id="feed-status-text" data-i18n="watch.fetching">Fetching prices...</span>
+        <button onclick="refreshAllPrices()" style="background:none;border:none;color:var(--accent);font-size:10px;cursor:pointer;margin-left:4px;font-family:var(--font-body)" data-i18n="watch.refresh">↻ Refresh</button>
       </div>
       <!-- Notification Settings -->
       <div class="notif-settings" id="notif-settings-card">
         <div class="notif-global-toggle">
           <div>
-            <div style="font-family:var(--font-head);font-size:13px;font-weight:700">Price Alerts</div>
-            <div style="font-size:11px;color:var(--text3);margin-top:1px">Alert when price hits entry ± risk band</div>
+            <div style="font-family:var(--font-head);font-size:13px;font-weight:700" data-i18n="watch.priceAlerts">Price Alerts</div>
+            <div style="font-size:11px;color:var(--text3);margin-top:1px" data-i18n="watch.priceAlertsHint">Alert when price hits entry ± risk band</div>
           </div>
           <label class="toggle-switch">
             <input type="checkbox" id="notif-master-toggle" onchange="toggleNotifications(this.checked)">
@@ -1110,7 +1110,7 @@ body.light #equity-canvas{filter:invert(0)}
         </div>
         <div id="notif-perm-area"></div>
         <div id="notif-alert-list" style="display:none">
-          <div style="font-size:10px;color:var(--text3);text-transform:uppercase;letter-spacing:0.8px;font-weight:600;margin-bottom:6px">Active Alerts · Risk band: <span id="notif-risk-label" style="color:var(--accent)">1%</span></div>
+          <div style="font-size:10px;color:var(--text3);text-transform:uppercase;letter-spacing:0.8px;font-weight:600;margin-bottom:6px"><span id="notif-active-prefix" data-i18n="watch.activeAlerts">Active Alerts · Risk band</span>: <span id="notif-risk-label" style="color:var(--accent)">1%</span></div>
           <div id="notif-items"></div>
         </div>
       </div>
@@ -1120,18 +1120,18 @@ body.light #equity-canvas{filter:invert(0)}
 
     <!-- ══ SYNC ═══════════════════════════════════════════════════════════ -->
     <div class="page" id="page-sync">
-      <div style="font-family:var(--font-head);font-size:18px;font-weight:700;margin-bottom:4px">Broker Sync</div>
-      <div style="font-size:12px;color:var(--text3);margin-bottom:12px">Connect once. Pull real trades into your journal.</div>
+      <div style="font-family:var(--font-head);font-size:18px;font-weight:700;margin-bottom:4px" data-i18n="sync.title">Broker Sync</div>
+      <div style="font-size:12px;color:var(--text3);margin-bottom:12px" data-i18n="sync.subtitle">Connect once. Pull real trades into your journal.</div>
       <div id="sync-login-gate" class="card" style="margin-bottom:12px;border-color:var(--accent2)">
-        <div class="card-title">Sign in</div>
-        <div style="font-size:13px;color:var(--text2);margin-bottom:14px;line-height:1.45">Sync journal &amp; watchlist from your Mac. Use the sign-in page — it works reliably on iPhone.</div>
-        <a class="btn" href="login.html" style="display:block;text-align:center;text-decoration:none;padding:16px;line-height:1.3">Open sign-in page</a>
+        <div class="card-title" data-i18n="sync.signIn">Sign in</div>
+        <div style="font-size:13px;color:var(--text2);margin-bottom:14px;line-height:1.45" data-i18n="sync.signInDesc">Sync journal &amp; watchlist from your Mac. Use the sign-in page — it works reliably on iPhone.</div>
+        <a class="btn" href="login.html" style="display:block;text-align:center;text-decoration:none;padding:16px;line-height:1.3" data-i18n="sync.openSignIn">Open sign-in page</a>
       </div>
       <div id="sync-auth-banner" style="margin-bottom:12px"></div>
       <div id="sync-mobile-login" class="card" style="display:none;margin-bottom:12px">
-        <div class="card-title">Sign in on iPhone</div>
-        <div style="font-size:12px;color:var(--text2);margin-bottom:14px;line-height:1.45">The in-app form can freeze on Safari. Use the simple sign-in page — same email and password as your Mac.</div>
-        <a class="btn" id="sync-mobile-login-link" href="login.html" style="display:block;text-align:center;text-decoration:none;line-height:1.2;padding:16px">Open sign in page</a>
+        <div class="card-title" data-i18n="sync.signInIphone">Sign in on iPhone</div>
+        <div style="font-size:12px;color:var(--text2);margin-bottom:14px;line-height:1.45" data-i18n="sync.signInIphoneDesc">The in-app form can freeze on Safari. Use the simple sign-in page — same email and password as your Mac.</div>
+        <a class="btn" id="sync-mobile-login-link" href="login.html" style="display:block;text-align:center;text-decoration:none;line-height:1.2;padding:16px" data-i18n="sync.openSignIn">Open sign in page</a>
       </div>
       <div id="sync-inline-auth" class="card" style="display:none;margin-bottom:12px">
         <div class="card-title">Sign in</div>
@@ -1158,7 +1158,7 @@ body.light #equity-canvas{filter:invert(0)}
       </div>
       <div id="sync-connected" style="margin-bottom:12px"></div>
       <button class="btn" id="sync-connect-alpaca-btn" style="margin-bottom:8px;width:100%;display:none" onclick="connectBroker('Alpaca')">Connect Alpaca</button>
-      <button class="btn btn-ghost" style="margin-bottom:16px;width:100%" onclick="runBrokerSync()">↻ Sync now</button>
+      <button class="btn btn-ghost" style="margin-bottom:16px;width:100%" onclick="runBrokerSync()" data-i18n="sync.syncNow">↻ Sync now</button>
 
       <div style="background:var(--surface2);border:1px dashed var(--border);border-radius:var(--r-sm);padding:14px;margin-bottom:8px">
         <div style="font-size:12px;color:var(--text3);font-weight:600;text-transform:uppercase;letter-spacing:0.8px;margin-bottom:12px">Available to Connect</div>
@@ -1172,10 +1172,10 @@ body.light #equity-canvas{filter:invert(0)}
       </div>
 
       <div class="card" style="margin-top:4px">
-        <div class="card-title">CSV Import</div>
-        <div style="font-size:12px;color:var(--text2);margin-bottom:10px">Not on the list? Import your trade history via CSV from any broker.</div>
+        <div class="card-title" data-i18n="sync.csvImport">CSV Import</div>
+        <div style="font-size:12px;color:var(--text2);margin-bottom:10px" data-i18n="sync.csvImportDesc">Not on the list? Import your trade history via CSV from any broker.</div>
         <input type="file" id="csv-import-input" accept=".csv,text/csv,text/plain" style="display:none" onchange="handleCsvImportFile(this)">
-        <button type="button" class="btn btn-ghost" onclick="triggerCsvImport()">Upload CSV File</button>
+        <button type="button" class="btn btn-ghost" onclick="triggerCsvImport()" data-i18n="sync.uploadCsv">Upload CSV File</button>
         <div id="csv-import-status" style="font-size:11px;color:var(--text3);margin-top:8px;display:none"></div>
       </div>
     </div>
@@ -1474,27 +1474,27 @@ body.light #equity-canvas{filter:invert(0)}
   <div id="nav">
     <button class="nav-btn active" onclick="switchPage('home')">
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></svg>
-      <span>Home</span>
+      <span data-i18n="nav.home">Home</span>
     </button>
     <button class="nav-btn" onclick="switchPage('sizer')">
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="16"/><line x1="8" y1="12" x2="16" y2="12"/></svg>
-      <span>Sizer</span>
+      <span data-i18n="nav.sizer">Sizer</span>
     </button>
     <button class="nav-btn" onclick="switchPage('watchlist')" data-nav="watchlist">
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>
-      <span>Watch</span>
+      <span data-i18n="nav.watch">Watch</span>
     </button>
     <button class="nav-btn" onclick="switchPage('journal')">
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/></svg>
-      <span>Journal</span>
+      <span data-i18n="nav.journal">Journal</span>
     </button>
     <button class="nav-btn" onclick="switchPage('coach')">
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>
-      <span>Coach</span>
+      <span data-i18n="nav.coach">Coach</span>
     </button>
     <button class="nav-btn" onclick="switchPage('portfolio')">
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg>
-      <span>Portfolio</span>
+      <span data-i18n="nav.portfolio">Portfolio</span>
     </button>
   </div>
 
@@ -1627,33 +1627,43 @@ body.light #equity-canvas{filter:invert(0)}
 <!-- Settings Modal -->
 <div class="modal-overlay" id="modal-settings" onclick="closeModalOutside(event,'modal-settings')">
   <div class="modal">
-    <div class="modal-title">Settings <button class="modal-close" onclick="closeModal('modal-settings')">✕</button></div>
-    <div class="field"><label>Account Balance</label><input id="set-bal" type="number" placeholder="10000"></div>
-    <div id="set-bal-hint" style="font-size:11px;color:var(--accent);margin:-6px 0 10px;display:none">Synced from Alpaca — tap Sync to refresh</div>
-    <div class="field"><label>Portfolio P&amp;L base</label><input id="set-port-base" type="number" placeholder="100000"></div>
-    <div style="font-size:11px;color:var(--text3);margin:-6px 0 10px">Starting balance for Portfolio % — separate from live Alpaca equity</div>
-    <div class="field"><label>Risk % per Trade</label><input id="set-risk" type="number" placeholder="1" step="0.5"></div>
-    <div class="field"><label>Currency</label>
+    <div class="modal-title"><span data-i18n="settings.title">Settings</span> <button class="modal-close" onclick="closeModal('modal-settings')">✕</button></div>
+    <div class="field"><label data-i18n="settings.language">Language</label>
+      <select id="set-language" onchange="changeLanguage(this.value)">
+        <option value="en">English</option>
+        <option value="nl">Nederlands</option>
+        <option value="de">Deutsch</option>
+        <option value="fr">Français</option>
+        <option value="es">Español</option>
+      </select>
+    </div>
+    <div class="field"><label data-i18n="settings.balance">Account Balance</label><input id="set-bal" type="number" placeholder="10000"></div>
+    <div id="set-bal-hint" style="font-size:11px;color:var(--accent);margin:-6px 0 10px;display:none" data-i18n="settings.balHint">Synced from Alpaca — tap Sync to refresh</div>
+    <div class="field"><label data-i18n="settings.portBase">Portfolio P&amp;L base</label><input id="set-port-base" type="number" placeholder="100000"></div>
+    <div style="font-size:11px;color:var(--text3);margin:-6px 0 10px" data-i18n="settings.portBaseHint">Starting balance for Portfolio % — separate from live Alpaca equity</div>
+    <div class="field"><label data-i18n="settings.risk">Risk % per Trade</label><input id="set-risk" type="number" placeholder="1" step="0.5"></div>
+    <div class="field"><label data-i18n="settings.currency">Currency</label>
       <select id="set-currency">
         <option value="€">EUR (€)</option>
         <option value="$">USD ($)</option>
         <option value="£">GBP (£)</option>
       </select>
     </div>
-    <div class="field"><label>Profile handle (for share card)</label><input id="set-handle" placeholder="yourname"></div>
+    <div class="field"><label data-i18n="settings.handle">Profile handle (for share card)</label><input id="set-handle" placeholder="yourname"></div>
     <div class="notif-global-toggle" style="margin:12px 0">
-      <div><div style="font-size:13px;font-weight:600">Weekly Coach digest</div><div style="font-size:11px;color:var(--text3)">Sunday push if you haven't logged in 48h</div></div>
+      <div><div style="font-size:13px;font-weight:600" data-i18n="settings.coachDigest">Weekly Coach digest</div><div style="font-size:11px;color:var(--text3)" data-i18n="settings.coachDigestHint">Sunday push if you haven't logged in 48h</div></div>
       <label class="toggle-switch"><input type="checkbox" id="set-coach-digest" checked onchange="S.coachDigestEnabled=this.checked;persist()"><span class="toggle-slider"></span></label>
     </div>
     <div class="divider"></div>
-    <div style="font-size:12px;color:var(--text3);margin-bottom:10px;font-weight:600;text-transform:uppercase;letter-spacing:0.8px">Account · Free Plan</div>
-    <button class="btn" style="background:linear-gradient(135deg,var(--accent2),var(--accent));margin-bottom:8px" onclick="closeModal('modal-settings')">⬆ Upgrade to Runner — €10/mo</button>
-    <div style="font-size:11px;color:var(--text3);text-align:center">Full journal · Discipline stats · AI coaching · Streaks</div>
+    <div style="font-size:12px;color:var(--text3);margin-bottom:10px;font-weight:600;text-transform:uppercase;letter-spacing:0.8px" data-i18n="settings.account">Account · Free Plan</div>
+    <button class="btn" style="background:linear-gradient(135deg,var(--accent2),var(--accent));margin-bottom:8px" onclick="closeModal('modal-settings')" data-i18n="settings.upgrade">⬆ Upgrade to Runner — €10/mo</button>
+    <div style="font-size:11px;color:var(--text3);text-align:center" data-i18n="settings.upgradeHint">Full journal · Discipline stats · AI coaching · Streaks</div>
     <div class="divider"></div>
-    <button class="btn btn-ghost" onclick="saveSettings()">Save Settings</button>
+    <button class="btn btn-ghost" onclick="saveSettings()" data-i18n="settings.save">Save Settings</button>
   </div>
 </div>
 
+<script src="js/i18n.js?v=1"></script>
 <script src="js/baron.js?v=27"></script>
 <script src="js/coach.js?v=23"></script>
 <script src="js/onboarding.js?v=20"></script>
@@ -1680,6 +1690,7 @@ const S = {
   onboardingComplete: false,
   profileHandle: '',
   coachDigestEnabled: true,
+  lang: 'en',
   brokerSync: { alpaca: { connected: false, lastSync: null, imported: 0 }, importedOrderIds: [] },
   journalBaseBal: 0,
 };
@@ -1956,6 +1967,21 @@ function switchPage(key) {
 }
 
 // ── SETTINGS ───────────────────────────────────────────────────────────────
+function changeLanguage(code) {
+  if (!window.RunnrI18n) return;
+  S.lang = RunnrI18n.setLang(code);
+  persist();
+  updateHomeStats();
+  renderNotifSettings();
+  renderHeaderSyncPill();
+  const banner = document.getElementById('session-banner');
+  if (banner?.classList.contains('show')) {
+    const txt = banner.querySelector('.session-banner-text');
+    if (txt) txt.textContent = t('header.sessionBanner');
+  }
+}
+window.changeLanguage = changeLanguage;
+
 function saveSettings() {
   S.bal = parseFloat(document.getElementById('set-bal').value) || S.bal;
   const portBase = parseFloat(document.getElementById('set-port-base').value);
@@ -1967,6 +1993,8 @@ function saveSettings() {
   S.profileHandle = (document.getElementById('set-handle')?.value || '').trim().replace(/[^a-zA-Z0-9_-]/g, '') || S.profileHandle;
   const digestEl = document.getElementById('set-coach-digest');
   if (digestEl) S.coachDigestEnabled = digestEl.checked;
+  const langEl = document.getElementById('set-language');
+  if (langEl && langEl.value !== S.lang) changeLanguage(langEl.value);
   persist();
   updateHomeStats();
   closeModal('modal-settings');
@@ -1984,6 +2012,8 @@ function openSettingsModal() {
   if (h) h.value = S.profileHandle || '';
   const d = document.getElementById('set-coach-digest');
   if (d) d.checked = S.coachDigestEnabled !== false;
+  const langEl = document.getElementById('set-language');
+  if (langEl) langEl.value = S.lang || 'en';
   openModal('modal-settings');
 }
 document.getElementById('acct-display').addEventListener('click', openSettingsModal);
@@ -2002,7 +2032,9 @@ function setRisk(r) {
 function updateHomeStats() {
   const mr = S.bal * S.risk / 100;
   document.getElementById('home-bal').textContent = S.sym + S.bal.toLocaleString();
-  document.getElementById('home-risk-label').textContent = `Risk ${S.risk}% = ${S.sym}${Math.round(mr)} per trade`;
+  document.getElementById('home-risk-label').textContent = typeof t === 'function'
+    ? t('home.riskPerTrade', { risk: S.risk, amount: S.sym + Math.round(mr) })
+    : `Risk ${S.risk}% = ${S.sym}${Math.round(mr)} per trade`;
   document.getElementById('acct-display').textContent = S.sym + S.bal.toLocaleString() + ' ✎';
   const balSrc = document.getElementById('home-bal-source');
   if (balSrc) {
@@ -2019,7 +2051,11 @@ function updateHomeStats() {
   const banner = document.getElementById('incomplete-banner');
   if (incomplete.length > 0) {
     banner.style.display = 'flex';
-    banner.innerHTML = `⚠️ <strong>${incomplete.length} trade${incomplete.length>1?'s':''} need discipline flags</strong> — tap to complete`;
+    const msg = incomplete.length === 1
+      ? (typeof t === 'function' ? t('home.incompleteOne') : '1 trade needs discipline flags')
+      : (typeof t === 'function' ? t('home.incompleteMany', { count: incomplete.length }) : `${incomplete.length} trades need discipline flags`);
+    const tail = typeof t === 'function' ? t('home.tapComplete') : 'tap to complete';
+    banner.innerHTML = `⚠️ <strong>${msg}</strong> — ${tail}`;
   } else {
     banner.style.display = 'none';
   }
@@ -2034,7 +2070,12 @@ function updateHomeStats() {
     wpEl.style.color = weekPnl >= 0 ? 'var(--accent)' : 'var(--red)';
   }
   const wsEl = document.getElementById('home-week-stop');
-  if (wsEl) wsEl.textContent = weekM.count ? `Stop discipline: ${weekM.stopPct.toFixed(0)}%` : 'Stop discipline: —';
+  if (wsEl) {
+    const pct = weekM.count ? weekM.stopPct.toFixed(0) + '%' : '—';
+    wsEl.textContent = typeof t === 'function'
+      ? `${t('home.stopDiscipline')}: ${pct}`
+      : (weekM.count ? `Stop discipline: ${weekM.stopPct.toFixed(0)}%` : 'Stop discipline: —');
+  }
 
   const setStat = (id, val, color) => {
     const el = document.getElementById(id);
@@ -2947,7 +2988,7 @@ function renderWatchlist() {
     maybePullWatchlistFromCloud();
     return;
   }
-  const hint = selectedId ? '' : '<div style="font-size:11px;color:var(--text3);text-align:center;margin:8px 0 12px">Tap a ticker to open setup details</div>';
+  const hint = selectedId ? '' : '<div style="font-size:11px;color:var(--text3);text-align:center;margin:8px 0 12px">' + t('watch.tapTicker') + '</div>';
   list.innerHTML = `<div class="watch-compact-list">${rows}</div>${hint}`;
   renderNotifSettings();
   refreshWatchBriefs();
@@ -3783,8 +3824,7 @@ function persistAlerts() {
 async function requestNotifPermission() {
   if (!('Notification' in window)) {
     showPermArea(
-      '<div style="font-size:11px;color:var(--text2)">In-app alerts are on. '
-      + 'Push notifications are not available in this browser tab.</div>'
+      '<div style="font-size:11px;color:var(--text2)">' + t('alerts.inAppOnly') + '</div>'
     );
     return;
   }
@@ -3803,8 +3843,7 @@ async function requestNotifPermission() {
     } catch (e) {}
   } else {
     showPermArea(
-      '<div style="font-size:11px;color:var(--text2)">In-app alerts stay on. '
-      + 'Allow notifications in browser settings for lock-screen alerts.</div>'
+      '<div style="font-size:11px;color:var(--text2)">' + t('alerts.pushDenied') + '</div>'
     );
     renderNotifSettings();
   }
@@ -3838,16 +3877,16 @@ function renderNotifSettings() {
     permArea.innerHTML =
       '<div class="notif-perm-banner">'
       + '<div class="nb-icon">🔔</div>'
-      + '<div class="nb-text">Enable alerts to get notified when a ticker enters your entry zone based on your risk band.</div>'
-      + '<button class="nb-btn" onclick="document.getElementById(\'notif-master-toggle\').checked=true;toggleNotifications(true)">Enable</button>'
+      + '<div class="nb-text">' + t('alerts.enableBanner') + '</div>'
+      + '<button class="nb-btn" onclick="document.getElementById(\'notif-master-toggle\').checked=true;toggleNotifications(true)">' + t('common.enable') + '</button>'
       + '</div>';
   } else if (alertState.enabled && alertState.permission !== 'granted') {
     permArea.innerHTML =
       '<div style="font-size:11px;color:var(--text2);line-height:1.45;margin-bottom:6px">'
-      + 'In-app alerts active — toasts when price hits your entry band. '
+      + t('alerts.inAppActive') + ' '
       + (typeof Notification !== 'undefined'
-        ? '<button type="button" class="nb-btn" style="margin-top:6px" onclick="requestNotifPermission()">Enable push</button>'
-        : 'Push not available in this browser.')
+        ? '<button type="button" class="nb-btn" style="margin-top:6px" onclick="requestNotifPermission()">' + t('alerts.pushEnable') + '</button>'
+        : t('alerts.inAppOnly'))
       + '</div>';
   } else {
     permArea.innerHTML = '';
@@ -3862,7 +3901,7 @@ function renderNotifSettings() {
   const itemsEl = document.getElementById('notif-items');
   if (itemsEl) {
     const armed = S.watchlist.length;
-    itemsEl.innerHTML = '<div style="font-size:12px;color:var(--text2);line-height:1.5">Monitoring <strong>' + armed + '</strong> setup' + (armed === 1 ? '' : 's') + ' — status shown on each ticker row below.</div>';
+    itemsEl.innerHTML = '<div style="font-size:12px;color:var(--text2);line-height:1.5">' + t(armed === 1 ? 'alerts.monitoring' : 'alerts.monitoringMany', { count: armed }) + '</div>';
   }
 }
 
@@ -4697,7 +4736,7 @@ function calcCrypto() {
 // ── LIGHT / DARK MODE ────────────────────────────────────────────────────────
 function toggleTheme() {
   const isLight = document.body.classList.toggle('light');
-  document.getElementById('theme-toggle').textContent = isLight ? '🌙 Dark' : '☀ Light';
+  document.getElementById('theme-toggle').textContent = isLight ? t('common.dark') : t('common.light');
   try { localStorage.setItem('runnr_theme', isLight ? 'light' : 'dark'); } catch(e) {}
   // Redraw canvases
   setTimeout(() => {
@@ -4787,9 +4826,9 @@ function renderHeaderSyncPill() {
     el.title = 'Signed in — tap for Sync';
     hideSessionBanner();
   } else {
-    el.textContent = 'Sign in';
+    el.textContent = t('common.signIn');
     el.classList.remove('on');
-    el.title = 'Sign in for Alpaca sync';
+    el.title = t('common.signInTitle');
   }
 }
 
@@ -6049,6 +6088,7 @@ function initSyncAuthForm() {
 }
 
 function initApp() {
+  try { if (window.RunnrI18n) RunnrI18n.init(S.lang || 'en', S); } catch (e) {}
   try { normalizeWatchlist(); } catch (e) {}
   try { updateHomeStats(); } catch (e) {}
   try { renderHomePreviews(); } catch (e) {}
