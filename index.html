@@ -5,7 +5,7 @@
 <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
 <script>
 (function () {
-  var V = "53";
+  var V = "54";
   try {
     if (localStorage.getItem("runnr_app_v") !== V) {
       localStorage.setItem("runnr_app_v", V);
@@ -1174,7 +1174,9 @@ body.light #equity-canvas{filter:invert(0)}
       <div class="card" style="margin-top:4px">
         <div class="card-title">CSV Import</div>
         <div style="font-size:12px;color:var(--text2);margin-bottom:10px">Not on the list? Import your trade history via CSV from any broker.</div>
-        <button class="btn btn-ghost">Upload CSV File</button>
+        <input type="file" id="csv-import-input" accept=".csv,text/csv,text/plain" style="display:none" onchange="handleCsvImportFile(this)">
+        <button type="button" class="btn btn-ghost" onclick="triggerCsvImport()">Upload CSV File</button>
+        <div id="csv-import-status" style="font-size:11px;color:var(--text3);margin-top:8px;display:none"></div>
       </div>
     </div>
 
@@ -2947,6 +2949,7 @@ function renderWatchlist() {
   }
   const hint = selectedId ? '' : '<div style="font-size:11px;color:var(--text3);text-align:center;margin:8px 0 12px">Tap a ticker to open setup details</div>';
   list.innerHTML = `<div class="watch-compact-list">${rows}</div>${hint}`;
+  renderNotifSettings();
   refreshWatchBriefs();
 }
 
@@ -3769,8 +3772,8 @@ try {
     alertState.permission = Notification.permission || 'default';
   }
   const saved = JSON.parse(localStorage.getItem('runnr_alerts') || '{}');
-  if (saved.enabled) alertState.enabled = saved.enabled;
-  if (saved.fired) alertState.fired = saved.fired;
+  if (typeof saved.enabled === 'boolean') alertState.enabled = saved.enabled;
+  if (saved.fired && typeof saved.fired === 'object') alertState.fired = saved.fired;
 } catch (e) {}
 
 function persistAlerts() {
@@ -3779,7 +3782,10 @@ function persistAlerts() {
 
 async function requestNotifPermission() {
   if (!('Notification' in window)) {
-    showPermArea('<div style="font-size:11px;color:var(--text3)">Notifications not supported in this browser.</div>');
+    showPermArea(
+      '<div style="font-size:11px;color:var(--text2)">In-app alerts are on. '
+      + 'Push notifications are not available in this browser tab.</div>'
+    );
     return;
   }
   const perm = await Notification.requestPermission();
@@ -3789,12 +3795,18 @@ async function requestNotifPermission() {
     persistAlerts();
     document.getElementById('notif-master-toggle').checked = true;
     renderNotifSettings();
-    new Notification('Runnr Alerts Active', {
-      body: 'You will be alerted when prices hit your entry zones.',
-      icon: ''
-    });
+    try {
+      new Notification('Runnr Alerts Active', {
+        body: 'You will be alerted when prices hit your entry zones.',
+        icon: '',
+      });
+    } catch (e) {}
   } else {
-    showPermArea('<div style="font-size:11px;color:var(--red)">Permission denied. Please enable notifications in browser settings.</div>');
+    showPermArea(
+      '<div style="font-size:11px;color:var(--text2)">In-app alerts stay on. '
+      + 'Allow notifications in browser settings for lock-screen alerts.</div>'
+    );
+    renderNotifSettings();
   }
 }
 
@@ -3804,12 +3816,11 @@ function showPermArea(html) {
 }
 
 function toggleNotifications(checked) {
-  if (checked && alertState.permission !== 'granted') {
-    requestNotifPermission();
-    return;
-  }
   alertState.enabled = checked;
   persistAlerts();
+  if (checked && typeof Notification !== 'undefined' && alertState.permission !== 'granted') {
+    requestNotifPermission();
+  }
   renderNotifSettings();
 }
 
@@ -3820,15 +3831,23 @@ function renderNotifSettings() {
   const riskLbl   = document.getElementById('notif-risk-label');
   if (!permArea) return;
 
-  if (toggle) toggle.checked = alertState.enabled;
+  if (toggle) toggle.checked = !!alertState.enabled;
   if (riskLbl) riskLbl.textContent = S.risk + '%';
 
-  if (alertState.permission === 'default' && !alertState.enabled) {
+  if (!alertState.enabled && alertState.permission === 'default') {
     permArea.innerHTML =
       '<div class="notif-perm-banner">'
       + '<div class="nb-icon">🔔</div>'
       + '<div class="nb-text">Enable alerts to get notified when a ticker enters your entry zone based on your risk band.</div>'
-      + '<button class="nb-btn" onclick="requestNotifPermission()">Enable</button>'
+      + '<button class="nb-btn" onclick="document.getElementById(\'notif-master-toggle\').checked=true;toggleNotifications(true)">Enable</button>'
+      + '</div>';
+  } else if (alertState.enabled && alertState.permission !== 'granted') {
+    permArea.innerHTML =
+      '<div style="font-size:11px;color:var(--text2);line-height:1.45;margin-bottom:6px">'
+      + 'In-app alerts active — toasts when price hits your entry band. '
+      + (typeof Notification !== 'undefined'
+        ? '<button type="button" class="nb-btn" style="margin-top:6px" onclick="requestNotifPermission()">Enable push</button>'
+        : 'Push not available in this browser.')
       + '</div>';
   } else {
     permArea.innerHTML = '';
@@ -5314,6 +5333,176 @@ async function ensureAlpacaLinked() {
   }
   return !!(S.brokerSync && S.brokerSync.alpaca && S.brokerSync.alpaca.connected);
 }
+
+// ── CSV IMPORT ──────────────────────────────────────────────────────────
+function triggerCsvImport() {
+  const input = document.getElementById('csv-import-input');
+  if (!input) return;
+  input.value = '';
+  input.click();
+}
+
+function parseCsvRow(line) {
+  const out = [];
+  let cur = '';
+  let inQ = false;
+  for (let i = 0; i < line.length; i++) {
+    const ch = line[i];
+    if (ch === '"') {
+      if (inQ && line[i + 1] === '"') { cur += '"'; i++; }
+      else inQ = !inQ;
+    } else if (ch === ',' && !inQ) {
+      out.push(cur.trim());
+      cur = '';
+    } else {
+      cur += ch;
+    }
+  }
+  out.push(cur.trim());
+  return out;
+}
+
+function parseCsvText(text) {
+  const lines = String(text || '').split(/\r?\n/).filter((l) => l.trim());
+  if (!lines.length) return [];
+  const headers = parseCsvRow(lines[0]).map((h) => h.replace(/^\uFEFF/, '').trim());
+  const rows = [];
+  for (let i = 1; i < lines.length; i++) {
+    const cols = parseCsvRow(lines[i]);
+    if (!cols.some((c) => c.trim())) continue;
+    const row = {};
+    headers.forEach((h, j) => { row[h] = cols[j] ?? ''; });
+    rows.push(row);
+  }
+  return rows;
+}
+
+function csvField(row, keys) {
+  const map = {};
+  Object.keys(row).forEach((k) => { map[k.toLowerCase().trim()] = row[k]; });
+  for (const k of keys) {
+    const v = map[k.toLowerCase()];
+    if (v != null && String(v).trim() !== '') return String(v).trim();
+  }
+  return '';
+}
+
+function csvNum(val) {
+  if (val == null || val === '') return null;
+  const n = parseFloat(String(val).replace(/[$,\s]/g, ''));
+  return Number.isFinite(n) ? n : null;
+}
+
+function csvFormatDate(raw) {
+  if (!raw) return new Date().toLocaleDateString('en-GB', { month: 'short', day: 'numeric' });
+  const d = new Date(raw);
+  if (!Number.isNaN(d.getTime())) {
+    return d.toLocaleDateString('en-GB', { month: 'short', day: 'numeric' });
+  }
+  return String(raw).slice(0, 12);
+}
+
+function importTradesFromCsvRows(rows) {
+  let added = 0;
+  let skipped = 0;
+  const maxId = S.trades.reduce((m, t) => Math.max(m, t.id || 0), 0);
+  const demoIds = new Set([1, 2, 3, 4]);
+  const seen = new Set(
+    S.trades.filter((t) => t.source === 'csv').map((t) => t.externalId).filter(Boolean)
+  );
+
+  rows.forEach((row, i) => {
+    const instr = csvField(row, ['symbol', 'ticker', 'instrument', 'instr', 'sym']).toUpperCase();
+    if (!instr) { skipped++; return; }
+
+    const sideRaw = csvField(row, ['side', 'direction', 'dir', 'type']).toLowerCase();
+    const dir = sideRaw.includes('sell') || sideRaw.includes('short') ? 'short' : 'long';
+    const entry = csvNum(csvField(row, ['entry', 'entry_price', 'open', 'price', 'filled_avg_price', 'avg_price']));
+    const exit = csvNum(csvField(row, ['exit', 'exit_price', 'close', 'close_price']));
+    const size = csvNum(csvField(row, ['size', 'qty', 'quantity', 'shares', 'filled_qty'])) || 1;
+    let pnl = csvNum(csvField(row, ['pnl', 'pl', 'profit', 'net_pnl', 'realized_pnl', 'profit_loss']));
+    const stop = csvNum(csvField(row, ['stop', 'stop_loss', 'sl']));
+    const target = csvNum(csvField(row, ['target', 'take_profit', 'tp']));
+    const date = csvFormatDate(csvField(row, ['date', 'time', 'timestamp', 'filled_at', 'close_date', 'exit_date']));
+
+    if (pnl == null && entry != null && exit != null) {
+      pnl = Math.round((dir === 'long' ? exit - entry : entry - exit) * size);
+    }
+    if (entry == null && exit == null && pnl == null) { skipped++; return; }
+
+    const externalId = `csv:${instr}:${date}:${entry ?? exit ?? pnl}:${size}`;
+    if (seen.has(externalId)) { skipped++; return; }
+    seen.add(externalId);
+
+    S.trades.unshift({
+      id: maxId + i + 1 + Date.now(),
+      instr,
+      dir,
+      entry: entry ?? (dir === 'long' ? exit : null),
+      exit: exit ?? (dir === 'short' ? entry : null),
+      stop,
+      target,
+      size,
+      pnl: pnl ?? 0,
+      stopOk: stop != null ? null : null,
+      sizeOk: null,
+      type: 'shares',
+      date,
+      incomplete: true,
+      source: 'csv',
+      externalId,
+    });
+    added++;
+  });
+
+  if (added > 0) {
+    S.trades = S.trades.filter((t) => t.source === 'csv' || t.source === 'alpaca' || !demoIds.has(t.id));
+    persist();
+  }
+  return { added, skipped };
+}
+
+function setCsvImportStatus(msg, ok) {
+  const el = document.getElementById('csv-import-status');
+  if (!el) return;
+  el.style.display = msg ? 'block' : 'none';
+  el.style.color = ok === false ? 'var(--red)' : ok === true ? 'var(--accent)' : 'var(--text3)';
+  el.textContent = msg || '';
+}
+
+function handleCsvImportFile(input) {
+  const file = input?.files?.[0];
+  if (!file) return;
+  setCsvImportStatus('Reading ' + file.name + '…');
+  const reader = new FileReader();
+  reader.onload = () => {
+    try {
+      const rows = parseCsvText(reader.result);
+      if (!rows.length) {
+        setCsvImportStatus('No data rows found — check CSV headers.', false);
+        return;
+      }
+      const { added, skipped } = importTradesFromCsvRows(rows);
+      if (!added) {
+        setCsvImportStatus('No trades imported. Need symbol + entry/exit or P&L column.', false);
+        return;
+      }
+      setCsvImportStatus(`Imported ${added} trade${added === 1 ? '' : 's'}${skipped ? ` (${skipped} skipped)` : ''}.`, true);
+      renderJournal();
+      updateHomeStats();
+      refreshPortfolioIfVisible();
+      showToast('Runnr', `Imported ${added} trade${added === 1 ? '' : 's'} — complete flags in Journal`);
+      switchPage('journal');
+    } catch (e) {
+      setCsvImportStatus('Import failed: ' + (e.message || e), false);
+    }
+    input.value = '';
+  };
+  reader.onerror = () => setCsvImportStatus('Could not read file.', false);
+  reader.readAsText(file);
+}
+window.triggerCsvImport = triggerCsvImport;
+window.handleCsvImportFile = handleCsvImportFile;
 
 async function runBrokerSync() {
   if (!RunnrSync.isLoggedIn()) {
