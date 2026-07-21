@@ -495,6 +495,15 @@ const RunnrSync = (() => {
   let pushTimer = null;
   let _cloudPushPaused = false;
 
+  function isDemoState(s) {
+    s = s || window.S;
+    if (!s) return true;
+    if (s.balFromAlpaca || s.brokerSync?.alpaca?.connected) return false;
+    const trades = s.trades || [];
+    if (trades.some((t) => t.source === "alpaca" || !DEMO_TRADE_IDS.has(t.id))) return false;
+    return true;
+  }
+
   function hasMeaningfulState(s) {
     if (!s) return false;
     const trades = s.trades || [];
@@ -738,6 +747,7 @@ const RunnrSync = (() => {
     pushProfileState,
     pushProfileStateDebounced,
     hasMeaningfulState,
+    isDemoState,
     applyRemoteState,
   };
 })();

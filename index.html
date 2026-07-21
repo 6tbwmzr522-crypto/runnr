@@ -589,6 +589,15 @@ body.light #equity-canvas{filter:invert(0)}
 #share-canvas{display:block;width:100%;max-width:320px;margin:0 auto;border-radius:var(--r-sm);border:1px solid var(--border)}
 #session-banner{display:none;align-items:center;justify-content:space-between;gap:10px;margin:0 16px 10px;padding:10px 12px;background:var(--gold-dim);border:1px solid var(--border-strong);border-radius:var(--r-sm);font-size:12px;color:var(--text2);cursor:pointer}
 #session-banner .session-banner-text{flex:1;line-height:1.4}
+#demo-banner{display:none;align-items:center;justify-content:space-between;gap:10px;margin:0 16px 10px;padding:10px 12px;background:rgba(0,229,160,0.08);border:1px solid rgba(0,229,160,0.35);border-radius:var(--r-sm);font-size:12px;color:var(--text2);cursor:pointer}
+#demo-banner.show{display:flex}
+#demo-banner .demo-banner-text{flex:1;line-height:1.45}
+.demo-badge{display:inline-block;font-size:9px;font-weight:700;letter-spacing:0.12em;color:var(--accent);border:1px solid rgba(0,229,160,0.45);padding:2px 6px;border-radius:4px;margin-left:8px;vertical-align:middle}
+.home-footer-links{display:flex;justify-content:center;gap:16px;margin:10px 0 8px;font-size:12px}
+.home-footer-links button{background:none;border:none;color:var(--gold);cursor:pointer;padding:0;font-size:12px;text-decoration:underline;text-underline-offset:3px}
+.trust-pricing-row{font-size:12px;color:var(--text2);line-height:1.55;margin-bottom:8px;padding:8px 10px;background:var(--surface2);border-radius:var(--r-sm);border:1px solid var(--border)}
+#coach-institutional-card.inst-locked .stat-val{color:var(--text3)!important}
+#coach-institutional-card.inst-locked .stat-delta{color:var(--text3)!important}
 #traffic-banner{display:none;align-items:center;justify-content:space-between;gap:10px;margin:0 16px 10px;padding:10px 12px;background:rgba(255,181,71,0.1);border:1px solid rgba(255,181,71,0.35);border-radius:var(--r-sm);font-size:12px;color:var(--text2)}
 #traffic-banner .traffic-banner-text{flex:1;line-height:1.4}
 #header-sync-pill{font-size:11px;padding:4px 8px;border-radius:999px;border:1px solid var(--border);color:var(--text3);cursor:pointer;white-space:nowrap;touch-action:manipulation;-webkit-tap-highlight-color:transparent;user-select:none}
@@ -637,6 +646,11 @@ body.light #equity-canvas{filter:invert(0)}
     <button type="button" style="background:none;border:none;color:var(--text3);font-size:16px;cursor:pointer;padding:0 4px" onclick="event.stopPropagation();hideSessionBanner()">✕</button>
   </div>
 
+  <div id="demo-banner" onclick="switchPage('sync')">
+    <span class="demo-banner-text" data-i18n="header.demoBanner">Sample journal — connect Alpaca or import CSV for your data</span>
+    <button type="button" style="background:none;border:none;color:var(--text3);font-size:16px;cursor:pointer;padding:0 4px" onclick="event.stopPropagation();dismissDemoBanner()">✕</button>
+  </div>
+
   <div id="traffic-banner">
     <span class="traffic-banner-text" data-i18n="header.trafficBanner">High traffic — live prices may lag. Journal &amp; Alpaca sync still work.</span>
     <button type="button" style="background:none;border:none;color:var(--text3);font-size:16px;cursor:pointer;padding:0 4px" onclick="dismissTrafficBanner()">✕</button>
@@ -677,7 +691,7 @@ body.light #equity-canvas{filter:invert(0)}
       <div class="highlight-card">
         <div style="display:flex;justify-content:space-between;align-items:flex-start">
           <div>
-            <div style="font-size:11px;color:var(--text3);letter-spacing:1px;text-transform:uppercase;font-weight:600;margin-bottom:4px" data-i18n="home.accountBalance">Account Balance</div>
+            <div style="font-size:11px;color:var(--text3);letter-spacing:1px;text-transform:uppercase;font-weight:600;margin-bottom:4px" data-i18n="home.accountBalance">Account Balance<span id="home-demo-badge" class="demo-badge" style="display:none" data-i18n="header.demoBadge">SAMPLE</span></div>
             <div id="home-bal" style="font-family:var(--font-num);font-size:36px;font-weight:300;color:var(--gold-light);line-height:1;letter-spacing:0.03em">€10,000</div>
             <div id="home-bal-source" style="font-size:10px;color:var(--accent);display:none;margin-top:2px"></div>
             <div id="home-risk-label" style="font-size:12px;color:var(--text3);margin-top:4px">Risk 1% = €100 per trade</div>
@@ -794,6 +808,11 @@ body.light #equity-canvas{filter:invert(0)}
       <footer class="home-footer">
         <div class="home-footer-mark">Born &amp; raised in Berlin</div>
         <div class="home-footer-brand">Thin Ice Digital</div>
+        <div class="home-footer-links">
+          <button type="button" onclick="openAboutModal()" data-i18n="footer.about">About</button>
+          <button type="button" onclick="openPrivacyModal()" data-i18n="footer.privacy">Privacy</button>
+          <button type="button" onclick="openWhopPricing()" data-i18n="footer.pricing">Pricing</button>
+        </div>
         <div class="home-footer-copy">© 2026 Thin Ice Digital · All rights reserved</div>
       </footer>
 
@@ -1183,6 +1202,14 @@ body.light #equity-canvas{filter:invert(0)}
         <input type="file" id="csv-import-input" accept=".csv,text/csv,text/plain" style="display:none" onchange="handleCsvImportFile(this)">
         <button type="button" class="btn btn-ghost" onclick="triggerCsvImport()" data-i18n="sync.uploadCsv">Upload CSV File</button>
         <div id="csv-import-status" style="font-size:11px;color:var(--text3);margin-top:8px;display:none"></div>
+      </div>
+      <div style="margin-top:16px;padding-top:12px;border-top:1px solid var(--border);text-align:center">
+        <div class="home-footer-links" style="margin:0">
+          <button type="button" onclick="openAboutModal()" data-i18n="footer.about">About</button>
+          <button type="button" onclick="openPrivacyModal()" data-i18n="footer.privacy">Privacy</button>
+          <button type="button" onclick="openWhopPricing()" data-i18n="footer.pricing">Pricing</button>
+        </div>
+        <div style="font-size:11px;color:var(--text3);margin-top:8px;line-height:1.45">Alpaca: read-only sync · keys encrypted · no order execution</div>
       </div>
     </div>
 
@@ -1664,21 +1691,60 @@ body.light #equity-canvas{filter:invert(0)}
       <label class="toggle-switch"><input type="checkbox" id="set-coach-digest" checked onchange="S.coachDigestEnabled=this.checked;persist()"><span class="toggle-slider"></span></label>
     </div>
     <div class="divider"></div>
-    <div style="font-size:12px;color:var(--text3);margin-bottom:10px;font-weight:600;text-transform:uppercase;letter-spacing:0.8px" data-i18n="settings.account">Account · Free Plan</div>
-    <button class="btn" style="background:linear-gradient(135deg,var(--accent2),var(--accent));margin-bottom:8px" onclick="closeModal('modal-settings')" data-i18n="settings.upgrade">⬆ Upgrade to Runner — €10/mo</button>
-    <div style="font-size:11px;color:var(--text3);text-align:center" data-i18n="settings.upgradeHint">Full journal · Discipline stats · AI coaching · Streaks</div>
+    <div style="font-size:12px;color:var(--text3);margin-bottom:10px;font-weight:600;text-transform:uppercase;letter-spacing:0.8px" data-i18n="settings.pricing">Pricing</div>
+    <div class="trust-pricing-row" data-i18n="settings.pricingFree">Free — sizer, demo journal, watchlist</div>
+    <div class="trust-pricing-row" data-i18n="settings.pricingBasic">Basic — €19/mo · full journal, Coach, alerts</div>
+    <div class="trust-pricing-row" data-i18n="settings.pricingPro">Pro — €25/mo · broker sync, CSV, advanced stats</div>
+    <button class="btn" style="background:linear-gradient(135deg,var(--accent2),var(--accent));margin-bottom:8px" onclick="openWhopPricing()" data-i18n="settings.upgrade">View plans on Whop</button>
+    <div style="font-size:11px;color:var(--text3);text-align:center;margin-bottom:12px" data-i18n="settings.upgradeHint">Free tier to start · Basic €19 · Pro €25 · cancel anytime on Whop</div>
+    <div class="divider"></div>
+    <div style="font-size:12px;color:var(--text3);margin-bottom:8px;font-weight:600;text-transform:uppercase;letter-spacing:0.8px" data-i18n="settings.trust">Trust &amp; privacy</div>
+    <button class="btn btn-ghost btn-sm" style="margin-bottom:6px;width:100%" onclick="openAboutModal()" data-i18n="settings.about">About Runnr</button>
+    <button class="btn btn-ghost btn-sm" style="margin-bottom:12px;width:100%" onclick="openPrivacyModal()" data-i18n="settings.privacy">Privacy &amp; security</button>
     <div class="divider"></div>
     <button class="btn btn-ghost" onclick="saveSettings()" data-i18n="settings.save">Save Settings</button>
   </div>
 </div>
 
-<script src="js/i18n.js?v=3"></script>
+<!-- About -->
+<div class="modal-overlay" id="modal-about" onclick="closeModalOutside(event,'modal-about')">
+  <div class="modal">
+    <div class="modal-title">About Runnr <button class="modal-close" onclick="closeModal('modal-about')">✕</button></div>
+    <div style="font-size:13px;color:var(--text2);line-height:1.55">
+      <p style="margin:0 0 12px"><strong style="color:var(--text)">Runnr</strong> is trade-discipline software — position sizing, journal, rule tracking, and Coach analytics. Not a broker. Not investment advice.</p>
+      <p style="margin:0 0 12px"><strong style="color:var(--text)">Built by</strong> Janis Berzins · Thin Ice Digital UG (i.G.) · Fürstenwalde / Berlin.<br>15+ years automotive engineering (Tesla Giga Berlin, Rolls-Royce, BMW). Full-stack founder — product, cloud, and discipline engine shipped in-house.</p>
+      <p style="margin:0 0 12px"><strong style="color:var(--text)">Contact</strong><br>
+        <a href="mailto:janis.berzins.liepins@gmail.com" style="color:var(--accent)">janis.berzins.liepins@gmail.com</a><br>
+        <a href="https://www.linkedin.com/in/janisberzins" target="_blank" rel="noopener noreferrer" style="color:var(--accent)">LinkedIn → Janis Berzins</a></p>
+      <p style="margin:0;font-size:12px;color:var(--text3)">Alpaca sync is <strong>read-only</strong> — Runnr cannot place trades. API keys are encrypted server-side (Fernet). CSV import works with any broker today; IBKR / Trading 212 / eToro integrations are on the roadmap.</p>
+    </div>
+  </div>
+</div>
+
+<!-- Privacy -->
+<div class="modal-overlay" id="modal-privacy" onclick="closeModalOutside(event,'modal-privacy')">
+  <div class="modal">
+    <div class="modal-title">Privacy &amp; security <button class="modal-close" onclick="closeModal('modal-privacy')">✕</button></div>
+    <div style="font-size:13px;color:var(--text2);line-height:1.55">
+      <p style="margin:0 0 10px"><strong style="color:var(--text)">What we store</strong><br>Journal, watchlist, and settings — on your device (localStorage) and, if you sign in, encrypted in your Runnr cloud profile on Railway (EU-friendly hosting).</p>
+      <p style="margin:0 0 10px"><strong style="color:var(--text)">Broker keys</strong><br>Alpaca API keys are encrypted at rest (AES/Fernet). Used only for read-only sync — never for order execution.</p>
+      <p style="margin:0 0 10px"><strong style="color:var(--text)">What we don&apos;t do</strong><br>No sale of trade data. No discretionary trading. No custody of funds. Coach analytics run on your journal — not shared unless you export a share card.</p>
+      <p style="margin:0 0 10px"><strong style="color:var(--text)">Your rights</strong><br>Export via CSV. Delete local data by clearing site storage. To delete your account and server profile, email <a href="mailto:janis.berzins.liepins@gmail.com" style="color:var(--accent)">janis.berzins.liepins@gmail.com</a>.</p>
+      <p style="margin:0;font-size:12px;color:var(--text3)">Runnr is pre-Regulatory FinTech SaaS (discipline tooling). Not MiFID investment advice. Full privacy policy document coming — this summary covers current behaviour.</p>
+    </div>
+  </div>
+</div>
+
+<script src="js/i18n.js?v=4"></script>
 <script src="js/baron.js?v=27"></script>
 <script src="js/coach.js?v=23"></script>
 <script src="js/onboarding.js?v=20"></script>
-<script src="js/sync.js?v=35"></script>
+<script src="js/sync.js?v=36"></script>
 <script>
 // ── STATE ──────────────────────────────────────────────────────────────────
+const WHOP_URL = 'https://whop.com/runnr';
+const INST_MIN_TRADES = 30;
+
 const S = {
   bal: 10000, risk: 1, sym: '€',
   trades: [
@@ -1976,6 +2042,27 @@ function switchPage(key) {
 }
 
 // ── SETTINGS ───────────────────────────────────────────────────────────────
+function openAboutModal() { openModal('modal-about'); }
+function openPrivacyModal() { openModal('modal-privacy'); }
+function openWhopPricing() { window.open(WHOP_URL, '_blank', 'noopener,noreferrer'); }
+function dismissDemoBanner() {
+  try { sessionStorage.setItem('runnr_demo_banner_dismissed', '1'); } catch (e) {}
+  updateDemoBanner();
+}
+function updateDemoBanner() {
+  const el = document.getElementById('demo-banner');
+  const badge = document.getElementById('home-demo-badge');
+  const isDemo = typeof RunnrSync?.isDemoState === 'function' && RunnrSync.isDemoState(S);
+  let dismissed = false;
+  try { dismissed = sessionStorage.getItem('runnr_demo_banner_dismissed') === '1'; } catch (e) {}
+  if (el) el.classList.toggle('show', isDemo && !dismissed);
+  if (badge) badge.style.display = isDemo ? 'inline-block' : 'none';
+}
+window.openAboutModal = openAboutModal;
+window.openPrivacyModal = openPrivacyModal;
+window.openWhopPricing = openWhopPricing;
+window.dismissDemoBanner = dismissDemoBanner;
+
 function changeLanguage(code) {
   if (!window.RunnrI18n) return;
   S.lang = RunnrI18n.setLang(code);
@@ -2105,6 +2192,7 @@ function updateHomeStats() {
     RunnrGrowth.renderDisciplineCard(S);
     RunnrGrowth.renderHomeBanner(S);
   }
+  updateDemoBanner();
 }
 
 // ── SIZER TABS ─────────────────────────────────────────────────────────────
@@ -5699,6 +5787,33 @@ function renderCoachPage() {
 
   const instBal = portfolioBaseBal() || S.bal || 10000;
   const inst = CoachEngine.institutionalMetrics(S.trades, instBal);
+  const instLocked = inst.count < INST_MIN_TRADES;
+  const instCard = document.getElementById('coach-institutional-card');
+  if (instCard) instCard.classList.toggle('inst-locked', instLocked);
+
+  if (instLocked) {
+    set('coach-sortino', '—');
+    set('coach-recovery', '—');
+    set('coach-pf-inst', '—');
+    const lockedVerdict = typeof t === 'function'
+      ? t('coach.instLocked', { n: INST_MIN_TRADES })
+      : `Unlocks at ${INST_MIN_TRADES} closed trades`;
+    set('coach-sortino-verdict', lockedVerdict);
+    set('coach-recovery-verdict', lockedVerdict);
+    set('coach-pf-inst-verdict', inst.count ? `${inst.count} / ${INST_MIN_TRADES}` : lockedVerdict);
+    ['coach-sortino', 'coach-recovery', 'coach-pf-inst'].forEach((id) => {
+      const el = document.getElementById(id);
+      if (el) el.style.color = 'var(--text3)';
+    });
+    const instNote = document.getElementById('coach-inst-note');
+    if (instNote) {
+      instNote.textContent = inst.count
+        ? (typeof t === 'function'
+          ? t('coach.instLockedNote', { count: inst.count, min: INST_MIN_TRADES })
+          : `${inst.count} of ${INST_MIN_TRADES} closed trades logged. Institutional metrics unlock once your sample is large enough.`)
+        : (typeof t === 'function' ? t('coach.instMinNote') : 'Institutional metrics need 30+ closed trades (PF meaningful at 200+).');
+    }
+  } else {
   const instColor = (pass) => pass ? 'var(--accent)' : (inst.count >= 30 ? 'var(--amber)' : 'var(--text3)');
   const fmtInst = (v, digits = 2) => {
     if (!inst.count) return '—';
@@ -5728,6 +5843,7 @@ function renderCoachPage() {
     } else {
       instNote.textContent = `${inst.count} trades over ${inst.tradeYears.toFixed(1)}y · ${inst.profitFactorSignificance.detail}. Sortino penalises only downside vol (not upside). Recovery = net profit ÷ largest peak-to-trough drawdown (${S.sym}${Math.round(inst.maxDrawdownAbs).toLocaleString()}).`;
     }
+  }
   }
   const baronBench = document.getElementById('coach-baron-benchmark');
   if (baronBench && window.Baron?.INSTITUTIONAL_BENCHMARK) {
