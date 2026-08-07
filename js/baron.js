@@ -1,4 +1,4 @@
-/** Glacifraga Obsidian — 48-ticker universe (shares + commodities; was Baron 38) */
+/** Runnr risk helpers — sizing, P&L, open/closed trade checks. */
 const Baron = {
   EQUITIES: [
     "AAPL", "MSFT", "NVDA", "AMD", "AVGO", "TSM", "ORCL", "NOW", "ADBE", "ARM", "LRCX",
@@ -19,48 +19,7 @@ const Baron = {
     atr_stop_mult: 2,
     atr_tp_mult: 4,
     max_position_pct: 10,
-    volume_note: "Breakout + 1% risk, 2× ATR stop, 4× ATR target",
-  },
-
-  /** Published backtest — Glacifraga Obsidian 48 (July 2026). */
-  INSTITUTIONAL_BENCHMARK: {
-    full: {
-      label: "GLACIFRAGA OBSIDIAN",
-      period: "2017–2026",
-      years: 9.7,
-      trades: 1130,
-      winRate: 46.5,
-      sharpe: 2.04,
-      sortino: 7.03,
-      profitFactor: 2.03,
-      maxDrawdownPct: 6.6,
-      netPnl: 688229,
-      cagr: 23.8,
-      initialCapital: 100000,
-      recoveryFactor: 26.31,
-    },
-    stress: {
-      label: "OBSIDIAN — stress window",
-      period: "2022–2026",
-      years: 4.5,
-      trades: 511,
-      winRate: 47.6,
-      sharpe: 2.07,
-      sortino: 5.35,
-      profitFactor: 2.16,
-      maxDrawdownPct: 23.1,
-      netPnl: 374244,
-      cagr: 41.5,
-      initialCapital: 100000,
-      recoveryFactor: 14.31,
-    },
-    thresholds: {
-      sortino: 2.0,
-      recoveryFactor: 3.0,
-      minTradesForPf: 200,
-      institutionalPf: 1.25,
-      institutionalPfTrades: 2000,
-    },
+    volume_note: "1% risk, 2× ATR stop, 4× ATR target, 10% max position",
   },
 
   get watchlist() {
@@ -150,7 +109,7 @@ const Baron = {
     return false;
   },
 
-  /** Risk-based share count with Baron 10% cap */
+  /** Risk-based share count with 10% position cap */
   sizeShares(balance, riskPct, entry, stop) {
     if (!entry || !stop || entry === stop) return { shares: 0, risk: 0 };
     const stopDist = Math.abs(entry - stop);
@@ -192,36 +151,7 @@ const Baron = {
     if (typeof calcShares === "function") calcShares();
     return true;
   },
-
-  pickTicker(sym) {
-    const el = document.getElementById("sh-instr");
-    if (el) el.value = sym;
-    if (typeof calcShares === "function") calcShares();
-  },
-
-  importToWatchlist(state, maxNew = 12) {
-    const existing = new Set(state.watchlist.map((w) => w.sym));
-    let added = 0;
-    for (const sym of this.watchlist) {
-      if (existing.has(sym) || added >= maxNew) continue;
-      state.watchlist.push({
-        id: Date.now() + added,
-        sym,
-        dir: "long",
-        entry: 0,
-        stop: 0,
-        target: 0,
-        thesis: "",
-        rr: this.STRATEGY.atr_tp_mult / this.STRATEGY.atr_stop_mult,
-        urgent: false,
-        baron: true,
-        needsLevels: true,
-      });
-      existing.add(sym);
-      added++;
-    }
-    return added;
-  },
 };
 
 window.Baron = Baron;
+window.RunnrRisk = Baron;

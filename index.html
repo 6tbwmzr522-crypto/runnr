@@ -871,10 +871,9 @@ body.light #equity-canvas{filter:invert(0)}
         <div class="card">
           <div class="card-title">Shares Position Sizer</div>
           <div style="background:var(--accent-dim);border:1px solid var(--border);border-radius:var(--r-sm);padding:10px 12px;margin-bottom:12px">
-            <div style="font-size:10px;font-weight:700;color:var(--accent);letter-spacing:0.8px;text-transform:uppercase;margin-bottom:6px">🎩 Baron Preset</div>
+            <div style="font-size:10px;font-weight:700;color:var(--accent);letter-spacing:0.8px;text-transform:uppercase;margin-bottom:6px">Risk defaults</div>
             <div style="font-size:11px;color:var(--text2);margin-bottom:8px;line-height:1.4">1% risk · 2× ATR stop · 4× ATR target · 10% max position</div>
-            <div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:8px" id="baron-ticker-pills"></div>
-            <button type="button" class="btn btn-sm btn-ghost" style="width:100%" onclick="applyBaronSharesPreset()">Apply ATR stops to entry</button>
+            <button type="button" class="btn btn-sm btn-ghost" style="width:100%" onclick="applyAtrSharesPreset()">Apply ATR stops to entry</button>
           </div>
           <div class="field"><label>Ticker</label><input id="sh-instr" placeholder="AAPL, TSLA..." value="RACE"></div>
           <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
@@ -1060,7 +1059,6 @@ body.light #equity-canvas{filter:invert(0)}
           </div>
         </div>
         <div id="coach-inst-note" style="font-size:11px;color:var(--text3);line-height:1.5;margin-bottom:10px">—</div>
-        <div id="coach-baron-benchmark" style="font-size:11px;color:var(--text2);line-height:1.5;border-top:1px solid var(--border);padding-top:10px"></div>
       </div>
 
       <!-- AI Insights -->
@@ -1114,7 +1112,6 @@ body.light #equity-canvas{filter:invert(0)}
     <div class="page" id="page-watchlist">
       <div class="section-hdr" style="margin-bottom:6px">
         <h3 style="font-size:15px" data-i18n="watch.title">Watchlist</h3>
-        <button class="btn btn-sm btn-ghost" onclick="importBaronWatchlist()" style="margin-right:4px" data-i18n="watch.baron">🎩 Baron</button>
         <button class="btn btn-sm" onclick="openModal('modal-add-watch')" style="background:var(--accent);color:#070d0b;font-family:var(--font-head);font-size:12px;font-weight:700;border:none;cursor:pointer;padding:7px 14px;border-radius:20px" data-i18n="watch.addSetup">+ Add Setup</button>
       </div>
       <div class="feed-status" style="margin-bottom:10px">
@@ -1737,9 +1734,9 @@ body.light #equity-canvas{filter:invert(0)}
   </div>
 </div>
 
-<script src="js/i18n.js?v=4"></script>
-<script src="js/baron.js?v=27"></script>
-<script src="js/coach.js?v=23"></script>
+<script src="js/i18n.js?v=5"></script>
+<script src="js/baron.js?v=28"></script>
+<script src="js/coach.js?v=24"></script>
 <script src="js/onboarding.js?v=20"></script>
 <script src="js/sync.js?v=36"></script>
 <script>
@@ -1805,7 +1802,8 @@ function isOptionSymbol(sym) {
   return /[CP]\d{6,}/.test(s);
 }
 
-const BARON_THESIS_PLACEHOLDER = 'Baron universe — set levels from chart';
+const LEVELS_THESIS_PLACEHOLDER = 'Set levels from your chart';
+const BARON_THESIS_PLACEHOLDER = LEVELS_THESIS_PLACEHOLDER; // legacy alias for stored watchlist rows
 
 function migrateTradeEditability() {
   let changed = false;
@@ -1854,13 +1852,18 @@ try { migrateTradeEditability(); } catch (e) { console.warn('migrateTradeEditabi
 
 function migrateWatchlistThesis() {
   let changed = false;
+  const oldPlaceholders = new Set([
+    LEVELS_THESIS_PLACEHOLDER,
+    'Baron universe — set levels from chart',
+    'Baron universe — set levels from your chart',
+  ]);
   S.watchlist.forEach(w => {
-    if (w.thesis === BARON_THESIS_PLACEHOLDER) {
+    if (oldPlaceholders.has(w.thesis)) {
       w.thesis = '';
       w.needsLevels = !w.entry || !w.stop || !w.target;
       changed = true;
     }
-    if ((!w.entry || !w.stop || !w.target) && w.baron) w.needsLevels = true;
+    if ((!w.entry || !w.stop || !w.target) && (w.baron || w.needsLevels)) w.needsLevels = true;
   });
   if (changed) persist();
 }
@@ -2189,7 +2192,6 @@ function updateHomeStats() {
     pill.classList.toggle('active', parseFloat(pill.textContent) === S.risk);
   });
   updateTier();
-  renderBaronPills();
   if (window.RunnrGrowth) {
     RunnrGrowth.renderDisciplineCard(S);
     RunnrGrowth.renderHomeBanner(S);
@@ -2526,8 +2528,8 @@ function renderJournal() {
     if (alpacaPending.length) {
       hint.style.display = 'block';
       hint.innerHTML = `<div style="display:flex;justify-content:space-between;align-items:flex-start;gap:10px;flex-wrap:wrap">
-        <span><strong>${alpacaPending.length} Alpaca fill${alpacaPending.length > 1 ? 's' : ''}</strong> need discipline flags — closed round-trips already count toward Portfolio P&amp;L. Tap each trade, or bulk-apply Baron rules.</span>
-        <button class="btn btn-sm" style="white-space:nowrap;flex-shrink:0" onclick="applyBaronRulesToAll(event)">🎩 Baron rules on all</button>
+        <span><strong>${alpacaPending.length} Alpaca fill${alpacaPending.length > 1 ? 's' : ''}</strong> need discipline flags — closed round-trips already count toward Portfolio P&amp;L. Tap each trade, or confirm stop &amp; size for all.</span>
+        <button class="btn btn-sm" style="white-space:nowrap;flex-shrink:0" onclick="applyDisciplineDefaultsToAll(event)">Confirm stop &amp; size</button>
       </div>`;
     } else {
       hint.style.display = 'none';
@@ -2652,14 +2654,15 @@ function reviewTrade(id) {
   openTradeEditor(id);
 }
 
-function applyBaronRulesToAll(e) {
+function applyDisciplineDefaultsToAll(e) {
   if (e) e.stopPropagation();
   const pending = S.trades.filter(t => t.source === 'alpaca' && t.incomplete);
   if (!pending.length) return;
-  const baronNote = window.Baron
-    ? ` (${Baron.STRATEGY.risk_pct}% risk · ${Baron.STRATEGY.atr_stop_mult}× ATR stop · ${Baron.STRATEGY.max_position_pct}% max size)`
+  const risk = window.Baron?.STRATEGY || window.RunnrRisk?.STRATEGY;
+  const note = risk
+    ? ` (${risk.risk_pct}% risk · ${risk.atr_stop_mult}× ATR stop · ${risk.max_position_pct}% max size)`
     : '';
-  if (!confirm(`Apply Baron discipline to all ${pending.length} Alpaca fills${baronNote}?\n\nStop confirmed ✓ · Size within rules ✓`)) return;
+  if (!confirm(`Confirm stop & size for all ${pending.length} Alpaca fills${note}?\n\nStop confirmed ✓ · Size within rules ✓`)) return;
   pending.forEach(t => {
     const fill = Number(t.fillPrice || t.entry || t.exit || 0);
     if (t.dir === 'long') {
@@ -2672,7 +2675,7 @@ function applyBaronRulesToAll(e) {
     t.stopOk = true;
     t.sizeOk = true;
     t.incomplete = false;
-    t.baronRules = true;
+    t.baronRules = true; // legacy field — means discipline defaults applied
     t.disciplineOnly = true;
     t.pnl = null;
   });
@@ -2680,8 +2683,9 @@ function applyBaronRulesToAll(e) {
   renderJournal();
   updateHomeStats();
   if (typeof renderCoachPage === 'function') renderCoachPage();
-  alert(`🎩 ${pending.length} trades marked as Baron-disciplined. Check Coach for your score.`);
+  alert(`${pending.length} trades marked disciplined. Check Coach for your score.`);
 }
+window.applyBaronRulesToAll = applyDisciplineDefaultsToAll;
 
 // ── LOG MODAL ──────────────────────────────────────────────────────────────
 function getSizerDraft(type) {
@@ -3063,7 +3067,7 @@ function renderWatchDetailCard(w) {
       ${!thesis ? `<button onclick="event.stopPropagation();refreshWatchBriefForItem(${w.id}, event)" style="background:transparent;color:var(--text3);border:1px solid var(--border)">↻ AI read</button>` : ''}
     </div>
     ${remarkBlock}
-    ${needsLevels && !thesis && !display ? `<div class="wds-thesis" style="border-top:none;padding-top:0;color:var(--amber);font-style:normal;font-family:var(--font-body);font-size:11px">Baron ticker — set levels &amp; add your own remark anytime.</div>` : ''}
+    ${needsLevels && !thesis && !display ? `<div class="wds-thesis" style="border-top:none;padding-top:0;color:var(--amber);font-style:normal;font-family:var(--font-body);font-size:11px">Set entry, stop &amp; target — add your own remark anytime.</div>` : ''}
     ${!needsLevels && !thesis && !display ? `<div class="wds-thesis" style="border-top:none;padding-top:0;color:var(--text3);font-style:normal;font-family:var(--font-body);font-size:11px">Tap + Remark to override the auto read.</div>` : ''}
   </div>`;
 }
@@ -5874,14 +5878,6 @@ function renderCoachPage() {
     }
   }
   }
-  const baronBench = document.getElementById('coach-baron-benchmark');
-  if (baronBench && window.Baron?.INSTITUTIONAL_BENCHMARK) {
-    const b = Baron.INSTITUTIONAL_BENCHMARK.full;
-    const t = Baron.INSTITUTIONAL_BENCHMARK.thresholds;
-    baronBench.innerHTML = `<div style="font-family:var(--font-head);font-size:12px;font-weight:700;color:var(--gold);margin-bottom:4px">🪩 ${b.label} · published track record</div>`
-      + `${b.period} · ${b.trades} trades · Sortino ${b.sortino} · Recovery ${b.recoveryFactor} · PF ${b.profitFactor} · Sharpe ${b.sharpe} · max DD −${b.maxDrawdownPct}%`
-      + `<div style="font-size:10px;color:var(--text3);margin-top:4px">Institutional bars: Sortino &gt; ${t.sortino}, Recovery &gt; ${t.recoveryFactor}, PF ≥ ${t.institutionalPf} with ${t.minTradesForPf}+ trades (Baron: ${b.trades}).</div>`;
-  }
 
   const list = document.getElementById('coach-insights-list');
   if (list) {
@@ -6155,17 +6151,9 @@ async function fetchFearGreed() {
   updateFGDisplay(fallback, { fallback: true });
 }
 
-// ── BARON INTEGRATION ─────────────────────────────────────────────────────
-function renderBaronPills() {
-  const el = document.getElementById('baron-ticker-pills');
-  if (!el || !window.Baron) return;
-  el.innerHTML = Baron.watchlist.slice(0, 8).map(sym =>
-    `<div class="risk-pill" onclick="Baron.pickTicker('${sym}')">${sym}</div>`
-  ).join('');
-}
-
-function applyBaronSharesPreset() {
-  if (!Baron.applySharesPreset(S.bal, S.risk)) {
+// ── RISK HELPERS (ATR defaults) ───────────────────────────────────────────
+function applyAtrSharesPreset() {
+  if (!window.Baron?.applySharesPreset?.(S.bal, S.risk)) {
     alert('Enter an entry price first.');
     return;
   }
@@ -6173,14 +6161,7 @@ function applyBaronSharesPreset() {
   updateHomeStats();
   persist();
 }
-
-function importBaronWatchlist() {
-  const n = Baron.importToWatchlist(S, 12);
-  persist();
-  renderWatchlist();
-  renderHomePreviews();
-  alert(n ? `Added ${n} Baron tickers. Set entry/stop/target from your chart.` : 'Baron tickers already on watchlist.');
-}
+window.applyBaronSharesPreset = applyAtrSharesPreset;
 
 function registerServiceWorker() {
   if ('serviceWorker' in navigator) {
@@ -6245,7 +6226,6 @@ function initApp() {
   try { normalizeWatchlist(); } catch (e) {}
   try { updateHomeStats(); } catch (e) {}
   try { renderHomePreviews(); } catch (e) {}
-  try { renderBaronPills(); } catch (e) {}
   try { initSyncAuthForm(); } catch (e) {}
   registerServiceWorker();
   renderHeaderSyncPill();

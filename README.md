@@ -2,13 +2,11 @@
 
 Mobile-first trading discipline app: position sizing, journal, watchlist, portfolio analytics, and Coach insights.
 
-Pairs with **Glacifraga Obsidian** — same 48-ticker universe and 1% / 2× ATR / 4× ATR risk model.
-
 ## Features
 
-- **Sizer** — CFD, shares (Baron preset), options (3-rule gate), crypto
+- **Sizer** — CFD, shares (ATR risk defaults), options (3-rule gate), crypto
 - **Watch** — live prices, entry-zone alerts, push notifications
-- **Journal** — discipline flags, CSV import/export
+- **Journal** — discipline flags, CSV import/export, Alpaca sync
 - **Coach** — insights from your real trade data
 - **Portfolio** — equity curve, discipline donut, heatmap
 - **PWA** — installable, offline shell for the app shell
@@ -31,7 +29,7 @@ Or open `index.html` via a local server (required for service worker).
 ```bash
 git init
 git add .
-git commit -m "Runnr v1 — PWA, Baron, Coach"
+git commit -m "Runnr v1 — PWA, Coach, journal"
 git remote add origin git@github.com:YOUR_USER/runnr.git
 git push -u origin main
 ```
@@ -46,7 +44,7 @@ Live URL: `https://YOUR_USER.github.io/runnr/`
 ```
 runnr/
   index.html          # main app
-  js/baron.js         # Obsidian 48-ticker sizing + benchmark
+  js/baron.js         # risk sizing + P&L helpers (RunnrRisk)
   js/coach.js         # journal insight engine
   js/sync.js          # Runnr API client (broker sync)
   api/                # small backend (Railway)

@@ -283,7 +283,7 @@ const CoachEngine = {
       insights.push({
         type: "positive",
         title: "✓ Stop discipline strong",
-        text: `${all.stopPct.toFixed(0)}% stop confirmation across ${all.count} trades. This is Baron-grade process — keep the pre-trade checklist.`,
+        text: `${all.stopPct.toFixed(0)}% stop confirmation across ${all.count} trades. Strong process — keep the pre-trade checklist.`,
       });
     }
 
@@ -291,7 +291,7 @@ const CoachEngine = {
       insights.push({
         type: "warning",
         title: "⚠ Oversizing pattern",
-        text: `Size discipline is ${all.sizePct.toFixed(0)}%. Check the Sizer before entry — Baron uses 1% risk with a 10% position cap.`,
+        text: `Size discipline is ${all.sizePct.toFixed(0)}%. Check the Sizer before entry — default rules use 1% risk with a 10% position cap.`,
       });
     }
 
@@ -319,7 +319,7 @@ const CoachEngine = {
       insights.push({
         type: "warning",
         title: "⚠ Winners cut early",
-        text: `${earlyCuts.length} of ${winners.length} winners exited with <3% gain — possible fear of giving back profits. Trail stops (Baron style) beat manual exits.`,
+        text: `${earlyCuts.length} of ${winners.length} winners exited with <3% gain — possible fear of giving back profits. Trail stops often beat manual early exits.`,
       });
     }
 
@@ -354,7 +354,7 @@ const CoachEngine = {
         return "Need more winning trades in the journal to detect an early-exit pattern.";
       }
       const small = winners.filter((t) => t.pnl < (balance * riskPct) / 100 * 2);
-      return `${small.length} of ${winners.length} winners booked less than 2R — review exits on ${[...new Set(small.map((t) => t.instr))].slice(0, 3).join(", ") || "recent names"}. Consider letting Baron-style trails run.`;
+      return `${small.length} of ${winners.length} winners booked less than 2R — review exits on ${[...new Set(small.map((t) => t.instr))].slice(0, 3).join(", ") || "recent names"}. Consider letting trail stops run.`;
     }
 
     if (q.includes("worst instrument") || q.includes("discipline")) {
