@@ -100,17 +100,22 @@ def alpaca_status(user: dict = Depends(get_current_user)):
 def alpaca_sync(user: dict = Depends(get_current_user)):
     client = _client(user["id"])
     try:
+        account = client.get_account()
         positions = client.get_all_positions()
-        orders = client.get_orders(GetOrdersRequest(status=QueryOrderStatus.CLOSED, limit=50))
+        orders = client.get_orders(GetOrdersRequest(status=QueryOrderStatus.CLOSED, limit=100))
     except Exception as exc:
         raise HTTPException(status_code=502, detail=f"Alpaca sync failed: {exc}") from exc
 
     return SyncResponse(
         broker="alpaca",
+        equity=float(account.equity),
+        cash=float(account.cash),
+        buying_power=float(account.buying_power),
         positions=[
             {
                 "symbol": p.symbol,
                 "qty": float(p.qty),
+                "avg_entry_price": float(p.avg_entry_price) if getattr(p, "avg_entry_price", None) else None,
                 "market_value": float(p.market_value),
                 "unrealized_pl": float(p.unrealized_pl),
                 "unrealized_plpc": float(p.unrealized_plpc) * 100,

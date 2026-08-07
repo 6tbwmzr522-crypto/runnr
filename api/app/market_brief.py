@@ -16,7 +16,7 @@ CRYPTO = frozenset({"BTC", "ETH", "SOL", "DOGE", "XRP", "ADA", "AVAX", "LINK", "
 
 _BRIEF_REFRESH: dict[str, float] = {}
 _CACHE: dict[str, tuple[float, dict]] = {}
-_CACHE_TTL = 30 * 60
+_CACHE_TTL = 10 * 60
 
 
 def normalize_yahoo_symbol(symbol: str) -> str:

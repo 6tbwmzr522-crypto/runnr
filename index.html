@@ -810,6 +810,7 @@ body.light #equity-canvas{filter:invert(0)}
         <div class="home-footer-brand">Thin Ice Digital</div>
         <div class="home-footer-links">
           <button type="button" onclick="openAboutModal()" data-i18n="footer.about">About</button>
+          <button type="button" onclick="location.href='report/'">Discipline report</button>
           <button type="button" onclick="openPrivacyModal()" data-i18n="footer.privacy">Privacy</button>
           <button type="button" onclick="openWhopPricing()" data-i18n="footer.pricing">Pricing</button>
         </div>
@@ -1206,6 +1207,7 @@ body.light #equity-canvas{filter:invert(0)}
       <div style="margin-top:16px;padding-top:12px;border-top:1px solid var(--border);text-align:center">
         <div class="home-footer-links" style="margin:0">
           <button type="button" onclick="openAboutModal()" data-i18n="footer.about">About</button>
+          <button type="button" onclick="location.href='report/'">Discipline report</button>
           <button type="button" onclick="openPrivacyModal()" data-i18n="footer.privacy">Privacy</button>
           <button type="button" onclick="openWhopPricing()" data-i18n="footer.pricing">Pricing</button>
         </div>
@@ -1872,7 +1874,7 @@ function migratePortfolioBase() {
   if (S.journalBaseBal > 0) return;
   if (!S.balFromAlpaca || !S.bal || !window.Baron?.resolveTradePnl) return;
   const closedPnl = S.trades
-    .filter(t => !t.incomplete && !t.disciplineOnly)
+    .filter(t => !t.disciplineOnly && isPortfolioPnlTrade(t))
     .reduce((s, t) => {
       const p = Baron.resolveTradePnl(t);
       return p != null ? s + p : s;
@@ -2524,7 +2526,7 @@ function renderJournal() {
     if (alpacaPending.length) {
       hint.style.display = 'block';
       hint.innerHTML = `<div style="display:flex;justify-content:space-between;align-items:flex-start;gap:10px;flex-wrap:wrap">
-        <span><strong>${alpacaPending.length} Alpaca fill${alpacaPending.length > 1 ? 's' : ''}</strong> need discipline flags — tap each trade, or bulk-apply Baron rules.</span>
+        <span><strong>${alpacaPending.length} Alpaca fill${alpacaPending.length > 1 ? 's' : ''}</strong> need discipline flags — closed round-trips already count toward Portfolio P&amp;L. Tap each trade, or bulk-apply Baron rules.</span>
         <button class="btn btn-sm" style="white-space:nowrap;flex-shrink:0" onclick="applyBaronRulesToAll(event)">🎩 Baron rules on all</button>
       </div>`;
     } else {
@@ -2574,14 +2576,24 @@ function formatTradePnl(t, isAlpaca) {
   if (t.disciplineOnly) {
     return '<span style="color:var(--accent);font-size:11px">discipline ✓</span>';
   }
-  if (t.incomplete && isAlpaca) {
-    const fill = Number(t.fillPrice || t.entry || t.exit || 0);
-    return fill > 0 ? 'tap to review' : 'sync for price';
-  }
   if (Baron.isOpenTrade?.(t)) {
+    if (t.incomplete && isAlpaca) {
+      const fill = Number(t.fillPrice || t.entry || t.exit || 0);
+      return fill > 0
+        ? '<span style="color:var(--amber);font-size:12px">Open</span>'
+        : 'sync for price';
+    }
     return '<span style="color:var(--amber);font-size:12px">Open</span>';
   }
   const pnl = resolveTradePnl(t);
+  if (t.incomplete && isAlpaca) {
+    if (pnl != null) {
+      const sign = pnl >= 0 ? '+' : '';
+      return sign + S.sym + Math.abs(pnl).toLocaleString() + ' · review';
+    }
+    const fill = Number(t.fillPrice || t.entry || t.exit || 0);
+    return fill > 0 ? 'tap to review' : 'sync for price';
+  }
   if (pnl == null) return '<span style="color:var(--text3);font-size:12px">—</span>';
   return (pnl >= 0 ? '+' : '') + S.sym + Math.abs(pnl).toLocaleString();
 }
@@ -2928,15 +2940,16 @@ function renderRemarkHtml(w) {
   return '';
 }
 
-const WATCH_BRIEF_MS = 4 * 60 * 60 * 1000;
+const WATCH_BRIEF_MS = 15 * 60 * 1000; // refresh market remarks every 15m
 let watchBriefRunning = false;
 
 function watchBriefFresh(w) {
   return !!(w.autoRemark && w.autoRemarkAt && Date.now() - w.autoRemarkAt < WATCH_BRIEF_MS);
 }
 
-async function fetchWatchBriefForItem(w) {
-  if (watchRemark(w) || watchBriefFresh(w)) return;
+async function fetchWatchBriefForItem(w, force) {
+  if (watchRemark(w)) return;
+  if (!force && watchBriefFresh(w)) return;
   const base = (typeof RunnrSync !== 'undefined' ? RunnrSync.apiBase() : 'https://api.runnr.fyi');
   const sym = quoteSymbolFromInstr(w.sym);
   const params = new URLSearchParams();
@@ -2944,6 +2957,7 @@ async function fetchWatchBriefForItem(w) {
   if (w.entry) params.set('entry', String(w.entry));
   if (w.stop) params.set('stop', String(w.stop));
   if (w.target) params.set('target', String(w.target));
+  if (force) params.set('refresh', '1');
   const qs = params.toString();
   const url = base + '/api/v1/quotes/' + encodeURIComponent(sym) + '/brief' + (qs ? '?' + qs : '');
   const res = await fetchWithTimeout(url, 15000);
@@ -2962,7 +2976,7 @@ async function refreshWatchBriefs(force) {
   const batch = S.watchlist.filter(w => !watchRemark(w) && (force || !watchBriefFresh(w)));
   if (!batch.length) return;
   watchBriefRunning = true;
-  await Promise.allSettled(batch.slice(0, 8).map(w => fetchWatchBriefForItem(w)));
+  await Promise.allSettled(batch.slice(0, 8).map(w => fetchWatchBriefForItem(w, !!force)));
   watchBriefRunning = false;
   if (document.getElementById('page-watchlist')?.classList.contains('active')) renderWatchlist();
 }
@@ -2973,8 +2987,9 @@ async function refreshWatchBriefForItem(id, e) {
   if (!w || watchRemark(w)) return;
   delete w.autoRemark;
   delete w.autoRemarkAt;
+  delete w.autoRemarkMode;
   renderWatchlist();
-  await fetchWatchBriefForItem(w);
+  await fetchWatchBriefForItem(w, true);
   renderWatchlist();
 }
 window.refreshWatchBriefForItem = refreshWatchBriefForItem;
@@ -4166,7 +4181,10 @@ async function refreshAllPrices() {
     else if (liveCount > 0)        setFeedStatus('live', liveCount + '/' + syms.length + ' live · ' + ts);
     else                            setFeedStatus('error', 'Estimated · ' + ts);
     updateTrafficBanner(liveCount, syms.length);
-    if (document.getElementById('page-watchlist').classList.contains('active')) renderWatchlist();
+    if (document.getElementById('page-watchlist').classList.contains('active')) {
+      renderWatchlist();
+      refreshWatchBriefs();
+    }
     renderHomePreviews();
     checkPriceAlerts();
     renderNotifSettings();
@@ -4285,17 +4303,26 @@ function resolveTradePnl(t) {
   return window.Baron?.resolveTradePnl?.(t) ?? null;
 }
 
+/** Closed round-trips count for Portfolio P&L (Alpaca closes included before discipline review). */
+function isPortfolioPnlTrade(t) {
+  if (!t || t.disciplineOnly || t.mergedAway) return false;
+  if (Baron.isOpenTrade?.(t)) return false;
+  if (resolveTradePnl(t) == null) return false;
+  if (!t.incomplete) return true;
+  return t.source === 'alpaca' && (t.alpacaPaired || (Number(t.entry) > 0 && Number(t.exit) > 0));
+}
+
 function filterTrades(period) {
-  const trades = S.trades.filter(t => !t.incomplete && !t.disciplineOnly);
-  return filterByPeriod(trades.filter(t => resolveTradePnl(t) != null), period);
+  const trades = S.trades.filter(isPortfolioPnlTrade);
+  return filterByPeriod(trades, period);
 }
 
 function filterDisciplineTrades(period) {
-  return filterByPeriod(S.trades.filter(t => !t.incomplete), period);
+  return filterByPeriod(S.trades.filter(t => !t.incomplete && !t.mergedAway), period);
 }
 
 function filterPendingTrades(period) {
-  return filterByPeriod(S.trades.filter(t => t.incomplete), period);
+  return filterByPeriod(S.trades.filter(t => t.incomplete && !t.mergedAway), period);
 }
 
 function loadPortfolio(period, tabEl) {
@@ -4367,7 +4394,7 @@ function loadPortfolio(period, tabEl) {
     document.getElementById('port-cur-bal').textContent = sym + Math.round(curBal).toLocaleString();
     document.getElementById('port-cur-bal').style.color = totalPnl >= 0 ? 'var(--accent)' : 'var(--red)';
   }
-  document.getElementById('port-open').textContent = S.trades.filter(t => Baron.isOpenTrade?.(t)).length + pendingTrades.length;
+  document.getElementById('port-open').textContent = S.trades.filter(t => !t.mergedAway && Baron.isOpenTrade?.(t)).length;
 
   const totalLogged = discTrades.length + pendingTrades.length;
   document.getElementById('kpi-trades').textContent = totalLogged || completed.length;
@@ -5656,18 +5683,20 @@ async function runBrokerSync() {
       showToast('Runnr', 'Paste Alpaca keys once — saved to your account');
       return;
     }
-    const { added, repaired } = await RunnrSync.runSync();
+    const { added, repaired, paired } = await RunnrSync.runSync();
     await RunnrSync.refreshStatus();
     renderSyncPage();
     renderHomeBrokerPreview();
     updateHomeStats();
     renderJournal();
-    if (added || repaired) {
+    refreshPortfolioIfVisible();
+    if (added || repaired || paired) {
       switchPage('journal');
       const parts = [];
       if (added) parts.push(`${added} new`);
       if (repaired) parts.push(`${repaired} updated with prices`);
-      alert(`Synced — ${parts.join(', ')} trade(s) in Journal.`);
+      if (paired) parts.push(`${paired} closed round-trip${paired === 1 ? '' : 's'}`);
+      alert(`Synced — ${parts.join(', ')}.`);
     } else {
       alert('Synced — journal is up to date.');
     }

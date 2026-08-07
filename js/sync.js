@@ -306,12 +306,21 @@ const RunnrSync = (() => {
     if (!window.S.trades) window.S.trades = [];
   }
 
-  function applyFillToTrade(trade, fillPrice, dir) {
+  function applyFillToTrade(trade, fillPrice, alpacaSide) {
     trade.fillPrice = fillPrice;
-    if (dir === "long" || trade.dir === "long") {
+    const side = alpacaSide || trade.alpacaSide || (trade.dir === "short" ? "sell" : "buy");
+    trade.alpacaSide = side;
+    if (side === "buy") {
       trade.entry = fillPrice;
+      if (!trade.exit) trade.dir = "long";
     } else {
-      trade.exit = fillPrice;
+      // Sell fill alone is stored as exit until paired into a round-trip
+      if (!trade.entry) {
+        trade.exit = fillPrice;
+        trade.dir = "long"; // assumed long close until short-open pairing says otherwise
+      } else {
+        trade.exit = fillPrice;
+      }
     }
   }
 
@@ -331,7 +340,254 @@ const RunnrSync = (() => {
     return /[CP]\d{6,}/.test(s);
   }
 
-  function importOrders(orders) {
+  function orderAlpacaSide(o) {
+    return String(o.side || "").toLowerCase().includes("sell") ? "sell" : "buy";
+  }
+
+  function fillTimeMs(t) {
+    if (t.filledAt) {
+      const ms = Date.parse(t.filledAt);
+      if (!Number.isNaN(ms)) return ms;
+    }
+    return t.id || 0;
+  }
+
+  function inferAlpacaSide(t) {
+    if (t.alpacaSide === "buy" || t.alpacaSide === "sell") return t.alpacaSide;
+    const hasEntry = Number(t.entry) > 0;
+    const hasExit = Number(t.exit) > 0;
+    if (hasEntry && !hasExit) return "buy";
+    if (hasExit && !hasEntry) return "sell";
+    if (t.dir === "short") return "sell";
+    return "buy";
+  }
+
+  function computeRoundTripPnl(entry, exit, size, dir) {
+    const e = Number(entry);
+    const x = Number(exit);
+    const q = Number(size) || 1;
+    if (!(e > 0 && x > 0)) return 0;
+    if (window.Baron?.tradePnl) {
+      return Math.round(window.Baron.tradePnl(null, e, x, q, dir || "long"));
+    }
+    const raw = dir === "short" ? (e - x) * q : (x - e) * q;
+    return Math.round(raw);
+  }
+
+  /**
+   * FIFO-pair Alpaca buy/sell fill legs into round-trips so journal closes
+   * when the position is closed on Alpaca. Removes orphan sell legs after merge.
+   */
+  function pairAlpacaRoundTrips(positions) {
+    ensureBrokerState();
+    let paired = 0;
+    const openQty = {};
+    (positions || []).forEach((p) => {
+      const sym = String(p.symbol || "").toUpperCase();
+      if (!sym) return;
+      openQty[sym] = Number(p.qty) || 0;
+    });
+
+    const legs = (window.S.trades || []).filter(
+      (t) => t.source === "alpaca" && !t.mergedAway && !t.alpacaPaired
+    );
+    legs.forEach((t) => {
+      if (!t.alpacaSide) t.alpacaSide = inferAlpacaSide(t);
+    });
+
+    // Already have both prices from a prior partial edit — mark paired
+    legs.forEach((t) => {
+      const e = Number(t.entry);
+      const x = Number(t.exit);
+      if (e > 0 && x > 0 && Math.abs(e - x) > 1e-9) {
+        t.alpacaPaired = true;
+        t.dir = t.dir === "short" ? "short" : "long";
+        t.pnl = computeRoundTripPnl(e, x, t.size, t.dir);
+        paired++;
+      }
+    });
+
+    const buys = (window.S.trades || [])
+      .filter(
+        (t) =>
+          t.source === "alpaca" &&
+          !t.mergedAway &&
+          !t.alpacaPaired &&
+          inferAlpacaSide(t) === "buy" &&
+          Number(t.entry) > 0 &&
+          !(Number(t.exit) > 0)
+      )
+      .sort((a, b) => fillTimeMs(a) - fillTimeMs(b));
+
+    const sells = (window.S.trades || [])
+      .filter(
+        (t) =>
+          t.source === "alpaca" &&
+          !t.mergedAway &&
+          !t.alpacaPaired &&
+          inferAlpacaSide(t) === "sell" &&
+          Number(t.exit || t.fillPrice) > 0 &&
+          !(Number(t.entry) > 0) // pure sell/close legs (not yet open-short converted)
+      )
+      .sort((a, b) => fillTimeMs(a) - fillTimeMs(b));
+
+    // Short opens: sell with only exit and still open on broker → keep as open short
+    const stillOpenShort = new Set(
+      Object.keys(openQty).filter((sym) => openQty[sym] < 0)
+    );
+
+    for (const sell of sells) {
+      const sym = String(sell.instr || "").toUpperCase();
+      const sellPx = Number(sell.exit || sell.fillPrice) || 0;
+      let sellQty = Number(sell.size) || 0;
+      if (!sym || !(sellPx > 0) || !(sellQty > 0)) continue;
+
+      // If this symbol is net short on Alpaca and no matching buy yet, leave as open short
+      const matchingBuys = buys.filter((b) => {
+        if (String(b.instr || "").toUpperCase() !== sym) return false;
+        if (b.alpacaPaired || b.mergedAway) return false;
+        if (!(Number(b.remainingQty != null ? b.remainingQty : b.size) > 0)) return false;
+        // Only enforce chronology when both legs have real fill timestamps
+        if (b.filledAt && sell.filledAt && fillTimeMs(b) > fillTimeMs(sell) + 1000) return false;
+        return true;
+      });
+
+      if (!matchingBuys.length) {
+        if (stillOpenShort.has(sym) || (openQty[sym] || 0) < 0) {
+          sell.dir = "short";
+          sell.entry = sellPx;
+          sell.exit = null;
+          sell.alpacaSide = "sell";
+          continue;
+        }
+        // Orphan sell with no open short — nothing to pair this sync
+        continue;
+      }
+
+      for (const buy of matchingBuys) {
+        if (sellQty <= 0) break;
+        const buyLeft = Number(buy.remainingQty != null ? buy.remainingQty : buy.size) || 0;
+        if (buyLeft <= 0) continue;
+        const matchQty = Math.min(buyLeft, sellQty);
+        if (matchQty <= 0) continue;
+
+        if (matchQty >= buyLeft - 1e-8) {
+          // Full close of this buy leg
+          buy.exit = sellPx;
+          buy.dir = "long";
+          buy.size = buyLeft;
+          buy.pnl = computeRoundTripPnl(buy.entry, sellPx, buyLeft, "long");
+          buy.alpacaPaired = true;
+          buy.exitExternalId = sell.externalId;
+          buy.remainingQty = 0;
+          paired++;
+        } else {
+          // Partial: split remaining open qty onto a new open leg
+          buy.exit = sellPx;
+          buy.dir = "long";
+          buy.size = matchQty;
+          buy.pnl = computeRoundTripPnl(buy.entry, sellPx, matchQty, "long");
+          buy.alpacaPaired = true;
+          buy.exitExternalId = sell.externalId;
+          buy.remainingQty = 0;
+          paired++;
+          const remainder = buyLeft - matchQty;
+          window.S.trades.unshift({
+            id: Date.now() + Math.floor(Math.random() * 1000),
+            instr: buy.instr,
+            dir: "long",
+            entry: buy.entry,
+            exit: null,
+            size: remainder,
+            remainingQty: remainder,
+            pnl: 0,
+            stopOk: null,
+            sizeOk: null,
+            type: buy.type || "shares",
+            date: buy.date,
+            incomplete: true,
+            source: "alpaca",
+            externalId: buy.externalId + ":rem:" + remainder,
+            fillPrice: buy.entry,
+            alpacaSide: "buy",
+            filledAt: buy.filledAt,
+            parentExternalId: buy.externalId,
+          });
+          buys.push(window.S.trades[0]);
+          buys.sort((a, b) => fillTimeMs(a) - fillTimeMs(b));
+        }
+        sellQty -= matchQty;
+      }
+
+      if (sellQty <= 1e-8) {
+        sell.mergedAway = true;
+      } else {
+        sell.size = sellQty;
+        sell.remainingQty = sellQty;
+      }
+    }
+
+    // Cover shorts: buy legs that close open shorts (sell-first)
+    const openShorts = (window.S.trades || [])
+      .filter(
+        (t) =>
+          t.source === "alpaca" &&
+          !t.mergedAway &&
+          !t.alpacaPaired &&
+          t.dir === "short" &&
+          Number(t.entry) > 0 &&
+          !(Number(t.exit) > 0)
+      )
+      .sort((a, b) => fillTimeMs(a) - fillTimeMs(b));
+
+    const coverBuys = (window.S.trades || [])
+      .filter(
+        (t) =>
+          t.source === "alpaca" &&
+          !t.mergedAway &&
+          !t.alpacaPaired &&
+          inferAlpacaSide(t) === "buy" &&
+          Number(t.entry || t.fillPrice) > 0 &&
+          !(Number(t.exit) > 0)
+      )
+      .sort((a, b) => fillTimeMs(a) - fillTimeMs(b));
+
+    for (const shortT of openShorts) {
+      const sym = String(shortT.instr || "").toUpperCase();
+      let shortLeft = Number(shortT.remainingQty != null ? shortT.remainingQty : shortT.size) || 0;
+      if (!(shortLeft > 0)) continue;
+      // Only auto-close short if Alpaca no longer shows short exposure
+      const brokerQty = openQty[sym];
+      if (brokerQty != null && brokerQty < 0) continue;
+
+      for (const buy of coverBuys) {
+        if (shortLeft <= 0) break;
+        if (String(buy.instr || "").toUpperCase() !== sym) continue;
+        if (buy.alpacaPaired || buy.mergedAway) continue;
+        const buyLeft = Number(buy.remainingQty != null ? buy.remainingQty : buy.size) || 0;
+        if (buyLeft <= 0) continue;
+        // Cover buy must be after short open
+        if (fillTimeMs(buy) < fillTimeMs(shortT)) continue;
+        const matchQty = Math.min(shortLeft, buyLeft);
+        const coverPx = Number(buy.entry || buy.fillPrice);
+        shortT.exit = coverPx;
+        shortT.dir = "short";
+        shortT.size = matchQty;
+        shortT.pnl = computeRoundTripPnl(shortT.entry, coverPx, matchQty, "short");
+        shortT.alpacaPaired = true;
+        shortT.exitExternalId = buy.externalId;
+        paired++;
+        buy.mergedAway = true;
+        shortLeft -= matchQty;
+      }
+    }
+
+    // Drop merged orphan legs from journal
+    window.S.trades = (window.S.trades || []).filter((t) => !t.mergedAway);
+    return paired;
+  }
+
+  function importOrders(orders, positions) {
     ensureBrokerState();
     const seen = new Set(window.S.brokerSync.importedOrderIds || []);
     let added = 0;
@@ -339,16 +595,24 @@ const RunnrSync = (() => {
     const maxId = window.S.trades.reduce((m, t) => Math.max(m, t.id || 0), 0);
     const demoIds = new Set([1, 2, 3, 4]);
 
-    orders.forEach((o, i) => {
+    // Process oldest first so FIFO pairing sees chronology
+    const sorted = [...(orders || [])].sort((a, b) => {
+      const ta = Date.parse(a.filled_at || a.submitted_at || 0) || 0;
+      const tb = Date.parse(b.filled_at || b.submitted_at || 0) || 0;
+      return ta - tb;
+    });
+
+    sorted.forEach((o, i) => {
       if (!o.id) return;
-      const side = String(o.side || "").toLowerCase();
-      const dir = side.includes("sell") ? "short" : "long";
+      const alpacaSide = orderAlpacaSide(o);
       const fillPrice = Number(o.filled_avg_price) || 0;
 
       if (seen.has(o.id)) {
-        const existing = window.S.trades.find((t) => t.externalId === o.id);
+        const existing = window.S.trades.find(
+          (t) => t.externalId === o.id || t.exitExternalId === o.id
+        );
         if (existing && fillPrice && tradeNeedsPriceFix(existing)) {
-          applyFillToTrade(existing, fillPrice, dir);
+          applyFillToTrade(existing, fillPrice, alpacaSide);
           repaired++;
         }
         return;
@@ -362,13 +626,15 @@ const RunnrSync = (() => {
         ? new Date(filledAt).toLocaleDateString("en-GB", { month: "short", day: "numeric" })
         : new Date().toLocaleDateString("en-GB", { month: "short", day: "numeric" });
 
+      const isBuy = alpacaSide === "buy";
       window.S.trades.unshift({
         id: maxId + i + 1 + Date.now(),
         instr: sym,
-        dir,
-        entry: dir === "long" ? fillPrice : null,
-        exit: dir === "short" ? fillPrice : null,
+        dir: isBuy ? "long" : "long", // sell legs pair into long closes; short opens adjusted in pair step
+        entry: isBuy ? fillPrice : null,
+        exit: isBuy ? null : fillPrice,
         size: qty,
+        remainingQty: qty,
         pnl: 0,
         stopOk: null,
         sizeOk: null,
@@ -378,6 +644,8 @@ const RunnrSync = (() => {
         source: "alpaca",
         externalId: o.id,
         fillPrice,
+        alpacaSide,
+        filledAt: filledAt || null,
       });
       seen.add(o.id);
       added++;
@@ -387,10 +655,14 @@ const RunnrSync = (() => {
       window.S.trades = window.S.trades.filter((t) => t.source === "alpaca" || !demoIds.has(t.id));
     }
 
+    const paired = pairAlpacaRoundTrips(positions || []);
+
     window.S.brokerSync.importedOrderIds = [...seen];
-    window.S.brokerSync.alpaca.imported = window.S.trades.filter((t) => t.source === "alpaca").length;
+    window.S.brokerSync.alpaca.imported = window.S.trades.filter(
+      (t) => t.source === "alpaca" && !t.mergedAway
+    ).length;
     if (typeof persist === "function") persist();
-    return { added, repaired };
+    return { added, repaired, paired };
   }
 
   async function refreshStatus() {
@@ -464,14 +736,23 @@ const RunnrSync = (() => {
       throw new Error("Alpaca not connected — tap Connect Alpaca on the Sync page");
     }
     const data = await syncAlpaca();
-    const { added, repaired } = importOrders(data.recent_orders || []);
+    if (data.equity != null) applyAlpacaBalance(data.equity);
+    if (data.equity != null) {
+      window.S.brokerSync.alpaca.equity = data.equity;
+      window.S.brokerSync.alpaca.positionCount = (data.positions || []).length;
+    }
+    const { added, repaired, paired } = importOrders(data.recent_orders || [], data.positions || []);
     window.S.brokerSync.alpaca.lastSync = data.as_of || new Date().toISOString();
     window.S.brokerSync.alpaca.connected = true;
     if (typeof persist === "function") persist();
     if (typeof renderJournal === "function") renderJournal();
     if (typeof updateHomeStats === "function") updateHomeStats();
     if (typeof renderCoachPage === "function") renderCoachPage();
-    return { added, repaired, data };
+    if (typeof refreshPortfolioIfVisible === "function") refreshPortfolioIfVisible();
+    else if (typeof loadPortfolio === "function" && document.getElementById("page-portfolio")?.classList.contains("active")) {
+      loadPortfolio(typeof portPeriod !== "undefined" ? portPeriod : "all", document.querySelector(".period-tab.active"));
+    }
+    return { added, repaired, paired, data };
   }
 
   async function repairJournalIfNeeded() {
@@ -749,5 +1030,7 @@ const RunnrSync = (() => {
     hasMeaningfulState,
     isDemoState,
     applyRemoteState,
+    importOrders,
+    pairAlpacaRoundTrips,
   };
 })();

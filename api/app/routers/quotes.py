@@ -107,7 +107,7 @@ def market_brief(
     target: float | None = None,
     refresh: bool = False,
 ):
-    """Recent headline or AI one-liner for watchlist context (cached 30m)."""
+    """Recent headline or AI one-liner for watchlist context (cached ~10m)."""
     try:
         result = build_market_brief(
             symbol,

@@ -23,3 +23,6 @@ class SyncResponse(BaseModel):
     positions: list[dict]
     recent_orders: list[dict]
     as_of: str
+    equity: float | None = None
+    cash: float | None = None
+    buying_power: float | None = None
