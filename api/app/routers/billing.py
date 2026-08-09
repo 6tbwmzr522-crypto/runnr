@@ -275,6 +275,7 @@ async def stripe_webhook(request: Request):
             _save_customer(user_id, customer_id)
         if sub_id and settings.stripe_secret_key:
             stripe.api_key = settings.stripe_secret_key
+            stripe.api_version = "2026-07-29.dahlia"
             try:
                 sub = stripe.Subscription.retrieve(sub_id)
                 _apply_subscription_object(sub)
