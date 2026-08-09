@@ -28,6 +28,8 @@ def _stripe() -> None:
     if not settings.stripe_enabled:
         raise HTTPException(status_code=503, detail="Stripe is not configured")
     stripe.api_key = settings.stripe_secret_key
+    # Account uses Managed Payments — requires basil+ (dashboard default is dahlia).
+    stripe.api_version = "2026-07-29.dahlia"
     stripe.max_network_retries = 1
 
 
