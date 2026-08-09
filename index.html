@@ -1695,11 +1695,11 @@ body.light #equity-canvas{filter:invert(0)}
     <div class="trust-pricing-row" data-i18n="settings.pricingPaid">Runnr — €19/mo or €190/yr · full journal, Coach, alerts, broker sync, CSV, cloud</div>
     <div id="billing-status-line" style="font-size:12px;color:var(--text2);margin-bottom:10px">—</div>
     <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:8px">
-      <button class="btn" style="flex:1;min-width:120px;background:linear-gradient(135deg,var(--accent2),var(--accent))" onclick="startStripeCheckout('month')" data-i18n="settings.upgradeMonthly">€19 / month</button>
-      <button class="btn btn-ghost" style="flex:1;min-width:120px" onclick="startStripeCheckout('year')" data-i18n="settings.upgradeYearly">€190 / year</button>
+      <button type="button" class="btn" style="flex:1;min-width:120px;background:linear-gradient(135deg,var(--accent2),var(--accent))" onclick="startStripeCheckout('month')">€19 / month</button>
+      <button type="button" class="btn btn-ghost" style="flex:1;min-width:120px" onclick="startStripeCheckout('year')">€190 / year</button>
     </div>
-    <button class="btn btn-ghost btn-sm" style="width:100%;margin-bottom:8px" onclick="openStripePortal()" data-i18n="settings.manageBilling">Manage billing</button>
-    <div style="font-size:11px;color:var(--text3);text-align:center;margin-bottom:12px" data-i18n="settings.upgradeHint">One plan. Cancel anytime in Stripe customer portal.</div>
+    <button type="button" class="btn btn-ghost btn-sm" style="width:100%;margin-bottom:8px" onclick="openStripePortal()">Manage billing</button>
+    <div style="font-size:11px;color:var(--text3);text-align:center;margin-bottom:12px">Use <strong>€19 / month</strong> to subscribe. Manage billing is only for card/cancel after you pay.</div>
     <div class="divider"></div>
     <div style="font-size:12px;color:var(--text3);margin-bottom:8px;font-weight:600;text-transform:uppercase;letter-spacing:0.8px" data-i18n="settings.trust">Trust &amp; privacy</div>
     <button class="btn btn-ghost btn-sm" style="margin-bottom:6px;width:100%" onclick="openAboutModal()" data-i18n="settings.about">About Runnr</button>
@@ -1742,7 +1742,7 @@ body.light #equity-canvas{filter:invert(0)}
 <script src="js/baron.js?v=28"></script>
 <script src="js/coach.js?v=24"></script>
 <script src="js/onboarding.js?v=21"></script>
-<script src="js/sync.js?v=37"></script>
+<script src="js/sync.js?v=38"></script>
 <script>
 // ── STATE ──────────────────────────────────────────────────────────────────
 const WHOP_URL = 'https://whop.com/runnr'; // legacy; upgrades now go through Stripe
@@ -2081,7 +2081,8 @@ async function startStripeCheckout(interval) {
     const url = await RunnrSync.createCheckout(interval === 'year' ? 'year' : 'month');
     window.location.href = url;
   } catch (e) {
-    alert('Checkout failed: ' + (e.message || e));
+    const tip = '\n\n1) Open https://api.runnr.fyi/health in a new tab\n2) Hard-refresh Runnr (⌘⇧R)\n3) Sign in again, then tap €19 / month';
+    alert('Checkout failed: ' + (e.message || e) + tip);
   }
 }
 async function openStripePortal() {
