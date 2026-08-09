@@ -1032,22 +1032,14 @@ const RunnrSync = (() => {
 
   async function createCheckout(interval) {
     if (!isLoggedIn()) throw new Error("Log in to Runnr first");
-    try {
-      const ctrl = new AbortController();
-      const t = setTimeout(() => ctrl.abort(), 8000);
-      const h = await fetch(apiBase() + "/health", { signal: ctrl.signal });
-      clearTimeout(t);
-      if (!h.ok) throw new Error("API health check failed");
-    } catch (e) {
-      throw new Error("Cannot reach " + apiBase() + " — open that URL in a new tab, then retry");
-    }
+    // Fast ticket mint (no Stripe call) → browser navigates to /billing/go/… → Stripe
     const data = await request(
       "/api/v1/billing/checkout",
       {
         method: "POST",
         body: JSON.stringify({ interval: interval === "year" ? "year" : "month" }),
       },
-      45000
+      20000
     );
     if (!data?.url) throw new Error("No checkout URL");
     return data.url;
