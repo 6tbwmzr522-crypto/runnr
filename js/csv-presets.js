@@ -375,7 +375,8 @@ const RunnrCsvPresets = (() => {
       const dir = /sell|short/.test(sideRaw) ? "short" : "long";
       const entry = numLoose(field(row, map.entry)) ?? num(field(row, map.entry));
       const exit = numLoose(field(row, map.exit)) ?? num(field(row, map.exit));
-      const size = numLoose(field(row, map.size)) ?? num(field(row, map.size)) || 1;
+      const rawSize = numLoose(field(row, map.size)) ?? num(field(row, map.size));
+      const size = rawSize != null && Number(rawSize) !== 0 ? Math.abs(Number(rawSize)) : 1;
       let pnl = numLoose(field(row, map.pnl)) ?? num(field(row, map.pnl));
       const filledAt = parseDateIso(field(row, map.date));
       const date = filledAt
