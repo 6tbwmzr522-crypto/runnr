@@ -7,6 +7,11 @@ class AlpacaConnectRequest(BaseModel):
     paper: bool = True
 
 
+class IbkrFlexConnectRequest(BaseModel):
+    token: str = Field(min_length=6, description="Flex Web Service token")
+    query_id: str = Field(min_length=4, description="Flex Query ID")
+
+
 class BrokerStatusResponse(BaseModel):
     broker: str
     connected: bool

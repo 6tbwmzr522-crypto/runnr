@@ -85,7 +85,7 @@
       "sync.signInIphoneDesc": "Use the dedicated sign-in page for the best experience on Safari — same email and password as your Mac.",
       "sync.syncNow": "↻ Sync now",
       "sync.csvImport": "CSV Import",
-      "sync.csvImportDesc": "Not on the list? Import your trade history via CSV from any broker.",
+      "sync.csvImportDesc": "Drop a broker export. Presets for IBKR, Trading 212, eToro, Degiro & Schwab — or Auto-detect.",
       "sync.uploadCsv": "Upload CSV File",
       "common.light": "☀ Light",
       "common.dark": "🌙 Dark",

@@ -1211,7 +1211,9 @@ body.light #equity-canvas{filter:invert(0)}
 
       <div class="card" style="margin-top:4px">
         <div class="card-title" data-i18n="sync.csvImport">CSV Import</div>
-        <div style="font-size:12px;color:var(--text2);margin-bottom:10px" data-i18n="sync.csvImportDesc">Drop a broker export or pick a file. Needs a symbol column plus entry/exit or P&amp;L.</div>
+        <div style="font-size:12px;color:var(--text2);margin-bottom:10px" data-i18n="sync.csvImportDesc">Drop a broker export. Presets for IBKR, Trading 212, eToro, Degiro &amp; Schwab — or Auto-detect.</div>
+        <div id="csv-preset-chips" style="display:flex;flex-wrap:wrap;gap:6px;margin-bottom:10px"></div>
+        <div id="csv-preset-tip" style="font-size:11px;color:var(--text3);margin-bottom:10px;line-height:1.4"></div>
         <div id="csv-drop-zone" style="border:1px dashed var(--border);border-radius:var(--r-sm);padding:18px 14px;text-align:center;background:var(--surface2);margin-bottom:10px;cursor:pointer">
           <div style="font-size:13px;color:var(--text2);margin-bottom:4px">Drop CSV here</div>
           <div style="font-size:11px;color:var(--text3)">or tap to choose a file</div>
@@ -1228,7 +1230,7 @@ body.light #equity-canvas{filter:invert(0)}
           <button type="button" onclick="openPrivacyModal()" data-i18n="footer.privacy">Privacy</button>
           <button type="button" onclick="openPricing()" data-i18n="footer.pricing">Pricing</button>
         </div>
-        <div style="font-size:11px;color:var(--text3);margin-top:8px;line-height:1.45">Alpaca: read-only sync · keys encrypted · no order execution</div>
+        <div style="font-size:11px;color:var(--text3);margin-top:8px;line-height:1.45">Alpaca &amp; IBKR Flex: read-only · keys encrypted · no order execution</div>
       </div>
     </div>
 
@@ -1597,6 +1599,18 @@ body.light #equity-canvas{filter:invert(0)}
     <button class="btn" onclick="submitAlpacaConnect()">Connect &amp; verify</button>
   </div>
 </div>
+<!-- IBKR Flex Connect Modal -->
+<div class="modal-overlay" id="modal-ibkr" onclick="closeModalOutside(event,'modal-ibkr')">
+  <div class="modal">
+    <div class="modal-title">Connect IBKR Flex <button class="modal-close" onclick="closeModal('modal-ibkr')">✕</button></div>
+    <div style="font-size:12px;color:var(--text2);margin-bottom:14px;line-height:1.5">
+      Read-only. In IBKR Account Management → Flex Web Service: create a <strong>Trade Confirmation</strong> or Activity Flex Query (XML), enable the Web Service, then paste the token + Query ID. Extend token validity beyond 6 hours if you sync often. Do not IP-restrict the token to your home network (Runnr syncs from the API server).
+    </div>
+    <div class="field"><label>Flex Token</label><input id="ibkr-token" type="password" placeholder="Numeric token" autocomplete="off" inputmode="numeric"></div>
+    <div class="field"><label>Flex Query ID</label><input id="ibkr-query" placeholder="e.g. 123456" autocomplete="off" inputmode="numeric"></div>
+    <button class="btn" onclick="submitIbkrConnect()">Connect &amp; verify</button>
+  </div>
+</div>
 
 <!-- Runnr account modal -->
 <div class="modal-overlay" id="modal-sync-auth" onclick="closeModalOutside(event,'modal-sync-auth')">
@@ -1739,7 +1753,7 @@ body.light #equity-canvas{filter:invert(0)}
       <p style="margin:0 0 12px"><strong style="color:var(--text)">Contact</strong><br>
         <a href="mailto:janis.berzins.liepins@gmail.com" style="color:var(--accent)">janis.berzins.liepins@gmail.com</a><br>
         <a href="https://www.linkedin.com/in/janisberzins" target="_blank" rel="noopener noreferrer" style="color:var(--accent)">LinkedIn → Janis Berzins</a></p>
-      <p style="margin:0;font-size:12px;color:var(--text3)">Alpaca sync is <strong>read-only</strong> — Runnr cannot place trades. API keys are encrypted server-side (Fernet). CSV import works with any broker today; IBKR / Trading 212 / eToro integrations are on the roadmap.</p>
+      <p style="margin:0;font-size:12px;color:var(--text3)">Alpaca &amp; IBKR Flex sync are <strong>read-only</strong> — Runnr cannot place trades. API keys / Flex tokens are encrypted server-side (Fernet). CSV presets cover Trading 212, eToro, Degiro, Schwab and more.</p>
     </div>
   </div>
 </div>
@@ -1758,11 +1772,12 @@ body.light #equity-canvas{filter:invert(0)}
   </div>
 </div>
 
-<script src="js/i18n.js?v=6"></script>
+<script src="js/i18n.js?v=7"></script>
 <script src="js/baron.js?v=28"></script>
 <script src="js/coach.js?v=25"></script>
 <script src="js/onboarding.js?v=21"></script>
-<script src="js/sync.js?v=40"></script>
+<script src="js/csv-presets.js?v=1"></script>
+<script src="js/sync.js?v=41"></script>
 <script>
 // ── STATE ──────────────────────────────────────────────────────────────────
 const WHOP_URL = 'https://whop.com/runnr'; // legacy; upgrades now go through Stripe
@@ -4984,12 +4999,33 @@ try {
 // ── BROKER SYNC (Runnr API) ───────────────────────────────────────────────
 const brokers = [
   { code: 'Alpaca', bg: '#f5d542', color: '#000', live: true },
-  { code: 'eToro', bg: '#6FCF97', color: '#000' },
-  { code: 'IG Group', bg: '#003087', color: '#fff' },
-  { code: 'XTB', bg: '#e8002d', color: '#fff' },
-  { code: 'MT4/5', bg: '#1565C0', color: '#fff' },
-  { code: 'IBKR', bg: '#cc0000', color: '#fff' },
+  { code: 'IBKR', bg: '#cc0000', color: '#fff', live: true, kind: 'flex' },
+  { code: 'Trading 212', bg: '#00a7e1', color: '#fff', csv: true },
+  { code: 'eToro', bg: '#6FCF97', color: '#000', csv: true },
+  { code: 'Degiro', bg: '#e30613', color: '#fff', csv: true },
+  { code: 'Schwab', bg: '#00a0df', color: '#fff', csv: true },
 ];
+
+let csvPresetId = 'auto';
+
+function renderCsvPresetChips() {
+  const el = document.getElementById('csv-preset-chips');
+  const tip = document.getElementById('csv-preset-tip');
+  if (!el || !window.RunnrCsvPresets) return;
+  const presets = RunnrCsvPresets.list();
+  el.innerHTML = presets.map((p) => {
+    const on = p.id === csvPresetId;
+    return `<button type="button" class="risk-pill${on ? ' on' : ''}" data-csv-preset="${p.id}" onclick="setCsvPreset('${p.id}')" style="font-size:11px;padding:5px 10px">${p.label}</button>`;
+  }).join('');
+  const cur = presets.find((p) => p.id === csvPresetId) || presets[0];
+  if (tip) tip.textContent = cur?.tip || '';
+}
+
+function setCsvPreset(id) {
+  csvPresetId = id || 'auto';
+  renderCsvPresetChips();
+}
+window.setCsvPreset = setCsvPreset;
 
 function renderAvailableBrokers() {
   const el = document.getElementById('available-brokers');
@@ -4997,11 +5033,13 @@ function renderAvailableBrokers() {
   try {
     RunnrSync.ensureBrokerState();
     const alpacaLinked = !!(S.brokerSync && S.brokerSync.alpaca && S.brokerSync.alpaca.connected);
+    const ibkrLinked = !!(S.brokerSync && S.brokerSync.ibkr && S.brokerSync.ibkr.connected);
     const hasLocal = typeof RunnrSync.hasLocalAlpaca === 'function' && RunnrSync.hasLocalAlpaca();
     const loggedIn = typeof RunnrSync.isLoggedIn === 'function' && RunnrSync.isLoggedIn();
     el.innerHTML = brokers.map(b => {
       let badge = '+ Connect';
       let badgeCls = 'bk-available';
+      let status = b.live ? 'Read-only sync available' : (b.csv ? 'CSV preset on Sync page' : 'Coming soon — CSV import works today');
       if (b.code === 'Alpaca') {
         if (alpacaLinked) {
           badge = '● Connected';
@@ -5010,11 +5048,22 @@ function renderAvailableBrokers() {
           badge = '↻ Reconnect';
           badgeCls = 'bk-synced';
         }
+      } else if (b.code === 'IBKR') {
+        if (ibkrLinked) {
+          badge = '● Connected';
+          badgeCls = 'bk-synced';
+          status = 'Flex Web Service · read-only';
+        } else {
+          status = 'Flex token · read-only';
+        }
+      } else if (b.csv) {
+        badge = 'CSV';
+        badgeCls = 'bk-available';
       }
       return `
   <div class="broker-card" onclick="connectBroker('${b.code}')">
     <div class="bk-logo" style="background:${b.bg};color:${b.color}">${b.code.slice(0,4)}</div>
-    <div class="bk-info"><div class="bk-name">${b.code}</div><div class="bk-status">${b.live ? 'Read-only sync available' : 'Coming soon — CSV import works today'}</div></div>
+    <div class="bk-info"><div class="bk-name">${b.code}</div><div class="bk-status">${status}</div></div>
     <div class="bk-badge ${badgeCls}">${badge}</div>
   </div>`;
     }).join('');
@@ -5183,29 +5232,48 @@ function renderConnectedBrokers() {
   const el = document.getElementById('sync-connected');
   if (!el) return;
   const a = S.brokerSync.alpaca || {};
-  if (!a.connected) {
-    if (RunnrSync.isLoggedIn() && RunnrSync.hasLocalAlpaca()) {
-      el.innerHTML = `<div class="card-sm" style="font-size:12px;color:var(--text2);display:flex;justify-content:space-between;align-items:center;gap:8px">
-        <span>Alpaca unlinked on server — keys saved on this phone.</span>
-        <button class="btn btn-sm" onclick="reconnectAlpaca()">Reconnect</button>
-      </div>`;
-    } else if (RunnrSync.isLoggedIn()) {
-      el.innerHTML = `<div style="font-size:12px;color:var(--text3)">Checking your account for Alpaca… If nothing links, tap Connect Alpaca and paste keys once.</div>`;
-    } else {
-      el.innerHTML = `<div style="font-size:12px;color:var(--text3)">Log in first, then connect Alpaca below.</div>`;
-    }
+  const ib = S.brokerSync.ibkr || {};
+  const cards = [];
+
+  if (a.connected) {
+    const ago = RunnrSync.formatAgo(a.lastSync);
+    const eq = a.equity != null ? ('$' + Math.round(a.equity).toLocaleString()) : '—';
+    cards.push(`<div class="broker-card" style="cursor:default;margin-bottom:8px">
+      <div class="bk-logo" style="background:#f5d542;color:#000">ALP</div>
+      <div class="bk-info">
+        <div class="bk-name">Alpaca ${a.paper !== false ? 'Paper' : 'Live'}</div>
+        <div class="bk-status">${eq} · ${a.positionCount ?? 0} positions · Last sync ${ago}</div>
+      </div>
+      <div class="bk-badge bk-synced">● Live</div>
+    </div>`);
+  } else if (RunnrSync.isLoggedIn() && RunnrSync.hasLocalAlpaca()) {
+    cards.push(`<div class="card-sm" style="font-size:12px;color:var(--text2);display:flex;justify-content:space-between;align-items:center;gap:8px;margin-bottom:8px">
+      <span>Alpaca unlinked on server — keys saved on this phone.</span>
+      <button class="btn btn-sm" onclick="reconnectAlpaca()">Reconnect</button>
+    </div>`);
+  }
+
+  if (ib.connected) {
+    const ago = RunnrSync.formatAgo(ib.lastSync);
+    cards.push(`<div class="broker-card" style="cursor:default;margin-bottom:8px">
+      <div class="bk-logo" style="background:#cc0000;color:#fff">IBKR</div>
+      <div class="bk-info">
+        <div class="bk-name">IBKR Flex</div>
+        <div class="bk-status">${ib.imported || 0} fills imported · Last sync ${ago}</div>
+      </div>
+      <div class="bk-badge bk-synced">● Live</div>
+    </div>`);
+  }
+
+  if (cards.length) {
+    el.innerHTML = cards.join('');
     return;
   }
-  const ago = RunnrSync.formatAgo(a.lastSync);
-  const eq = a.equity != null ? ('$' + Math.round(a.equity).toLocaleString()) : '—';
-  el.innerHTML = `<div class="broker-card" style="cursor:default">
-    <div class="bk-logo" style="background:#f5d542;color:#000">ALP</div>
-    <div class="bk-info">
-      <div class="bk-name">Alpaca ${a.paper !== false ? 'Paper' : 'Live'}</div>
-      <div class="bk-status">${eq} · ${a.positionCount ?? 0} positions · Last sync ${ago}</div>
-    </div>
-    <div class="bk-badge bk-synced">● Live</div>
-  </div>`;
+  if (RunnrSync.isLoggedIn()) {
+    el.innerHTML = `<div style="font-size:12px;color:var(--text3)">No broker linked yet — connect Alpaca or IBKR Flex below, or import CSV.</div>`;
+  } else {
+    el.innerHTML = `<div style="font-size:12px;color:var(--text3)">Log in first, then connect a broker below.</div>`;
+  }
 }
 
 function renderHomeBrokerPreview() {
@@ -5234,6 +5302,7 @@ function renderSyncPage() {
   renderSyncAuthBanner();
   renderConnectedBrokers();
   renderAvailableBrokers();
+  renderCsvPresetChips();
 }
 
 let _alpacaRestorePending = false;
@@ -5569,8 +5638,85 @@ async function connectBroker(name) {
     openAlpacaModal();
     return;
   }
-  alert(name + ' coming soon.\n\nUse Alpaca today, or import trades via CSV on the Journal page.');
+  if (name === 'IBKR') {
+    if (!RunnrSync.isLoggedIn()) {
+      openSyncAuthModal();
+      return;
+    }
+    const ok = await RunnrSync.ensureIbkrConnected();
+    renderSyncPage();
+    if (ok) {
+      showToast('Runnr', 'IBKR Flex linked');
+      try {
+        await RunnrSync.runSync();
+        renderJournal();
+        updateHomeStats();
+      } catch (e) {}
+      return;
+    }
+    openIbkrModal();
+    return;
+  }
+  const csvMap = {
+    'Trading 212': 't212',
+    eToro: 'etoro',
+    Degiro: 'degiro',
+    Schwab: 'schwab',
+  };
+  if (csvMap[name]) {
+    setCsvPreset(csvMap[name]);
+    switchPage('sync');
+    const zone = document.getElementById('csv-drop-zone');
+    if (zone) zone.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    showToast('Runnr', name + ' — pick CSV preset, then upload export');
+    return;
+  }
+  alert(name + ' coming soon.\n\nUse Alpaca or IBKR Flex today, or import trades via CSV on the Sync page.');
 }
+
+async function openIbkrModal() {
+  if (!RunnrSync.isLoggedIn()) {
+    openSyncAuthModal();
+    showToast('Runnr', 'Sign in to connect IBKR');
+    return;
+  }
+  if (!(await requirePro('IBKR Flex connection'))) return;
+  openModal('modal-ibkr');
+}
+
+async function submitIbkrConnect() {
+  const token = document.getElementById('ibkr-token').value.trim();
+  const queryId = document.getElementById('ibkr-query').value.trim();
+  if (!token || !queryId) return alert('Paste Flex token and Query ID.');
+  try {
+    const st = await RunnrSync.connectIbkr(token, queryId);
+    RunnrSync.ensureBrokerState();
+    S.brokerSync.ibkr.connected = true;
+    persist();
+    closeModal('modal-ibkr');
+    document.getElementById('ibkr-token').value = '';
+    renderSyncPage();
+    alert('IBKR Flex connected — token encrypted on your Runnr account. Tap Sync now to pull trades.');
+    try {
+      await RunnrSync.runSync();
+      renderJournal();
+      updateHomeStats();
+    } catch (e) {
+      showToast('Runnr', 'Connected — sync later if Flex is still generating');
+    }
+  } catch (e) {
+    const msg = String(e.message || e);
+    if (RunnrSync.isAuthError?.(msg)) {
+      RunnrSync.logout();
+      handleRunnrAuthExpired(msg);
+      openSyncAuthModal();
+      return;
+    }
+    alert('Connect failed: ' + msg);
+  }
+}
+window.openIbkrModal = openIbkrModal;
+window.submitIbkrConnect = submitIbkrConnect;
 
 async function openAlpacaModal() {
   if (!RunnrSync.isLoggedIn()) {
@@ -5666,67 +5812,7 @@ async function triggerCsvImport() {
   input.click();
 }
 
-function parseCsvRow(line) {
-  const out = [];
-  let cur = '';
-  let inQ = false;
-  for (let i = 0; i < line.length; i++) {
-    const ch = line[i];
-    if (ch === '"') {
-      if (inQ && line[i + 1] === '"') { cur += '"'; i++; }
-      else inQ = !inQ;
-    } else if (ch === ',' && !inQ) {
-      out.push(cur.trim());
-      cur = '';
-    } else {
-      cur += ch;
-    }
-  }
-  out.push(cur.trim());
-  return out;
-}
-
-function parseCsvText(text) {
-  const lines = String(text || '').split(/\r?\n/).filter((l) => l.trim());
-  if (!lines.length) return [];
-  const headers = parseCsvRow(lines[0]).map((h) => h.replace(/^\uFEFF/, '').trim());
-  const rows = [];
-  for (let i = 1; i < lines.length; i++) {
-    const cols = parseCsvRow(lines[i]);
-    if (!cols.some((c) => c.trim())) continue;
-    const row = {};
-    headers.forEach((h, j) => { row[h] = cols[j] ?? ''; });
-    rows.push(row);
-  }
-  return rows;
-}
-
-function csvField(row, keys) {
-  const map = {};
-  Object.keys(row).forEach((k) => { map[k.toLowerCase().trim()] = row[k]; });
-  for (const k of keys) {
-    const v = map[k.toLowerCase()];
-    if (v != null && String(v).trim() !== '') return String(v).trim();
-  }
-  return '';
-}
-
-function csvNum(val) {
-  if (val == null || val === '') return null;
-  const n = parseFloat(String(val).replace(/[$,\s]/g, ''));
-  return Number.isFinite(n) ? n : null;
-}
-
-function csvFormatDate(raw) {
-  if (!raw) return new Date().toLocaleDateString('en-GB', { month: 'short', day: 'numeric' });
-  const d = new Date(raw);
-  if (!Number.isNaN(d.getTime())) {
-    return d.toLocaleDateString('en-GB', { month: 'short', day: 'numeric' });
-  }
-  return String(raw).slice(0, 12);
-}
-
-function importTradesFromCsvRows(rows) {
+function importClosedCsvTrades(trades) {
   let added = 0;
   let skipped = 0;
   const maxId = S.trades.reduce((m, t) => Math.max(m, t.id || 0), 0);
@@ -5735,52 +5821,34 @@ function importTradesFromCsvRows(rows) {
     S.trades.filter((t) => t.source === 'csv').map((t) => t.externalId).filter(Boolean)
   );
 
-  rows.forEach((row, i) => {
-    const instr = csvField(row, ['symbol', 'ticker', 'instrument', 'instr', 'sym']).toUpperCase();
-    if (!instr) { skipped++; return; }
-
-    const sideRaw = csvField(row, ['side', 'direction', 'dir', 'type']).toLowerCase();
-    const dir = sideRaw.includes('sell') || sideRaw.includes('short') ? 'short' : 'long';
-    const entry = csvNum(csvField(row, ['entry', 'entry_price', 'open', 'price', 'filled_avg_price', 'avg_price']));
-    const exit = csvNum(csvField(row, ['exit', 'exit_price', 'close', 'close_price']));
-    const size = csvNum(csvField(row, ['size', 'qty', 'quantity', 'shares', 'filled_qty'])) || 1;
-    let pnl = csvNum(csvField(row, ['pnl', 'pl', 'profit', 'net_pnl', 'realized_pnl', 'profit_loss']));
-    const stop = csvNum(csvField(row, ['stop', 'stop_loss', 'sl']));
-    const target = csvNum(csvField(row, ['target', 'take_profit', 'tp']));
-    const date = csvFormatDate(csvField(row, ['date', 'time', 'timestamp', 'filled_at', 'close_date', 'exit_date']));
-
-    if (pnl == null && entry != null && exit != null) {
-      pnl = Math.round((dir === 'long' ? exit - entry : entry - exit) * size);
-    }
-    if (entry == null && exit == null && pnl == null) { skipped++; return; }
-
-    const externalId = `csv:${instr}:${date}:${entry ?? exit ?? pnl}:${size}`;
+  trades.forEach((row, i) => {
+    const externalId = row.externalId;
     if (seen.has(externalId)) { skipped++; return; }
     seen.add(externalId);
-
     S.trades.unshift({
       id: maxId + i + 1 + Date.now(),
-      instr,
-      dir,
-      entry: entry ?? (dir === 'long' ? exit : null),
-      exit: exit ?? (dir === 'short' ? entry : null),
-      stop,
-      target,
-      size,
-      pnl: pnl ?? 0,
-      stopOk: stop != null ? null : null,
+      instr: row.instr,
+      dir: row.dir,
+      entry: row.entry,
+      exit: row.exit,
+      stop: null,
+      target: null,
+      size: row.size,
+      pnl: row.pnl ?? 0,
+      stopOk: null,
       sizeOk: null,
       type: 'shares',
-      date,
+      date: row.date,
       incomplete: true,
       source: 'csv',
       externalId,
+      filledAt: row.filledAt || null,
     });
     added++;
   });
 
   if (added > 0) {
-    S.trades = S.trades.filter((t) => t.source === 'csv' || t.source === 'alpaca' || !demoIds.has(t.id));
+    S.trades = S.trades.filter((t) => t.source === 'csv' || t.source === 'alpaca' || t.source === 'ibkr' || !demoIds.has(t.id));
     persist();
   }
   return { added, skipped };
@@ -5805,27 +5873,47 @@ async function importCsvFile(file) {
   const preview = document.getElementById('csv-import-preview');
   try {
     const text = await file.text();
-    const rows = parseCsvText(text);
-    if (!rows.length) {
-      setCsvImportStatus('No data rows found — check CSV headers.', false);
-      if (preview) preview.style.display = 'none';
+    if (!window.RunnrCsvPresets) {
+      setCsvImportStatus('CSV presets failed to load — refresh the page.', false);
       return;
     }
-    const headers = Object.keys(rows[0] || {});
+    const result = RunnrCsvPresets.normalize(text, csvPresetId);
+    const headers = result.parsed?.headers || [];
+    const presetLabel = result.preset?.label || csvPresetId;
     if (preview) {
       preview.style.display = 'block';
-      preview.textContent = `Detected ${rows.length} row${rows.length === 1 ? '' : 's'} · columns: ${headers.slice(0, 8).join(', ')}${headers.length > 8 ? '…' : ''}`;
+      preview.textContent = `Preset: ${presetLabel} · ${result.parsed?.rows?.length || 0} rows · columns: ${headers.slice(0, 8).join(', ')}${headers.length > 8 ? '…' : ''}`;
     }
-    const { added, skipped } = importTradesFromCsvRows(rows);
-    if (!added) {
-      setCsvImportStatus('No trades imported. Need symbol + entry/exit or P&L column.', false);
+    if (!result.ok) {
+      setCsvImportStatus(result.error || 'No trades imported.', false);
       return;
     }
-    setCsvImportStatus(`Imported ${added} trade${added === 1 ? '' : 's'}${skipped ? ` (${skipped} skipped)` : ''}.`, true);
+
+    let added = 0;
+    let skipped = result.skipped || 0;
+    let paired = 0;
+
+    if (result.mode === 'fills') {
+      const r = RunnrSync.importOrders(result.orders, [], { source: 'csv' });
+      added = r.added;
+      paired = r.paired || 0;
+      skipped += (result.orders.length - r.added);
+    } else {
+      const r = importClosedCsvTrades(result.trades);
+      added = r.added;
+      skipped += r.skipped;
+    }
+
+    if (!added) {
+      setCsvImportStatus('No new trades imported (duplicates or unmatched rows).', false);
+      return;
+    }
+    const pairNote = paired ? ` · ${paired} paired` : '';
+    setCsvImportStatus(`Imported ${added} via ${presetLabel}${pairNote}${skipped ? ` (${skipped} skipped)` : ''}.`, true);
     renderJournal();
     updateHomeStats();
     refreshPortfolioIfVisible();
-    showToast('Runnr', `Imported ${added} trade${added === 1 ? '' : 's'} — complete flags in Journal`);
+    showToast('Runnr', `Imported ${added} — complete flags in Journal`);
     switchPage('journal');
   } catch (e) {
     setCsvImportStatus('Import failed: ' + (e.message || e), false);
@@ -5837,6 +5925,7 @@ function initCsvDropZone() {
   const input = document.getElementById('csv-import-input');
   if (!zone || zone.dataset.bound) return;
   zone.dataset.bound = '1';
+  renderCsvPresetChips();
   zone.addEventListener('click', () => triggerCsvImport());
   zone.addEventListener('dragover', (e) => {
     e.preventDefault();
@@ -5869,7 +5958,7 @@ async function runBrokerSync() {
     openSyncAuthModal();
     return;
   }
-  if (!(await requirePro('Alpaca broker sync'))) return;
+  if (!(await requirePro('Broker sync'))) return;
   try {
     try {
       const profile = await RunnrSync.syncProfileState();

@@ -8,7 +8,13 @@ from fastapi import APIRouter, Depends, HTTPException
 from app.auth import get_current_user
 from app.crypto_util import decrypt, encrypt
 from app.db import get_db
-from app.models.brokers import AlpacaConnectRequest, BrokerStatusResponse, SyncResponse
+from app.ibkr_flex import get_flex_statement, parse_flex_trades, send_flex_request, verify_flex_credentials
+from app.models.brokers import (
+    AlpacaConnectRequest,
+    BrokerStatusResponse,
+    IbkrFlexConnectRequest,
+    SyncResponse,
+)
 
 router = APIRouter(prefix="/brokers", tags=["brokers"])
 
@@ -144,5 +150,75 @@ def alpaca_sync(user: dict = Depends(get_current_user)):
             }
             for o in orders
         ],
+        as_of=datetime.now(timezone.utc).isoformat(),
+    )
+
+
+def _save_ibkr(user_id: int, token: str, query_id: str) -> None:
+    with get_db() as conn:
+        conn.execute(
+            """
+            INSERT INTO broker_connections (user_id, broker, api_key_enc, api_secret_enc, paper)
+            VALUES (?, 'ibkr', ?, ?, 0)
+            ON CONFLICT(user_id, broker) DO UPDATE SET
+                api_key_enc = excluded.api_key_enc,
+                api_secret_enc = excluded.api_secret_enc,
+                paper = 0
+            """,
+            (user_id, encrypt(token), encrypt(query_id)),
+        )
+
+
+def _load_ibkr(user_id: int) -> tuple[str, str] | None:
+    with get_db() as conn:
+        row = conn.execute(
+            """
+            SELECT api_key_enc, api_secret_enc
+            FROM broker_connections
+            WHERE user_id = ? AND broker = 'ibkr'
+            """,
+            (user_id,),
+        ).fetchone()
+    if not row:
+        return None
+    return decrypt(row["api_key_enc"]), decrypt(row["api_secret_enc"])
+
+
+@router.post("/ibkr/connect", response_model=BrokerStatusResponse)
+def connect_ibkr(body: IbkrFlexConnectRequest, user: dict = Depends(get_current_user)):
+    token = body.token.strip()
+    query_id = body.query_id.strip()
+    verify_flex_credentials(token, query_id)
+    _save_ibkr(user["id"], token, query_id)
+    return BrokerStatusResponse(broker="ibkr", connected=True)
+
+
+@router.get("/ibkr/status", response_model=BrokerStatusResponse)
+def ibkr_status(user: dict = Depends(get_current_user)):
+    creds = _load_ibkr(user["id"])
+    if not creds:
+        return BrokerStatusResponse(broker="ibkr", connected=False)
+    return BrokerStatusResponse(broker="ibkr", connected=True)
+
+
+@router.get("/ibkr/sync", response_model=SyncResponse)
+def ibkr_sync(user: dict = Depends(get_current_user)):
+    creds = _load_ibkr(user["id"])
+    if not creds:
+        raise HTTPException(status_code=404, detail="IBKR Flex not connected")
+    token, query_id = creds
+    try:
+        ref = send_flex_request(token, query_id)
+        payload = get_flex_statement(token, ref)
+        orders = parse_flex_trades(payload)
+    except HTTPException:
+        raise
+    except Exception as exc:
+        raise HTTPException(status_code=502, detail=f"IBKR Flex sync failed: {exc}") from exc
+
+    return SyncResponse(
+        broker="ibkr",
+        positions=[],
+        recent_orders=orders,
         as_of=datetime.now(timezone.utc).isoformat(),
     )

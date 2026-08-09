@@ -1,0 +1,13 @@
+---
+description: Broker connector work follows the Alpaca read-only pattern and CSV fallbacks
+globs: api/app/routers/brokers*.py,api/app/models/brokers*.py,js/sync.js,docs/broker-connectors.md,.cursor/skills/broker-connectors/**
+alwaysApply: false
+---
+
+# Broker connectors
+
+When editing broker sync code, follow `.cursor/skills/broker-connectors/SKILL.md`.
+
+- Read-only only; encrypt keys; normalize fills for `importOrders` / pairing
+- Prefer CSV presets when official API access is missing
+- Do not scrape; do not commit secrets

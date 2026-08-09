@@ -77,7 +77,8 @@ const RunnrSync = (() => {
   }
 
   function tradeNeedsPriceFix(t) {
-    if (!t || t.source !== "alpaca") return false;
+    if (!t || !isFillSource(t)) return false;
+    if (t.source === "csv" && !t.alpacaSide) return false;
     const price = Number(t.fillPrice || t.entry || t.exit || 0);
     return !price;
   }
@@ -329,8 +330,15 @@ const RunnrSync = (() => {
     if (!window.S.brokerSync) {
       window.S.brokerSync = {
         alpaca: { connected: false, lastSync: null, imported: 0, equity: null },
+        ibkr: { connected: false, lastSync: null, imported: 0 },
         importedOrderIds: [],
       };
+    }
+    if (!window.S.brokerSync.alpaca) {
+      window.S.brokerSync.alpaca = { connected: false, lastSync: null, imported: 0, equity: null };
+    }
+    if (!window.S.brokerSync.ibkr) {
+      window.S.brokerSync.ibkr = { connected: false, lastSync: null, imported: 0 };
     }
     if (!window.S.brokerSync.importedOrderIds) window.S.brokerSync.importedOrderIds = [];
     if (!window.S.trades) window.S.trades = [];
@@ -404,9 +412,13 @@ const RunnrSync = (() => {
     return Math.round(raw);
   }
 
+  function isFillSource(t) {
+    return t && (t.source === "alpaca" || t.source === "csv" || t.source === "ibkr");
+  }
+
   /**
-   * FIFO-pair Alpaca buy/sell fill legs into round-trips so journal closes
-   * when the position is closed on Alpaca. Removes orphan sell legs after merge.
+   * FIFO-pair buy/sell fill legs into round-trips so journal closes
+   * when the position is closed. Removes orphan sell legs after merge.
    */
   function pairAlpacaRoundTrips(positions) {
     ensureBrokerState();
@@ -419,7 +431,7 @@ const RunnrSync = (() => {
     });
 
     const legs = (window.S.trades || []).filter(
-      (t) => t.source === "alpaca" && !t.mergedAway && !t.alpacaPaired
+      (t) => isFillSource(t) && !t.mergedAway && !t.alpacaPaired
     );
     legs.forEach((t) => {
       if (!t.alpacaSide) t.alpacaSide = inferAlpacaSide(t);
@@ -440,7 +452,7 @@ const RunnrSync = (() => {
     const buys = (window.S.trades || [])
       .filter(
         (t) =>
-          t.source === "alpaca" &&
+          isFillSource(t) &&
           !t.mergedAway &&
           !t.alpacaPaired &&
           inferAlpacaSide(t) === "buy" &&
@@ -452,7 +464,7 @@ const RunnrSync = (() => {
     const sells = (window.S.trades || [])
       .filter(
         (t) =>
-          t.source === "alpaca" &&
+          isFillSource(t) &&
           !t.mergedAway &&
           !t.alpacaPaired &&
           inferAlpacaSide(t) === "sell" &&
@@ -561,7 +573,7 @@ const RunnrSync = (() => {
     const openShorts = (window.S.trades || [])
       .filter(
         (t) =>
-          t.source === "alpaca" &&
+          isFillSource(t) &&
           !t.mergedAway &&
           !t.alpacaPaired &&
           t.dir === "short" &&
@@ -573,7 +585,7 @@ const RunnrSync = (() => {
     const coverBuys = (window.S.trades || [])
       .filter(
         (t) =>
-          t.source === "alpaca" &&
+          isFillSource(t) &&
           !t.mergedAway &&
           !t.alpacaPaired &&
           inferAlpacaSide(t) === "buy" &&
@@ -617,8 +629,9 @@ const RunnrSync = (() => {
     return paired;
   }
 
-  function importOrders(orders, positions) {
+  function importOrders(orders, positions, opts = {}) {
     ensureBrokerState();
+    const source = opts.source || "alpaca";
     const seen = new Set(window.S.brokerSync.importedOrderIds || []);
     let added = 0;
     let repaired = 0;
@@ -671,7 +684,7 @@ const RunnrSync = (() => {
         type: "shares",
         date,
         incomplete: true,
-        source: "alpaca",
+        source,
         externalId: o.id,
         fillPrice,
         alpacaSide,
@@ -682,15 +695,23 @@ const RunnrSync = (() => {
     });
 
     if (added > 0) {
-      window.S.trades = window.S.trades.filter((t) => t.source === "alpaca" || !demoIds.has(t.id));
+      window.S.trades = window.S.trades.filter(
+        (t) => isFillSource(t) || t.source === "csv" || !demoIds.has(t.id)
+      );
     }
 
     const paired = pairAlpacaRoundTrips(positions || []);
 
     window.S.brokerSync.importedOrderIds = [...seen];
-    window.S.brokerSync.alpaca.imported = window.S.trades.filter(
-      (t) => t.source === "alpaca" && !t.mergedAway
-    ).length;
+    if (window.S.brokerSync[source]) {
+      window.S.brokerSync[source].imported = window.S.trades.filter(
+        (t) => t.source === source && !t.mergedAway
+      ).length;
+    } else if (window.S.brokerSync.alpaca) {
+      window.S.brokerSync.alpaca.imported = window.S.trades.filter(
+        (t) => t.source === "alpaca" && !t.mergedAway
+      ).length;
+    }
     if (typeof persist === "function") persist();
     return { added, repaired, paired };
   }
@@ -700,15 +721,18 @@ const RunnrSync = (() => {
     if (!window.S) return null;
     if (!isLoggedIn()) {
       window.S.brokerSync.alpaca.connected = false;
+      window.S.brokerSync.ibkr.connected = false;
       return null;
     }
     try {
       const st = await alpacaStatus();
       applyAlpacaStatus(st);
-      return st;
-    } catch (e) {
-      return null;
-    }
+    } catch (e) {}
+    try {
+      const st = await ibkrStatus();
+      applyIbkrStatus(st);
+    } catch (e) {}
+    return window.S.brokerSync.alpaca;
   }
 
   async function ensureAlpacaConnected() {
@@ -761,19 +785,51 @@ const RunnrSync = (() => {
   async function runSync() {
     ensureBrokerState();
     if (!isLoggedIn()) throw new Error("Log in to Runnr first");
-    const connected = await ensureAlpacaConnected();
-    if (!connected) {
-      throw new Error("Alpaca not connected — tap Connect Alpaca on the Sync page");
+
+    let added = 0;
+    let repaired = 0;
+    let paired = 0;
+    let any = false;
+    let lastData = null;
+
+    const alpacaOk = await ensureAlpacaConnected();
+    if (alpacaOk) {
+      any = true;
+      const data = await syncAlpaca();
+      lastData = data;
+      if (data.equity != null) applyAlpacaBalance(data.equity);
+      if (data.equity != null) {
+        window.S.brokerSync.alpaca.equity = data.equity;
+        window.S.brokerSync.alpaca.positionCount = (data.positions || []).length;
+      }
+      const r = importOrders(data.recent_orders || [], data.positions || [], { source: "alpaca" });
+      added += r.added;
+      repaired += r.repaired;
+      paired += r.paired;
+      window.S.brokerSync.alpaca.lastSync = data.as_of || new Date().toISOString();
+      window.S.brokerSync.alpaca.connected = true;
     }
-    const data = await syncAlpaca();
-    if (data.equity != null) applyAlpacaBalance(data.equity);
-    if (data.equity != null) {
-      window.S.brokerSync.alpaca.equity = data.equity;
-      window.S.brokerSync.alpaca.positionCount = (data.positions || []).length;
+
+    const ibkrOk = await ensureIbkrConnected();
+    if (ibkrOk) {
+      any = true;
+      const data = await syncIbkr();
+      lastData = data || lastData;
+      const r = importOrders(data.recent_orders || [], data.positions || [], { source: "ibkr" });
+      added += r.added;
+      repaired += r.repaired;
+      paired += r.paired;
+      window.S.brokerSync.ibkr.lastSync = data.as_of || new Date().toISOString();
+      window.S.brokerSync.ibkr.connected = true;
+      window.S.brokerSync.ibkr.imported = window.S.trades.filter(
+        (t) => t.source === "ibkr" && !t.mergedAway
+      ).length;
     }
-    const { added, repaired, paired } = importOrders(data.recent_orders || [], data.positions || []);
-    window.S.brokerSync.alpaca.lastSync = data.as_of || new Date().toISOString();
-    window.S.brokerSync.alpaca.connected = true;
+
+    if (!any) {
+      throw new Error("No broker connected — tap Connect Alpaca or IBKR Flex on the Sync page");
+    }
+
     if (typeof persist === "function") persist();
     if (typeof renderJournal === "function") renderJournal();
     if (typeof updateHomeStats === "function") updateHomeStats();
@@ -782,7 +838,49 @@ const RunnrSync = (() => {
     else if (typeof loadPortfolio === "function" && document.getElementById("page-portfolio")?.classList.contains("active")) {
       loadPortfolio(typeof portPeriod !== "undefined" ? portPeriod : "all", document.querySelector(".period-tab.active"));
     }
-    return { added, repaired, paired, data };
+    return { added, repaired, paired, data: lastData };
+  }
+
+  async function connectIbkr(token, queryId) {
+    return request("/api/v1/brokers/ibkr/connect", {
+      method: "POST",
+      body: JSON.stringify({ token, query_id: queryId }),
+    });
+  }
+
+  async function ibkrStatus() {
+    return request("/api/v1/brokers/ibkr/status");
+  }
+
+  async function syncIbkr() {
+    return request("/api/v1/brokers/ibkr/sync", {}, 90000);
+  }
+
+  function applyIbkrStatus(st) {
+    ensureBrokerState();
+    if (!window.S || !st) return;
+    window.S.brokerSync.ibkr.connected = !!st.connected;
+    if (st.error) window.S.brokerSync.ibkr.error = st.error;
+    if (typeof persist === "function") persist();
+  }
+
+  async function ensureIbkrConnected() {
+    if (!isLoggedIn()) return false;
+    ensureBrokerState();
+    try {
+      const st = await ibkrStatus();
+      if (st?.connected) {
+        applyIbkrStatus(st);
+        return true;
+      }
+    } catch (e) {
+      const msg = String(e.message || e);
+      if (/user not found|session expired|invalid token|missing bearer/i.test(msg)) {
+        setToken("");
+        return false;
+      }
+    }
+    return false;
   }
 
   async function repairJournalIfNeeded() {
@@ -1121,6 +1219,11 @@ const RunnrSync = (() => {
     alpacaStatus,
     connectAlpaca,
     syncAlpaca,
+    connectIbkr,
+    ibkrStatus,
+    syncIbkr,
+    ensureIbkrConnected,
+    applyIbkrStatus,
     refreshStatus,
     runSync,
     repairJournalIfNeeded,
@@ -1143,14 +1246,14 @@ const RunnrSync = (() => {
     syncWatchlistFromCloud,
     diagnose,
     forcePush,
+    importOrders,
+    pairAlpacaRoundTrips,
     pullProfileState,
     pushProfileState,
     pushProfileStateDebounced,
     hasMeaningfulState,
     isDemoState,
     applyRemoteState,
-    importOrders,
-    pairAlpacaRoundTrips,
     billing,
     isPro,
     isEmailVerified,
