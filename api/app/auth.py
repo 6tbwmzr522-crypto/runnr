@@ -37,6 +37,9 @@ def _user_from_row(row) -> dict:
     plan = row["plan"] if "plan" in row.keys() else "free"
     status = status or "free"
     plan = plan or "free"
+    verified = True
+    if "email_verified" in row.keys():
+        verified = bool(row["email_verified"])
     return {
         "id": row["id"],
         "email": row["email"],
@@ -45,6 +48,7 @@ def _user_from_row(row) -> dict:
         "pro": subscription_is_pro(status, plan),
         "billing_enabled": settings.stripe_enabled,
         "stripe_customer_id": row["stripe_customer_id"] if "stripe_customer_id" in row.keys() else None,
+        "email_verified": verified,
     }
 
 
@@ -62,7 +66,7 @@ def get_current_user(
     with get_db() as conn:
         row = conn.execute(
             """
-            SELECT id, email, stripe_customer_id, subscription_status, plan
+            SELECT id, email, stripe_customer_id, subscription_status, plan, email_verified
             FROM users WHERE id = ?
             """,
             (user_id,),

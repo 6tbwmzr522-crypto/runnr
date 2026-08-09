@@ -28,6 +28,9 @@ class Settings(BaseSettings):
     stripe_price_yearly: str = ""
     stripe_success_url: str = "https://runnr.fyi/?billing=success"
     stripe_cancel_url: str = "https://runnr.fyi/?billing=cancel"
+    resend_api_key: str = ""
+    resend_from_email: str = ""
+    app_public_url: str = "https://runnr.fyi"
 
     @property
     def origin_list(self) -> list[str]:

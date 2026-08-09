@@ -15,6 +15,9 @@ class TokenResponse(BaseModel):
     access_token: str
     token_type: str = "bearer"
     email: EmailStr
+    email_verified: bool = True
+    verification_sent: bool = False
+    verify_url: str | None = None  # only when email provider not configured
 
 
 class MeResponse(BaseModel):
@@ -24,8 +27,30 @@ class MeResponse(BaseModel):
     plan: str = "free"
     subscription_status: str = "free"
     billing_enabled: bool = False
+    email_verified: bool = True
+    email_configured: bool = False
+
+
+class ForgotPasswordRequest(BaseModel):
+    email: EmailStr
+
+
+class ForgotPasswordResponse(BaseModel):
+    ok: bool = True
+    detail: str = "If that email exists, we sent a reset link."
+    reset_url: str | None = None  # only when email provider not configured
 
 
 class ResetPasswordRequest(BaseModel):
-    email: EmailStr
+    token: str = Field(min_length=10, max_length=200)
     new_password: str = Field(min_length=8, max_length=128)
+
+
+class VerifyEmailRequest(BaseModel):
+    token: str = Field(min_length=10, max_length=200)
+
+
+class MessageResponse(BaseModel):
+    ok: bool = True
+    detail: str = ""
+    verify_url: str | None = None

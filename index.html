@@ -1086,6 +1086,15 @@ body.light #equity-canvas{filter:invert(0)}
           <div class="badge" style="cursor:pointer;color:var(--text2)" onclick="askCoach(this)">Why do I cut winners early?</div>
           <div class="badge" style="cursor:pointer;color:var(--text2)" onclick="askCoach(this)">Worst instrument for discipline?</div>
           <div class="badge" style="cursor:pointer;color:var(--text2)" onclick="askCoach(this)">P&L if I followed rules 100%?</div>
+          <div class="badge" style="cursor:pointer;color:var(--text2)" onclick="askCoach(this)">Am I oversized?</div>
+          <div class="badge" style="cursor:pointer;color:var(--text2)" onclick="askCoach(this)">Win rate vs profit factor?</div>
+          <div class="badge" style="cursor:pointer;color:var(--text2)" onclick="askCoach(this)">Best day of week?</div>
+          <div class="badge" style="cursor:pointer;color:var(--text2)" onclick="askCoach(this)">Long vs short edge?</div>
+          <div class="badge" style="cursor:pointer;color:var(--text2)" onclick="askCoach(this)">How's my streak?</div>
+        </div>
+        <div style="display:flex;gap:8px;margin-bottom:10px">
+          <input id="coach-free-ask" type="text" placeholder="Ask in your own words…" style="flex:1;min-width:0" onkeydown="if(event.key==='Enter'){event.preventDefault();askCoachFree()}">
+          <button type="button" class="btn btn-sm" onclick="askCoachFree()">Ask</button>
         </div>
         <div id="coach-answer" style="display:none;background:var(--surface2);border-radius:var(--r-sm);padding:12px;font-size:13px;color:var(--text2);line-height:1.55"></div>
       </div>
@@ -1169,14 +1178,20 @@ body.light #equity-canvas{filter:invert(0)}
       </div>
       <div id="sync-reset-auth" class="card" style="display:none;margin-bottom:12px">
         <div class="card-title">Reset password</div>
-        <div style="font-size:12px;color:var(--text2);margin-bottom:12px">Set a new password for your account, then sign in automatically.</div>
+        <div style="font-size:12px;color:var(--text2);margin-bottom:12px">We'll email a reset link. If email isn't configured yet, the link appears here.</div>
         <form id="sync-reset-form" action="javascript:void(0)" novalidate>
-          <div class="field"><label for="sync-reset-email">Email</label><input id="sync-reset-email" type="email" placeholder="you@example.com" autocomplete="username" inputmode="email" autocapitalize="none" autocorrect="off"></div>
-          <div class="field"><label for="sync-reset-password">New password</label><input id="sync-reset-password" type="password" placeholder="8+ characters" autocomplete="new-password" minlength="8" autocapitalize="none" autocorrect="off" spellcheck="false"></div>
-          <div class="field"><label for="sync-reset-password2">Confirm new password</label><input id="sync-reset-password2" type="password" placeholder="Type again" autocomplete="new-password" minlength="8" autocapitalize="none" autocorrect="off" spellcheck="false"></div>
+          <input type="hidden" id="sync-reset-token" value="">
+          <div id="sync-reset-request-fields">
+            <div class="field"><label for="sync-reset-email">Email</label><input id="sync-reset-email" type="email" placeholder="you@example.com" autocomplete="username" inputmode="email" autocapitalize="none" autocorrect="off"></div>
+            <button class="btn" type="button" id="sync-reset-send-btn" style="width:100%;margin-bottom:8px">Send reset link</button>
+          </div>
+          <div id="sync-reset-set-fields" style="display:none">
+            <div class="field"><label for="sync-reset-password">New password</label><input id="sync-reset-password" type="password" placeholder="8+ characters" autocomplete="new-password" minlength="8" autocapitalize="none" autocorrect="off" spellcheck="false"></div>
+            <div class="field"><label for="sync-reset-password2">Confirm new password</label><input id="sync-reset-password2" type="password" placeholder="Type again" autocomplete="new-password" minlength="8" autocapitalize="none" autocorrect="off" spellcheck="false"></div>
+            <button class="btn" type="button" id="sync-reset-btn" style="width:100%">Set new password &amp; sign in</button>
+          </div>
           <div id="sync-reset-error" class="sync-auth-error"></div>
           <div id="sync-reset-status"></div>
-          <button class="btn" type="button" id="sync-reset-btn">Set new password &amp; sign in</button>
         </form>
       </div>
       <div id="sync-connected" style="margin-bottom:12px"></div>
@@ -1196,9 +1211,14 @@ body.light #equity-canvas{filter:invert(0)}
 
       <div class="card" style="margin-top:4px">
         <div class="card-title" data-i18n="sync.csvImport">CSV Import</div>
-        <div style="font-size:12px;color:var(--text2);margin-bottom:10px" data-i18n="sync.csvImportDesc">Not on the list? Import your trade history via CSV from any broker.</div>
+        <div style="font-size:12px;color:var(--text2);margin-bottom:10px" data-i18n="sync.csvImportDesc">Drop a broker export or pick a file. Needs a symbol column plus entry/exit or P&amp;L.</div>
+        <div id="csv-drop-zone" style="border:1px dashed var(--border);border-radius:var(--r-sm);padding:18px 14px;text-align:center;background:var(--surface2);margin-bottom:10px;cursor:pointer">
+          <div style="font-size:13px;color:var(--text2);margin-bottom:4px">Drop CSV here</div>
+          <div style="font-size:11px;color:var(--text3)">or tap to choose a file</div>
+        </div>
         <input type="file" id="csv-import-input" accept=".csv,text/csv,text/plain" style="display:none" onchange="handleCsvImportFile(this)">
         <button type="button" class="btn btn-ghost" onclick="triggerCsvImport()" data-i18n="sync.uploadCsv">Upload CSV File</button>
+        <div id="csv-import-preview" style="font-size:11px;color:var(--text3);margin-top:8px;display:none;line-height:1.45"></div>
         <div id="csv-import-status" style="font-size:11px;color:var(--text3);margin-top:8px;display:none"></div>
       </div>
       <div style="margin-top:16px;padding-top:12px;border-top:1px solid var(--border);text-align:center">
@@ -1740,9 +1760,9 @@ body.light #equity-canvas{filter:invert(0)}
 
 <script src="js/i18n.js?v=6"></script>
 <script src="js/baron.js?v=28"></script>
-<script src="js/coach.js?v=24"></script>
+<script src="js/coach.js?v=25"></script>
 <script src="js/onboarding.js?v=21"></script>
-<script src="js/sync.js?v=39"></script>
+<script src="js/sync.js?v=40"></script>
 <script>
 // ── STATE ──────────────────────────────────────────────────────────────────
 const WHOP_URL = 'https://whop.com/runnr'; // legacy; upgrades now go through Stripe
@@ -2076,6 +2096,7 @@ async function startStripeCheckout(interval) {
     showToast('Runnr', 'Sign in first, then subscribe');
     return;
   }
+  if (!(await requireVerifiedEmail())) return;
   try {
     showToast('Runnr', 'Opening Stripe Checkout…');
     const url = await RunnrSync.createCheckout(interval === 'year' ? 'year' : 'month');
@@ -2099,11 +2120,31 @@ async function openStripePortal() {
 }
 async function requirePro(featureLabel) {
   try { await RunnrSync.refreshBilling?.(); } catch (e) {}
+  if (!(await requireVerifiedEmail())) return false;
   if (RunnrSync.isPro?.()) return true;
   const go = confirm((featureLabel || 'This feature') + ' needs a Runnr subscription (€19/mo).\n\nOpen upgrade options?');
   if (go) openPricing();
   return false;
 }
+async function requireVerifiedEmail() {
+  try { await RunnrSync.refreshBilling?.(); } catch (e) {}
+  if (!RunnrSync.isLoggedIn()) return true;
+  if (RunnrSync.isEmailVerified?.()) return true;
+  const go = confirm('Verify your email first to unlock sync, CSV, and billing.\n\nResend verification link?');
+  if (!go) return false;
+  try {
+    const data = await RunnrSync.resendVerification();
+    if (data?.verify_url) {
+      alert((data.detail || 'Open this link to verify:') + '\n\n' + data.verify_url);
+    } else {
+      showToast('Runnr', data?.detail || 'Verification email sent');
+    }
+  } catch (e) {
+    alert('Could not resend: ' + (e.message || e));
+  }
+  return false;
+}
+window.requireVerifiedEmail = requireVerifiedEmail;
 function dismissDemoBanner() {
   try { sessionStorage.setItem('runnr_demo_banner_dismissed', '1'); } catch (e) {}
   updateDemoBanner();
@@ -5331,6 +5372,17 @@ async function submitSyncContinue() {
     showSyncSignInStatus('Signed in — loading your profile…', 'ok');
     finishSyncSignIn(email);
     showToast('Runnr', 'Signed in');
+    try {
+      const me = await RunnrSync.refreshBilling?.();
+      if (me && me.emailVerified === false) {
+        const data = await RunnrSync.resendVerification();
+        if (data?.verify_url) {
+          alert('Verify your email to unlock sync & billing:\n\n' + data.verify_url);
+        } else {
+          showToast('Runnr', 'Check your email to verify your account');
+        }
+      }
+    } catch (e) {}
   } catch (e) {
     const msg = String(e.message || e);
     showSyncSignInStatus('', '');
@@ -5355,51 +5407,84 @@ async function submitSyncContinue() {
 
 let _syncResetRunning = false;
 
+function showResetSetFields(token) {
+  const tok = document.getElementById('sync-reset-token');
+  if (tok) tok.value = token || '';
+  const req = document.getElementById('sync-reset-request-fields');
+  const set = document.getElementById('sync-reset-set-fields');
+  if (req) req.style.display = token ? 'none' : 'block';
+  if (set) set.style.display = token ? 'block' : 'none';
+}
+
+async function submitSyncForgotPassword() {
+  if (_syncResetRunning) return;
+  dismissSyncKeyboard();
+  const email = (document.getElementById('sync-reset-email')?.value || '').trim().toLowerCase()
+    || (document.getElementById('sync-email-inline')?.value || '').trim().toLowerCase();
+  if (!email || !email.includes('@')) {
+    showSyncResetError('Enter the email for your Runnr account.');
+    return;
+  }
+  showSyncResetError('');
+  showSyncResetStatus('Sending reset link…', 'working');
+  _syncResetRunning = true;
+  try {
+    const data = await RunnrSync.forgotPassword(email);
+    if (data?.reset_url) {
+      showSyncResetStatus((data.detail || 'Use this reset link:') + '\n' + data.reset_url, 'ok');
+      const u = new URL(data.reset_url);
+      const token = u.searchParams.get('reset');
+      if (token) showResetSetFields(token);
+    } else {
+      showSyncResetStatus(data?.detail || 'Check your email for a reset link.', 'ok');
+    }
+  } catch (e) {
+    showSyncResetStatus('', '');
+    showSyncResetError(String(e.message || e));
+  } finally {
+    _syncResetRunning = false;
+  }
+}
+
 async function submitSyncResetPassword() {
   if (_syncResetRunning) return;
   dismissSyncKeyboard();
   await waitForIosFields(150);
-  const { email, password, confirm } = readSyncResetFields();
-  const err = validateSyncAuth(email, password);
-  if (err) {
-    showSyncResetError(err);
-    showSyncResetStatus('', '');
+  const token = (document.getElementById('sync-reset-token')?.value || '').trim();
+  const password = (document.getElementById('sync-reset-password')?.value || '').trim();
+  const confirm = (document.getElementById('sync-reset-password2')?.value || '').trim();
+  if (!token) {
+    showSyncResetError('Request a reset link first (or open the link from your email).');
+    return;
+  }
+  if (!password || password.length < 8) {
+    showSyncResetError('Password must be at least 8 characters.');
     return;
   }
   if (password !== confirm) {
     showSyncResetError('Passwords do not match — type the same new password twice.');
-    showSyncResetStatus('', '');
     return;
   }
   if (RunnrSync.storageOk && !RunnrSync.storageOk()) {
     showSyncResetError('Safari blocked storage — turn off Private Browsing for runnr.fyi.');
-    showSyncResetStatus('', '');
     return;
   }
   showSyncResetError('');
-  showSyncResetStatus('Contacting server…', 'working');
+  showSyncResetStatus('Updating password…', 'working');
   _syncResetRunning = true;
   setSyncAuthBusy(true, 'reset');
   try {
-    await RunnrSync.resetPassword(email, password);
+    const data = await RunnrSync.resetPassword(token, password);
     if (!RunnrSync.isLoggedIn()) {
       throw new Error('Password saved but login did not stick — turn off Private Browsing');
     }
     showSyncResetStatus('Signed in — loading your profile…', 'ok');
-    finishSyncSignIn(email);
+    finishSyncSignIn(data.email || '');
     showToast('Runnr', 'Password updated — signed in');
   } catch (e) {
     const msg = String(e.message || e);
     showSyncResetStatus('', '');
-    if (/no account with this email/i.test(msg)) {
-      showSyncResetError('No account yet — use Sign in above with Continue (creates your account).');
-    } else if (/cannot reach|timed out|failed to fetch|network/i.test(msg)) {
-      showSyncResetError('Cannot reach server — check Wi‑Fi or mobile data and try again.');
-    } else if (/private browsing|blocked saving/i.test(msg)) {
-      showSyncResetError(msg);
-    } else {
-      showSyncResetError(msg || 'Reset failed — try again');
-    }
+    showSyncResetError(msg || 'Reset failed — request a new link');
   } finally {
     _syncResetRunning = false;
     setSyncAuthBusy(false, 'reset');
@@ -5407,6 +5492,7 @@ async function submitSyncResetPassword() {
 }
 window.submitSyncContinue = submitSyncContinue;
 window.submitSyncResetPassword = submitSyncResetPassword;
+window.submitSyncForgotPassword = submitSyncForgotPassword;
 
 function finishSyncSignIn(email) {
   localStorage.setItem('runnr_remember_email', email);
@@ -5711,36 +5797,72 @@ function setCsvImportStatus(msg, ok) {
 function handleCsvImportFile(input) {
   const file = input?.files?.[0];
   if (!file) return;
+  importCsvFile(file).finally(() => { if (input) input.value = ''; });
+}
+
+async function importCsvFile(file) {
   setCsvImportStatus('Reading ' + file.name + '…');
-  const reader = new FileReader();
-  reader.onload = () => {
-    try {
-      const rows = parseCsvText(reader.result);
-      if (!rows.length) {
-        setCsvImportStatus('No data rows found — check CSV headers.', false);
-        return;
-      }
-      const { added, skipped } = importTradesFromCsvRows(rows);
-      if (!added) {
-        setCsvImportStatus('No trades imported. Need symbol + entry/exit or P&L column.', false);
-        return;
-      }
-      setCsvImportStatus(`Imported ${added} trade${added === 1 ? '' : 's'}${skipped ? ` (${skipped} skipped)` : ''}.`, true);
-      renderJournal();
-      updateHomeStats();
-      refreshPortfolioIfVisible();
-      showToast('Runnr', `Imported ${added} trade${added === 1 ? '' : 's'} — complete flags in Journal`);
-      switchPage('journal');
-    } catch (e) {
-      setCsvImportStatus('Import failed: ' + (e.message || e), false);
+  const preview = document.getElementById('csv-import-preview');
+  try {
+    const text = await file.text();
+    const rows = parseCsvText(text);
+    if (!rows.length) {
+      setCsvImportStatus('No data rows found — check CSV headers.', false);
+      if (preview) preview.style.display = 'none';
+      return;
     }
-    input.value = '';
-  };
-  reader.onerror = () => setCsvImportStatus('Could not read file.', false);
-  reader.readAsText(file);
+    const headers = Object.keys(rows[0] || {});
+    if (preview) {
+      preview.style.display = 'block';
+      preview.textContent = `Detected ${rows.length} row${rows.length === 1 ? '' : 's'} · columns: ${headers.slice(0, 8).join(', ')}${headers.length > 8 ? '…' : ''}`;
+    }
+    const { added, skipped } = importTradesFromCsvRows(rows);
+    if (!added) {
+      setCsvImportStatus('No trades imported. Need symbol + entry/exit or P&L column.', false);
+      return;
+    }
+    setCsvImportStatus(`Imported ${added} trade${added === 1 ? '' : 's'}${skipped ? ` (${skipped} skipped)` : ''}.`, true);
+    renderJournal();
+    updateHomeStats();
+    refreshPortfolioIfVisible();
+    showToast('Runnr', `Imported ${added} trade${added === 1 ? '' : 's'} — complete flags in Journal`);
+    switchPage('journal');
+  } catch (e) {
+    setCsvImportStatus('Import failed: ' + (e.message || e), false);
+  }
+}
+
+function initCsvDropZone() {
+  const zone = document.getElementById('csv-drop-zone');
+  const input = document.getElementById('csv-import-input');
+  if (!zone || zone.dataset.bound) return;
+  zone.dataset.bound = '1';
+  zone.addEventListener('click', () => triggerCsvImport());
+  zone.addEventListener('dragover', (e) => {
+    e.preventDefault();
+    zone.style.borderColor = 'var(--accent)';
+  });
+  zone.addEventListener('dragleave', () => {
+    zone.style.borderColor = 'var(--border)';
+  });
+  zone.addEventListener('drop', async (e) => {
+    e.preventDefault();
+    zone.style.borderColor = 'var(--border)';
+    if (!RunnrSync.isLoggedIn()) {
+      openSyncAuthModal();
+      return;
+    }
+    if (!(await requirePro('CSV import'))) return;
+    const file = e.dataTransfer?.files?.[0];
+    if (file) importCsvFile(file);
+  });
+  if (input) {
+    // keep change handler
+  }
 }
 window.triggerCsvImport = triggerCsvImport;
 window.handleCsvImportFile = handleCsvImportFile;
+window.initCsvDropZone = initCsvDropZone;
 
 async function runBrokerSync() {
   if (!RunnrSync.isLoggedIn()) {
@@ -5976,6 +6098,17 @@ function askCoach(el) {
   ansEl.style.display = 'block';
   ansEl.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
 }
+function askCoachFree() {
+  const input = document.getElementById('coach-free-ask');
+  const q = (input?.value || '').trim();
+  if (!q) return;
+  const ans = CoachEngine.answerQuestion(S.trades, q, S.sym, S.bal, S.risk);
+  const ansEl = document.getElementById('coach-answer');
+  ansEl.textContent = ans;
+  ansEl.style.display = 'block';
+  ansEl.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+}
+window.askCoachFree = askCoachFree;
 
 // ── EQUITY CURVE ──────────────────────────────────────────────────────────
 function drawEquityCurve() {
@@ -6260,6 +6393,7 @@ function initSyncAuthForm() {
 
   bindAuthButton('sync-login-btn-inline', submitSyncContinue);
   bindAuthButton('sync-reset-btn', submitSyncResetPassword);
+  bindAuthButton('sync-reset-send-btn', submitSyncForgotPassword);
   bindAuthButton('sync-login-btn', submitSyncContinue);
 
   if (signinForm && !signinForm.dataset.bound) {
@@ -6300,8 +6434,30 @@ function initApp() {
   try { updateHomeStats(); } catch (e) {}
   try { renderHomePreviews(); } catch (e) {}
   try { initSyncAuthForm(); } catch (e) {}
+  try { initCsvDropZone(); } catch (e) {}
   registerServiceWorker();
   renderHeaderSyncPill();
+  const params = new URLSearchParams(location.search);
+  if (params.get('verify')) {
+    const token = params.get('verify');
+    history.replaceState(null, '', location.pathname + location.hash);
+    RunnrSync.verifyEmail(token)
+      .then(() => {
+        showToast('Runnr', 'Email verified');
+        return RunnrSync.refreshBilling?.();
+      })
+      .catch((e) => alert('Verification failed: ' + (e.message || e)));
+  } else if (params.get('reset')) {
+    const token = params.get('reset');
+    history.replaceState(null, '', location.pathname + location.hash);
+    switchPage('sync');
+    const reset = document.getElementById('sync-reset-auth');
+    const login = document.getElementById('sync-inline-auth');
+    if (reset) reset.style.display = 'block';
+    if (login) login.style.display = 'none';
+    showResetSetFields(token);
+    showSyncResetStatus('Choose a new password below.', 'ok');
+  }
   if (/[?&]billing=success/.test(location.search)) {
     history.replaceState(null, '', location.pathname + location.hash);
     showToast('Runnr', 'Subscription active — welcome aboard');

@@ -151,23 +151,53 @@ const RunnrSync = (() => {
     return data;
   }
 
-  async function resetPassword(email, newPassword) {
+  async function forgotPassword(email) {
+    ensureApiUrl();
+    return request(
+      "/api/v1/auth/forgot-password",
+      {
+        method: "POST",
+        body: JSON.stringify({ email: String(email || "").trim().toLowerCase() }),
+      },
+      15000
+    );
+  }
+
+  async function resetPassword(token, newPassword) {
     ensureApiUrl();
     if (!storageOk()) {
       throw new Error("Safari blocked saving your login — turn off Private Browsing or allow site data for runnr.fyi");
     }
-    const creds = normalizeAuth(email, newPassword);
     const data = await request(
       "/api/v1/auth/reset-password",
       {
         method: "POST",
-        body: JSON.stringify({ email: creds.email, new_password: creds.password }),
+        body: JSON.stringify({
+          token: String(token || "").trim(),
+          new_password: String(newPassword || "").trim(),
+        }),
       },
       12000
     );
-    setToken(data.access_token, data.email || creds.email);
-    localStorage.setItem("runnr_remember_email", creds.email);
+    setToken(data.access_token, data.email);
+    if (data.email) localStorage.setItem("runnr_remember_email", data.email);
     return data;
+  }
+
+  async function verifyEmail(token) {
+    return request(
+      "/api/v1/auth/verify-email",
+      {
+        method: "POST",
+        body: JSON.stringify({ token: String(token || "").trim() }),
+      },
+      12000
+    );
+  }
+
+  async function resendVerification() {
+    if (!isLoggedIn()) throw new Error("Log in first");
+    return request("/api/v1/auth/resend-verification", { method: "POST", body: "{}" }, 15000);
   }
 
   /** Log in, or create account if this email is new (covers server DB resets). */
@@ -993,6 +1023,8 @@ const RunnrSync = (() => {
     plan: "free",
     status: "free",
     enabled: false,
+    emailVerified: true,
+    emailConfigured: false,
   };
 
   function billing() {
@@ -1004,14 +1036,32 @@ const RunnrSync = (() => {
     return !!billingCache.pro;
   }
 
+  function isEmailVerified() {
+    if (!isLoggedIn()) return false;
+    return !!billingCache.emailVerified;
+  }
+
   async function refreshBilling() {
     if (!isLoggedIn()) {
-      billingCache = { pro: false, plan: "free", status: "free", enabled: true };
+      billingCache = {
+        pro: false,
+        plan: "free",
+        status: "free",
+        enabled: true,
+        emailVerified: false,
+        emailConfigured: false,
+      };
       try {
-        // Public-ish: if API has no stripe, treat as open for anonymous
         const health = await fetch(apiBase() + "/health").then((r) => r.json()).catch(() => null);
         if (health && health.stripe_configured === false) {
-          billingCache = { pro: true, plan: "free", status: "free", enabled: false };
+          billingCache = {
+            pro: true,
+            plan: "free",
+            status: "free",
+            enabled: false,
+            emailVerified: true,
+            emailConfigured: false,
+          };
         }
       } catch (e) {}
       return billingCache;
@@ -1023,6 +1073,8 @@ const RunnrSync = (() => {
         plan: me.plan || "free",
         status: me.subscription_status || "free",
         enabled: !!me.billing_enabled,
+        emailVerified: me.email_verified !== false,
+        emailConfigured: !!me.email_configured,
       };
     } catch (e) {
       /* keep cache */
@@ -1062,6 +1114,9 @@ const RunnrSync = (() => {
     login,
     signIn,
     resetPassword,
+    forgotPassword,
+    verifyEmail,
+    resendVerification,
     logout,
     alpacaStatus,
     connectAlpaca,
@@ -1098,6 +1153,7 @@ const RunnrSync = (() => {
     pairAlpacaRoundTrips,
     billing,
     isPro,
+    isEmailVerified,
     refreshBilling,
     createCheckout,
     createPortal,

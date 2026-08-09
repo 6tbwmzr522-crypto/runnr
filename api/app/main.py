@@ -68,6 +68,7 @@ def health():
         "ai_model": settings.openai_model,
         "finnhub_configured": bool(fh),
         "stripe_configured": settings.stripe_enabled,
+        "email_configured": bool((settings.resend_api_key or "").strip()),
         "quote_cache_ttl_s": settings.quote_cache_ttl,
         "caches": {
             "quotes": quote_cache.stats(),

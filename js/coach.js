@@ -347,9 +347,10 @@ const CoachEngine = {
     const q = (question || "").toLowerCase();
     const all = this.metrics(trades);
     const byInstr = this.byInstrument(trades);
+    const completed = this.completed(trades);
 
     if (q.includes("cut winners") || q.includes("early")) {
-      const winners = this.completed(trades).filter((t) => t.pnl > 0);
+      const winners = completed.filter((t) => t.pnl > 0);
       if (winners.length < 3) {
         return "Need more winning trades in the journal to detect an early-exit pattern.";
       }
@@ -357,7 +358,7 @@ const CoachEngine = {
       return `${small.length} of ${winners.length} winners booked less than 2R — review exits on ${[...new Set(small.map((t) => t.instr))].slice(0, 3).join(", ") || "recent names"}. Consider letting trail stops run.`;
     }
 
-    if (q.includes("worst instrument") || q.includes("discipline")) {
+    if (q.includes("worst instrument") || (q.includes("discipline") && q.includes("instrument"))) {
       const ranked = Object.entries(byInstr)
         .map(([name, v]) => ({ name, rate: 1 - (v.stopFail + v.sizeFail) / (v.n * 2), n: v.n }))
         .filter((x) => x.n >= 2)
@@ -372,7 +373,66 @@ const CoachEngine = {
       return `Actual P&L on disciplined vs sloppy trades: clean flags ${sym}${Math.round(all.discPnl).toLocaleString()}, lapses ${sym}${Math.round(gap).toLocaleString()}. Closing the discipline gap is worth ${sym}${Math.abs(Math.round(all.discPnl - all.totalPnl)).toLocaleString()} vs your current path.`;
     }
 
-    return `Based on ${all.count} trades: ${all.stopPct.toFixed(0)}% stop discipline, ${all.sizePct.toFixed(0)}% size discipline, PF ${all.profitFactor.toFixed(2)}. Ask about early exits, worst instrument, or rule-following P&L.`;
+    if (q.includes("oversiz") || q.includes("position size") || q.includes("too big")) {
+      const sizeFail = completed.filter((t) => t.sizeOk === false).length;
+      if (!completed.length) return "Log closed trades with size flags to check oversizing.";
+      return `${sizeFail} of ${completed.length} trades flagged size issues (${all.sizePct.toFixed(0)}% size discipline). Default risk is ${riskPct}% with a 10% max position — size in the Sizer before entry.`;
+    }
+
+    if (q.includes("win rate") || q.includes("profit factor") || q.includes("pf")) {
+      if (!completed.length) return "Need closed trades with P&L for win rate and profit factor.";
+      return `Win rate ${all.winRate.toFixed(0)}% · profit factor ${all.profitFactor.toFixed(2)} across ${all.count} closed trades. PF > 1.25 with 200+ trades is the institutional bar — keep logging.`;
+    }
+
+    if (q.includes("day of week") || q.includes("weekday") || q.includes("best day")) {
+      const buckets = {};
+      completed.forEach((t) => {
+        const d = this.parseTradeDate(t.date);
+        if (!d) return;
+        const key = d.toLocaleDateString("en-GB", { weekday: "short" });
+        if (!buckets[key]) buckets[key] = { n: 0, pnl: 0 };
+        buckets[key].n += 1;
+        buckets[key].pnl += t.pnl || 0;
+      });
+      const ranked = Object.entries(buckets).sort((a, b) => b[1].pnl - a[1].pnl);
+      if (!ranked.length) return "Need dated closed trades to see weekday patterns.";
+      const [best, b] = ranked[0];
+      const [worst, w] = ranked[ranked.length - 1];
+      return `Best: ${best} (${sym}${Math.round(b.pnl).toLocaleString()} / ${b.n} trades). Softest: ${worst} (${sym}${Math.round(w.pnl).toLocaleString()} / ${w.n}). Sample is small — treat as a hint, not a rule.`;
+    }
+
+    if (q.includes("long vs short") || q.includes("long/short") || (q.includes("long") && q.includes("short"))) {
+      const longs = completed.filter((t) => (t.dir || "long") === "long");
+      const shorts = completed.filter((t) => t.dir === "short");
+      const sum = (arr) => arr.reduce((s, t) => s + (t.pnl || 0), 0);
+      if (!longs.length && !shorts.length) return "No closed trades yet to compare long vs short.";
+      return `Longs: ${longs.length} trades · ${sym}${Math.round(sum(longs)).toLocaleString()}. Shorts: ${shorts.length} trades · ${sym}${Math.round(sum(shorts)).toLocaleString()}. Lean into the side with cleaner process, not just raw P&L.`;
+    }
+
+    if (q.includes("streak")) {
+      const chrono = this.sortTradesChrono(completed);
+      if (!chrono.length) return "Log closed trades to track win/loss streaks.";
+      let cur = 0;
+      let best = 0;
+      let worst = 0;
+      let run = 0;
+      chrono.forEach((t) => {
+        const win = (t.pnl || 0) > 0;
+        if (cur === 0) {
+          cur = win ? 1 : -1;
+        } else if ((cur > 0 && win) || (cur < 0 && !win)) {
+          cur += win ? 1 : -1;
+        } else {
+          cur = win ? 1 : -1;
+        }
+        best = Math.max(best, cur);
+        worst = Math.min(worst, cur);
+        run = cur;
+      });
+      return `Current run: ${run > 0 ? run + " wins" : Math.abs(run) + " losses"}. Best win streak ${Math.max(best, 0)}, worst loss streak ${Math.abs(Math.min(worst, 0))}. Protect process on loss streaks — don't revenge-size.`;
+    }
+
+    return `Based on ${all.count} trades: ${all.stopPct.toFixed(0)}% stop discipline, ${all.sizePct.toFixed(0)}% size discipline, PF ${all.profitFactor.toFixed(2)}. Try: early exits, worst instrument, oversizing, win rate vs PF, weekday edge, long vs short, or streaks.`;
   },
 
   equityComparison(trades, balance) {

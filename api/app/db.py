@@ -59,6 +59,7 @@ def init_db() -> None:
             """
         )
         _migrate_users_billing(conn)
+        _migrate_auth_tokens(conn)
 
 
 def _migrate_users_billing(conn: sqlite3.Connection) -> None:
@@ -68,10 +69,33 @@ def _migrate_users_billing(conn: sqlite3.Connection) -> None:
         ("subscription_status", "TEXT DEFAULT 'free'"),
         ("plan", "TEXT DEFAULT 'free'"),
         ("stripe_subscription_id", "TEXT"),
+        ("email_verified", "INTEGER DEFAULT 1"),
     ]
     for col, ddl in migrations:
         if col not in cols:
             conn.execute(f"ALTER TABLE users ADD COLUMN {col} {ddl}")
+    # Existing accounts are grandfathered as verified
+    if "email_verified" not in cols:
+        conn.execute("UPDATE users SET email_verified = 1 WHERE email_verified IS NULL")
+
+
+def _migrate_auth_tokens(conn: sqlite3.Connection) -> None:
+    conn.execute(
+        """
+        CREATE TABLE IF NOT EXISTS auth_tokens (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            user_id INTEGER NOT NULL,
+            purpose TEXT NOT NULL,
+            token_hash TEXT NOT NULL,
+            expires_at TEXT NOT NULL,
+            created_at TEXT DEFAULT CURRENT_TIMESTAMP,
+            FOREIGN KEY(user_id) REFERENCES users(id)
+        )
+        """
+    )
+    conn.execute(
+        "CREATE INDEX IF NOT EXISTS idx_auth_tokens_hash ON auth_tokens(token_hash, purpose)"
+    )
 
 
 @contextmanager
