@@ -31,7 +31,14 @@ def register(body: RegisterRequest):
 
 @router.get("/me", response_model=MeResponse)
 def me(user: dict = Depends(get_current_user)):
-    return MeResponse(id=user["id"], email=user["email"])
+    return MeResponse(
+        id=user["id"],
+        email=user["email"],
+        pro=bool(user.get("pro")),
+        plan=user.get("plan") or "free",
+        subscription_status=user.get("subscription_status") or "free",
+        billing_enabled=bool(user.get("billing_enabled")),
+    )
 
 
 @router.post("/reset-password", response_model=TokenResponse)

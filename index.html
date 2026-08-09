@@ -812,7 +812,7 @@ body.light #equity-canvas{filter:invert(0)}
           <button type="button" onclick="openAboutModal()" data-i18n="footer.about">About</button>
           <button type="button" onclick="location.href='report/'">Discipline report</button>
           <button type="button" onclick="openPrivacyModal()" data-i18n="footer.privacy">Privacy</button>
-          <button type="button" onclick="openWhopPricing()" data-i18n="footer.pricing">Pricing</button>
+          <button type="button" onclick="openPricing()" data-i18n="footer.pricing">Pricing</button>
         </div>
         <div class="home-footer-copy">© 2026 Thin Ice Digital · All rights reserved</div>
       </footer>
@@ -1206,7 +1206,7 @@ body.light #equity-canvas{filter:invert(0)}
           <button type="button" onclick="openAboutModal()" data-i18n="footer.about">About</button>
           <button type="button" onclick="location.href='report/'">Discipline report</button>
           <button type="button" onclick="openPrivacyModal()" data-i18n="footer.privacy">Privacy</button>
-          <button type="button" onclick="openWhopPricing()" data-i18n="footer.pricing">Pricing</button>
+          <button type="button" onclick="openPricing()" data-i18n="footer.pricing">Pricing</button>
         </div>
         <div style="font-size:11px;color:var(--text3);margin-top:8px;line-height:1.45">Alpaca: read-only sync · keys encrypted · no order execution</div>
       </div>
@@ -1692,10 +1692,14 @@ body.light #equity-canvas{filter:invert(0)}
     <div class="divider"></div>
     <div style="font-size:12px;color:var(--text3);margin-bottom:10px;font-weight:600;text-transform:uppercase;letter-spacing:0.8px" data-i18n="settings.pricing">Pricing</div>
     <div class="trust-pricing-row" data-i18n="settings.pricingFree">Free — sizer, demo journal, watchlist</div>
-    <div class="trust-pricing-row" data-i18n="settings.pricingBasic">Basic — €19/mo · full journal, Coach, alerts</div>
-    <div class="trust-pricing-row" data-i18n="settings.pricingPro">Pro — €25/mo · broker sync, CSV, advanced stats</div>
-    <button class="btn" style="background:linear-gradient(135deg,var(--accent2),var(--accent));margin-bottom:8px" onclick="openWhopPricing()" data-i18n="settings.upgrade">View plans on Whop</button>
-    <div style="font-size:11px;color:var(--text3);text-align:center;margin-bottom:12px" data-i18n="settings.upgradeHint">Free tier to start · Basic €19 · Pro €25 · cancel anytime on Whop</div>
+    <div class="trust-pricing-row" data-i18n="settings.pricingPaid">Runnr — €19/mo or €190/yr · full journal, Coach, alerts, broker sync, CSV, cloud</div>
+    <div id="billing-status-line" style="font-size:12px;color:var(--text2);margin-bottom:10px">—</div>
+    <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:8px">
+      <button class="btn" style="flex:1;min-width:120px;background:linear-gradient(135deg,var(--accent2),var(--accent))" onclick="startStripeCheckout('month')" data-i18n="settings.upgradeMonthly">€19 / month</button>
+      <button class="btn btn-ghost" style="flex:1;min-width:120px" onclick="startStripeCheckout('year')" data-i18n="settings.upgradeYearly">€190 / year</button>
+    </div>
+    <button class="btn btn-ghost btn-sm" style="width:100%;margin-bottom:8px" onclick="openStripePortal()" data-i18n="settings.manageBilling">Manage billing</button>
+    <div style="font-size:11px;color:var(--text3);text-align:center;margin-bottom:12px" data-i18n="settings.upgradeHint">One plan. Cancel anytime in Stripe customer portal.</div>
     <div class="divider"></div>
     <div style="font-size:12px;color:var(--text3);margin-bottom:8px;font-weight:600;text-transform:uppercase;letter-spacing:0.8px" data-i18n="settings.trust">Trust &amp; privacy</div>
     <button class="btn btn-ghost btn-sm" style="margin-bottom:6px;width:100%" onclick="openAboutModal()" data-i18n="settings.about">About Runnr</button>
@@ -1734,14 +1738,14 @@ body.light #equity-canvas{filter:invert(0)}
   </div>
 </div>
 
-<script src="js/i18n.js?v=5"></script>
+<script src="js/i18n.js?v=6"></script>
 <script src="js/baron.js?v=28"></script>
 <script src="js/coach.js?v=24"></script>
-<script src="js/onboarding.js?v=20"></script>
-<script src="js/sync.js?v=36"></script>
+<script src="js/onboarding.js?v=21"></script>
+<script src="js/sync.js?v=37"></script>
 <script>
 // ── STATE ──────────────────────────────────────────────────────────────────
-const WHOP_URL = 'https://whop.com/runnr';
+const WHOP_URL = 'https://whop.com/runnr'; // legacy; upgrades now go through Stripe
 const INST_MIN_TRADES = 30;
 
 const S = {
@@ -2049,7 +2053,56 @@ function switchPage(key) {
 // ── SETTINGS ───────────────────────────────────────────────────────────────
 function openAboutModal() { openModal('modal-about'); }
 function openPrivacyModal() { openModal('modal-privacy'); }
-function openWhopPricing() { window.open(WHOP_URL, '_blank', 'noopener,noreferrer'); }
+function openWhopPricing() { openPricing(); }
+function openPricing() {
+  openModal('modal-settings');
+  refreshBillingUI();
+}
+async function refreshBillingUI() {
+  const line = document.getElementById('billing-status-line');
+  try {
+    await RunnrSync.refreshBilling?.();
+  } catch (e) {}
+  const b = RunnrSync.billing?.() || { pro: false, plan: 'free', status: 'free', enabled: false };
+  if (line) {
+    if (!b.enabled) line.textContent = 'Billing not configured on server yet';
+    else if (b.pro) line.textContent = 'Plan: Runnr · ' + (b.plan || 'pro') + ' · ' + (b.status || 'active');
+    else line.textContent = 'Plan: Free — upgrade for sync, CSV & full Coach tools';
+  }
+}
+async function startStripeCheckout(interval) {
+  if (!RunnrSync.isLoggedIn()) {
+    openSyncAuthModal();
+    showToast('Runnr', 'Sign in first, then subscribe');
+    return;
+  }
+  try {
+    showToast('Runnr', 'Opening Stripe Checkout…');
+    const url = await RunnrSync.createCheckout(interval === 'year' ? 'year' : 'month');
+    window.location.href = url;
+  } catch (e) {
+    alert('Checkout failed: ' + (e.message || e));
+  }
+}
+async function openStripePortal() {
+  if (!RunnrSync.isLoggedIn()) {
+    openSyncAuthModal();
+    return;
+  }
+  try {
+    const url = await RunnrSync.createPortal();
+    window.location.href = url;
+  } catch (e) {
+    alert('Billing portal: ' + (e.message || e));
+  }
+}
+async function requirePro(featureLabel) {
+  try { await RunnrSync.refreshBilling?.(); } catch (e) {}
+  if (RunnrSync.isPro?.()) return true;
+  const go = confirm((featureLabel || 'This feature') + ' needs a Runnr subscription (€19/mo).\n\nOpen upgrade options?');
+  if (go) openPricing();
+  return false;
+}
 function dismissDemoBanner() {
   try { sessionStorage.setItem('runnr_demo_banner_dismissed', '1'); } catch (e) {}
   updateDemoBanner();
@@ -2066,6 +2119,11 @@ function updateDemoBanner() {
 window.openAboutModal = openAboutModal;
 window.openPrivacyModal = openPrivacyModal;
 window.openWhopPricing = openWhopPricing;
+window.openPricing = openPricing;
+window.startStripeCheckout = startStripeCheckout;
+window.openStripePortal = openStripePortal;
+window.requirePro = requirePro;
+window.refreshBillingUI = refreshBillingUI;
 window.dismissDemoBanner = dismissDemoBanner;
 
 function changeLanguage(code) {
@@ -2116,6 +2174,7 @@ function openSettingsModal() {
   const langEl = document.getElementById('set-language');
   if (langEl) langEl.value = S.lang || 'en';
   openModal('modal-settings');
+  refreshBillingUI();
 }
 
 function setRisk(r) {
@@ -5426,7 +5485,13 @@ async function connectBroker(name) {
   alert(name + ' coming soon.\n\nUse Alpaca today, or import trades via CSV on the Journal page.');
 }
 
-function openAlpacaModal() {
+async function openAlpacaModal() {
+  if (!RunnrSync.isLoggedIn()) {
+    openSyncAuthModal();
+    showToast('Runnr', 'Sign in to connect Alpaca');
+    return;
+  }
+  if (!(await requirePro('Alpaca connection'))) return;
   const saved = RunnrSync.loadAlpacaLocal();
   if (saved?.key) document.getElementById('alpaca-key').value = saved.key;
   if (saved?.secret) document.getElementById('alpaca-secret').value = saved.secret;
@@ -5501,7 +5566,13 @@ async function ensureAlpacaLinked() {
 }
 
 // ── CSV IMPORT ──────────────────────────────────────────────────────────
-function triggerCsvImport() {
+async function triggerCsvImport() {
+  if (!RunnrSync.isLoggedIn()) {
+    openSyncAuthModal();
+    showToast('Runnr', 'Sign in to import CSV');
+    return;
+  }
+  if (!(await requirePro('CSV import'))) return;
   const input = document.getElementById('csv-import-input');
   if (!input) return;
   input.value = '';
@@ -5675,6 +5746,7 @@ async function runBrokerSync() {
     openSyncAuthModal();
     return;
   }
+  if (!(await requirePro('Alpaca broker sync'))) return;
   try {
     try {
       const profile = await RunnrSync.syncProfileState();
@@ -6229,6 +6301,16 @@ function initApp() {
   try { initSyncAuthForm(); } catch (e) {}
   registerServiceWorker();
   renderHeaderSyncPill();
+  if (/[?&]billing=success/.test(location.search)) {
+    history.replaceState(null, '', location.pathname + location.hash);
+    showToast('Runnr', 'Subscription active — welcome aboard');
+    if (RunnrSync.isLoggedIn()) {
+      RunnrSync.refreshBilling?.().then(() => refreshBillingUI()).catch(() => {});
+    }
+  } else if (/[?&]billing=cancel/.test(location.search)) {
+    history.replaceState(null, '', location.pathname + location.hash);
+    showToast('Runnr', 'Checkout cancelled');
+  }
   if (/[?&]signedin=1/.test(location.search) && RunnrSync.isLoggedIn()) {
     history.replaceState(null, '', location.pathname + location.hash);
     renderHeaderSyncPill();
@@ -6254,7 +6336,10 @@ function initApp() {
     try { startFeedTimer(); } catch (e) {}
     fetchFearGreed().catch(() => {});
     refreshHomeMarkets().catch(() => {});
-    if (RunnrSync.isLoggedIn()) RunnrSync.refreshStatus().catch(() => {});
+    if (RunnrSync.isLoggedIn()) {
+      RunnrSync.refreshStatus().catch(() => {});
+      RunnrSync.refreshBilling?.().catch(() => {});
+    }
   }, 400);
 }
 

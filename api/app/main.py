@@ -5,7 +5,7 @@ from fastapi.middleware.cors import CORSMiddleware
 
 from app.config import settings
 from app.db import init_db
-from app.routers import auth, brokers, profile, quotes
+from app.routers import auth, billing, brokers, profile, quotes
 
 
 @asynccontextmanager
@@ -32,6 +32,7 @@ app.add_middleware(
 )
 
 app.include_router(auth.router, prefix="/api/v1")
+app.include_router(billing.router, prefix="/api/v1")
 app.include_router(brokers.router, prefix="/api/v1")
 app.include_router(profile.router, prefix="/api/v1")
 app.include_router(quotes.router, prefix="/api/v1/quotes", tags=["quotes"])
@@ -66,6 +67,7 @@ def health():
         "ai_configured": bool(key),
         "ai_model": settings.openai_model,
         "finnhub_configured": bool(fh),
+        "stripe_configured": settings.stripe_enabled,
         "quote_cache_ttl_s": settings.quote_cache_ttl,
         "caches": {
             "quotes": quote_cache.stats(),

@@ -58,6 +58,20 @@ def init_db() -> None:
             );
             """
         )
+        _migrate_users_billing(conn)
+
+
+def _migrate_users_billing(conn: sqlite3.Connection) -> None:
+    cols = {row[1] for row in conn.execute("PRAGMA table_info(users)").fetchall()}
+    migrations = [
+        ("stripe_customer_id", "TEXT"),
+        ("subscription_status", "TEXT DEFAULT 'free'"),
+        ("plan", "TEXT DEFAULT 'free'"),
+        ("stripe_subscription_id", "TEXT"),
+    ]
+    for col, ddl in migrations:
+        if col not in cols:
+            conn.execute(f"ALTER TABLE users ADD COLUMN {col} {ddl}")
 
 
 @contextmanager

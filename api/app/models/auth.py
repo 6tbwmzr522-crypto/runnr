@@ -20,6 +20,10 @@ class TokenResponse(BaseModel):
 class MeResponse(BaseModel):
     id: int
     email: EmailStr
+    pro: bool = False
+    plan: str = "free"
+    subscription_status: str = "free"
+    billing_enabled: bool = False
 
 
 class ResetPasswordRequest(BaseModel):

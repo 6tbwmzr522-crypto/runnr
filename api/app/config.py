@@ -21,10 +21,24 @@ class Settings(BaseSettings):
         "https://runnr.fyi,"
         "https://www.runnr.fyi"
     )
+    stripe_secret_key: str = ""
+    stripe_publishable_key: str = ""
+    stripe_webhook_secret: str = ""
+    stripe_price_monthly: str = ""
+    stripe_price_yearly: str = ""
+    stripe_success_url: str = "https://runnr.fyi/?billing=success"
+    stripe_cancel_url: str = "https://runnr.fyi/?billing=cancel"
 
     @property
     def origin_list(self) -> list[str]:
         return [o.strip() for o in self.cors_origins.split(",") if o.strip()]
+
+    @property
+    def stripe_enabled(self) -> bool:
+        return bool(
+            (self.stripe_secret_key or "").strip()
+            and (self.stripe_price_monthly or "").strip()
+        )
 
 
 settings = Settings()

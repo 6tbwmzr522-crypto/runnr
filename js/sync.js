@@ -988,6 +988,65 @@ const RunnrSync = (() => {
     return { action: "empty" };
   }
 
+  let billingCache = {
+    pro: true,
+    plan: "free",
+    status: "free",
+    enabled: false,
+  };
+
+  function billing() {
+    return billingCache;
+  }
+
+  function isPro() {
+    if (!billingCache.enabled) return true;
+    return !!billingCache.pro;
+  }
+
+  async function refreshBilling() {
+    if (!isLoggedIn()) {
+      billingCache = { pro: false, plan: "free", status: "free", enabled: true };
+      try {
+        // Public-ish: if API has no stripe, treat as open for anonymous
+        const health = await fetch(apiBase() + "/health").then((r) => r.json()).catch(() => null);
+        if (health && health.stripe_configured === false) {
+          billingCache = { pro: true, plan: "free", status: "free", enabled: false };
+        }
+      } catch (e) {}
+      return billingCache;
+    }
+    try {
+      const me = await request("/api/v1/auth/me");
+      billingCache = {
+        pro: !!me.pro,
+        plan: me.plan || "free",
+        status: me.subscription_status || "free",
+        enabled: !!me.billing_enabled,
+      };
+    } catch (e) {
+      /* keep cache */
+    }
+    return billingCache;
+  }
+
+  async function createCheckout(interval) {
+    if (!isLoggedIn()) throw new Error("Log in to Runnr first");
+    const data = await request("/api/v1/billing/checkout", {
+      method: "POST",
+      body: JSON.stringify({ interval: interval === "year" ? "year" : "month" }),
+    });
+    if (!data?.url) throw new Error("No checkout URL");
+    return data.url;
+  }
+
+  async function createPortal() {
+    if (!isLoggedIn()) throw new Error("Log in to Runnr first");
+    const data = await request("/api/v1/billing/portal", { method: "POST", body: "{}" });
+    if (!data?.url) throw new Error("No portal URL");
+    return data.url;
+  }
+
   return {
     apiBase,
     token,
@@ -1032,5 +1091,10 @@ const RunnrSync = (() => {
     applyRemoteState,
     importOrders,
     pairAlpacaRoundTrips,
+    billing,
+    isPro,
+    refreshBilling,
+    createCheckout,
+    createPortal,
   };
 })();

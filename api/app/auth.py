@@ -5,6 +5,7 @@ from fastapi import Depends, HTTPException
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 from jose import JWTError, jwt
 
+from app.billing_util import subscription_is_pro
 from app.config import settings
 from app.db import get_db
 
@@ -31,6 +32,22 @@ def create_access_token(user_id: int, email: str) -> str:
     return jwt.encode(payload, settings.runnr_secret_key, algorithm=ALGORITHM)
 
 
+def _user_from_row(row) -> dict:
+    status = row["subscription_status"] if "subscription_status" in row.keys() else "free"
+    plan = row["plan"] if "plan" in row.keys() else "free"
+    status = status or "free"
+    plan = plan or "free"
+    return {
+        "id": row["id"],
+        "email": row["email"],
+        "subscription_status": status,
+        "plan": plan,
+        "pro": subscription_is_pro(status, plan),
+        "billing_enabled": settings.stripe_enabled,
+        "stripe_customer_id": row["stripe_customer_id"] if "stripe_customer_id" in row.keys() else None,
+    }
+
+
 def get_current_user(
     creds: HTTPAuthorizationCredentials | None = Depends(bearer),
 ) -> dict:
@@ -43,10 +60,16 @@ def get_current_user(
         raise HTTPException(status_code=401, detail="Invalid token") from None
 
     with get_db() as conn:
-        row = conn.execute("SELECT id, email FROM users WHERE id = ?", (user_id,)).fetchone()
+        row = conn.execute(
+            """
+            SELECT id, email, stripe_customer_id, subscription_status, plan
+            FROM users WHERE id = ?
+            """,
+            (user_id,),
+        ).fetchone()
     if not row:
         raise HTTPException(
             status_code=401,
             detail="Session expired — sign in again with the same email",
         )
-    return {"id": row["id"], "email": row["email"]}
+    return _user_from_row(row)
