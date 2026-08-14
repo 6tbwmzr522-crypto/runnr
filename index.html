@@ -102,6 +102,10 @@ body::before{content:'';position:fixed;inset:0;background:radial-gradient(ellips
 .brand-lockup{display:flex;align-items:center;gap:10px}
 .brand-mark{width:2px;height:22px;background:var(--gold);flex-shrink:0}
 #header .logo{font-family:var(--font-head);font-size:26px;font-weight:300;color:var(--text);letter-spacing:0.02em;font-style:italic;line-height:1}
+.header-pro{display:none;font-family:var(--font-body);font-size:9px;font-weight:700;letter-spacing:0.14em;text-transform:uppercase;color:var(--gold);border:1px solid var(--border-strong);background:var(--gold-dim);border-radius:4px;padding:2px 6px;line-height:1.2;flex-shrink:0}
+.header-pro.on{display:inline-block}
+.upgrade-price{font-family:var(--font-head);font-size:36px;font-weight:500;color:var(--text);letter-spacing:-0.02em;line-height:1.1;margin:4px 0 6px}
+.upgrade-price span{font-size:15px;font-weight:400;color:var(--text2);letter-spacing:0}
 #header .tier-badge{background:var(--gold-dim);border:1px solid var(--border-strong);border-radius:20px;padding:3px 10px;font-size:9px;font-weight:500;color:var(--gold);font-family:var(--font-body);letter-spacing:0.12em;text-transform:uppercase}
 #pages{flex:1;overflow-y:auto;overflow-x:hidden;scroll-snap-type:y mandatory;-webkit-overflow-scrolling:touch}
 #pages::-webkit-scrollbar{display:none}
@@ -629,6 +633,7 @@ body.light #equity-canvas{filter:invert(0)}
   <div id="header">
     <div class="brand-lockup">
       <span class="brand-mark" aria-hidden="true"></span>
+      <span id="header-pro-badge" class="header-pro" aria-label="Runnr Pro">PRO</span>
       <div class="logo">runnr</div>
     </div>
     <div style="display:flex;gap:8px;align-items:center"><button id="theme-toggle" onclick="toggleTheme()" data-i18n="common.light">☀ Light</button>
@@ -1723,16 +1728,14 @@ body.light #equity-canvas{filter:invert(0)}
       <label class="toggle-switch"><input type="checkbox" id="set-coach-digest" checked onchange="S.coachDigestEnabled=this.checked;persist()"><span class="toggle-slider"></span></label>
     </div>
     <div class="divider"></div>
-    <div style="font-size:12px;color:var(--text3);margin-bottom:10px;font-weight:600;text-transform:uppercase;letter-spacing:0.8px" data-i18n="settings.pricing">Pricing</div>
-    <div class="trust-pricing-row" data-i18n="settings.pricingFree">Free — sizer, demo journal, watchlist</div>
-    <div class="trust-pricing-row" data-i18n="settings.pricingPaid">Runnr — €19/mo or €190/yr · full journal, Coach, alerts, broker sync, CSV, cloud</div>
+    <div style="font-size:12px;color:var(--text3);margin-bottom:10px;font-weight:600;text-transform:uppercase;letter-spacing:0.8px" data-i18n="settings.pricing">Plan</div>
     <div id="billing-status-line" style="font-size:12px;color:var(--text2);margin-bottom:10px">—</div>
-    <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:8px">
-      <button type="button" class="btn" style="flex:1;min-width:120px;background:linear-gradient(135deg,var(--accent2),var(--accent))" onclick="startStripeCheckout('month')">€19 / month</button>
-      <button type="button" class="btn btn-ghost" style="flex:1;min-width:120px" onclick="startStripeCheckout('year')">€190 / year</button>
+    <div id="settings-billing-free" style="display:none;margin-bottom:12px">
+      <button type="button" class="btn" style="width:100%;background:linear-gradient(135deg,var(--accent2),var(--accent))" onclick="openUpgrade()">Upgrade to Runnr — €19/mo</button>
     </div>
-    <button type="button" class="btn btn-ghost btn-sm" style="width:100%;margin-bottom:8px" onclick="openStripePortal()">Manage billing</button>
-    <div style="font-size:11px;color:var(--text3);text-align:center;margin-bottom:12px">Use <strong>€19 / month</strong> to subscribe. Manage billing is only for card/cancel after you pay.</div>
+    <div id="settings-billing-pro" style="display:none;margin-bottom:12px">
+      <button type="button" class="btn btn-ghost btn-sm" style="width:100%" onclick="openStripePortal()">Manage billing</button>
+    </div>
     <div class="divider"></div>
     <div style="font-size:12px;color:var(--text3);margin-bottom:8px;font-weight:600;text-transform:uppercase;letter-spacing:0.8px" data-i18n="settings.trust">Trust &amp; privacy</div>
     <button class="btn btn-ghost btn-sm" style="margin-bottom:6px;width:100%" onclick="openAboutModal()" data-i18n="settings.about">About Runnr</button>
@@ -1770,10 +1773,32 @@ body.light #equity-canvas{filter:invert(0)}
   </div>
 </div>
 
+<!-- Upgrade / subscribe (simple paywall) -->
+<div class="modal-overlay" id="modal-upgrade" onclick="closeModalOutside(event,'modal-upgrade')">
+  <div class="modal">
+    <div class="modal-title">Runnr <button class="modal-close" onclick="closeModal('modal-upgrade')">✕</button></div>
+    <div id="upgrade-free-panel">
+      <div id="upgrade-feature-hint" style="font-size:12px;color:var(--accent);margin-bottom:10px;display:none"></div>
+      <div style="font-size:13px;color:var(--text2);line-height:1.5;margin-bottom:8px">Full journal, Coach, alerts, broker sync &amp; CSV.</div>
+      <div class="upgrade-price">€19 <span>/ month</span></div>
+      <div style="font-size:12px;color:var(--text3);margin-bottom:16px">Or €190 / year — two months free.</div>
+      <button type="button" class="btn" style="width:100%;margin-bottom:10px;background:linear-gradient(135deg,var(--accent2),var(--accent))" onclick="startStripeCheckout('month')">Start Runnr — €19/month</button>
+      <button type="button" class="btn btn-ghost" style="width:100%;margin-bottom:14px" onclick="startStripeCheckout('year')">Yearly · €190</button>
+      <div style="font-size:11px;color:var(--text3);text-align:center;line-height:1.45">Cancel anytime · Card via Stripe · Brokers stay read-only</div>
+    </div>
+    <div id="upgrade-pro-panel" style="display:none">
+      <div style="font-size:15px;color:var(--accent);font-weight:600;margin-bottom:8px">You’re on Runnr</div>
+      <div id="upgrade-pro-line" style="font-size:13px;color:var(--text2);margin-bottom:16px;line-height:1.45">—</div>
+      <button type="button" class="btn" style="width:100%" onclick="openStripePortal()">Manage billing</button>
+      <div style="font-size:11px;color:var(--text3);text-align:center;margin-top:12px;line-height:1.45">Update card, invoices, or cancel in Stripe.</div>
+    </div>
+  </div>
+</div>
+
 <script src="js/i18n.js?v=7"></script>
 <script src="js/baron.js?v=28"></script>
 <script src="js/coach.js?v=25"></script>
-<script src="js/onboarding.js?v=21"></script>
+<script src="js/onboarding.js?v=22"></script>
 <script src="js/csv-presets.js?v=3"></script>
 <script src="js/sync.js?v=41"></script>
 <script>
@@ -2086,25 +2111,59 @@ function switchPage(key) {
 // ── SETTINGS ───────────────────────────────────────────────────────────────
 function openAboutModal() { openModal('modal-about'); }
 function openPrivacyModal() { openModal('modal-privacy'); }
-function openWhopPricing() { openPricing(); }
-function openPricing() {
-  openModal('modal-settings');
+function openWhopPricing() { openUpgrade(); }
+function openPricing() { openUpgrade(); }
+function openUpgrade(featureLabel) {
+  const hint = document.getElementById('upgrade-feature-hint');
+  if (hint) {
+    if (featureLabel) {
+      hint.style.display = 'block';
+      hint.textContent = featureLabel + ' needs Runnr.';
+    } else {
+      hint.style.display = 'none';
+      hint.textContent = '';
+    }
+  }
+  openModal('modal-upgrade');
   refreshBillingUI();
+}
+function updateProBadge(isPro) {
+  const badge = document.getElementById('header-pro-badge');
+  if (!badge) return;
+  badge.classList.toggle('on', !!isPro);
 }
 async function refreshBillingUI() {
   const line = document.getElementById('billing-status-line');
+  const freeBox = document.getElementById('settings-billing-free');
+  const proBox = document.getElementById('settings-billing-pro');
+  const upFree = document.getElementById('upgrade-free-panel');
+  const upPro = document.getElementById('upgrade-pro-panel');
+  const upProLine = document.getElementById('upgrade-pro-line');
   try {
     await RunnrSync.refreshBilling?.();
   } catch (e) {}
   const b = RunnrSync.billing?.() || { pro: false, plan: 'free', status: 'free', enabled: false };
+  const isPro = !!b.pro;
+  updateProBadge(isPro);
+
   if (line) {
     if (!b.enabled) line.textContent = 'Billing not configured on server yet';
-    else if (b.pro) line.textContent = 'Plan: Runnr · ' + (b.plan || 'pro') + ' · ' + (b.status || 'active');
-    else line.textContent = 'Plan: Free — upgrade for sync, CSV & full Coach tools';
+    else if (isPro) line.textContent = 'Plan: Runnr · ' + (b.plan || 'pro') + ' · ' + (b.status || 'active');
+    else line.textContent = 'Plan: Free';
+  }
+  if (freeBox) freeBox.style.display = (!isPro && b.enabled !== false) ? 'block' : 'none';
+  if (proBox) proBox.style.display = isPro ? 'block' : 'none';
+  if (upFree) upFree.style.display = isPro ? 'none' : 'block';
+  if (upPro) upPro.style.display = isPro ? 'block' : 'none';
+  if (upProLine) {
+    upProLine.textContent = isPro
+      ? ('Plan: ' + (b.plan || 'pro') + ' · ' + (b.status || 'active'))
+      : '—';
   }
 }
 async function startStripeCheckout(interval) {
   if (!RunnrSync.isLoggedIn()) {
+    closeModal('modal-upgrade');
     openSyncAuthModal();
     showToast('Runnr', 'Sign in first, then subscribe');
     return;
@@ -2115,7 +2174,7 @@ async function startStripeCheckout(interval) {
     const url = await RunnrSync.createCheckout(interval === 'year' ? 'year' : 'month');
     window.location.href = url;
   } catch (e) {
-    const tip = '\n\n1) Open https://api.runnr.fyi/health in a new tab\n2) Hard-refresh Runnr (⌘⇧R)\n3) Sign in again, then tap €19 / month';
+    const tip = '\n\n1) Open https://api.runnr.fyi/health in a new tab\n2) Hard-refresh Runnr (⌘⇧R)\n3) Sign in again, then tap Start Runnr';
     alert('Checkout failed: ' + (e.message || e) + tip);
   }
 }
@@ -2135,8 +2194,7 @@ async function requirePro(featureLabel) {
   try { await RunnrSync.refreshBilling?.(); } catch (e) {}
   if (!(await requireVerifiedEmail())) return false;
   if (RunnrSync.isPro?.()) return true;
-  const go = confirm((featureLabel || 'This feature') + ' needs a Runnr subscription (€19/mo).\n\nOpen upgrade options?');
-  if (go) openPricing();
+  openUpgrade(featureLabel || 'This feature');
   return false;
 }
 async function requireVerifiedEmail() {
@@ -2175,10 +2233,12 @@ window.openAboutModal = openAboutModal;
 window.openPrivacyModal = openPrivacyModal;
 window.openWhopPricing = openWhopPricing;
 window.openPricing = openPricing;
+window.openUpgrade = openUpgrade;
 window.startStripeCheckout = startStripeCheckout;
 window.openStripePortal = openStripePortal;
 window.requirePro = requirePro;
 window.refreshBillingUI = refreshBillingUI;
+window.updateProBadge = updateProBadge;
 window.dismissDemoBanner = dismissDemoBanner;
 
 function changeLanguage(code) {

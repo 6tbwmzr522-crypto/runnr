@@ -145,7 +145,7 @@ const RunnrGrowth = {
             </div>
           </div>
           <button class="btn" onclick="RunnrGrowth.finish(S)">Save &amp; start my journal</button>
-          <div class="ob-paywall">Unlock Coach, alerts, broker sync &amp; CSV — <strong>€19/mo</strong></div>
+          <div class="ob-paywall" style="cursor:pointer" onclick="typeof openUpgrade==='function'&&openUpgrade()">Unlock Coach, alerts, broker sync &amp; CSV — <strong>€19/mo</strong></div>
         `;
         this.draft.stopOk = worst.suggestedStopOk;
         this.draft.sizeOk = worst.suggestedSizeOk;
@@ -177,7 +177,7 @@ const RunnrGrowth = {
           </div>
         </div>
         <button class="btn" onclick="RunnrGrowth.finish(S)">Save &amp; start my journal</button>
-        <div class="ob-paywall">Unlock Coach, alerts, broker sync &amp; CSV — <strong>€19/mo</strong></div>
+        <div class="ob-paywall" style="cursor:pointer" onclick="typeof openUpgrade==='function'&&openUpgrade()">Unlock Coach, alerts, broker sync &amp; CSV — <strong>€19/mo</strong></div>
       `;
       this.draft.stopOk = a.suggestedStopOk;
       this.draft.sizeOk = a.suggestedSizeOk;
