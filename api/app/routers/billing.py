@@ -174,9 +174,11 @@ def create_checkout(body: CheckoutRequest, request: Request, user: dict = Depend
         "interval": body.interval,
         "exp": time.time() + 600,
     }
-    # Prefer public API host from request if present
-    base = str(request.base_url).rstrip("/")
-    if "api.runnr.fyi" not in base:
+    # Prefer public HTTPS API host (Railway often reports http behind the TLS terminator)
+    host = (request.url.hostname or "").lower()
+    if host in {"localhost", "127.0.0.1"}:
+        base = str(request.base_url).rstrip("/")
+    else:
         base = "https://api.runnr.fyi"
     return CheckoutResponse(url=f"{base}/api/v1/billing/go/{code}")
 

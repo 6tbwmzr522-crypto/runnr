@@ -274,6 +274,13 @@ const RunnrCsvPresets = (() => {
         joined
       );
     };
+    const isRepeatHeader = (cols) => {
+      if (cols.length !== headers.length) return false;
+      const a = cols.map(normHeader);
+      const b = headers.map(normHeader);
+      // Exact header echo only — do not treat "Market buy" data rows as headers
+      return a.every((h, i) => h === b[i]);
+    };
     if (!looksLikeHeader(headers)) {
       for (let i = 0; i < Math.min(lines.length, 40); i++) {
         const cols = parseRow(lines[i], delim);
@@ -289,8 +296,7 @@ const RunnrCsvPresets = (() => {
     for (let i = headerIdx + 1; i < lines.length; i++) {
       const cols = parseRow(lines[i], delim);
       if (!cols.some((c) => String(c).trim())) continue;
-      // Skip repeated header / section markers
-      if (looksLikeHeader(cols) && cols.length === headers.length) continue;
+      if (isRepeatHeader(cols)) continue;
       const row = {};
       headers.forEach((h, j) => {
         row[h] = cols[j] ?? "";
