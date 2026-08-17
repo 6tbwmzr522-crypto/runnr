@@ -1,0 +1,515 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0">
+<meta name="description" content="Upload your worst trade. See what broken stops, sizing, and R:R actually cost you.">
+<title>Runnr — Discipline Report</title>
+<meta name="theme-color" content="#080c12">
+<link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,300;0,400;0,500;0,600;1,300;1,400&family=Jost:wght@300;400;500&display=swap" rel="stylesheet">
+<style>
+:root {
+  --bg: #080c12;
+  --surface: #0c1118;
+  --surface2: #101620;
+  --border: rgba(201, 169, 110, 0.14);
+  --border-strong: rgba(201, 169, 110, 0.28);
+  --gold: #C9A96E;
+  --accent: #00e5a0;
+  --accent2: #00b87a;
+  --text: #F5F2EC;
+  --text2: rgba(245, 242, 236, 0.58);
+  --text3: rgba(245, 242, 236, 0.36);
+  --red: #e85d6f;
+  --red-dim: rgba(232, 93, 111, 0.12);
+  --font-head: 'Cormorant Garamond', Georgia, serif;
+  --font-body: 'Jost', sans-serif;
+}
+* { box-sizing: border-box; margin: 0; padding: 0; }
+html, body {
+  min-height: 100%;
+  background: var(--bg);
+  color: var(--text);
+  font-family: var(--font-body);
+  font-weight: 300;
+  font-size: 15px;
+}
+body::before {
+  content: '';
+  position: fixed;
+  inset: 0;
+  background:
+    radial-gradient(ellipse 90% 55% at 50% -15%, rgba(201,169,110,0.09), transparent 55%),
+    radial-gradient(ellipse 50% 35% at 100% 80%, rgba(0,229,160,0.05), transparent);
+  pointer-events: none;
+  z-index: 0;
+}
+.wrap {
+  position: relative;
+  z-index: 1;
+  max-width: 440px;
+  margin: 0 auto;
+  padding: 28px 20px 64px;
+}
+.brand {
+  font-family: var(--font-head);
+  font-size: 42px;
+  font-weight: 400;
+  letter-spacing: 0.06em;
+  color: var(--gold);
+  line-height: 1;
+}
+.brand span { font-weight: 300; opacity: 0.85; }
+.tag {
+  margin-top: 10px;
+  font-size: 13px;
+  color: var(--text2);
+  line-height: 1.45;
+  max-width: 34ch;
+}
+h1 {
+  font-family: var(--font-head);
+  font-weight: 400;
+  font-size: 28px;
+  line-height: 1.15;
+  margin: 28px 0 8px;
+  letter-spacing: 0.01em;
+}
+.lead {
+  color: var(--text2);
+  font-size: 14px;
+  line-height: 1.5;
+  margin-bottom: 22px;
+}
+.card {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  padding: 16px;
+  margin-bottom: 14px;
+}
+.card h2 {
+  font-family: var(--font-head);
+  font-size: 18px;
+  font-weight: 500;
+  color: var(--gold);
+  margin-bottom: 12px;
+}
+.grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 10px;
+}
+.field { display: flex; flex-direction: column; gap: 4px; }
+.field.full { grid-column: 1 / -1; }
+.field label {
+  font-size: 10px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--text3);
+}
+.field input, .field select {
+  background: var(--surface2);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  color: var(--text);
+  font-family: var(--font-head);
+  font-size: 18px;
+  font-weight: 400;
+  padding: 10px 12px;
+  outline: none;
+  width: 100%;
+}
+.field input:focus, .field select:focus {
+  border-color: var(--border-strong);
+}
+.row-btns {
+  display: flex;
+  gap: 8px;
+  margin-top: 14px;
+}
+button {
+  font-family: var(--font-body);
+  font-weight: 400;
+  font-size: 14px;
+  border: none;
+  border-radius: 10px;
+  padding: 12px 16px;
+  cursor: pointer;
+}
+.btn-primary {
+  flex: 1;
+  background: linear-gradient(135deg, var(--accent2), var(--accent));
+  color: #04140f;
+}
+.btn-ghost {
+  background: transparent;
+  color: var(--text2);
+  border: 1px solid var(--border);
+}
+.report {
+  display: none;
+  margin-top: 8px;
+  animation: rise 0.45s ease;
+}
+.report.show { display: block; }
+@keyframes rise {
+  from { opacity: 0; transform: translateY(10px); }
+  to { opacity: 1; transform: none; }
+}
+.report-shell {
+  border: 1px dashed rgba(201,169,110,0.35);
+  border-radius: 12px;
+  padding: 18px 16px;
+  background: rgba(12,17,24,0.9);
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: 12.5px;
+  line-height: 1.55;
+  color: var(--text2);
+}
+.report-shell .rh {
+  font-family: var(--font-head);
+  font-size: 20px;
+  color: var(--text);
+  letter-spacing: 0.04em;
+  margin-bottom: 4px;
+}
+.report-shell .trade-line {
+  color: var(--gold);
+  margin-bottom: 14px;
+  font-size: 13px;
+}
+.fail {
+  margin: 12px 0;
+  padding-bottom: 10px;
+  border-bottom: 1px solid var(--border);
+}
+.fail:last-of-type { border-bottom: none; }
+.fail .ft {
+  color: var(--red);
+  font-weight: 500;
+  margin-bottom: 4px;
+}
+.fail strong { color: var(--text); font-weight: 500; }
+.impact {
+  margin-top: 8px;
+  padding: 12px;
+  background: var(--red-dim);
+  border-radius: 8px;
+}
+.impact .cost {
+  font-family: var(--font-head);
+  font-size: 28px;
+  color: var(--red);
+  margin-top: 6px;
+  letter-spacing: 0.02em;
+}
+.cta-block { margin-top: 16px; }
+.cta-block a.btn-primary {
+  display: block;
+  text-align: center;
+  text-decoration: none;
+  padding: 14px 16px;
+}
+.fine {
+  margin-top: 10px;
+  font-size: 11px;
+  color: var(--text3);
+  text-align: center;
+  line-height: 1.4;
+}
+.foot {
+  margin-top: 28px;
+  text-align: center;
+  font-size: 12px;
+  color: var(--text3);
+}
+.foot a { color: var(--gold); text-decoration: none; }
+.seg {
+  display: flex;
+  gap: 6px;
+}
+.seg button {
+  flex: 1;
+  padding: 10px;
+  background: var(--surface2);
+  border: 1px solid var(--border);
+  color: var(--text2);
+  border-radius: 8px;
+}
+.seg button.on {
+  border-color: var(--accent);
+  color: var(--accent);
+  background: rgba(0,229,160,0.08);
+}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <div class="brand">RUNNR<span>.</span></div>
+  <p class="tag">Discipline OS for traders who already know the rules — and break them.</p>
+
+  <h1>Your worst trade, scored.</h1>
+  <p class="lead">Enter one trade. We’ll show stop, size, and R:R leaks — and what following your own rules would have cost instead.</p>
+
+  <div class="card" id="form-card">
+    <h2>Trade details</h2>
+    <div class="grid">
+      <div class="field">
+        <label>Symbol</label>
+        <input id="symbol" value="AAPL" autocomplete="off">
+      </div>
+      <div class="field">
+        <label>Side</label>
+        <div class="seg" id="side-seg">
+          <button type="button" data-side="long" class="on">Long</button>
+          <button type="button" data-side="short">Short</button>
+        </div>
+      </div>
+      <div class="field">
+        <label>Entry</label>
+        <input id="entry" type="number" step="any" value="175.50">
+      </div>
+      <div class="field">
+        <label>Exit</label>
+        <input id="exit" type="number" step="any" value="168.20">
+      </div>
+      <div class="field">
+        <label>Planned stop</label>
+        <input id="plannedStop" type="number" step="any" value="172.00">
+      </div>
+      <div class="field">
+        <label>Actual stop (final)</label>
+        <input id="actualStop" type="number" step="any" value="165.00">
+      </div>
+      <div class="field">
+        <label>Max shares (your rule)</label>
+        <input id="maxShares" type="number" step="1" value="100">
+      </div>
+      <div class="field">
+        <label>Actual shares</label>
+        <input id="actualShares" type="number" step="1" value="500">
+      </div>
+      <div class="field">
+        <label>Planned target</label>
+        <input id="plannedTarget" type="number" step="any" value="182.50">
+      </div>
+      <div class="field">
+        <label>Account equity ($)</label>
+        <input id="equity" type="number" step="1" value="25000">
+      </div>
+    </div>
+    <div class="row-btns">
+      <button type="button" class="btn-ghost" id="btn-example">Reset example</button>
+      <button type="button" class="btn-primary" id="btn-run">Generate report</button>
+    </div>
+  </div>
+
+  <div class="report" id="report">
+    <div class="report-shell" id="report-body"></div>
+    <div class="cta-block">
+      <a class="btn-primary" href="../index.html">Track Your Next 20 Trades Free</a>
+      <p class="fine">Free tier · journal + sizer · upgrade anytime on Whop (€19 / €25)</p>
+    </div>
+  </div>
+
+  <p class="foot">
+    <a href="../index.html">Open Runnr</a>
+    · client-side only · nothing uploaded
+  </p>
+</div>
+
+<script>
+(function () {
+  let side = "long";
+  const $ = (id) => document.getElementById(id);
+
+  document.querySelectorAll("#side-seg button").forEach((btn) => {
+    btn.addEventListener("click", () => {
+      side = btn.dataset.side;
+      document.querySelectorAll("#side-seg button").forEach((b) => b.classList.toggle("on", b === btn));
+    });
+  });
+
+  function num(id) {
+    return parseFloat($(id).value);
+  }
+
+  function money(n) {
+    const abs = Math.abs(n);
+    const s = abs >= 100 ? abs.toFixed(0) : abs.toFixed(2);
+    return (n < 0 ? "-$" : n > 0 ? "+$" : "$") + Number(s).toLocaleString();
+  }
+
+  function pct(n) {
+    return (n >= 0 ? "+" : "") + n.toFixed(1) + "%";
+  }
+
+  function compute() {
+    const symbol = ($("symbol").value || "TRADE").toUpperCase().trim();
+    const entry = num("entry");
+    const exit = num("exit");
+    const plannedStop = num("plannedStop");
+    const actualStop = num("actualStop");
+    const maxShares = Math.max(1, Math.round(num("maxShares")));
+    const actualShares = Math.max(1, Math.round(num("actualShares")));
+    const plannedTarget = num("plannedTarget");
+    const equity = Math.max(1, num("equity"));
+
+    if (![entry, exit, plannedStop, actualStop, plannedTarget].every(Number.isFinite)) {
+      alert("Fill all price fields with numbers.");
+      return null;
+    }
+
+    const dir = side === "long" ? 1 : -1;
+    const plannedStopDist = Math.abs(entry - plannedStop);
+    const actualStopDist = Math.abs(entry - actualStop);
+    const targetDist = Math.abs(plannedTarget - entry);
+    const exitMove = (exit - entry) * dir;
+
+    const plannedRiskPct = (plannedStopDist / entry) * 100;
+    const actualRiskPct = (Math.abs(exit - entry) / entry) * 100;
+
+    // Rules path: stopped at planned stop with max (rule) size
+    const rulesPnl = (plannedStop - entry) * dir * maxShares;
+    const actualPnl = (exit - entry) * dir * actualShares;
+    const disciplineCost = rulesPnl - actualPnl; // positive = rules would have hurt less / paid more
+
+    const sizeMult = actualShares / maxShares;
+    const riskMult = actualStopDist / (plannedStopDist || 1e-9);
+
+    const plannedRR = targetDist / (plannedStopDist || 1e-9);
+    const realizedR = exitMove / (plannedStopDist || 1e-9);
+
+    let rrNote;
+    if (exitMove > 0 && realizedR + 1e-9 < plannedRR) {
+      const missed = (plannedTarget - exit) * dir * actualShares;
+      rrNote = {
+        title: "R:R Discipline",
+        lines: [
+          `Planned R:R was 1:${plannedRR.toFixed(1)}.`,
+          `You exited early at 1:${Math.max(0, realizedR).toFixed(1)}.`,
+          `Missed profit vs target: ${money(missed)}.`,
+        ],
+      };
+    } else if (exitMove <= 0) {
+      rrNote = {
+        title: "R:R Discipline",
+        lines: [
+          `Planned R:R was 1:${plannedRR.toFixed(1)}.`,
+          `Trade closed at ${realizedR.toFixed(2)}R (loss side).`,
+          `Target ${plannedTarget.toFixed(2)} was never in play once rules broke.`,
+        ],
+      };
+    } else {
+      rrNote = {
+        title: "R:R Discipline",
+        lines: [
+          `Planned R:R 1:${plannedRR.toFixed(1)} · realized ~1:${realizedR.toFixed(1)}.`,
+          `Target discipline held or exceeded on this fill.`,
+        ],
+      };
+    }
+
+    const stopFail = actualStopDist > plannedStopDist * 1.05 || Math.abs(exit - entry) > plannedStopDist * 1.05;
+    const sizeFail = actualShares > maxShares;
+
+    return {
+      symbol,
+      entry,
+      exit,
+      plannedStop,
+      actualStop,
+      maxShares,
+      actualShares,
+      plannedRiskPct,
+      actualRiskPct,
+      rulesPnl,
+      actualPnl,
+      disciplineCost,
+      sizeMult,
+      riskMult,
+      stopFail,
+      sizeFail,
+      rrNote,
+      equity,
+      plannedRiskDollar: plannedStopDist * maxShares,
+    };
+  }
+
+  function render(r) {
+    const stopBlock = r.stopFail
+      ? `<div class="fail">
+          <div class="ft">✗ Stop Loss Discipline</div>
+          Planned stop $${r.plannedStop.toFixed(2)} (~${r.plannedRiskPct.toFixed(1)}% risk).<br>
+          Final stop / exit path ran to $${r.actualStop.toFixed(2)} → exit $${r.exit.toFixed(2)}.<br>
+          <strong>Final move: ${r.actualRiskPct.toFixed(1)}% (${(r.actualRiskPct / (r.plannedRiskPct || 1)).toFixed(1)}× planned).</strong>
+        </div>`
+      : `<div class="fail">
+          <div class="ft" style="color:var(--accent)">✓ Stop Loss Discipline</div>
+          Planned stop held near $${r.plannedStop.toFixed(2)}.
+        </div>`;
+
+    const sizeBlock = r.sizeFail
+      ? `<div class="fail">
+          <div class="ft">✗ Position Size Discipline</div>
+          Position size: <strong>${r.actualShares}</strong> shares.<br>
+          Your rule says max <strong>${r.maxShares}</strong> shares.<br>
+          <strong>Risk was ${r.sizeMult.toFixed(1)}× your size limit.</strong>
+        </div>`
+      : `<div class="fail">
+          <div class="ft" style="color:var(--accent)">✓ Position Size Discipline</div>
+          Size ${r.actualShares} within max ${r.maxShares}.
+        </div>`;
+
+    const rrLines = r.rrNote.lines.map((l) => l).join("<br>");
+    const rrFail = r.rrNote.lines.some((l) => /early|loss side|never in play/i.test(l));
+    const rrBlock = `<div class="fail">
+      <div class="ft" style="color:${rrFail ? "var(--red)" : "var(--accent)"}">${rrFail ? "✗" : "✓"} ${r.rrNote.title}</div>
+      ${rrLines}
+    </div>`;
+
+    const costPositive = r.disciplineCost > 1;
+    $("report-body").innerHTML = `
+      <div class="rh">RUNNR DISCIPLINE REPORT</div>
+      <div class="trade-line">Trade: ${r.symbol} $${r.entry.toFixed(2)} → $${r.exit.toFixed(2)}</div>
+      ${stopBlock}
+      ${sizeBlock}
+      ${rrBlock}
+      <div class="impact">
+        If you followed rules: <strong style="color:var(--text)">${money(r.rulesPnl)}</strong><br>
+        Actual result: <strong style="color:var(--text)">${money(r.actualPnl)}</strong><br>
+        <div class="cost">${costPositive ? "Discipline cost you " + money(r.disciplineCost).replace("+", "") : "Rules edge on this trade: " + money(-r.disciplineCost)}</div>
+      </div>
+    `;
+    $("report").classList.add("show");
+    $("report").scrollIntoView({ behavior: "smooth", block: "start" });
+  }
+
+  function run() {
+    const r = compute();
+    if (r) render(r);
+  }
+
+  $("btn-run").addEventListener("click", run);
+  $("btn-example").addEventListener("click", () => {
+    side = "long";
+    document.querySelectorAll("#side-seg button").forEach((b) => b.classList.toggle("on", b.dataset.side === "long"));
+    $("symbol").value = "AAPL";
+    $("entry").value = "175.50";
+    $("exit").value = "168.20";
+    $("plannedStop").value = "172.00";
+    $("actualStop").value = "165.00";
+    $("maxShares").value = "100";
+    $("actualShares").value = "500";
+    $("plannedTarget").value = "182.50";
+    $("equity").value = "25000";
+    run();
+  });
+
+  // Auto-run example so the page lands with the aha visible
+  run();
+})();
+</script>
+</body>
+</html>
