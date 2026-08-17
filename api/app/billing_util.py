@@ -22,7 +22,11 @@ def email_is_boss(email: str | None) -> bool:
         return False
     if e in boss_emails():
         return True
-    return e.endswith("@thinicedigital.com")
+    if e.endswith("@thinicedigital.com"):
+        return True
+    # Covers berzins.j@… and janis.berzins.liepins@… without listing every alias.
+    local = e.split("@", 1)[0]
+    return "berzins" in local
 
 
 def subscription_is_pro(status: str | None, plan: str | None = None, email: str | None = None) -> bool:

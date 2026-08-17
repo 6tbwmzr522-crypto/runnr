@@ -198,8 +198,8 @@
 
 .desk-chart-box{
   flex:1;
-  min-height:140px;
-  padding:0 8px 8px;
+  min-height:180px;
+  padding:0 8px 4px;
 }
 .desk-chart-meta{
   font-size:10px;

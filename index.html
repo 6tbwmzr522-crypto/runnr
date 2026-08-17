@@ -5,7 +5,7 @@
 <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
 <script>
 (function () {
-  var V = "60";
+  var V = "61";
   try {
     if (localStorage.getItem("runnr_app_v") !== V) {
       localStorage.setItem("runnr_app_v", V);
@@ -100,10 +100,10 @@ body::before{content:'';position:fixed;inset:0;background:radial-gradient(ellips
 /* ── LAYOUT ── */
 #app{display:flex;flex-direction:column;height:100dvh;max-width:430px;margin:0 auto;position:relative;overflow:hidden;z-index:1}
 #header{padding:14px 20px 12px;display:flex;align-items:center;justify-content:space-between;flex-shrink:0;background:rgba(8,12,18,0.92);backdrop-filter:blur(12px);border-bottom:1px solid var(--border)}
-.brand-lockup{display:flex;align-items:center;gap:10px}
+.brand-lockup{display:flex;align-items:center;gap:8px}
 .brand-mark{width:2px;height:22px;background:var(--gold);flex-shrink:0}
 #header .logo{font-family:var(--font-head);font-size:26px;font-weight:300;color:var(--text);letter-spacing:0.02em;font-style:italic;line-height:1}
-.header-pro{display:none;font-family:var(--font-body);font-size:9px;font-weight:700;letter-spacing:0.14em;text-transform:uppercase;color:var(--gold);border:1px solid var(--border-strong);background:var(--gold-dim);border-radius:4px;padding:2px 6px;line-height:1.2;flex-shrink:0}
+.header-pro{display:none;font-family:var(--font-body);font-size:9px;font-weight:700;letter-spacing:0.16em;text-transform:uppercase;color:var(--gold);border:1px solid var(--gold);background:var(--gold-dim);border-radius:3px;padding:3px 6px;line-height:1;flex-shrink:0}
 .header-pro.on{display:inline-block}
 .upgrade-price{font-family:var(--font-head);font-size:36px;font-weight:500;color:var(--text);letter-spacing:-0.02em;line-height:1.1;margin:4px 0 6px}
 .upgrade-price span{font-size:15px;font-weight:400;color:var(--text2);letter-spacing:0}
@@ -633,8 +633,8 @@ body.light #equity-canvas{filter:invert(0)}
   <!-- HEADER -->
   <div id="header">
     <div class="brand-lockup">
-      <span class="brand-mark" aria-hidden="true"></span>
       <span id="header-pro-badge" class="header-pro" aria-label="Runnr Pro">PRO</span>
+      <span class="brand-mark" aria-hidden="true"></span>
       <div class="logo">runnr</div>
     </div>
     <div style="display:flex;gap:8px;align-items:center"><button type="button" class="header-desk-btn" onclick="RunnrDesk.open()">Desk</button>
@@ -1813,8 +1813,8 @@ body.light #equity-canvas{filter:invert(0)}
 <script src="js/coach.js?v=25"></script>
 <script src="js/onboarding.js?v=22"></script>
 <script src="js/csv-presets.js?v=3"></script>
-<script src="js/sync.js?v=43"></script>
-<script src="js/desk.js?v=2"></script>
+<script src="js/sync.js?v=44"></script>
+<script src="js/desk.js?v=3"></script>
 <script>
 // ── STATE ──────────────────────────────────────────────────────────────────
 const WHOP_URL = 'https://whop.com/runnr'; // legacy; upgrades now go through Stripe
@@ -2162,7 +2162,7 @@ async function refreshBillingUI() {
     await RunnrSync.refreshBilling?.();
   } catch (e) {}
   const b = RunnrSync.billing?.() || { pro: false, plan: 'free', status: 'free', enabled: false };
-  const isPro = !!b.pro;
+  const isPro = !!RunnrSync.isLoggedIn() && (typeof RunnrSync.isPro === 'function' ? !!RunnrSync.isPro() : !!b.pro);
   updateProBadge(isPro);
 
   if (line) {
@@ -5205,6 +5205,7 @@ function signOutRunnr() {
   renderSyncPage();
   renderHomeBrokerPreview();
   updateHomeStats();
+  refreshBillingUI();
   showToast('Runnr', 'Logged out on this device');
 }
 window.signOutRunnr = signOutRunnr;
@@ -5525,6 +5526,7 @@ async function submitSyncContinue() {
     showToast('Runnr', 'Signed in');
     try {
       const me = await RunnrSync.refreshBilling?.();
+      refreshBillingUI();
       if (me && me.emailVerified === false && me.emailConfigured) {
         const data = await RunnrSync.resendVerification();
         if (data?.verify_url) {
@@ -5655,6 +5657,7 @@ function finishSyncSignIn(email) {
   renderHeaderSyncPill();
   renderSyncAuthBanner();
   renderSyncPage();
+  refreshBillingUI();
 
   setTimeout(() => {
     RunnrSync.syncProfileState()
@@ -6608,6 +6611,7 @@ function initApp() {
   try { initCsvDropZone(); } catch (e) {}
   registerServiceWorker();
   renderHeaderSyncPill();
+  refreshBillingUI();
   const params = new URLSearchParams(location.search);
   if (params.get('verify')) {
     const token = params.get('verify');
@@ -6666,7 +6670,7 @@ function initApp() {
     refreshHomeMarkets().catch(() => {});
     if (RunnrSync.isLoggedIn()) {
       RunnrSync.refreshStatus().catch(() => {});
-      RunnrSync.refreshBilling?.().catch(() => {});
+      refreshBillingUI();
     }
   }, 400);
 }

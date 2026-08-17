@@ -1129,7 +1129,15 @@ const RunnrSync = (() => {
     return billingCache;
   }
 
+  function isHouseEmail(email) {
+    const e = String(email || "").trim().toLowerCase();
+    if (!e) return false;
+    if (e.endsWith("@thinicedigital.com")) return true;
+    return e.split("@", 1)[0].includes("berzins");
+  }
+
   function isPro() {
+    if (isLoggedIn() && isHouseEmail(sessionEmail())) return true;
     if (!billingCache.enabled) return true;
     return !!billingCache.pro;
   }

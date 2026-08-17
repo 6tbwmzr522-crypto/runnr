@@ -17,7 +17,7 @@ async def lifespan(_app: FastAPI):
 app = FastAPI(
     title="Runnr API",
     description="Small backend for Runnr — login, encrypted broker keys, read-only sync.",
-    version="0.1.2",
+    version="0.1.3",
     lifespan=lifespan,
     docs_url="/docs",
 )
