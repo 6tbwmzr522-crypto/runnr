@@ -31,6 +31,8 @@ class Settings(BaseSettings):
     resend_api_key: str = ""
     resend_from_email: str = ""
     app_public_url: str = "https://runnr.fyi"
+    # Comma-separated founder emails that skip Stripe. Empty uses built-in defaults.
+    runnr_boss_emails: str = ""
 
     @property
     def origin_list(self) -> list[str]:

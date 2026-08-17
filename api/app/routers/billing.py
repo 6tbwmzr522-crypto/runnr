@@ -121,7 +121,7 @@ def _purge_tickets() -> None:
 def _create_checkout_session(user: dict, interval: str) -> str:
     """Create Stripe Checkout session; return hosted URL."""
     _stripe()
-    if subscription_is_pro(user.get("subscription_status"), user.get("plan")):
+    if subscription_is_pro(user.get("subscription_status"), user.get("plan"), user.get("email")):
         raise HTTPException(status_code=400, detail="Already subscribed — manage billing in the portal")
     try:
         customer_id = _ensure_customer(user)
@@ -151,7 +151,7 @@ def billing_status(user: dict = Depends(get_current_user)):
     plan = row.get("plan") or "free"
     return BillingStatusResponse(
         enabled=settings.stripe_enabled,
-        pro=subscription_is_pro(status, plan),
+        pro=subscription_is_pro(status, plan, row.get("email")),
         plan=plan,
         status=status,
         publishable_key=settings.stripe_publishable_key or None,
@@ -165,7 +165,7 @@ def create_checkout(body: CheckoutRequest, request: Request, user: dict = Depend
     """Mint a short-lived ticket, return a same-API redirect URL (avoids long browser fetch to Stripe)."""
     _stripe()
     row = _load_user(user["id"])
-    if subscription_is_pro(row.get("subscription_status"), row.get("plan")):
+    if subscription_is_pro(row.get("subscription_status"), row.get("plan"), row.get("email")):
         raise HTTPException(status_code=400, detail="Already subscribed — manage billing in the portal")
     _purge_tickets()
     code = secrets.token_urlsafe(24)

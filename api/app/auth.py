@@ -5,7 +5,7 @@ from fastapi import Depends, HTTPException
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 from jose import JWTError, jwt
 
-from app.billing_util import subscription_is_pro
+from app.billing_util import email_is_boss, subscription_is_pro
 from app.config import settings
 from app.db import get_db
 
@@ -40,15 +40,17 @@ def _user_from_row(row) -> dict:
     verified = True
     if "email_verified" in row.keys():
         verified = bool(row["email_verified"])
+    email = row["email"]
+    boss = email_is_boss(email)
     return {
         "id": row["id"],
-        "email": row["email"],
-        "subscription_status": status,
-        "plan": plan,
-        "pro": subscription_is_pro(status, plan),
+        "email": email,
+        "subscription_status": "active" if boss else status,
+        "plan": "boss" if boss else plan,
+        "pro": subscription_is_pro(status, plan, email),
         "billing_enabled": settings.stripe_enabled,
         "stripe_customer_id": row["stripe_customer_id"] if "stripe_customer_id" in row.keys() else None,
-        "email_verified": verified,
+        "email_verified": True if boss else verified,
     }
 
 
