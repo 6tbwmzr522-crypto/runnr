@@ -58,18 +58,23 @@ def register(body: RegisterRequest):
                     email_verified=verified,
                 )
             raise HTTPException(status_code=400, detail="Wrong password for this email")
+        verified = 0 if email_configured() else 1
         cur = conn.execute(
-            "INSERT INTO users (email, password_hash, email_verified) VALUES (?, ?, 0)",
-            (email, hash_password(body.password)),
+            "INSERT INTO users (email, password_hash, email_verified) VALUES (?, ?, ?)",
+            (email, hash_password(body.password), verified),
         )
         user_id = cur.lastrowid
 
-    sent, verify_url = _issue_verification(user_id, email)
+    if email_configured():
+        sent, verify_url = _issue_verification(user_id, email)
+        verified_flag = False
+    else:
+        sent, verify_url, verified_flag = False, None, True
     token = create_access_token(user_id, email)
     return TokenResponse(
         access_token=token,
         email=email,
-        email_verified=False,
+        email_verified=verified_flag,
         verification_sent=sent,
         verify_url=verify_url,
     )

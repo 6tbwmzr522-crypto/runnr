@@ -77,3 +77,15 @@ def get_current_user(
             detail="Session expired — sign in again with the same email",
         )
     return _user_from_row(row)
+
+
+def get_optional_user(
+    creds: HTTPAuthorizationCredentials | None = Depends(bearer),
+) -> dict | None:
+    """Bearer user when present; None when anonymous (public quote fallbacks)."""
+    if not creds or not creds.credentials:
+        return None
+    try:
+        return get_current_user(creds)
+    except HTTPException:
+        return None

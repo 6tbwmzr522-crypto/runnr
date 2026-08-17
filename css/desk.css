@@ -1,0 +1,225 @@
+/* Runnr Desk — full-width Pro canvas. Applied when #app has .desk-wide */
+
+#app.desk-wide{
+  max-width:none;
+  width:100%;
+  margin:0;
+}
+#app.desk-wide #header,
+#app.desk-wide #nav,
+#app.desk-wide #session-banner,
+#app.desk-wide #demo-banner,
+#app.desk-wide #traffic-banner{display:none !important}
+#app.desk-wide #pages{
+  overflow:hidden;
+  scroll-snap-type:none;
+}
+#app.desk-wide #page-desk.page{
+  padding:0;
+  min-height:0;
+  height:100%;
+  display:none;
+}
+#app.desk-wide #page-desk.page.active{
+  display:flex;
+  flex-direction:column;
+}
+
+.header-desk-btn{
+  background:none;
+  border:1px solid var(--border-strong);
+  color:var(--gold);
+  font-family:var(--font-body);
+  font-size:9px;
+  font-weight:500;
+  letter-spacing:0.16em;
+  text-transform:uppercase;
+  padding:4px 8px;
+  border-radius:4px;
+  cursor:pointer;
+}
+.header-desk-btn:active{background:var(--gold-dim)}
+
+.desk-root{
+  display:flex;
+  flex-direction:column;
+  height:100%;
+  min-height:0;
+  background:var(--bg);
+  color:var(--text);
+}
+.desk-cmd{
+  display:flex;
+  align-items:center;
+  gap:10px;
+  padding:10px 14px;
+  border-bottom:1px solid var(--border);
+  flex-shrink:0;
+  background:rgba(8,12,18,0.94);
+}
+.desk-cmd .back{
+  background:none;
+  border:1px solid var(--border);
+  color:var(--text2);
+  font-family:var(--font-body);
+  font-size:11px;
+  padding:5px 10px;
+  border-radius:16px;
+  cursor:pointer;
+}
+.desk-cmd .brand{
+  font-family:var(--font-head);
+  font-style:italic;
+  font-size:22px;
+  font-weight:400;
+  color:var(--gold-light);
+  letter-spacing:0.02em;
+}
+.desk-cmd .clock{
+  font-family:var(--font-num);
+  font-style:italic;
+  font-size:16px;
+  color:var(--text2);
+  margin-left:auto;
+}
+.desk-cmd .chip{
+  font-size:9px;
+  letter-spacing:0.14em;
+  text-transform:uppercase;
+  border:1px solid var(--border-strong);
+  color:var(--gold);
+  padding:3px 7px;
+  border-radius:4px;
+}
+.desk-cmd .chip.live{color:var(--accent);border-color:rgba(0,229,160,0.35)}
+.desk-cmd .src{
+  font-size:10px;
+  color:var(--text3);
+  max-width:34vw;
+  overflow:hidden;
+  text-overflow:ellipsis;
+  white-space:nowrap;
+}
+
+.desk-tape{
+  display:flex;
+  gap:0;
+  overflow-x:auto;
+  border-bottom:1px solid var(--border);
+  flex-shrink:0;
+  scrollbar-width:none;
+}
+.desk-tape::-webkit-scrollbar{display:none}
+.desk-tape .tick,
+.desk-cell{
+  appearance:none;
+  -webkit-appearance:none;
+  background:transparent;
+  color:inherit;
+  font:inherit;
+  text-align:left;
+}
+.desk-tape .tick{
+  flex:0 0 auto;
+  padding:8px 14px;
+  border-right:1px solid var(--border);
+  cursor:pointer;
+  min-width:108px;
+}
+.desk-tape .tick:hover,
+.desk-tape .tick.on{background:var(--gold-dim)}
+.desk-tape .k{
+  font-size:9px;
+  letter-spacing:0.16em;
+  color:var(--text3);
+  text-transform:uppercase;
+}
+.desk-tape .v{
+  font-family:var(--font-num);
+  font-style:italic;
+  font-size:20px;
+  line-height:1.1;
+}
+.desk-tape .chg{font-size:11px;margin-top:2px}
+.desk-up{color:var(--accent)}
+.desk-dn{color:var(--red)}
+
+.desk-grid{
+  flex:1;
+  min-height:0;
+  display:grid;
+  grid-template-columns:1fr;
+  grid-template-rows:minmax(160px,1fr) minmax(220px,1.2fr);
+  gap:1px;
+  background:var(--border);
+}
+.desk-panel{
+  background:var(--bg);
+  min-height:0;
+  display:flex;
+  flex-direction:column;
+  overflow:hidden;
+}
+.desk-panel h4{
+  font-family:var(--font-body);
+  font-size:9px;
+  font-weight:500;
+  letter-spacing:0.28em;
+  text-transform:uppercase;
+  color:var(--gold);
+  padding:8px 12px 4px;
+  flex-shrink:0;
+}
+.desk-heat{
+  display:grid;
+  grid-template-columns:repeat(auto-fill,minmax(92px,1fr));
+  gap:5px;
+  padding:8px 12px 12px;
+  overflow:auto;
+}
+.desk-cell{
+  border:1px solid var(--border);
+  border-radius:6px;
+  padding:8px;
+  cursor:pointer;
+  min-height:72px;
+}
+.desk-cell.on{border-color:var(--gold)}
+.desk-cell .k{font-size:10px;letter-spacing:0.12em;color:var(--text3)}
+.desk-cell .v{
+  font-family:var(--font-num);
+  font-style:italic;
+  font-size:18px;
+  margin-top:4px;
+}
+.desk-cell .p{font-size:11px;margin-top:2px}
+.desk-cell.up{background:rgba(0,229,160,0.07)}
+.desk-cell.dn{background:rgba(232,93,111,0.08)}
+
+.desk-chart-box{
+  flex:1;
+  min-height:140px;
+  padding:0 8px 8px;
+}
+.desk-chart-meta{
+  font-size:10px;
+  color:var(--text3);
+  padding:0 12px 8px;
+}
+.desk-empty{
+  padding:24px 16px;
+  color:var(--text3);
+  font-size:13px;
+  line-height:1.45;
+}
+
+@media (min-width:768px){
+  .desk-grid{
+    grid-template-columns:minmax(280px,0.9fr) minmax(360px,1.4fr);
+    grid-template-rows:1fr;
+  }
+}
+@media (max-width:767px){
+  .desk-cmd .brand{font-size:18px}
+  .desk-cmd .src{display:none}
+}

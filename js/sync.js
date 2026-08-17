@@ -1136,6 +1136,7 @@ const RunnrSync = (() => {
 
   function isEmailVerified() {
     if (!isLoggedIn()) return false;
+    if (!billingCache.emailConfigured) return true;
     return !!billingCache.emailVerified;
   }
 
@@ -1171,7 +1172,7 @@ const RunnrSync = (() => {
         plan: me.plan || "free",
         status: me.subscription_status || "free",
         enabled: !!me.billing_enabled,
-        emailVerified: me.email_verified !== false,
+        emailVerified: !!me.email_configured ? me.email_verified !== false : true,
         emailConfigured: !!me.email_configured,
       };
     } catch (e) {

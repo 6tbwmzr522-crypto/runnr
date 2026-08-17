@@ -27,7 +27,7 @@ jobs:
         run: |
           mkdir -p _site
           cp index.html login.html sw.js manifest.webmanifest .nojekyll _site/
-          cp -r js icons _site/
+          cp -r js icons css _site/
           echo "runnr.fyi" > _site/CNAME
 
       - uses: actions/configure-pages@v5
