@@ -153,16 +153,18 @@
   function saveSession(token, email) {
     const prev = (localStorage.getItem("runnr_api_email") || "").trim().toLowerCase();
     const next = String(email || "").trim().toLowerCase();
-    if (prev && next && prev !== next) {
-      try {
+    try {
+      if (prev && next && prev !== next) {
         const current = localStorage.getItem("runnr_state");
         if (current) localStorage.setItem("runnr_state:" + prev, current);
+      }
+      if (next) {
         const incoming = localStorage.getItem("runnr_state:" + next);
         if (incoming) localStorage.setItem("runnr_state", incoming);
         else localStorage.removeItem("runnr_state");
-        localStorage.removeItem("runnr_alpaca_device");
-      } catch (e) {}
-    }
+        if (!prev || prev !== next) localStorage.removeItem("runnr_alpaca_device");
+      }
+    } catch (e) {}
     localStorage.setItem("runnr_api_token", token);
     localStorage.setItem("runnr_api_email", email);
     localStorage.setItem("runnr_remember_email", email);

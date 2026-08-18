@@ -5,7 +5,7 @@
 <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
 <script>
 (function () {
-  var V = "65";
+  var V = "66";
   try {
     if (localStorage.getItem("runnr_app_v") !== V) {
       localStorage.setItem("runnr_app_v", V);
@@ -1647,7 +1647,7 @@ body.light #equity-canvas{filter:invert(0)}
       <div id="sync-auth-error"></div>
       <button class="btn" type="submit" id="sync-login-btn">Continue</button>
       <button class="btn btn-ghost" style="margin-top:8px;font-size:12px" type="button" id="sync-forgot-btn">Forgot password? Use Sync page</button>
-      <button class="btn btn-ghost" style="margin-top:8px;font-size:12px" type="button" onclick="RunnrSync.logout(); hideSessionBanner(); renderHeaderSyncPill(); renderSyncPage(); renderHomeBrokerPreview(); closeModal('modal-sync-auth');">Log out on this device</button>
+      <button class="btn btn-ghost" style="margin-top:8px;font-size:12px" type="button" onclick="signOutRunnr()">Log out on this device</button>
     </form>
   </div>
 </div>
@@ -1816,7 +1816,7 @@ body.light #equity-canvas{filter:invert(0)}
 <script src="js/coach.js?v=25"></script>
 <script src="js/onboarding.js?v=22"></script>
 <script src="js/csv-presets.js?v=3"></script>
-<script src="js/sync.js?v=45"></script>
+<script src="js/sync.js?v=46"></script>
 <script src="js/desk.js?v=3"></script>
 <script>
 // ── STATE ──────────────────────────────────────────────────────────────────
@@ -1971,10 +1971,13 @@ function migratePortfolioBase() {
 try { migratePortfolioBase(); } catch (e) { console.warn('migratePortfolioBase failed', e); }
 
 function persist() {
+  if (RunnrSync?.isLoggedIn?.()) {
+    S.ownerEmail = (RunnrSync.sessionEmail() || '').trim().toLowerCase();
+  }
   try { localStorage.setItem('runnr_state', JSON.stringify(S)); } catch(e) {}
   try {
     const who = (RunnrSync.sessionEmail() || '').trim().toLowerCase();
-    if (who) localStorage.setItem('runnr_state:' + who, JSON.stringify(S));
+    if (who && RunnrSync.isLoggedIn()) localStorage.setItem('runnr_state:' + who, JSON.stringify(S));
   } catch (e) {}
   if (RunnrSync?.isLoggedIn?.() && RunnrSync?.hasMeaningfulState?.(S)) {
     RunnrSync.pushProfileStateDebounced?.();
@@ -5210,16 +5213,9 @@ function headerSyncTap() {
 }
 
 function signOutRunnr() {
-  if (!confirm('Log out of Runnr on this device? Your journal stays saved on this device.')) return;
+  if (!confirm('Log out? This email’s journal is saved for next sign-in. The screen will reset to the demo book.')) return;
   RunnrSync.logout();
-  hideSessionBanner();
-  closeModal('modal-sync-auth');
-  renderHeaderSyncPill();
-  renderSyncPage();
-  renderHomeBrokerPreview();
-  updateHomeStats();
-  refreshBillingUI();
-  showToast('Runnr', 'Logged out on this device');
+  location.reload();
 }
 window.signOutRunnr = signOutRunnr;
 

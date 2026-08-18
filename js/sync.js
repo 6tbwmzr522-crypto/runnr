@@ -74,11 +74,14 @@ const RunnrSync = (() => {
       if (t) {
         const prev = (localStorage.getItem(EMAIL_KEY) || "").trim().toLowerCase();
         const next = String(email || "").trim().toLowerCase();
-        if (prev && next && prev !== next) {
-          snapshotStateForEmail(prev);
+        if (prev && next && prev !== next) snapshotStateForEmail(prev);
+        else if (prev && !next) snapshotStateForEmail(prev);
+        if (next) {
           loadStateForEmail(next);
-          localStorage.removeItem(ALPACA_LOCAL_KEY);
-          try { sessionStorage.setItem("runnr_account_switched", "1"); } catch (e) {}
+          if (!prev || prev !== next) {
+            localStorage.removeItem(ALPACA_LOCAL_KEY);
+            try { sessionStorage.setItem("runnr_account_switched", "1"); } catch (e) {}
+          }
         }
         localStorage.setItem(TOKEN_KEY, t);
         if (email) localStorage.setItem(EMAIL_KEY, email);
@@ -87,6 +90,7 @@ const RunnrSync = (() => {
         localStorage.removeItem(TOKEN_KEY);
         localStorage.removeItem(EMAIL_KEY);
         localStorage.removeItem(ALPACA_LOCAL_KEY);
+        localStorage.removeItem("runnr_state");
       }
     } catch (e) {
       throw new Error("Safari blocked saving your login — turn off Private Browsing or allow site data for runnr.fyi");
@@ -254,11 +258,6 @@ const RunnrSync = (() => {
 
   function logout() {
     setToken("");
-    localStorage.removeItem(ALPACA_LOCAL_KEY);
-    if (window.S && window.S.brokerSync) {
-      window.S.brokerSync.alpaca = { connected: false, lastSync: null, imported: 0 };
-      if (typeof persist === "function") persist();
-    }
   }
 
   function saveAlpacaLocal(apiKey, apiSecret, paper) {
@@ -1126,23 +1125,72 @@ const RunnrSync = (() => {
     return { ok: true, count: window.S.watchlist.length };
   }
 
+  function hasAlpacaFills(s) {
+    return (s?.trades || []).some((t) => t && String(t.source || "").toLowerCase() === "alpaca");
+  }
+
+  async function shouldIgnoreRemote(remote) {
+    if (!remote || !hasMeaningfulState(remote)) return false;
+    const me = (sessionEmail() || "").trim().toLowerCase();
+    if (!me || isHouseEmail(me)) return false;
+    const own = String(remote.ownerEmail || "").trim().toLowerCase();
+    if (own && own !== me) return true;
+    if (own && own === me) return false;
+    if (!hasAlpacaFills(remote)) return false;
+    try {
+      const st = await alpacaStatus();
+      return !st?.connected;
+    } catch (e) {
+      return true;
+    }
+  }
+
+  async function pushOwnedStub() {
+    const me = (sessionEmail() || "").trim().toLowerCase();
+    const stub = {
+      ownerEmail: me,
+      trades: [],
+      watchlist: [],
+      bal: 10000,
+      risk: 1,
+      sym: "€",
+      brokerSync: {
+        alpaca: { connected: false, lastSync: null, imported: 0 },
+        importedOrderIds: [],
+      },
+    };
+    await request("/api/v1/profile/state", {
+      method: "PUT",
+      body: JSON.stringify({ state: stub }),
+    });
+  }
+
   /** Pull cloud profile on login, or push local data if cloud is empty. */
   async function syncProfileState() {
     if (!isLoggedIn()) return { action: "none" };
     const data = await request("/api/v1/profile/state");
-    const serverHas = !!(data?.state && hasMeaningfulState(data.state));
+    let remote = data?.state;
+    if (await shouldIgnoreRemote(remote)) {
+      try { await pushOwnedStub(); } catch (e) {}
+      return { action: "cleared-foreign" };
+    }
+    const serverHas = !!(remote && hasMeaningfulState(remote));
     const localHas = hasMeaningfulState(window.S);
+    const localOwner = String(window.S?.ownerEmail || "").trim().toLowerCase();
+    const me = (sessionEmail() || "").trim().toLowerCase();
+    const localMine = !localOwner || localOwner === me;
 
     if (serverHas && !localHas) {
-      applyRemoteState(data.state);
+      applyRemoteState(remote);
       return { action: "pulled", updated_at: data.updated_at };
     }
-    if (!serverHas && localHas) {
+    if (!serverHas && localHas && localMine) {
       await pushProfileState();
       return { action: "pushed" };
     }
-    if (serverHas && localHas) {
-      const merged = mergeProfiles(window.S, data.state);
+    if (serverHas && localHas && localMine) {
+      const merged = mergeProfiles(window.S, remote);
+      merged.ownerEmail = me;
       applyRemoteState(merged);
       await pushProfileState();
       return { action: "merged", updated_at: data.updated_at };
