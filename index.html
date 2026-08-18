@@ -5,7 +5,7 @@
 <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
 <script>
 (function () {
-  var V = "61";
+  var V = "62";
   try {
     if (localStorage.getItem("runnr_app_v") !== V) {
       localStorage.setItem("runnr_app_v", V);
@@ -92,22 +92,23 @@ body::before{content:'';position:fixed;inset:0;background:radial-gradient(ellips
   font-weight:300;
   letter-spacing:0.03em;
 }
-#acct-display{font-family:var(--font-num)!important;font-weight:400;font-style:italic;letter-spacing:0.04em}
+#acct-display{font-family:var(--font-num)!important;font-weight:400;font-style:italic;letter-spacing:0.02em;font-size:13px;white-space:nowrap}
 .header-bal-settings{display:flex;align-items:center;gap:5px;background:none;border:none;padding:0;cursor:pointer;color:var(--text2);font-family:inherit;line-height:1}
 .header-bal-settings .header-gear{width:17px;height:17px;flex-shrink:0;color:var(--text3);opacity:0.75;transition:color 0.2s,opacity 0.2s}
 .header-bal-settings:active .header-gear{color:var(--accent);opacity:1}
 
 /* ── LAYOUT ── */
 #app{display:flex;flex-direction:column;height:100dvh;max-width:430px;margin:0 auto;position:relative;overflow:hidden;z-index:1}
-#header{padding:14px 20px 12px;display:flex;align-items:center;justify-content:space-between;flex-shrink:0;background:rgba(8,12,18,0.92);backdrop-filter:blur(12px);border-bottom:1px solid var(--border)}
-.brand-lockup{display:flex;align-items:center;gap:8px}
-.brand-mark{width:2px;height:22px;background:var(--gold);flex-shrink:0}
-#header .logo{font-family:var(--font-head);font-size:26px;font-weight:300;color:var(--text);letter-spacing:0.02em;font-style:italic;line-height:1}
-.header-pro{display:none;font-family:var(--font-body);font-size:9px;font-weight:700;letter-spacing:0.16em;text-transform:uppercase;color:var(--gold);border:1px solid var(--gold);background:var(--gold-dim);border-radius:3px;padding:3px 6px;line-height:1;flex-shrink:0}
+#header{padding:12px 16px 10px;display:flex;align-items:center;justify-content:space-between;gap:10px;flex-shrink:0;min-width:0;background:rgba(8,12,18,0.92);backdrop-filter:blur(12px);border-bottom:1px solid var(--border)}
+.brand-lockup{display:flex;align-items:center;gap:7px;flex-shrink:0;min-width:0}
+.brand-mark{width:2px;height:18px;background:var(--gold);flex-shrink:0}
+#header .logo{font-family:var(--font-head);font-size:22px;font-weight:300;color:var(--text);letter-spacing:0.02em;font-style:italic;line-height:1}
+.header-pro{display:none;font-family:var(--font-body);font-size:8px;font-weight:700;letter-spacing:0.14em;text-transform:uppercase;color:var(--gold);border:1px solid var(--gold);background:var(--gold-dim);border-radius:3px;padding:3px 5px;line-height:1;flex-shrink:0}
 .header-pro.on{display:inline-block}
+.header-tools{display:flex;align-items:center;gap:6px;flex-shrink:0;min-width:0;white-space:nowrap}
 .upgrade-price{font-family:var(--font-head);font-size:36px;font-weight:500;color:var(--text);letter-spacing:-0.02em;line-height:1.1;margin:4px 0 6px}
 .upgrade-price span{font-size:15px;font-weight:400;color:var(--text2);letter-spacing:0}
-#header .tier-badge{background:var(--gold-dim);border:1px solid var(--border-strong);border-radius:20px;padding:3px 10px;font-size:9px;font-weight:500;color:var(--gold);font-family:var(--font-body);letter-spacing:0.12em;text-transform:uppercase}
+#header .tier-badge{display:none}
 #pages{flex:1;overflow-y:auto;overflow-x:hidden;scroll-snap-type:y mandatory;-webkit-overflow-scrolling:touch}
 #pages::-webkit-scrollbar{display:none}
 .page{min-height:100%;padding:16px 16px calc(80px + var(--safe-bottom));display:none}
@@ -605,8 +606,8 @@ body.light #equity-canvas{filter:invert(0)}
 #coach-institutional-card.inst-locked .stat-delta{color:var(--text3)!important}
 #traffic-banner{display:none;align-items:center;justify-content:space-between;gap:10px;margin:0 16px 10px;padding:10px 12px;background:rgba(255,181,71,0.1);border:1px solid rgba(255,181,71,0.35);border-radius:var(--r-sm);font-size:12px;color:var(--text2)}
 #traffic-banner .traffic-banner-text{flex:1;line-height:1.4}
-#header-sync-pill{font-size:11px;padding:4px 8px;border-radius:999px;border:1px solid var(--border);color:var(--text3);cursor:pointer;white-space:nowrap;touch-action:manipulation;-webkit-tap-highlight-color:transparent;user-select:none}
-#header-sync-pill.on{border-color:var(--accent);color:var(--accent);background:var(--accent-dim)}
+#header-sync-pill{font-size:11px;padding:4px 8px;border-radius:999px;border:1px solid var(--border);color:var(--text3);cursor:pointer;white-space:nowrap;touch-action:manipulation;-webkit-tap-highlight-color:transparent;user-select:none;flex-shrink:0}
+#header-sync-pill.on{border-color:var(--accent);color:var(--accent);background:var(--accent-dim);min-width:28px;padding:4px 7px;text-align:center}
 #sync-auth-error{font-size:12px;color:var(--red);min-height:16px;margin:8px 0 4px}
 .sync-auth-error{font-size:12px;color:var(--red);min-height:16px;margin:8px 0 4px}
 #sync-reset-error{font-size:13px;color:var(--red);min-height:18px;margin:10px 0 6px;line-height:1.4;font-weight:500}
@@ -637,14 +638,13 @@ body.light #equity-canvas{filter:invert(0)}
       <span class="brand-mark" aria-hidden="true"></span>
       <div class="logo">runnr</div>
     </div>
-    <div style="display:flex;gap:8px;align-items:center"><button type="button" class="header-desk-btn" onclick="RunnrDesk.open()">Desk</button>
-    <button id="theme-toggle" onclick="toggleTheme()" data-i18n="common.light">☀ Light</button>
+    <div class="header-tools">
+      <button type="button" class="header-desk-btn" onclick="RunnrDesk.open()">Desk</button>
       <span id="header-sync-pill" onclick="headerSyncTap()" data-i18n-title="common.signInTitle">Sign in</span>
       <button type="button" class="header-bal-settings" onclick="openSettingsModal()" data-i18n-title="settings.title" aria-label="Settings">
         <span id="acct-display">€10,000</span>
         <svg class="header-gear" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>
       </button>
-      <div class="tier-badge" id="tier-badge">🌱 NOVICE</div>
     </div>
   </div>
 
@@ -1723,6 +1723,13 @@ body.light #equity-canvas{filter:invert(0)}
         <option value="af">Afrikaans</option>
       </select>
     </div>
+    <div class="notif-global-toggle" style="margin:4px 0 14px">
+      <div>
+        <div style="font-size:13px;font-weight:600" data-i18n="settings.appearance">Appearance</div>
+        <div style="font-size:11px;color:var(--text3)" data-i18n="settings.appearanceHint">Dark desk or light paper</div>
+      </div>
+      <button type="button" id="theme-toggle" onclick="toggleTheme()" data-i18n="common.light">☀ Light</button>
+    </div>
     <div class="field"><label data-i18n="settings.balance">Account Balance</label><input id="set-bal" type="number" placeholder="10000"></div>
     <div id="set-bal-hint" style="font-size:11px;color:var(--accent);margin:-6px 0 10px;display:none" data-i18n="settings.balHint">Synced from Alpaca — tap Sync to refresh</div>
     <div class="field"><label data-i18n="settings.portBase">Portfolio P&amp;L base</label><input id="set-port-base" type="number" placeholder="100000"></div>
@@ -1808,7 +1815,7 @@ body.light #equity-canvas{filter:invert(0)}
   </div>
 </div>
 
-<script src="js/i18n.js?v=7"></script>
+<script src="js/i18n.js?v=8"></script>
 <script src="js/baron.js?v=28"></script>
 <script src="js/coach.js?v=25"></script>
 <script src="js/onboarding.js?v=22"></script>
@@ -5061,7 +5068,8 @@ function calcCrypto() {
 // ── LIGHT / DARK MODE ────────────────────────────────────────────────────────
 function toggleTheme() {
   const isLight = document.body.classList.toggle('light');
-  document.getElementById('theme-toggle').textContent = isLight ? t('common.dark') : t('common.light');
+  const btn = document.getElementById('theme-toggle');
+  if (btn) btn.textContent = isLight ? t('common.dark') : t('common.light');
   try { localStorage.setItem('runnr_theme', isLight ? 'light' : 'dark'); } catch(e) {}
   // Redraw canvases
   setTimeout(() => {
@@ -5074,7 +5082,8 @@ function toggleTheme() {
 try {
   if (localStorage.getItem('runnr_theme') === 'light') {
     document.body.classList.add('light');
-    document.getElementById('theme-toggle').textContent = '🌙 Dark';
+    const btn = document.getElementById('theme-toggle');
+    if (btn) btn.textContent = '🌙 Dark';
   }
 } catch(e) {}
 
@@ -5180,9 +5189,9 @@ function renderHeaderSyncPill() {
   if (!el) return;
   if (RunnrSync.isLoggedIn()) {
     const who = (RunnrSync.sessionEmail() || 'Signed in').split('@')[0];
-    el.textContent = '✓ ' + who;
+    el.textContent = '✓';
     el.classList.add('on');
-    el.title = 'Signed in — tap for Sync';
+    el.title = who + ' — tap for Sync';
     hideSessionBanner();
   } else {
     el.textContent = t('common.signIn');
@@ -6358,9 +6367,11 @@ function updateTier() {
   const total  = S.trades.filter(t=>!t.incomplete).length;
   const rate   = total > 0 ? stopOk/total : 0;
   const badge  = document.getElementById('tier-badge');
-  if (rate >= 0.85 && total >= 20) { badge.textContent = '🏆 ELITE'; }
-  else if (rate >= 0.8 && total >= 20) { badge.textContent = '📈 CONSISTENT'; }
-  else { badge.textContent = '🌱 NOVICE'; }
+  if (badge) {
+    if (rate >= 0.85 && total >= 20) { badge.textContent = '🏆 ELITE'; }
+    else if (rate >= 0.8 && total >= 20) { badge.textContent = '📈 CONSISTENT'; }
+    else { badge.textContent = '🌱 NOVICE'; }
+  }
   updateTierProgress();
 }
 

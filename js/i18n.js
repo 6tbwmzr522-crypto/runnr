@@ -21,6 +21,8 @@
       "nav.portfolio": "Portfolio",
       "settings.title": "Settings",
       "settings.language": "Language",
+      "settings.appearance": "Appearance",
+      "settings.appearanceHint": "Dark desk or light paper",
       "settings.balance": "Account Balance",
       "settings.portBase": "Portfolio P&L base",
       "settings.portBaseHint": "Starting balance for Portfolio % — separate from live Alpaca equity",
