@@ -45,14 +45,48 @@ const RunnrSync = (() => {
     return localStorage.getItem(TOKEN_KEY) || "";
   }
 
+  const HOUSE_EMAILS = [
+    "info@thinicedigital.com",
+    "janis.berzins.liepins@gmail.com",
+    "berzins.j@inbox.lv",
+  ];
+
+  function snapshotStateForEmail(email) {
+    const e = String(email || "").trim().toLowerCase();
+    if (!e) return;
+    try {
+      const raw = localStorage.getItem("runnr_state");
+      if (raw) localStorage.setItem("runnr_state:" + e, raw);
+    } catch (err) {}
+  }
+
+  function loadStateForEmail(email) {
+    const e = String(email || "").trim().toLowerCase();
+    try {
+      const raw = e ? localStorage.getItem("runnr_state:" + e) : null;
+      if (raw) localStorage.setItem("runnr_state", raw);
+      else localStorage.removeItem("runnr_state");
+    } catch (err) {}
+  }
+
   function setToken(t, email) {
     try {
       if (t) {
+        const prev = (localStorage.getItem(EMAIL_KEY) || "").trim().toLowerCase();
+        const next = String(email || "").trim().toLowerCase();
+        if (prev && next && prev !== next) {
+          snapshotStateForEmail(prev);
+          loadStateForEmail(next);
+          localStorage.removeItem(ALPACA_LOCAL_KEY);
+          try { sessionStorage.setItem("runnr_account_switched", "1"); } catch (e) {}
+        }
         localStorage.setItem(TOKEN_KEY, t);
         if (email) localStorage.setItem(EMAIL_KEY, email);
       } else {
+        snapshotStateForEmail(localStorage.getItem(EMAIL_KEY));
         localStorage.removeItem(TOKEN_KEY);
         localStorage.removeItem(EMAIL_KEY);
+        localStorage.removeItem(ALPACA_LOCAL_KEY);
       }
     } catch (e) {
       throw new Error("Safari blocked saving your login — turn off Private Browsing or allow site data for runnr.fyi");
@@ -1132,8 +1166,8 @@ const RunnrSync = (() => {
   function isHouseEmail(email) {
     const e = String(email || "").trim().toLowerCase();
     if (!e) return false;
-    if (e.endsWith("@thinicedigital.com")) return true;
-    return e.split("@", 1)[0].includes("berzins");
+    if (HOUSE_EMAILS.indexOf(e) !== -1) return true;
+    return e.endsWith("@thinicedigital.com");
   }
 
   function isPro() {

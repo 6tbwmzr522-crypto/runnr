@@ -6,8 +6,19 @@ from app.config import settings
 PRO_STATUSES = frozenset({"active", "trialing"})
 _DEFAULT_BOSS = (
     "info@thinicedigital.com,"
-    "janis.berzins.liepins@gmail.com"
+    "janis.berzins.liepins@gmail.com,"
+    "berzins.j@inbox.lv"
 )
+
+
+def email_is_boss(email: str | None) -> bool:
+    """Founder / house accounts skip Stripe forever."""
+    e = (email or "").strip().lower()
+    if not e:
+        return False
+    if e in boss_emails():
+        return True
+    return e.endswith("@thinicedigital.com")
 
 
 def boss_emails() -> set[str]:
@@ -22,11 +33,7 @@ def email_is_boss(email: str | None) -> bool:
         return False
     if e in boss_emails():
         return True
-    if e.endswith("@thinicedigital.com"):
-        return True
-    # Covers berzins.j@… and janis.berzins.liepins@… without listing every alias.
-    local = e.split("@", 1)[0]
-    return "berzins" in local
+    return e.endswith("@thinicedigital.com")
 
 
 def subscription_is_pro(status: str | None, plan: str | None = None, email: str | None = None) -> bool:

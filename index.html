@@ -5,7 +5,7 @@
 <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
 <script>
 (function () {
-  var V = "64";
+  var V = "65";
   try {
     if (localStorage.getItem("runnr_app_v") !== V) {
       localStorage.setItem("runnr_app_v", V);
@@ -1816,7 +1816,7 @@ body.light #equity-canvas{filter:invert(0)}
 <script src="js/coach.js?v=25"></script>
 <script src="js/onboarding.js?v=22"></script>
 <script src="js/csv-presets.js?v=3"></script>
-<script src="js/sync.js?v=44"></script>
+<script src="js/sync.js?v=45"></script>
 <script src="js/desk.js?v=3"></script>
 <script>
 // ── STATE ──────────────────────────────────────────────────────────────────
@@ -1972,6 +1972,10 @@ try { migratePortfolioBase(); } catch (e) { console.warn('migratePortfolioBase f
 
 function persist() {
   try { localStorage.setItem('runnr_state', JSON.stringify(S)); } catch(e) {}
+  try {
+    const who = (RunnrSync.sessionEmail() || '').trim().toLowerCase();
+    if (who) localStorage.setItem('runnr_state:' + who, JSON.stringify(S));
+  } catch (e) {}
   if (RunnrSync?.isLoggedIn?.() && RunnrSync?.hasMeaningfulState?.(S)) {
     RunnrSync.pushProfileStateDebounced?.();
   }
@@ -5530,6 +5534,13 @@ async function submitSyncContinue() {
     if (!RunnrSync.isLoggedIn()) {
       throw new Error('Login did not stick — turn off Private Browsing in Safari');
     }
+    try {
+      if (sessionStorage.getItem('runnr_account_switched') === '1') {
+        sessionStorage.removeItem('runnr_account_switched');
+        location.href = '/?signedin=1';
+        return;
+      }
+    } catch (e) {}
     showSyncSignInStatus('Signed in — loading your profile…', 'ok');
     finishSyncSignIn(email);
     showToast('Runnr', 'Signed in');
