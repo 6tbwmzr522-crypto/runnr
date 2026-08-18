@@ -5,7 +5,7 @@
 <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
 <script>
 (function () {
-  var V = "62";
+  var V = "63";
   try {
     if (localStorage.getItem("runnr_app_v") !== V) {
       localStorage.setItem("runnr_app_v", V);
@@ -599,8 +599,8 @@ body.light #equity-canvas{filter:invert(0)}
 #demo-banner.show{display:flex}
 #demo-banner .demo-banner-text{flex:1;line-height:1.45}
 .demo-badge{display:inline-block;font-size:9px;font-weight:700;letter-spacing:0.12em;color:var(--accent);border:1px solid rgba(0,229,160,0.45);padding:2px 6px;border-radius:4px;margin-left:8px;vertical-align:middle}
-.home-footer-links{display:flex;justify-content:center;gap:16px;margin:10px 0 8px;font-size:12px}
-.home-footer-links button{background:none;border:none;color:var(--gold);cursor:pointer;padding:0;font-size:12px;text-decoration:underline;text-underline-offset:3px}
+.home-footer-links{display:flex;flex-wrap:wrap;justify-content:center;gap:8px 14px;margin:10px 0 8px;font-size:12px}
+.home-footer-links button,.home-footer-links a{background:none;border:none;color:var(--gold);cursor:pointer;padding:0;font-size:12px;text-decoration:underline;text-underline-offset:3px;font-family:inherit}
 .trust-pricing-row{font-size:12px;color:var(--text2);line-height:1.55;margin-bottom:8px;padding:8px 10px;background:var(--surface2);border-radius:var(--r-sm);border:1px solid var(--border)}
 #coach-institutional-card.inst-locked .stat-val{color:var(--text3)!important}
 #coach-institutional-card.inst-locked .stat-delta{color:var(--text3)!important}
@@ -819,8 +819,10 @@ body.light #equity-canvas{filter:invert(0)}
         <div class="home-footer-brand">Thin Ice Digital Ltd</div>
         <div class="home-footer-links">
           <button type="button" onclick="openAboutModal()" data-i18n="footer.about">About</button>
-          <button type="button" onclick="location.href='report/'">Discipline report</button>
-          <button type="button" onclick="openPrivacyModal()" data-i18n="footer.privacy">Privacy</button>
+          <a href="/report/" data-i18n="footer.report">Discipline report</a>
+          <a href="/terms/" data-i18n="footer.terms">Terms</a>
+          <a href="/refund/" data-i18n="footer.refund">Refund Policy</a>
+          <a href="/privacy/" data-i18n="footer.privacy">Privacy</a>
           <button type="button" onclick="openPricing()" data-i18n="footer.pricing">Pricing</button>
         </div>
         <div class="home-footer-copy">© 2026 Thin Ice Digital Ltd · All rights reserved</div>
@@ -1238,8 +1240,10 @@ body.light #equity-canvas{filter:invert(0)}
       <div style="margin-top:16px;padding-top:12px;border-top:1px solid var(--border);text-align:center">
         <div class="home-footer-links" style="margin:0">
           <button type="button" onclick="openAboutModal()" data-i18n="footer.about">About</button>
-          <button type="button" onclick="location.href='report/'">Discipline report</button>
-          <button type="button" onclick="openPrivacyModal()" data-i18n="footer.privacy">Privacy</button>
+          <a href="/report/" data-i18n="footer.report">Discipline report</a>
+          <a href="/terms/" data-i18n="footer.terms">Terms</a>
+          <a href="/refund/" data-i18n="footer.refund">Refund Policy</a>
+          <a href="/privacy/" data-i18n="footer.privacy">Privacy</a>
           <button type="button" onclick="openPricing()" data-i18n="footer.pricing">Pricing</button>
         </div>
         <div style="font-size:11px;color:var(--text3);margin-top:8px;line-height:1.45">Alpaca &amp; IBKR Flex: read-only · keys encrypted · no order execution</div>
@@ -1759,7 +1763,9 @@ body.light #equity-canvas{filter:invert(0)}
     <div class="divider"></div>
     <div style="font-size:12px;color:var(--text3);margin-bottom:8px;font-weight:600;text-transform:uppercase;letter-spacing:0.8px" data-i18n="settings.trust">Trust &amp; privacy</div>
     <button class="btn btn-ghost btn-sm" style="margin-bottom:6px;width:100%" onclick="openAboutModal()" data-i18n="settings.about">About Runnr</button>
-    <button class="btn btn-ghost btn-sm" style="margin-bottom:12px;width:100%" onclick="openPrivacyModal()" data-i18n="settings.privacy">Privacy &amp; security</button>
+    <a class="btn btn-ghost btn-sm" href="/terms/" style="margin-bottom:6px;width:100%;display:block;text-align:center;text-decoration:none;box-sizing:border-box" data-i18n="footer.terms">Terms</a>
+    <a class="btn btn-ghost btn-sm" href="/refund/" style="margin-bottom:6px;width:100%;display:block;text-align:center;text-decoration:none;box-sizing:border-box" data-i18n="footer.refund">Refund Policy</a>
+    <a class="btn btn-ghost btn-sm" href="/privacy/" style="margin-bottom:12px;width:100%;display:block;text-align:center;text-decoration:none;box-sizing:border-box" data-i18n="settings.privacy">Privacy &amp; security</a>
     <div class="divider"></div>
     <button class="btn btn-ghost" onclick="saveSettings()" data-i18n="settings.save">Save Settings</button>
   </div>
@@ -1775,25 +1781,12 @@ body.light #equity-canvas{filter:invert(0)}
       <p style="margin:0 0 12px"><strong style="color:var(--text)">Contact</strong><br>
         <a href="mailto:info@thinicedigital.com" style="color:var(--accent)">info@thinicedigital.com</a></p>
       <p style="margin:0;font-size:12px;color:var(--text3)">Alpaca &amp; IBKR Flex sync are <strong>read-only</strong> — Runnr cannot place trades. API keys / Flex tokens are encrypted server-side (Fernet). CSV presets cover Trading 212, eToro, Degiro, Schwab and more.</p>
+      <p style="margin:12px 0 0;font-size:12px;line-height:1.55"><a href="/terms/" style="color:var(--gold)">Terms</a> · <a href="/refund/" style="color:var(--gold)">Refund Policy</a> · <a href="/privacy/" style="color:var(--gold)">Privacy</a></p>
     </div>
   </div>
 </div>
 
-<!-- Privacy -->
-<div class="modal-overlay" id="modal-privacy" onclick="closeModalOutside(event,'modal-privacy')">
-  <div class="modal">
-    <div class="modal-title">Privacy &amp; security <button class="modal-close" onclick="closeModal('modal-privacy')">✕</button></div>
-    <div style="font-size:13px;color:var(--text2);line-height:1.55">
-      <p style="margin:0 0 10px"><strong style="color:var(--text)">What we store</strong><br>Journal, watchlist, and settings — on your device (localStorage) and, if you sign in, encrypted in your Runnr cloud profile on Railway (EU-friendly hosting).</p>
-      <p style="margin:0 0 10px"><strong style="color:var(--text)">Broker keys</strong><br>Alpaca API keys are encrypted at rest (AES/Fernet). Used only for read-only sync — never for order execution.</p>
-      <p style="margin:0 0 10px"><strong style="color:var(--text)">What we don&apos;t do</strong><br>No sale of trade data. No discretionary trading. No custody of funds. Coach analytics run on your journal — not shared unless you export a share card.</p>
-      <p style="margin:0 0 10px"><strong style="color:var(--text)">Your rights</strong><br>Export via CSV. Delete local data by clearing site storage. To delete your account and server profile, email <a href="mailto:info@thinicedigital.com" style="color:var(--accent)">info@thinicedigital.com</a>.</p>
-      <p style="margin:0;font-size:12px;color:var(--text3)">Runnr is pre-Regulatory FinTech SaaS (discipline tooling). Not MiFID investment advice. Full privacy policy document coming — this summary covers current behaviour.</p>
-    </div>
-  </div>
-</div>
-
-<!-- Upgrade / subscribe (simple paywall) -->
+<!-- Upgrade / subscribe -->
 <div class="modal-overlay" id="modal-upgrade" onclick="closeModalOutside(event,'modal-upgrade')">
   <div class="modal">
     <div class="modal-title">Runnr <button class="modal-close" onclick="closeModal('modal-upgrade')">✕</button></div>
@@ -1804,7 +1797,7 @@ body.light #equity-canvas{filter:invert(0)}
       <div style="font-size:12px;color:var(--text3);margin-bottom:16px">Or €190 / year — two months free.</div>
       <button type="button" class="btn" style="width:100%;margin-bottom:10px;background:linear-gradient(135deg,var(--accent2),var(--accent))" onclick="startStripeCheckout('month')">Start Runnr — €19/month</button>
       <button type="button" class="btn btn-ghost" style="width:100%;margin-bottom:14px" onclick="startStripeCheckout('year')">Yearly · €190</button>
-      <div style="font-size:11px;color:var(--text3);text-align:center;line-height:1.45">Cancel anytime · Card via Stripe · Brokers stay read-only</div>
+      <div style="font-size:11px;color:var(--text3);text-align:center;line-height:1.45">Cancel anytime · <a href="/refund/" style="color:var(--gold)">Refund Policy</a> · <a href="/terms/" style="color:var(--gold)">Terms</a> · Card via Stripe</div>
     </div>
     <div id="upgrade-pro-panel" style="display:none">
       <div style="font-size:15px;color:var(--accent);font-weight:600;margin-bottom:8px">You’re on Runnr</div>
@@ -1815,7 +1808,7 @@ body.light #equity-canvas{filter:invert(0)}
   </div>
 </div>
 
-<script src="js/i18n.js?v=8"></script>
+<script src="js/i18n.js?v=9"></script>
 <script src="js/baron.js?v=28"></script>
 <script src="js/coach.js?v=25"></script>
 <script src="js/onboarding.js?v=22"></script>
@@ -2136,7 +2129,9 @@ function switchPage(key) {
 
 // ── SETTINGS ───────────────────────────────────────────────────────────────
 function openAboutModal() { openModal('modal-about'); }
-function openPrivacyModal() { openModal('modal-privacy'); }
+function openPrivacyModal() { location.href = '/privacy/'; }
+function openTerms() { location.href = '/terms/'; }
+function openRefund() { location.href = '/refund/'; }
 function openWhopPricing() { openUpgrade(); }
 function openPricing() { openUpgrade(); }
 function openUpgrade(featureLabel) {
@@ -2261,6 +2256,8 @@ function updateDemoBanner() {
 }
 window.openAboutModal = openAboutModal;
 window.openPrivacyModal = openPrivacyModal;
+window.openTerms = openTerms;
+window.openRefund = openRefund;
 window.openWhopPricing = openWhopPricing;
 window.openPricing = openPricing;
 window.openUpgrade = openUpgrade;

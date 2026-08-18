@@ -84,6 +84,9 @@
   #status.ok { color: var(--accent); }
   #status.work { color: var(--gold); }
   .hint { font-size: 12px; color: var(--text2); margin-top: 16px; line-height: 1.4; }
+  .hint a { color: var(--gold); }
+  .legal-links { display:flex; flex-wrap:wrap; gap:8px 14px; justify-content:center; margin-top:20px; font-size:12px; }
+  .legal-links a { color: var(--gold); }
 </style>
 </head>
 <body>
@@ -107,7 +110,12 @@
     <button type="button" id="reset-btn">Forgot password? Set new one</button>
   </div>
 
-  <p class="hint">Not in Private Browsing — Safari blocks saving your login there. After sign-in you’ll return to the app automatically.</p>
+  <p class="hint">By signing in you agree to our <a href="/terms/">Terms</a>, <a href="/privacy/">Privacy Policy</a>, and <a href="/refund/">Refund Policy</a>. Not in Private Browsing — Safari blocks saving your login there.</p>
+  <div class="legal-links">
+    <a href="/terms/">Terms</a>
+    <a href="/refund/">Refund Policy</a>
+    <a href="/privacy/">Privacy</a>
+  </div>
 </div>
 <script>
 (function () {
