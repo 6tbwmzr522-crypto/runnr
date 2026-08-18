@@ -20,13 +20,17 @@ from app.models.billing import (
 
 router = APIRouter(prefix="/billing", tags=["billing"])
 
-# short-lived checkout tickets: code -> {user_id, interval, exp}
-_CHECKOUT_TICKETS: dict[str, dict] = {}
+TICKET_TTL_S = 600
 
 
 def _stripe() -> None:
     if not settings.stripe_enabled:
         raise HTTPException(status_code=503, detail="Stripe is not configured")
+    if not (settings.stripe_webhook_secret or "").strip():
+        raise HTTPException(
+            status_code=503,
+            detail="Stripe webhook secret is not configured — payment would not activate Pro",
+        )
     stripe.api_key = settings.stripe_secret_key
     # Account uses Managed Payments — requires basil+ (dashboard default is dahlia).
     stripe.api_version = "2026-07-29.dahlia"
@@ -113,9 +117,30 @@ def _price_for_interval(interval: str) -> str:
 
 def _purge_tickets() -> None:
     now = time.time()
-    dead = [k for k, v in _CHECKOUT_TICKETS.items() if v.get("exp", 0) < now]
-    for k in dead:
-        _CHECKOUT_TICKETS.pop(k, None)
+    with get_db() as conn:
+        conn.execute("DELETE FROM checkout_tickets WHERE exp < ?", (now,))
+
+
+def _put_ticket(code: str, user_id: int, interval: str) -> None:
+    _purge_tickets()
+    with get_db() as conn:
+        conn.execute(
+            "INSERT INTO checkout_tickets (code, user_id, interval, exp) VALUES (?, ?, ?, ?)",
+            (code, user_id, interval, time.time() + TICKET_TTL_S),
+        )
+
+
+def _pop_ticket(code: str) -> dict | None:
+    _purge_tickets()
+    with get_db() as conn:
+        row = conn.execute(
+            "SELECT user_id, interval FROM checkout_tickets WHERE code = ?",
+            (code,),
+        ).fetchone()
+        if not row:
+            return None
+        conn.execute("DELETE FROM checkout_tickets WHERE code = ?", (code,))
+        return {"user_id": row["user_id"], "interval": row["interval"]}
 
 
 def _create_checkout_session(user: dict, interval: str) -> str:
@@ -169,11 +194,7 @@ def create_checkout(body: CheckoutRequest, request: Request, user: dict = Depend
         raise HTTPException(status_code=400, detail="Already subscribed — manage billing in the portal")
     _purge_tickets()
     code = secrets.token_urlsafe(24)
-    _CHECKOUT_TICKETS[code] = {
-        "user_id": user["id"],
-        "interval": body.interval,
-        "exp": time.time() + 600,
-    }
+    _put_ticket(code, user["id"], body.interval)
     # Prefer public HTTPS API host (Railway often reports http behind the TLS terminator)
     host = (request.url.hostname or "").lower()
     if host in {"localhost", "127.0.0.1"}:
@@ -187,7 +208,7 @@ def create_checkout(body: CheckoutRequest, request: Request, user: dict = Depend
 def checkout_go(code: str):
     """Browser navigates here → Stripe Checkout (no CORS/fetch)."""
     _purge_tickets()
-    ticket = _CHECKOUT_TICKETS.pop(code, None)
+    ticket = _pop_ticket(code)
     if not ticket:
         raise HTTPException(status_code=400, detail="Checkout link expired — go back and tap €19 again")
     user = _load_user(int(ticket["user_id"]))
@@ -246,13 +267,10 @@ async def stripe_webhook(request: Request):
     payload = await request.body()
     sig = request.headers.get("stripe-signature", "")
     secret = (settings.stripe_webhook_secret or "").strip()
+    if not secret:
+        raise HTTPException(status_code=503, detail="Stripe webhook secret is not configured")
     try:
-        if secret:
-            event = stripe.Webhook.construct_event(payload, sig, secret)
-        else:
-            import json
-
-            event = stripe.Event.construct_from(json.loads(payload), settings.stripe_secret_key)
+        event = stripe.Webhook.construct_event(payload, sig, secret)
     except Exception as exc:
         raise HTTPException(status_code=400, detail=f"Webhook error: {exc}") from exc
 

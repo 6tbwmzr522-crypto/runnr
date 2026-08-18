@@ -17,7 +17,7 @@ async def lifespan(_app: FastAPI):
 app = FastAPI(
     title="Runnr API",
     description="Small backend for Runnr — login, encrypted broker keys, read-only sync.",
-    version="0.1.3",
+    version="0.1.4",
     lifespan=lifespan,
     docs_url="/docs",
 )
@@ -69,6 +69,7 @@ def health():
         "ai_model": settings.openai_model,
         "finnhub_configured": bool(fh),
         "stripe_configured": settings.stripe_enabled,
+        "stripe_webhook_configured": bool((settings.stripe_webhook_secret or "").strip()),
         "email_configured": bool((settings.resend_api_key or "").strip()),
         "quote_cache_ttl_s": settings.quote_cache_ttl,
         "caches": {

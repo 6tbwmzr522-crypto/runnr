@@ -27,6 +27,21 @@ def _resolve_database_path() -> str:
 DB_PATH = _resolve_database_path()
 
 
+def _migrate_checkout_tickets(conn: sqlite3.Connection) -> None:
+    conn.execute(
+        """
+        CREATE TABLE IF NOT EXISTS checkout_tickets (
+            code TEXT PRIMARY KEY,
+            user_id INTEGER NOT NULL,
+            interval TEXT NOT NULL,
+            exp REAL NOT NULL,
+            FOREIGN KEY(user_id) REFERENCES users(id)
+        )
+        """
+    )
+    conn.execute("CREATE INDEX IF NOT EXISTS idx_checkout_tickets_exp ON checkout_tickets(exp)")
+
+
 def init_db() -> None:
     with get_db() as conn:
         conn.executescript(
@@ -60,6 +75,7 @@ def init_db() -> None:
         )
         _migrate_users_billing(conn)
         _migrate_auth_tokens(conn)
+        _migrate_checkout_tickets(conn)
 
 
 def _migrate_users_billing(conn: sqlite3.Connection) -> None:
@@ -100,8 +116,10 @@ def _migrate_auth_tokens(conn: sqlite3.Connection) -> None:
 
 @contextmanager
 def get_db():
-    conn = sqlite3.connect(DB_PATH)
+    conn = sqlite3.connect(DB_PATH, timeout=5)
     conn.row_factory = sqlite3.Row
+    conn.execute("PRAGMA journal_mode=WAL")
+    conn.execute("PRAGMA busy_timeout=5000")
     try:
         yield conn
         conn.commit()
