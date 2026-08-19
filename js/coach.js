@@ -1,19 +1,49 @@
 /** Runnr Coach v1 — insights, discipline scoring, trade analysis */
 const CoachEngine = {
-  parseTradeDate(dateStr) {
+  parseTradeDate(dateStr, filledAt) {
+    if (filledAt) {
+      const iso = new Date(filledAt);
+      if (!Number.isNaN(iso.getTime())) return iso;
+    }
+    const s = String(dateStr || "").trim();
+    if (!s) return null;
     const months = {
       Jan: 0, Feb: 1, Mar: 2, Apr: 3, May: 4, Jun: 5,
       Jul: 6, Aug: 7, Sep: 8, Oct: 9, Nov: 10, Dec: 11,
     };
-    const parts = (dateStr || "").split(" ");
-    if (parts.length < 2) return null;
-    const y = new Date().getFullYear();
-    return new Date(y, months[parts[0]] ?? 0, parseInt(parts[1], 10) || 1);
+    const parts = s.replace(/,/g, " ").split(/\s+/).filter(Boolean);
+    const mon = (tok) => months[String(tok || "").slice(0, 3)];
+    const yearNow = new Date().getFullYear();
+    if (parts.length >= 2 && mon(parts[0]) != null) {
+      const y = parseInt(parts[2], 10);
+      return new Date(Number.isFinite(y) ? y : yearNow, mon(parts[0]), parseInt(parts[1], 10) || 1);
+    }
+    if (parts.length >= 2 && mon(parts[1]) != null) {
+      const y = parseInt(parts[2], 10);
+      return new Date(Number.isFinite(y) ? y : yearNow, mon(parts[1]), parseInt(parts[0], 10) || 1);
+    }
+    const parsed = new Date(s);
+    return Number.isNaN(parsed.getTime()) ? null : parsed;
+  },
+
+  tradeDate(t) {
+    if (!t) return null;
+    return this.parseTradeDate(t.date, t.filledAt);
+  },
+
+  isClosedPnlTrade(t) {
+    if (!t || t.disciplineOnly || t.mergedAway) return false;
+    if (window.Baron?.isOpenTrade?.(t)) return false;
+    const pnl = window.Baron?.resolveTradePnl?.(t);
+    if (pnl == null) return false;
+    if (!t.incomplete) return true;
+    const src = String(t.source || "").toLowerCase();
+    return src === "alpaca" && (t.alpacaPaired || (Number(t.entry) > 0 && Number(t.exit) > 0));
   },
 
   completed(trades) {
     return trades
-      .filter((t) => !t.incomplete && !t.disciplineOnly && !window.Baron?.isOpenTrade?.(t))
+      .filter((t) => this.isClosedPnlTrade(t))
       .map((t) => {
         const pnl = window.Baron?.resolveTradePnl?.(t) ?? t.pnl;
         return pnl != null ? { ...t, pnl } : null;
@@ -28,7 +58,7 @@ const CoachEngine = {
   withinDays(trades, days) {
     const now = new Date();
     return this.completed(trades).filter((t) => {
-      const d = this.parseTradeDate(t.date);
+      const d = this.tradeDate(t);
       if (!d) return days >= 365;
       return (now - d) / 86400000 <= days;
     });
@@ -87,7 +117,7 @@ const CoachEngine = {
   loggingStreak(trades) {
     const dates = [...new Set(
       trades.filter((t) => t.date).map((t) => {
-        const d = this.parseTradeDate(t.date);
+        const d = this.tradeDate(t);
         return d ? d.toDateString() : null;
       }).filter(Boolean),
     )];
@@ -204,7 +234,7 @@ const CoachEngine = {
     const score = this.disciplineScore(trades);
     const week = this.metrics(this.withinDays(trades, 7));
     const priorTrades = this.completed(trades).filter((t) => {
-      const d = this.parseTradeDate(t.date);
+      const d = this.tradeDate(t);
       if (!d) return false;
       const days = (new Date() - d) / 86400000;
       return days > 7 && days <= 14;
@@ -387,7 +417,7 @@ const CoachEngine = {
     if (q.includes("day of week") || q.includes("weekday") || q.includes("best day")) {
       const buckets = {};
       completed.forEach((t) => {
-        const d = this.parseTradeDate(t.date);
+        const d = this.tradeDate(t);
         if (!d) return;
         const key = d.toLocaleDateString("en-GB", { weekday: "short" });
         if (!buckets[key]) buckets[key] = { n: 0, pnl: 0 };
@@ -460,8 +490,8 @@ const CoachEngine = {
 
   sortTradesChrono(trades) {
     return [...trades].sort((a, b) => {
-      const da = this.parseTradeDate(a.date);
-      const db = this.parseTradeDate(b.date);
+      const da = this.tradeDate(a);
+      const db = this.tradeDate(b);
       if (!da && !db) return (a.id || 0) - (b.id || 0);
       if (!da) return 1;
       if (!db) return -1;
@@ -470,7 +500,7 @@ const CoachEngine = {
   },
 
   tradeSpanYears(trades) {
-    const dates = trades.map((t) => this.parseTradeDate(t.date)).filter(Boolean);
+    const dates = trades.map((t) => this.tradeDate(t)).filter(Boolean);
     if (!dates.length) return 0;
     if (dates.length === 1) return 1;
     const min = Math.min(...dates.map((d) => d.getTime()));

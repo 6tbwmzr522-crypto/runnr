@@ -74,6 +74,60 @@ const RunnrSync = (() => {
     return (id === 1 || id === 2 || id === 3) && DEMO_WATCH_SYMS.has(sym);
   }
 
+  function watchRichness(w) {
+    let score = 0;
+    ["entry", "stop", "target"].forEach((k) => { if (Number(w && w[k])) score += 1; });
+    if (w && w.thesis) score += 1;
+    if (w && w.dir) score += 1;
+    return score;
+  }
+
+  function isThinWatch(w) {
+    if (!w) return true;
+    if (isDemoWatch(w)) return true;
+    if (w.seededFromTrades) return true;
+    return watchRichness(w) < 3;
+  }
+
+  function watchlistLooksThin(s) {
+    s = s || window.S;
+    return !((s && s.watchlist) || []).some((w) => w && !isThinWatch(w));
+  }
+
+  function pickJournalBase(current, candidates, liveBal) {
+    const nums = [current, ...(candidates || [])]
+      .map((n) => Number(n))
+      .filter((n) => n > 1000);
+    if (!nums.length) return Number(current) || 0;
+    const live = Number(liveBal) || 0;
+    const starts = nums.filter((n) => live <= 0 || Math.abs(n - live) / live > 0.08);
+    if (starts.length) return Math.min(...starts);
+    return Number(current) || Math.min(...nums);
+  }
+
+  function eachOwnedSnapshot(email, fn) {
+    const e = String(email || "").trim().toLowerCase();
+    const seen = new Set();
+    const visit = (raw) => {
+      if (!raw || seen.has(raw)) return;
+      seen.add(raw);
+      const s = parseStoredState(raw);
+      if (!s) return;
+      const own = String(s.ownerEmail || "").trim().toLowerCase();
+      if (own && e && own !== e) return;
+      fn(s);
+    };
+    try {
+      if (e) visit(localStorage.getItem("runnr_state:" + e));
+      visit(localStorage.getItem("runnr_state"));
+      for (let i = 0; i < localStorage.length; i++) {
+        const k = localStorage.key(i);
+        if (!k || k.indexOf("runnr_state") !== 0) continue;
+        visit(localStorage.getItem(k));
+      }
+    } catch (err) {}
+  }
+
   function stateLooksReal(s) {
     if (!s) return false;
     const trades = s.trades || [];
@@ -156,7 +210,10 @@ const RunnrSync = (() => {
   function recoverLocalState() {
     const e = (sessionEmail() || "").trim().toLowerCase();
     if (!e || !window.S) return false;
-    if (stateLooksReal(window.S)) return recoverWatchlistIfEmpty();
+    if (stateLooksReal(window.S)) {
+      enrichFromSnapshots();
+      return recoverWatchlistIfEmpty();
+    }
     const recovered = richestSnapshotForEmail(e);
     const parsed = parseStoredState(recovered);
     if (!parsed || !stateLooksReal(parsed)) return false;
@@ -164,6 +221,7 @@ const RunnrSync = (() => {
     Object.assign(window.S, parsed);
     try { localStorage.setItem("runnr_state", recovered); } catch (err) {}
     try { localStorage.setItem("runnr_state:" + e, recovered); } catch (err) {}
+    enrichFromSnapshots();
     return true;
   }
 
@@ -180,7 +238,7 @@ const RunnrSync = (() => {
 
   function seedWatchlistFromTrades() {
     if (!window.S) return false;
-    if ((window.S.watchlist || []).some((w) => w && !isDemoWatch(w))) return false;
+    if ((window.S.watchlist || []).some((w) => w && !isThinWatch(w))) return false;
     const trades = window.S.trades || [];
     const open = trades.filter((t) => t && tradeWatchSym(t) && !(Number(t.exit) > 0));
     const pool = open.length ? open : trades.filter((t) => t && String(t.source || "").toLowerCase() === "alpaca");
@@ -201,6 +259,7 @@ const RunnrSync = (() => {
         thesis: "",
         rr: 0,
         urgent: false,
+        seededFromTrades: true,
       });
     });
     if (!seeded.length) return false;
@@ -211,32 +270,46 @@ const RunnrSync = (() => {
 
   function recoverWatchlistIfEmpty() {
     if (!window.S) return false;
-    const haveReal = (window.S.watchlist || []).some((w) => w && !isDemoWatch(w));
-    if (haveReal) return false;
     const e = (sessionEmail() || "").trim().toLowerCase();
-    let best = [];
-    const consider = (s) => {
-      const real = ((s && s.watchlist) || []).filter((w) => w && !isDemoWatch(w));
-      if (real.length > best.length) best = real;
-    };
-    consider(parseStoredState(e ? localStorage.getItem("runnr_state:" + e) : null));
-    consider(parseStoredState(richestSnapshotForEmail(e)));
-    try {
-      for (let i = 0; i < localStorage.length; i++) {
-        const k = localStorage.key(i);
-        if (!k || k.indexOf("runnr_state") !== 0) continue;
-        const s = parseStoredState(localStorage.getItem(k));
-        const own = String((s && s.ownerEmail) || "").trim().toLowerCase();
-        if (own && e && own !== e && k !== "runnr_state:" + e) continue;
-        consider(s);
-      }
-    } catch (err) {}
-    if (best.length) {
-      window.S.watchlist = mergeWatchlist(window.S.watchlist, best);
+    let merged = (window.S.watchlist || []).slice();
+    const before = merged.filter((w) => w && !isThinWatch(w)).length;
+    eachOwnedSnapshot(e, (s) => {
+      merged = mergeWatchlist(merged, s.watchlist);
+    });
+    const rich = merged.filter((w) => w && !isThinWatch(w));
+    if (rich.length) merged = rich;
+    window.S.watchlist = merged;
+    const after = (window.S.watchlist || []).filter((w) => w && !isThinWatch(w)).length;
+    if (after !== before) {
       try { localStorage.setItem("runnr_state", JSON.stringify(window.S)); } catch (err) {}
-      return true;
     }
-    return seedWatchlistFromTrades();
+    return after > before;
+  }
+
+  function enrichFromSnapshots() {
+    if (!window.S) return false;
+    const e = (sessionEmail() || "").trim().toLowerCase();
+    let changed = recoverWatchlistIfEmpty();
+    const bases = [];
+    eachOwnedSnapshot(e, (s) => {
+      if (Number(s.journalBaseBal) > 0) bases.push(s.journalBaseBal);
+      if ((s.trades || []).length) {
+        const next = mergeTrades(window.S.trades, s.trades);
+        if (next.length !== (window.S.trades || []).length) {
+          window.S.trades = next;
+          changed = true;
+        }
+      }
+    });
+    const picked = pickJournalBase(window.S.journalBaseBal, bases, window.S.bal);
+    if (picked && picked !== Number(window.S.journalBaseBal)) {
+      window.S.journalBaseBal = picked;
+      changed = true;
+    }
+    if (changed) {
+      try { localStorage.setItem("runnr_state", JSON.stringify(window.S)); } catch (err) {}
+    }
+    return changed;
   }
 
   function houseFirstName(email) {
@@ -1206,6 +1279,24 @@ const RunnrSync = (() => {
   async function pushProfileState() {
     if (!isLoggedIn() || !window.S || _cloudPushPaused) return false;
     if (!hasMeaningfulState(window.S)) return false;
+    if (watchlistLooksThin(window.S)) {
+      try {
+        const data = await request("/api/v1/profile/state");
+        const remote = data && data.state;
+        if (remote) {
+          window.S.watchlist = mergeWatchlist(window.S.watchlist, remote.watchlist);
+          if (Number(remote.journalBaseBal) > 0) {
+            window.S.journalBaseBal = pickJournalBase(
+              window.S.journalBaseBal,
+              [remote.journalBaseBal],
+              window.S.bal
+            );
+          }
+        }
+      } catch (e) {
+        return false;
+      }
+    }
     await request("/api/v1/profile/state", {
       method: "PUT",
       body: JSON.stringify({ state: window.S }),
@@ -1251,14 +1342,6 @@ const RunnrSync = (() => {
     return merged;
   }
 
-  function watchRichness(w) {
-    let score = 0;
-    ["entry", "stop", "target"].forEach((k) => { if (Number(w[k])) score += 1; });
-    if (w.thesis) score += 1;
-    if (w.dir) score += 1;
-    return score;
-  }
-
   /** Union watchlist by symbol; keep the more detailed setup. */
   function mergeWatchlist(localWl, remoteWl) {
     const bySym = new Map();
@@ -1271,8 +1354,9 @@ const RunnrSync = (() => {
     (remoteWl || []).forEach(add);
     (localWl || []).forEach(add);
     let merged = [...bySym.values()];
-    const hasReal = merged.some((w) => !isDemoWatch(w));
-    if (hasReal) merged = merged.filter((w) => !isDemoWatch(w));
+    const hasReal = merged.some((w) => w && !isThinWatch(w));
+    if (hasReal) merged = merged.filter((w) => w && !isThinWatch(w));
+    else merged = merged.filter((w) => w && !isDemoWatch(w));
     return merged;
   }
 
@@ -1288,8 +1372,12 @@ const RunnrSync = (() => {
     if (local?.profileHandle) merged.profileHandle = local.profileHandle;
     if (local?.firstName && !merged.firstName) merged.firstName = local.firstName;
     if (!merged.firstName) merged.firstName = houseFirstName(sessionEmail());
-    if (Number(local?.journalBaseBal) > 0 && !(Number(remote?.journalBaseBal) > 0)) {
-      merged.journalBaseBal = local.journalBaseBal;
+    if (Number(local?.journalBaseBal) > 0 || Number(remote?.journalBaseBal) > 0) {
+      merged.journalBaseBal = pickJournalBase(
+        local?.journalBaseBal,
+        [remote?.journalBaseBal],
+        merged.bal || local?.bal || remote?.bal
+      );
     }
     if (Number(local?.bal) > 10000 && !(Number(remote?.bal) > 10000)) {
       merged.bal = local.bal;
@@ -1336,21 +1424,28 @@ const RunnrSync = (() => {
   /** Pull watchlist from cloud and merge — for devices with corrupt/empty local list. */
   async function syncWatchlistFromCloud() {
     if (!isLoggedIn() || !window.S) return { ok: false };
+    enrichFromSnapshots();
     const data = await request("/api/v1/profile/state");
     const remote = data?.state;
-    const remoteReal = ((remote && remote.watchlist) || []).filter((w) => w && !isDemoWatch(w));
-    if (!remoteReal.length) {
-      if (seedWatchlistFromTrades()) return { ok: true, count: (window.S.watchlist || []).length, seeded: true };
-      return { ok: false };
+    const remoteReal = ((remote && remote.watchlist) || []).filter((w) => w && !isThinWatch(w));
+    if (remoteReal.length) {
+      window.S.watchlist = mergeWatchlist(window.S.watchlist, remoteReal);
+    }
+    if (remote && Number(remote.journalBaseBal) > 0) {
+      window.S.journalBaseBal = pickJournalBase(
+        window.S.journalBaseBal,
+        [remote.journalBaseBal],
+        window.S.bal
+      );
     }
     ensureBrokerState();
-    window.S.watchlist = mergeWatchlist(window.S.watchlist, remoteReal);
-    if (!window.S.watchlist.length) return { ok: false };
+    const count = (window.S.watchlist || []).filter((w) => w && !isThinWatch(w)).length;
+    if (!count) return { ok: false };
     try {
       localStorage.setItem("runnr_state", JSON.stringify(window.S));
     } catch (e) {}
     await pushProfileState();
-    return { ok: true, count: window.S.watchlist.length };
+    return { ok: true, count };
   }
 
   function hasAlpacaFills(s) {
@@ -1586,7 +1681,8 @@ const RunnrSync = (() => {
     isDemoState,
     recoverLocalState,
     recoverWatchlistIfEmpty,
-    seedWatchlistFromTrades,
+    enrichFromSnapshots,
+    watchlistLooksThin,
     houseFirstName,
     applyRemoteState,
     billing,

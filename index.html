@@ -5,7 +5,7 @@
 <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
 <script>
 (function () {
-  var V = "71";
+  var V = "72";
   try {
     if (localStorage.getItem("runnr_app_v") !== V) {
       localStorage.setItem("runnr_app_v", V);
@@ -1817,10 +1817,10 @@ body.light #equity-canvas{filter:invert(0)}
 
 <script src="js/i18n.js?v=10"></script>
 <script src="js/baron.js?v=28"></script>
-<script src="js/coach.js?v=25"></script>
+<script src="js/coach.js?v=26"></script>
 <script src="js/onboarding.js?v=22"></script>
 <script src="js/csv-presets.js?v=3"></script>
-<script src="js/sync.js?v=51"></script>
+<script src="js/sync.js?v=52"></script>
 <script src="js/desk.js?v=6"></script>
 <script>
 // ── STATE ──────────────────────────────────────────────────────────────────
@@ -1882,6 +1882,10 @@ window.S = S;
 if (typeof RunnrSync !== 'undefined' && RunnrSync.isLoggedIn?.()) {
   try {
     if (RunnrSync.recoverLocalState?.()) {
+      S.trades = Array.isArray(S.trades) ? S.trades.filter(t => t && typeof t === 'object') : [];
+      S.watchlist = Array.isArray(S.watchlist) ? S.watchlist.filter(w => w && typeof w === 'object') : [];
+    }
+    if (RunnrSync.enrichFromSnapshots?.()) {
       S.trades = Array.isArray(S.trades) ? S.trades.filter(t => t && typeof t === 'object') : [];
       S.watchlist = Array.isArray(S.watchlist) ? S.watchlist.filter(w => w && typeof w === 'object') : [];
     }
@@ -2010,9 +2014,12 @@ function persist() {
 
 function isDemoWatchItem(w) {
   if (!w) return true;
+  if (w.seededFromTrades) return true;
   const id = Number(w.id);
   const sym = String(w.sym || '').toUpperCase();
-  return (id === 1 || id === 2 || id === 3) && (sym === 'RACE' || sym === 'ASTS' || sym === 'EURUSD');
+  if ((id === 1 || id === 2 || id === 3) && (sym === 'RACE' || sym === 'ASTS' || sym === 'EURUSD')) return true;
+  const rich = (Number(w.entry) ? 1 : 0) + (Number(w.stop) ? 1 : 0) + (Number(w.target) ? 1 : 0) + (w.thesis ? 1 : 0);
+  return rich < 2;
 }
 function watchlistIsEmptyOrDemo() {
   return !(S.watchlist || []).some((w) => w && !isDemoWatchItem(w));
@@ -2033,8 +2040,8 @@ function maybePullWatchlistFromCloud() {
   pull
     .then((result) => {
       const ok = result?.ok || (result && result.action !== 'none');
-      if (!ok && typeof RunnrSync.seedWatchlistFromTrades === 'function') {
-        RunnrSync.seedWatchlistFromTrades();
+      if (!ok && typeof RunnrSync.enrichFromSnapshots === 'function') {
+        RunnrSync.enrichFromSnapshots();
       }
       normalizeWatchlist();
       if (!watchlistIsEmptyOrDemo()) {
@@ -4557,11 +4564,11 @@ const INSTR_COLORS = [
 function filterByPeriod(trades, period) {
   if (period === 'all') return trades;
   const now = new Date();
-  const months = {Jan:0,Feb:1,Mar:2,Apr:3,May:4,Jun:5,Jul:6,Aug:7,Sep:8,Oct:9,Nov:10,Dec:11};
   return trades.filter(t => {
-    const parts = (t.date || '').split(' ');
-    if (parts.length < 2) return true;
-    const d = new Date(now.getFullYear(), months[parts[0]] || 0, parseInt(parts[1], 10));
+    const d = (typeof CoachEngine !== 'undefined' && CoachEngine.tradeDate)
+      ? CoachEngine.tradeDate(t)
+      : null;
+    if (!d) return true;
     const diff = (now - d) / (1000 * 60 * 60 * 24);
     if (period === '1m') return diff <= 30;
     if (period === '3m') return diff <= 90;
@@ -4611,20 +4618,23 @@ function loadPortfolio(period, tabEl) {
   const hasClosed = completed.length > 0;
   const fmtKpi = (val, formatter) => hasClosed ? formatter(val) : '—';
 
-  const totalPnl    = completed.reduce((s,t) => s + t.pnl, 0);
+  const journalPnl  = completed.reduce((s,t) => s + t.pnl, 0);
+  const baseBal     = portfolioBaseBal();
+  const liveEquity  = S.balFromAlpaca ? Number(S.bal) : null;
+  const totalPnl    = liveEquity != null ? liveEquity - baseBal : journalPnl;
+  const curBal      = liveEquity != null ? liveEquity : baseBal + journalPnl;
   const wins        = completed.filter(t => t.pnl > 0);
   const losses      = completed.filter(t => t.pnl <= 0);
   const winRate     = hasClosed ? (wins.length / completed.length * 100) : 0;
   const avgWin      = wins.length ? wins.reduce((s,t) => s+t.pnl,0) / wins.length : 0;
   const avgLoss     = losses.length ? Math.abs(losses.reduce((s,t) => s+t.pnl,0) / losses.length) : 0;
-  const winPnL      = wins.reduce((s,t) => s + t.pnl, 0);
-  const lossPnL     = Math.abs(losses.reduce((s,t) => s + t.pnl, 0));
+  const winPnL      = wins.reduce((s, t) => s + t.pnl, 0);
+  const lossPnL     = Math.abs(losses.reduce((s, t) => s + t.pnl, 0));
   const profitFactor= lossPnL > 0 ? winPnL / lossPnL : wins.length ? 999 : 0;
   const avgRR       = avgLoss > 0 ? avgWin / avgLoss : 0;
   const stopDisc    = discTrades.filter(t=>t.stopOk).length / Math.max(discTrades.length,1) * 100;
   const sizeDisc    = discTrades.filter(t=>t.sizeOk).length / Math.max(discTrades.length,1) * 100;
 
-  const baseBal = portfolioBaseBal();
   let peak = baseBal, dd = 0, runBal = baseBal;
   completed.forEach(t => {
     runBal += t.pnl;
@@ -4632,16 +4642,19 @@ function loadPortfolio(period, tabEl) {
     const curDD = (peak - runBal) / peak * 100;
     if (curDD > dd) dd = curDD;
   });
+  if (liveEquity != null && liveEquity < peak) {
+    const liveDd = (peak - liveEquity) / peak * 100;
+    if (liveDd > dd) dd = liveDd;
+  }
 
-  const curBal = baseBal + totalPnl;
-  const pnlPct = hasClosed ? (totalPnl / baseBal * 100) : 0;
+  const pnlPct = baseBal ? (totalPnl / baseBal * 100) : 0;
   const sym = S.sym;
   const fmt = v => sym + Math.round(v).toLocaleString();
 
   const pnlEl = document.getElementById('port-total-pnl');
   const pnlPctEl = document.getElementById('port-pnl-pct');
   if (pnlPctEl?.parentElement) pnlPctEl.parentElement.replaceChildren(pnlPctEl);
-  if (!hasClosed) {
+  if (!hasClosed && liveEquity == null) {
     pnlEl.textContent = '—';
     pnlEl.style.color = 'var(--text2)';
     if (discTrades.length) {
@@ -6214,11 +6227,17 @@ function bootRunnrSync() {
       renderJournal();
       updateHomeStats();
       renderWatchlist();
+      if (typeof RunnrSync.enrichFromSnapshots === 'function') {
+        RunnrSync.enrichFromSnapshots();
+      }
       if (typeof RunnrSync.recoverWatchlistIfEmpty === 'function') {
-        if (RunnrSync.recoverWatchlistIfEmpty()) {
-          normalizeWatchlist();
-          renderWatchlist();
-        }
+        RunnrSync.recoverWatchlistIfEmpty();
+      }
+      normalizeWatchlist();
+      renderWatchlist();
+      updateHomeStats();
+      if (document.getElementById('page-portfolio')?.classList.contains('active')) {
+        loadPortfolio(portPeriod, document.querySelector('.period-tab.active'));
       }
       if (!watchlistIsEmptyOrDemo()) {
         return RunnrSync.pushProfileState().catch(() => {});
@@ -6240,7 +6259,7 @@ function renderCoachPage() {
   if (label) label.textContent = 'Week of ' + new Date().toLocaleDateString('en-GB', { month: 'short', day: 'numeric', year: 'numeric' });
   const weekTrades = CoachEngine.withinDays(S.trades, 7);
   const priorTrades = CoachEngine.completed(S.trades).filter(t => {
-    const d = CoachEngine.parseTradeDate(t.date);
+    const d = CoachEngine.tradeDate(t);
     if (!d) return false;
     const days = (new Date() - d) / 86400000;
     return days > 7 && days <= 14;
