@@ -23,6 +23,29 @@ ALPACA_DATA = "https://data.alpaca.markets/v2"
 GOLD_API = "https://api.gold-api.com/price/XAU"
 
 
+SECTOR_ETFS = [
+    ("XLK", "Tech"),
+    ("XLF", "Financials"),
+    ("XLE", "Energy"),
+    ("XLV", "Health"),
+    ("XLI", "Industrials"),
+    ("XLY", "Disc."),
+    ("XLP", "Staples"),
+    ("XLU", "Utilities"),
+    ("XLB", "Materials"),
+    ("XLC", "Comm"),
+    ("XLRE", "RE"),
+]
+
+# Alpaca timeframe, lookback days, yahoo interval, yahoo range
+BAR_TF = {
+    "15m": ("15Min", 4, "15m", "5d"),
+    "1H": ("1Hour", 10, "60m", "1mo"),
+    "1D": ("1Day", 130, "1d", "3mo"),
+    "1W": ("1Week", 400, "1wk", "2y"),
+}
+
+
 def _now_iso() -> str:
     return datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
 
@@ -231,14 +254,70 @@ def desk_snapshot(
     return payload
 
 
+@router.get("/sectors")
+def desk_sectors(
+    response: Response,
+    user: dict | None = Depends(get_optional_user),
+):
+    """US sector ETF day change — day-trade tape, not a portfolio recommendation."""
+    cache_key = "desk-sectors"
+    cached, status, age = quote_cache.get(cache_key)
+    if status == "hit" and cached:
+        response.headers["X-Runnr-Cache"] = "hit"
+        return cached
+
+    syms = [s for s, _ in SECTOR_ETFS]
+    names = {s: n for s, n in SECTOR_ETFS}
+    rows_map: dict[str, dict] = {}
+    creds = _alpaca_creds(user)
+    if creds:
+        try:
+            rows_map = _alpaca_snapshots(creds[0], creds[1], syms)
+        except Exception:
+            rows_map = {}
+    missing = [s for s in syms if s not in rows_map]
+    if missing:
+        rows_map.update(_yahoo_snapshots(missing))
+
+    rows = []
+    for sym, name in SECTOR_ETFS:
+        row = rows_map.get(sym)
+        if not row:
+            continue
+        rows.append(
+            {
+                "sym": sym,
+                "name": name,
+                "last": row.get("last"),
+                "chgPct": row.get("chgPct"),
+                "chg": row.get("chg"),
+                "src": row.get("src"),
+            }
+        )
+    rows.sort(key=lambda r: abs(float(r.get("chgPct") or 0)), reverse=True)
+    payload = {
+        "rows": rows,
+        "asof": _now_iso(),
+        "source": "alpaca iex" if creds and any(r.get("src") == "Alpaca IEX" for r in rows) else "yahoo",
+    }
+    quote_cache.set(cache_key, payload, 30)
+    response.headers["X-Runnr-Cache"] = "miss"
+    return payload
+
+
 @router.get("/bars/{symbol}")
 def desk_bars(
     symbol: str,
     response: Response,
+    timeframe: str = Query(default="1D"),
     user: dict | None = Depends(get_optional_user),
 ):
     sym = (symbol or "AAPL").strip().upper()
-    cache_key = "desk-bars:" + sym
+    tf = (timeframe or "1D").strip()
+    if tf not in BAR_TF:
+        tf = "1D"
+    alpaca_tf, lookback_days, y_int, y_range = BAR_TF[tf]
+    cache_key = f"desk-bars:{sym}:{tf}"
     cached, status, age = quote_cache.get(cache_key)
     if status == "hit" and cached:
         response.headers["X-Runnr-Cache"] = "hit"
@@ -249,7 +328,7 @@ def desk_bars(
     creds = _alpaca_creds(user)
     if creds:
         try:
-            start = (datetime.now(timezone.utc) - timedelta(days=130)).strftime(
+            start = (datetime.now(timezone.utc) - timedelta(days=lookback_days)).strftime(
                 "%Y-%m-%dT00:00:00Z"
             )
             data = _alpaca_json(
@@ -258,9 +337,9 @@ def desk_bars(
                 "/stocks/bars",
                 {
                     "symbols": sym,
-                    "timeframe": "1Day",
+                    "timeframe": alpaca_tf,
                     "start": start,
-                    "limit": "70",
+                    "limit": "100",
                     "adjustment": "split",
                     "sort": "asc",
                 },
@@ -276,6 +355,7 @@ def desk_bars(
                 bars.append(
                     {
                         "d": _day(row.get("t")),
+                        "t": row.get("t"),
                         "o": round(float(row.get("o") or c), 4),
                         "h": round(float(row.get("h") or c), 4),
                         "l": round(float(row.get("l") or c), 4),
@@ -289,7 +369,7 @@ def desk_bars(
             bars = []
 
     if not bars:
-        data = _fetch_chart(sym, "1d", "3mo")
+        data = _fetch_chart(sym, y_int, y_range)
         result = ((data.get("chart") or {}).get("result") or [None])[0]
         if not result:
             raise HTTPException(status_code=502, detail=f"no bars for {sym}")
@@ -308,6 +388,7 @@ def desk_bars(
             bars.append(
                 {
                     "d": day,
+                    "t": int(t),
                     "o": round(float(opens[i]) if i < len(opens) and opens[i] is not None else c, 4),
                     "h": round(float(highs[i]) if i < len(highs) and highs[i] is not None else c, 4),
                     "l": round(float(lows[i]) if i < len(lows) and lows[i] is not None else c, 4),
@@ -319,10 +400,11 @@ def desk_bars(
 
     payload = {
         "symbol": sym,
+        "timeframe": tf,
         "bars": bars[-60:],
         "source": source,
         "asof": _now_iso(),
     }
-    quote_cache.set(cache_key, payload, 90)
+    quote_cache.set(cache_key, payload, 90 if tf in ("1D", "1W") else 20)
     response.headers["X-Runnr-Cache"] = "miss"
     return payload

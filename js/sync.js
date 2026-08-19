@@ -1687,6 +1687,7 @@ const RunnrSync = (() => {
     enrichFromSnapshots,
     seedWatchlistFromTrades,
     watchlistLooksThin,
+    isHouseEmail,
     houseFirstName,
     applyRemoteState,
     billing,

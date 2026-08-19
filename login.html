@@ -71,8 +71,8 @@
     text-align: center;
     text-decoration: none;
   }
-  #signin-btn { background: var(--accent); color: #080c12; margin-top: 4px; }
-  #reset-btn { background: transparent; color: var(--gold); border: 1px solid var(--border); margin-top: 10px; }
+  #signin-btn, #continue-verify-btn { background: var(--accent); color: #080c12; margin-top: 4px; }
+  #reset-btn, #resend-verify-btn { background: transparent; color: var(--gold); border: 1px solid var(--border); margin-top: 10px; }
   .back { color: var(--text2); font-size: 14px; text-decoration: none; display: inline-block; margin-bottom: 20px; }
   #status {
     min-height: 20px;
@@ -96,23 +96,29 @@
   <p class="sub">Simple sign-in for iPhone. First name is for your terminal — e.g. John’s terminal.</p>
 
   <div class="card">
-        <form id="signin-form" action="javascript:void(0)" novalidate>
+        <form id="signin-form" action="/" method="post" autocomplete="on">
     <label for="email">Email</label>
-    <input id="email" type="email" inputmode="email" autocomplete="username" autocapitalize="none" autocorrect="off" placeholder="you@example.com">
+    <input id="email" name="email" type="email" inputmode="email" autocomplete="username" autocapitalize="none" autocorrect="off" placeholder="you@example.com" enterkeyhint="next">
 
     <label for="first-name">First name</label>
-    <input id="first-name" type="text" autocomplete="given-name" autocapitalize="words" autocorrect="off" placeholder="John">
+    <input id="first-name" name="given-name" type="text" autocomplete="given-name" autocapitalize="words" autocorrect="off" placeholder="John" enterkeyhint="next">
 
     <label for="password">Password</label>
-    <input id="password" type="password" autocomplete="current-password" autocapitalize="none" autocorrect="off" placeholder="Your password">
+    <input id="password" name="password" type="password" autocomplete="current-password" autocapitalize="none" autocorrect="off" placeholder="Your password" enterkeyhint="go">
 
     <label for="password2" id="confirm-label" style="display:none">Confirm new password</label>
-    <input id="password2" type="password" autocomplete="new-password" autocapitalize="none" autocorrect="off" placeholder="Type again" style="display:none">
+    <input id="password2" name="new-password" type="password" autocomplete="new-password" autocapitalize="none" autocorrect="off" placeholder="Type again" style="display:none" enterkeyhint="go">
 
     <div id="status"></div>
     <button type="submit" id="signin-btn">Sign in</button>
     <button type="button" id="reset-btn">Forgot password? Set new one</button>
         </form>
+  </div>
+
+  <div class="card" id="verify-card" style="display:none">
+    <p class="sub" style="margin-bottom:12px" id="verify-copy">Check your inbox and tap the confirmation link.</p>
+    <button type="button" id="resend-verify-btn" style="background:transparent;color:var(--gold);border:1px solid var(--border);margin-bottom:10px">Resend verification email</button>
+    <button type="button" id="continue-verify-btn" style="background:var(--accent);color:#080c12">Continue to Runnr</button>
   </div>
 
   <p class="hint">By signing in you agree to our <a href="/terms/">Terms</a>, <a href="/privacy/">Privacy Policy</a>, and <a href="/refund/">Refund Policy</a>. Not in Private Browsing — Safari blocks saving your login there.</p>
@@ -133,7 +139,13 @@
   const statusEl = document.getElementById("status");
   const signinBtn = document.getElementById("signin-btn");
   const resetBtn = document.getElementById("reset-btn");
+  const signinCard = document.querySelector(".card");
+  const verifyCard = document.getElementById("verify-card");
+  const verifyCopy = document.getElementById("verify-copy");
+  const resendBtn = document.getElementById("resend-verify-btn");
+  const continueBtn = document.getElementById("continue-verify-btn");
   let resetMode = false;
+  let pendingToken = "";
 
   try {
     const remembered = localStorage.getItem("runnr_remember_email");
@@ -223,6 +235,39 @@
     }, 400);
   }
 
+  function isHouseEmail(email) {
+    var e = String(email || "").trim().toLowerCase();
+    return e === "info@thinicedigital.com"
+      || e === "janis.berzins.liepins@gmail.com"
+      || e === "berzins.j@inbox.lv"
+      || e.indexOf("@thinicedigital.com") !== -1;
+  }
+
+  function showVerify(email, data) {
+    pendingToken = data && data.access_token || pendingToken;
+    if (signinCard) signinCard.style.display = "none";
+    verifyCard.style.display = "block";
+    var sent = data && data.verification_sent;
+    var link = data && data.verify_url;
+    var html = "We sent a confirmation link to <strong>" + String(email || "").replace(/</g, "") + "</strong>. Open it, then continue.";
+    if (!sent && link) html += " Email isn’t configured yet — use this link: <a href=\"" + link + "\" style=\"color:var(--gold)\">verify now</a>.";
+    else if (!sent) html = "Confirm <strong>" + String(email || "").replace(/</g, "") + "</strong> from the link we email you. You can continue and verify later.";
+    verifyCopy.innerHTML = html;
+    setStatus("", "");
+    signinBtn.disabled = false;
+  }
+
+  async function afterAuth(data, fields) {
+    saveSession(data.access_token, data.email || fields.email);
+    applySavedFirstName(data.email || fields.email, data.first_name, fields.firstName);
+    var email = data.email || fields.email;
+    if (data.email_verified || isHouseEmail(email)) {
+      goHome();
+      return;
+    }
+    showVerify(email, data);
+  }
+
   async function apiPost(path, body) {
     const ctrl = new AbortController();
     const timer = setTimeout(function () { ctrl.abort(); }, 15000);
@@ -274,6 +319,34 @@
     if (resetMode) return doReset();
     return doSignIn();
   });
+  document.getElementById("signin-form").addEventListener("keydown", function (e) {
+    if (e.key !== "Enter" || e.shiftKey) return;
+    if (e.target && e.target.id === "reset-btn") return;
+    e.preventDefault();
+    if (this.requestSubmit) this.requestSubmit();
+    else if (resetMode) doReset();
+    else doSignIn();
+  });
+  continueBtn.addEventListener("click", goHome);
+  resendBtn.addEventListener("click", async function () {
+    if (!pendingToken) return setStatus("Sign in first, then resend.", "err");
+    resendBtn.disabled = true;
+    setStatus("Sending…", "work");
+    try {
+      const res = await fetch(API + "/api/v1/auth/resend-verification", {
+        method: "POST",
+        headers: { "Content-Type": "application/json", Authorization: "Bearer " + pendingToken },
+        body: "{}",
+      });
+      let data = {};
+      try { data = await res.json(); } catch (err) {}
+      if (!res.ok) throw new Error(data.detail || "Could not resend");
+      setStatus(data.detail || "Verification email sent.", "ok");
+    } catch (err) {
+      setStatus(String(err.message || err), "err");
+    }
+    resendBtn.disabled = false;
+  });
 
   resetBtn.addEventListener("click", function () {
     resetMode = !resetMode;
@@ -309,7 +382,7 @@
       }
       saveSession(data.access_token, data.email || fields.email);
       applySavedFirstName(data.email || fields.email, data.first_name, fields.firstName);
-      goHome();
+      await afterAuth(data, fields);
     } catch (e) {
       const msg = String(e.message || e);
       if (/wrong password/i.test(msg)) {
@@ -353,7 +426,7 @@
       }
       saveSession(data.access_token, data.email || fields.email);
       applySavedFirstName(data.email || fields.email, data.first_name, fields.firstName);
-      goHome();
+      await afterAuth(data, fields);
     } catch (e) {
       const msg = String(e.message || e);
       if (/wrong password/i.test(msg)) {

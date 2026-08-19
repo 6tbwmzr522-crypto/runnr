@@ -5,7 +5,7 @@
 <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
 <script>
 (function () {
-  var V = "73";
+  var V = "75";
   try {
     if (localStorage.getItem("runnr_app_v") !== V) {
       localStorage.setItem("runnr_app_v", V);
@@ -36,7 +36,7 @@
 <meta name="apple-mobile-web-app-title" content="Runnr">
 <link rel="apple-touch-icon" href="icons/icon-192.svg">
 <link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,300;0,400;0,500;0,600;1,300;1,400;1,500&family=Jost:wght@300;400;500&display=swap" rel="stylesheet">
-<link rel="stylesheet" href="css/desk.css?v=4">
+<link rel="stylesheet" href="css/desk.css?v=5">
 <style>
 :root {
   --bg: #080c12;
@@ -1185,14 +1185,20 @@ body.light #equity-canvas{filter:invert(0)}
       <div id="sync-inline-auth" class="card" style="display:none;margin-bottom:12px">
         <div class="card-title">Sign in</div>
         <div style="font-size:12px;color:var(--text2);margin-bottom:12px">Sync journal &amp; watchlist across devices. First name is for your terminal — e.g. John’s terminal.</div>
-        <form id="sync-inline-form" action="javascript:void(0)" novalidate>
-          <div class="field"><label for="sync-email-inline">Email</label><input id="sync-email-inline" type="email" placeholder="you@example.com" autocomplete="username" inputmode="email" autocapitalize="none" autocorrect="off"></div>
-          <div class="field"><label for="sync-first-name-inline">First name</label><input id="sync-first-name-inline" type="text" placeholder="John" autocomplete="given-name" autocapitalize="words"></div>
-          <div class="field"><label for="sync-password-inline">Password</label><input id="sync-password-inline" type="password" placeholder="8+ characters" autocomplete="current-password" minlength="8" autocapitalize="none" autocorrect="off" spellcheck="false"></div>
+        <form id="sync-inline-form" action="/" method="post" autocomplete="on">
+          <div class="field"><label for="sync-email-inline">Email</label><input id="sync-email-inline" name="email" type="email" placeholder="you@example.com" autocomplete="username" inputmode="email" autocapitalize="none" autocorrect="off" enterkeyhint="next"></div>
+          <div class="field"><label for="sync-first-name-inline">First name</label><input id="sync-first-name-inline" name="given-name" type="text" placeholder="John" autocomplete="given-name" autocapitalize="words" enterkeyhint="next"></div>
+          <div class="field"><label for="sync-password-inline">Password</label><input id="sync-password-inline" name="password" type="password" placeholder="8+ characters" autocomplete="current-password" minlength="8" autocapitalize="none" autocorrect="off" spellcheck="false" enterkeyhint="go"></div>
           <div id="sync-auth-error-inline" class="sync-auth-error"></div>
           <div id="sync-signin-status"></div>
-          <button class="btn" type="button" id="sync-login-btn-inline">Continue</button>
+          <button class="btn" type="submit" id="sync-login-btn-inline">Continue</button>
         </form>
+      </div>
+      <div id="sync-verify-auth" class="card" style="display:none;margin-bottom:12px">
+        <div class="card-title">Confirm your email</div>
+        <div id="sync-verify-copy" style="font-size:13px;color:var(--text2);margin-bottom:12px;line-height:1.45"></div>
+        <button type="button" class="btn btn-ghost" id="sync-resend-verify-btn" style="width:100%;margin-bottom:8px">Resend verification email</button>
+        <button type="button" class="btn" id="sync-continue-verify-btn" style="width:100%">Continue to Runnr</button>
       </div>
       <div id="sync-reset-auth" class="card" style="display:none;margin-bottom:12px">
         <div class="card-title">Reset password</div>
@@ -1642,10 +1648,10 @@ body.light #equity-canvas{filter:invert(0)}
   <div class="modal" onclick="event.stopPropagation()">
     <div class="modal-title">Runnr account <button class="modal-close" onclick="closeModal('modal-sync-auth')">✕</button></div>
     <div style="font-size:12px;color:var(--text2);margin-bottom:14px">One sign-in syncs journal & watchlist across devices.</div>
-    <form id="sync-auth-form" action="javascript:void(0)" novalidate>
-      <div class="field"><label for="sync-email">Email</label><input id="sync-email" name="email" type="email" placeholder="you@example.com" autocomplete="username" required inputmode="email" autocapitalize="none" autocorrect="off"></div>
-      <div class="field"><label for="sync-first-name">First name</label><input id="sync-first-name" name="given-name" type="text" placeholder="John" autocomplete="given-name" autocapitalize="words"></div>
-      <div class="field"><label for="sync-password">Password</label><input id="sync-password" name="password" type="password" placeholder="8+ characters" autocomplete="current-password" required minlength="8" autocapitalize="none" autocorrect="off" spellcheck="false"></div>
+    <form id="sync-auth-form" action="/" method="post" autocomplete="on">
+      <div class="field"><label for="sync-email">Email</label><input id="sync-email" name="email" type="email" placeholder="you@example.com" autocomplete="username" required inputmode="email" autocapitalize="none" autocorrect="off" enterkeyhint="go"></div>
+      <div class="field"><label for="sync-first-name">First name</label><input id="sync-first-name" name="given-name" type="text" placeholder="John" autocomplete="given-name" autocapitalize="words" enterkeyhint="go"></div>
+      <div class="field"><label for="sync-password">Password</label><input id="sync-password" name="password" type="password" placeholder="8+ characters" autocomplete="current-password" required minlength="8" autocapitalize="none" autocorrect="off" spellcheck="false" enterkeyhint="go"></div>
       <div id="sync-auth-error"></div>
       <button class="btn" type="submit" id="sync-login-btn">Continue</button>
       <button class="btn btn-ghost" style="margin-top:8px;font-size:12px" type="button" id="sync-forgot-btn">Forgot password? Use Sync page</button>
@@ -1820,8 +1826,9 @@ body.light #equity-canvas{filter:invert(0)}
 <script src="js/coach.js?v=26"></script>
 <script src="js/onboarding.js?v=22"></script>
 <script src="js/csv-presets.js?v=3"></script>
-<script src="js/sync.js?v=53"></script>
-<script src="js/desk.js?v=7"></script>
+<script src="js/sync.js?v=54"></script>
+<script src="js/desk-sessions.js?v=2"></script>
+<script src="js/desk.js?v=9"></script>
 <script>
 // ── STATE ──────────────────────────────────────────────────────────────────
 const WHOP_URL = 'https://whop.com/runnr'; // legacy; upgrades now go through Stripe
@@ -5624,7 +5631,7 @@ async function submitSyncContinue() {
   _syncSignInRunning = true;
   setSyncAuthBusy(true, 'signin');
   try {
-    await RunnrSync.signIn(email, password, firstName);
+    const data = await RunnrSync.signIn(email, password, firstName);
     if (!RunnrSync.isLoggedIn()) {
       throw new Error('Login did not stick — turn off Private Browsing in Safari');
     }
@@ -5638,16 +5645,16 @@ async function submitSyncContinue() {
     showSyncSignInStatus('Signed in — loading your profile…', 'ok');
     finishSyncSignIn(email);
     showToast('Runnr', 'Signed in');
+    const house = typeof RunnrSync.isHouseEmail === 'function' && RunnrSync.isHouseEmail(email);
+    if (!house && data && data.email_verified === false) {
+      if (typeof switchPage === 'function') switchPage('sync');
+      showSyncVerify(email, data);
+    }
     try {
       const me = await RunnrSync.refreshBilling?.();
       refreshBillingUI();
-      if (me && me.emailVerified === false && me.emailConfigured) {
-        const data = await RunnrSync.resendVerification();
-        if (data?.verify_url) {
-          location.href = data.verify_url;
-        } else {
-          showToast('Runnr', 'Check your email to verify your account');
-        }
+      if (me && me.emailVerified === false && me.emailConfigured && !house) {
+        showSyncVerify(email, { verification_sent: true });
       }
     } catch (e) {}
   } catch (e) {
@@ -5760,6 +5767,29 @@ async function submitSyncResetPassword() {
 window.submitSyncContinue = submitSyncContinue;
 window.submitSyncResetPassword = submitSyncResetPassword;
 window.submitSyncForgotPassword = submitSyncForgotPassword;
+
+function showSyncVerify(email, data) {
+  const card = document.getElementById('sync-verify-auth');
+  const copy = document.getElementById('sync-verify-copy');
+  if (!card || !copy) return;
+  const safe = String(email || '').replace(/</g, '');
+  const sent = data && data.verification_sent;
+  const link = data && data.verify_url;
+  let html = 'We sent a confirmation link to <strong>' + safe + '</strong>. Open it, then you are good.';
+  if (!sent && link) {
+    html += ' Email isn’t configured yet — <a href="' + link + '" style="color:var(--gold)">verify now</a>.';
+  } else if (!sent) {
+    html = 'Confirm <strong>' + safe + '</strong> from the link we email you. You can continue and verify later.';
+  }
+  copy.innerHTML = html;
+  card.style.display = 'block';
+  scrollSyncAuthIntoView('sync-verify-auth');
+}
+
+function hideSyncVerify() {
+  const card = document.getElementById('sync-verify-auth');
+  if (card) card.style.display = 'none';
+}
 
 function finishSyncSignIn(email) {
   localStorage.setItem('runnr_remember_email', email);
@@ -6705,12 +6735,24 @@ function initSyncAuthForm() {
       e.preventDefault();
       submitSyncContinue();
     });
+    signinForm.addEventListener('keydown', (e) => {
+      if (e.key !== 'Enter' || e.shiftKey) return;
+      e.preventDefault();
+      if (signinForm.requestSubmit) signinForm.requestSubmit();
+      else submitSyncContinue();
+    });
   }
   if (modalForm && !modalForm.dataset.bound) {
     modalForm.dataset.bound = '1';
     modalForm.addEventListener('submit', (e) => {
       e.preventDefault();
       submitSyncContinue();
+    });
+    modalForm.addEventListener('keydown', (e) => {
+      if (e.key !== 'Enter' || e.shiftKey) return;
+      e.preventDefault();
+      if (modalForm.requestSubmit) modalForm.requestSubmit();
+      else submitSyncContinue();
     });
   }
   if (resetForm && !resetForm.dataset.bound) {
@@ -6728,6 +6770,31 @@ function initSyncAuthForm() {
       switchPage('sync');
       scrollSyncAuthIntoView('sync-reset-auth');
     });
+  }
+  const resendVerify = document.getElementById('sync-resend-verify-btn');
+  const continueVerify = document.getElementById('sync-continue-verify-btn');
+  if (resendVerify && !resendVerify.dataset.bound) {
+    resendVerify.dataset.bound = '1';
+    resendVerify.addEventListener('click', async () => {
+      resendVerify.disabled = true;
+      try {
+        const data = await RunnrSync.resendVerification();
+        showToast('Runnr', data && data.detail ? data.detail : 'Verification email sent');
+        if (data && data.verify_url) {
+          const copy = document.getElementById('sync-verify-copy');
+          if (copy) {
+            copy.innerHTML += ' <a href="' + data.verify_url + '" style="color:var(--gold)">verify now</a>.';
+          }
+        }
+      } catch (err) {
+        showToast('Runnr', String(err.message || err));
+      }
+      resendVerify.disabled = false;
+    });
+  }
+  if (continueVerify && !continueVerify.dataset.bound) {
+    continueVerify.dataset.bound = '1';
+    continueVerify.addEventListener('click', hideSyncVerify);
   }
 }
 

@@ -12,6 +12,28 @@ const RunnrDesk = (() => {
   let source = "";
   let alpaca = false;
   let alive = false;
+  let sectorRows = [];
+  let sectorsLoaded = false;
+  const PREF_KEY = "runnr_desk_chart";
+  const TFS = ["15m", "1H", "1D", "1W"];
+  const MAS = [9, 20, 50, 200];
+  const MA_COLORS = { 9: "#7eb8e8", 20: "#C9A96E", 50: "rgba(245,242,236,0.45)", 200: "#E8C97A" };
+
+  function loadPrefs() {
+    try {
+      const p = JSON.parse(localStorage.getItem(PREF_KEY) || "{}");
+      return {
+        tf: TFS.includes(p.tf) ? p.tf : "1D",
+        ma: Object.assign({ 9: false, 20: true, 50: true, 200: false }, p.ma || {}),
+      };
+    } catch (e) {
+      return { tf: "1D", ma: { 9: false, 20: true, 50: true, 200: false } };
+    }
+  }
+  function savePrefs(p) {
+    try { localStorage.setItem(PREF_KEY, JSON.stringify(p)); } catch (e) {}
+  }
+  let prefs = loadPrefs();
 
   function apiBase() {
     return (window.RunnrSync && RunnrSync.apiBase()) || "https://api.runnr.fyi";
@@ -150,8 +172,7 @@ const RunnrDesk = (() => {
     const plotW = Math.max(40, w - padL - padR);
     const slot = plotW / n;
     const bodyW = Math.max(2, Math.min(7, slot * 0.62));
-    const ma20 = sma(series, 20);
-    const ma50 = sma(series, 50);
+    const maLines = MAS.filter((n) => prefs.ma[n]).map((n) => ({ n, arr: sma(series, n) }));
 
     let lo = Infinity;
     let hi = -Infinity;
@@ -162,8 +183,9 @@ const RunnrDesk = (() => {
       const ll = b.l != null ? b.l : Math.min(o, b.c);
       lo = Math.min(lo, ll);
       hi = Math.max(hi, hh);
-      if (ma20[i] != null) { lo = Math.min(lo, ma20[i]); hi = Math.max(hi, ma20[i]); }
-      if (ma50[i] != null) { lo = Math.min(lo, ma50[i]); hi = Math.max(hi, ma50[i]); }
+      maLines.forEach((m) => {
+        if (m.arr[i] != null) { lo = Math.min(lo, m.arr[i]); hi = Math.max(hi, m.arr[i]); }
+      });
       vmax = Math.max(vmax, b.v || 0);
     });
     const padPx = (hi - lo) * 0.08 || 1;
@@ -228,8 +250,7 @@ const RunnrDesk = (() => {
       ctx.lineWidth = width;
       ctx.stroke();
     }
-    strokeMa(ma20, "#C9A96E", 1.5);
-    strokeMa(ma50, "rgba(245,242,236,0.38)", 1.2);
+    maLines.forEach((m) => strokeMa(m.arr, MA_COLORS[m.n] || "#C9A96E", m.n === 20 ? 1.5 : 1.2));
 
     const volTop = padT + priceH + gap;
     series.forEach((b, i) => {
@@ -241,13 +262,15 @@ const RunnrDesk = (() => {
       ctx.fillRect(x - bodyW / 2, volTop + volH - Math.max(1, vh), bodyW, Math.max(1, vh));
     });
 
-    ctx.fillStyle = "rgba(201,169,110,0.85)";
     ctx.font = "9px Jost, sans-serif";
     ctx.textAlign = "left";
     ctx.textBaseline = "top";
-    ctx.fillText("MA20", padL, padT);
-    ctx.fillStyle = "rgba(245,242,236,0.4)";
-    ctx.fillText("MA50", padL + 42, padT);
+    let lx = padL;
+    maLines.forEach((m) => {
+      ctx.fillStyle = MA_COLORS[m.n] || "#C9A96E";
+      ctx.fillText("MA" + m.n, lx, padT);
+      lx += 40;
+    });
   }
 
   function render() {
@@ -285,6 +308,42 @@ const RunnrDesk = (() => {
       })
       .join("");
 
+    const sessionBits = (window.RunnrSessions ? RunnrSessions.rows() : []).map((m) => {
+      const tone = m.state === "OPEN" ? "open" : m.state === "PRE" || m.state === "LUNCH" ? "pre" : "shut";
+      return (
+        `<div class="desk-mkt">` +
+        `<div class="k">${m.id}</div>` +
+        `<div class="nm">${esc(m.name)}</div>` +
+        `<div class="loc">${esc(m.local || "")}</div>` +
+        `<div class="st ${tone}">${m.state}</div>` +
+        `<div class="cd" data-mkt="${m.id}">${m.nextVerb} ${m.countdown}</div>` +
+        `</div>`
+      );
+    }).join("");
+
+    const maxAbs = Math.max(0.01, ...sectorRows.map((s) => Math.abs(Number(s.chgPct) || 0)));
+    const sectorBits = sectorRows.length
+      ? sectorRows.map((s) => {
+          const pct = Number(s.chgPct) || 0;
+          const w = Math.min(50, (Math.abs(pct) / maxAbs) * 50);
+          const left = pct >= 0 ? 50 : 50 - w;
+          return (
+            `<div class="desk-sbar">` +
+            `<span class="k">${esc(s.name)} <em>${esc(s.sym)}</em></span>` +
+            `<div class="track"><i class="zero"></i><i class="fill ${pct >= 0 ? "up" : "dn"}" style="left:${left}%;width:${w}%"></i></div>` +
+            `<span class="p ${cls(pct)}">${fmtPct(pct)}</span>` +
+            `</div>`
+          );
+        }).join("")
+      : (sectorsLoaded ? '<div class="desk-empty">Sector tape unavailable right now.</div>' : '<div class="desk-empty">Loading sectors…</div>');
+
+    const tfBits = TFS.map((tf) =>
+      `<button type="button" class="desk-chip${prefs.tf === tf ? " on" : ""}" data-desk-tf="${tf}">${tf}</button>`
+    ).join("");
+    const maBits = MAS.map((n) =>
+      `<button type="button" class="desk-chip${prefs.ma[n] ? " on" : ""}" data-desk-ma="${n}">MA${n}</button>`
+    ).join("");
+    const tfLabel = prefs.tf === "1D" ? "60 sessions" : prefs.tf === "1W" ? "60 weeks" : "60 bars";
     const lastBar = bars[bars.length - 1];
     const firstBar = bars[0];
     const chip = alpaca ? "chip live" : "chip";
@@ -302,17 +361,26 @@ const RunnrDesk = (() => {
       `<div class="desk-tape">${tapeBits || '<div class="desk-empty">No tape yet</div>'}</div>` +
       `<div class="desk-grid">` +
       `<section class="desk-panel">` +
+      `<h4>Global markets</h4>` +
+      `<div class="desk-mkts" id="desk-sessions">${sessionBits || '<div class="desk-empty">Session clock loading…</div>'}</div>` +
+      `</section>` +
+      `<section class="desk-panel">` +
+      `<h4>Sectors · day</h4>` +
+      `<div class="desk-sectors">${sectorBits}</div>` +
+      `</section>` +
+      `<section class="desk-panel">` +
       `<h4>Watchlist heatmap</h4>` +
       `<div class="desk-heat">${heatBits || '<div class="desk-empty">Add equity setups on Watch to populate the Terminal.</div>'}</div>` +
       `</section>` +
-      `<section class="desk-panel">` +
-      `<h4>Focus · 60 sessions · ${focus || "—"} · candles</h4>` +
+      `<section class="desk-panel desk-panel-chart">` +
+      `<h4>Focus · ${tfLabel} · ${focus || "—"} · candles</h4>` +
+      `<div class="desk-tools">${tfBits}<span class="desk-tools-gap"></span>${maBits}</div>` +
       `<div class="desk-chart-box"><canvas id="desk-chart" style="width:100%;height:100%"></canvas></div>` +
       `<div class="desk-chart-meta">${
         lastBar
-          ? `${bars.length} sessions ${firstBar.d} → ${lastBar.d} · O ${fmt(lastBar.o ?? lastBar.c, 2)} H ${fmt(lastBar.h ?? lastBar.c, 2)} L ${fmt(lastBar.l ?? lastBar.c, 2)} C ${fmt(lastBar.c, 2)}` +
+          ? `${bars.length} ${prefs.tf} ${firstBar.d} → ${lastBar.d} · O ${fmt(lastBar.o ?? lastBar.c, 2)} H ${fmt(lastBar.h ?? lastBar.c, 2)} L ${fmt(lastBar.l ?? lastBar.c, 2)} C ${fmt(lastBar.c, 2)}` +
             (focusRow ? ` · ${fmtPct(focusRow.chgPct)} today` : "") +
-            " · MA20 gold · MA50 · volume"
+            " · " + (MAS.filter((n) => prefs.ma[n]).map((n) => "MA" + n).join(" · ") || "no MA")
           : "Loading chart…"
       }</div>` +
       `</section>` +
@@ -329,10 +397,53 @@ const RunnrDesk = (() => {
         render();
       });
     });
+    el.querySelectorAll("[data-desk-tf]").forEach((btn) => {
+      btn.addEventListener("click", () => {
+        const tf = btn.getAttribute("data-desk-tf");
+        if (!tf || tf === prefs.tf) return;
+        prefs.tf = tf;
+        savePrefs(prefs);
+        loadBars(focus).then(render);
+      });
+    });
+    el.querySelectorAll("[data-desk-ma]").forEach((btn) => {
+      btn.addEventListener("click", () => {
+        const n = Number(btn.getAttribute("data-desk-ma"));
+        prefs.ma[n] = !prefs.ma[n];
+        savePrefs(prefs);
+        el.querySelectorAll("[data-desk-ma]").forEach((b) => {
+          b.classList.toggle("on", !!prefs.ma[Number(b.getAttribute("data-desk-ma"))]);
+        });
+        const c = document.getElementById("desk-chart");
+        if (c) drawChart(c, bars);
+      });
+    });
     tickClock();
+    tickSessions();
     requestAnimationFrame(() => {
       const c = document.getElementById("desk-chart");
       if (c) drawChart(c, bars);
+    });
+  }
+
+  function tickSessions() {
+    const box = document.getElementById("desk-sessions");
+    if (!box || !window.RunnrSessions) return;
+    const byId = {};
+    RunnrSessions.rows().forEach((m) => { byId[m.id] = m; });
+    box.querySelectorAll(".desk-mkt").forEach((row) => {
+      const id = (row.querySelector(".k") || {}).textContent;
+      const m = byId[id];
+      if (!m) return;
+      const st = row.querySelector(".st");
+      if (st) {
+        st.textContent = m.state;
+        st.className = "st " + (m.state === "OPEN" ? "open" : m.state === "PRE" || m.state === "LUNCH" ? "pre" : "shut");
+      }
+      const loc = row.querySelector(".loc");
+      if (loc && m.local) loc.textContent = m.local;
+      const cd = row.querySelector(".cd");
+      if (cd) cd.textContent = m.nextVerb + " " + m.countdown;
     });
   }
 
@@ -345,8 +456,20 @@ const RunnrDesk = (() => {
     alpaca = !!j.alpaca;
   }
 
+  async function loadSectors() {
+    try {
+      const j = await getJson("/api/v1/desk/sectors");
+      sectorRows = j.rows || [];
+      sectorsLoaded = true;
+    } catch (e) {
+      sectorsLoaded = true;
+      if (!sectorRows.length) sectorRows = [];
+    }
+  }
+
   async function loadBars(sym) {
-    const j = await getJson("/api/v1/desk/bars/" + encodeURIComponent(sym || focus || "AAPL"));
+    const tf = encodeURIComponent(prefs.tf || "1D");
+    const j = await getJson("/api/v1/desk/bars/" + encodeURIComponent(sym || focus || "AAPL") + "?timeframe=" + tf);
     bars = j.bars || [];
     if (j.source && !source.includes(j.source)) source = (source ? source + " · " : "") + j.source;
   }
@@ -354,8 +477,7 @@ const RunnrDesk = (() => {
   async function refresh() {
     if (!alive) return;
     try {
-      await loadSnap();
-      await loadBars(focus);
+      await Promise.all([loadSnap(), loadSectors(), loadBars(focus)]);
       render();
     } catch (e) {
       const el = root();
@@ -379,7 +501,7 @@ const RunnrDesk = (() => {
     render();
     refresh();
     timer = setInterval(refresh, 45000);
-    clockTimer = setInterval(tickClock, 1000);
+    clockTimer = setInterval(() => { tickClock(); tickSessions(); }, 1000);
   }
 
   function leave() {

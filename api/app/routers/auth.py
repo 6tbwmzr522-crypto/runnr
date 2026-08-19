@@ -204,9 +204,14 @@ def login(body: LoginRequest):
     verified = bool(row["email_verified"]) if "email_verified" in row.keys() else True
     token = create_access_token(row["id"], row["email"])
     stored_name = row["first_name"] if row and "first_name" in row.keys() else None
+    sent, verify_url = False, None
+    if not verified:
+        sent, verify_url = _issue_verification(row["id"], row["email"])
     return TokenResponse(
         access_token=token,
         email=row["email"],
         email_verified=verified,
+        verification_sent=sent,
+        verify_url=verify_url,
         first_name=stored_name or None,
     )
