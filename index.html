@@ -5,7 +5,7 @@
 <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
 <script>
 (function () {
-  var V = "70";
+  var V = "71";
   try {
     if (localStorage.getItem("runnr_app_v") !== V) {
       localStorage.setItem("runnr_app_v", V);
@@ -1820,8 +1820,8 @@ body.light #equity-canvas{filter:invert(0)}
 <script src="js/coach.js?v=25"></script>
 <script src="js/onboarding.js?v=22"></script>
 <script src="js/csv-presets.js?v=3"></script>
-<script src="js/sync.js?v=49"></script>
-<script src="js/desk.js?v=5"></script>
+<script src="js/sync.js?v=51"></script>
+<script src="js/desk.js?v=6"></script>
 <script>
 // ── STATE ──────────────────────────────────────────────────────────────────
 const WHOP_URL = 'https://whop.com/runnr'; // legacy; upgrades now go through Stripe
@@ -1879,17 +1879,23 @@ function normalizeTradePnls() {
 normalizeTradePnls();
 
 window.S = S;
-if (RunnrSync?.isLoggedIn?.() && typeof RunnrSync.recoverLocalState === 'function') {
-  if (RunnrSync.recoverLocalState()) {
-    S.trades = Array.isArray(S.trades) ? S.trades.filter(t => t && typeof t === 'object') : [];
-    S.watchlist = Array.isArray(S.watchlist) ? S.watchlist.filter(w => w && typeof w === 'object') : [];
-  }
-}
-if (RunnrSync?.isLoggedIn?.() && !S.firstName && typeof RunnrSync.houseFirstName === 'function') {
-  const n = RunnrSync.houseFirstName(RunnrSync.sessionEmail());
-  if (n) {
-    S.firstName = n;
-    RunnrSync.updateFirstName?.(n).catch(() => {});
+if (typeof RunnrSync !== 'undefined' && RunnrSync.isLoggedIn?.()) {
+  try {
+    if (RunnrSync.recoverLocalState?.()) {
+      S.trades = Array.isArray(S.trades) ? S.trades.filter(t => t && typeof t === 'object') : [];
+      S.watchlist = Array.isArray(S.watchlist) ? S.watchlist.filter(w => w && typeof w === 'object') : [];
+    }
+    if (RunnrSync.recoverWatchlistIfEmpty?.()) {
+      S.watchlist = Array.isArray(S.watchlist) ? S.watchlist.filter(w => w && typeof w === 'object') : [];
+    }
+  } catch (e) { console.warn('recoverLocalState', e); }
+  if (!S.firstName && typeof RunnrSync.houseFirstName === 'function') {
+    const n = RunnrSync.houseFirstName(RunnrSync.sessionEmail());
+    if (n) {
+      S.firstName = n;
+      try { localStorage.setItem('runnr_state', JSON.stringify(S)); } catch (e) {}
+      RunnrSync.updateFirstName?.(n).catch(() => {});
+    }
   }
 }
 
@@ -2002,12 +2008,22 @@ function persist() {
   }
 }
 
+function isDemoWatchItem(w) {
+  if (!w) return true;
+  const id = Number(w.id);
+  const sym = String(w.sym || '').toUpperCase();
+  return (id === 1 || id === 2 || id === 3) && (sym === 'RACE' || sym === 'ASTS' || sym === 'EURUSD');
+}
+function watchlistIsEmptyOrDemo() {
+  return !(S.watchlist || []).some((w) => w && !isDemoWatchItem(w));
+}
+
 let _watchlistCloudPulled = false;
 function maybePullWatchlistFromCloud() {
   if (_watchlistCloudPulled) return;
-  if (!RunnrSync.isLoggedIn()) return;
+  if (!window.RunnrSync?.isLoggedIn?.()) return;
   normalizeWatchlist();
-  if ((S.watchlist || []).length > 0) return;
+  if (!watchlistIsEmptyOrDemo()) return;
   _watchlistCloudPulled = true;
   const el = document.getElementById('feed-status-text');
   if (el) el.textContent = 'Syncing watchlist…';
@@ -2017,11 +2033,14 @@ function maybePullWatchlistFromCloud() {
   pull
     .then((result) => {
       const ok = result?.ok || (result && result.action !== 'none');
-      if (ok) {
-        normalizeWatchlist();
+      if (!ok && typeof RunnrSync.seedWatchlistFromTrades === 'function') {
+        RunnrSync.seedWatchlistFromTrades();
+      }
+      normalizeWatchlist();
+      if (!watchlistIsEmptyOrDemo()) {
         refreshAfterProfileSync();
         renderWatchlist();
-        if (el) el.textContent = S.watchlist.length ? 'Live' : 'Watchlist empty';
+        if (el) el.textContent = 'Live';
       } else if (el) {
         el.textContent = 'Watchlist empty — add a setup';
       }
@@ -3320,9 +3339,13 @@ function renderWatchlist() {
   const list = document.getElementById('watchlist-list');
   if (!list) return;
   normalizeWatchlist();
-  if (!S.watchlist.length) {
+  const loggedIn = !!(typeof RunnrSync !== 'undefined' && RunnrSync.isLoggedIn?.());
+  const items = loggedIn
+    ? (S.watchlist || []).filter((w) => w && !isDemoWatchItem(w))
+    : (S.watchlist || []);
+  if (!items.length) {
     list.innerHTML = '<div class="empty-state"><div class="es-icon">👁</div>No setups yet.'
-      + (RunnrSync.isLoggedIn()
+      + (loggedIn
         ? ' <span style="color:var(--accent);cursor:pointer" onclick="forcePullWatchlist()">Pull from cloud</span> or add one.'
           + '<div style="margin-top:12px;font-size:11px"><span style="color:var(--text3);cursor:pointer" onclick="diagnoseSyncNow()">Diagnose sync</span></div>'
         : ' Add your first watch.')
@@ -3331,7 +3354,7 @@ function renderWatchlist() {
     return;
   }
   const selectedId = watchId(S.selectedWatchId);
-  const rows = S.watchlist.map(w => {
+  const rows = items.map(w => {
     try {
       let html = renderWatchCompactRow(w);
       if (watchId(w.id) === selectedId) {
@@ -5227,8 +5250,10 @@ function hideSessionBanner() {
 function renderHeaderSyncPill() {
   const el = document.getElementById('header-sync-pill');
   if (!el) return;
-  if (window.RunnrSync?.isLoggedIn?.()) {
-    const who = (RunnrSync.sessionEmail() || 'Signed in').split('@')[0];
+  const inSession = !!(typeof RunnrSync !== 'undefined' && RunnrSync.isLoggedIn?.())
+    || (function () { try { return !!localStorage.getItem('runnr_api_token'); } catch (e) { return false; } })();
+  if (inSession) {
+    const who = ((typeof RunnrSync !== 'undefined' && RunnrSync.sessionEmail?.()) || 'Signed in').split('@')[0];
     el.textContent = '✓';
     el.classList.add('on');
     el.title = who + ' — tap for Sync';
@@ -5243,7 +5268,9 @@ function renderHeaderSyncPill() {
 }
 
 function headerSyncTap(e) {
-  if (window.RunnrSync?.isLoggedIn?.()) {
+  const inSession = !!(typeof RunnrSync !== 'undefined' && RunnrSync.isLoggedIn?.())
+    || (function () { try { return !!localStorage.getItem('runnr_api_token'); } catch (err) { return false; } })();
+  if (inSession) {
     if (e && typeof e.preventDefault === 'function') e.preventDefault();
     switchPage('sync');
     return false;
@@ -6186,7 +6213,14 @@ function bootRunnrSync() {
       renderHomeBrokerPreview();
       renderJournal();
       updateHomeStats();
-      if ((S.watchlist || []).length > 0) {
+      renderWatchlist();
+      if (typeof RunnrSync.recoverWatchlistIfEmpty === 'function') {
+        if (RunnrSync.recoverWatchlistIfEmpty()) {
+          normalizeWatchlist();
+          renderWatchlist();
+        }
+      }
+      if (!watchlistIsEmptyOrDemo()) {
         return RunnrSync.pushProfileState().catch(() => {});
       }
     })
@@ -6674,6 +6708,7 @@ function initApp() {
   registerServiceWorker();
   try { renderHeaderSyncPill(); } catch (e) {}
   try { refreshBillingUI(); } catch (e) {}
+  try { maybePullWatchlistFromCloud(); } catch (e) {}
   const params = new URLSearchParams(location.search);
   if (params.get('verify')) {
     const token = params.get('verify');

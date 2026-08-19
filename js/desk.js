@@ -35,9 +35,16 @@ const RunnrDesk = (() => {
   }
 
   function brandTitle() {
-    if (window.RunnrSync && typeof RunnrSync.terminalTitle === "function") {
-      return RunnrSync.terminalTitle();
+    let n = (window.S && window.S.firstName) || "";
+    if (typeof RunnrSync !== "undefined") {
+      if (!n && typeof RunnrSync.houseFirstName === "function") {
+        n = RunnrSync.houseFirstName(RunnrSync.sessionEmail && RunnrSync.sessionEmail());
+      }
+      if (typeof RunnrSync.terminalTitle === "function") {
+        return RunnrSync.terminalTitle(n || undefined);
+      }
     }
+    if (n) return n + "'s terminal";
     return "Terminal";
   }
   function cls(pct) {
@@ -66,13 +73,27 @@ const RunnrDesk = (() => {
     return /^[A-Z.]{1,6}$/.test(s);
   }
 
+  function isFactoryDemoWatch(x) {
+    if (!x) return true;
+    const id = Number(x.id);
+    const sym = String(x.quoteSym || x.sym || "").toUpperCase();
+    return (id === 1 || id === 2 || id === 3) && (sym === "RACE" || sym === "ASTS" || sym === "EURUSD");
+  }
+
   function universe() {
-    const w = (window.S && S.watchlist) || [];
+    const w = (window.S && window.S.watchlist) || [];
     const fromWatch = w
+      .filter((x) => x && !isFactoryDemoWatch(x))
       .map((x) => String(x.quoteSym || x.sym || "").toUpperCase())
       .filter(isEquity);
-    const uniq = [...new Set(fromWatch)];
-    return uniq.length ? uniq : ["AAPL", "MSFT", "NVDA", "META", "GOOGL"];
+    let uniq = [...new Set(fromWatch)];
+    if (uniq.length) return uniq;
+    const fromTrades = ((window.S && window.S.trades) || [])
+      .filter((t) => t && String(t.source || "").toLowerCase() === "alpaca")
+      .map((t) => String(t.instr || t.symbol || "").replace(/\s+CFD$/i, "").toUpperCase())
+      .filter(isEquity);
+    uniq = [...new Set(fromTrades)];
+    return uniq.length ? uniq.slice(0, 16) : ["AAPL", "MSFT", "NVDA", "META", "GOOGL"];
   }
 
   async function getJson(path) {
@@ -372,7 +393,7 @@ const RunnrDesk = (() => {
       const ok = await window.requirePro("Terminal", { skipEmail: true });
       if (!ok) return;
     }
-    if (window.RunnrSync && RunnrSync.isLoggedIn && RunnrSync.isLoggedIn()) {
+    if (typeof RunnrSync !== "undefined" && RunnrSync.isLoggedIn && RunnrSync.isLoggedIn()) {
       const existing = window.S && window.S.firstName;
       const house = typeof RunnrSync.houseFirstName === "function"
         ? RunnrSync.houseFirstName(RunnrSync.sessionEmail())

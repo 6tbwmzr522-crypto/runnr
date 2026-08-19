@@ -198,6 +198,24 @@
     localStorage.setItem("runnr_api_url", API);
   }
 
+  function applySavedFirstName(email, apiName, typedName) {
+    var house = {
+      "info@thinicedigital.com": "Janis",
+      "janis.berzins.liepins@gmail.com": "Janis",
+      "berzins.j@inbox.lv": "Janis"
+    };
+    var given = apiName || typedName || house[String(email || "").trim().toLowerCase()] || "";
+    if (!given) return;
+    try {
+      var raw = localStorage.getItem("runnr_state");
+      if (!raw) return;
+      var st = JSON.parse(raw);
+      if (!st || typeof st !== "object") return;
+      st.firstName = given;
+      localStorage.setItem("runnr_state", JSON.stringify(st));
+    } catch (e) {}
+  }
+
   function goHome() {
     setStatus("Signed in — opening Runnr…", "ok");
     setTimeout(function () {
@@ -290,6 +308,7 @@
         data = await apiPost("/api/v1/auth/register", body);
       }
       saveSession(data.access_token, data.email || fields.email);
+      applySavedFirstName(data.email || fields.email, data.first_name, fields.firstName);
       goHome();
     } catch (e) {
       const msg = String(e.message || e);
@@ -333,6 +352,7 @@
         data = await apiPost("/api/v1/auth/register", body);
       }
       saveSession(data.access_token, data.email || fields.email);
+      applySavedFirstName(data.email || fields.email, data.first_name, fields.firstName);
       goHome();
     } catch (e) {
       const msg = String(e.message || e);

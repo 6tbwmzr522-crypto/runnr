@@ -156,7 +156,7 @@ const RunnrSync = (() => {
   function recoverLocalState() {
     const e = (sessionEmail() || "").trim().toLowerCase();
     if (!e || !window.S) return false;
-    if (stateLooksReal(window.S)) return false;
+    if (stateLooksReal(window.S)) return recoverWatchlistIfEmpty();
     const recovered = richestSnapshotForEmail(e);
     const parsed = parseStoredState(recovered);
     if (!parsed || !stateLooksReal(parsed)) return false;
@@ -165,6 +165,78 @@ const RunnrSync = (() => {
     try { localStorage.setItem("runnr_state", recovered); } catch (err) {}
     try { localStorage.setItem("runnr_state:" + e, recovered); } catch (err) {}
     return true;
+  }
+
+  function tradeWatchSym(t) {
+    if (!t || t.mergedAway) return "";
+    const src = String(t.source || "").toLowerCase();
+    if (DEMO_TRADE_IDS.has(t.id) && src !== "alpaca" && src !== "ibkr" && src !== "csv") return "";
+    const raw = String(t.instr || t.symbol || "").replace(/\s+CFD$/i, "").trim().toUpperCase();
+    if (!raw || raw.includes("/") || raw.includes("=")) return "";
+    if (/^[A-Z]{6}$/.test(raw)) return "";
+    if (!/^[A-Z.]{1,6}$/.test(raw)) return "";
+    return raw;
+  }
+
+  function seedWatchlistFromTrades() {
+    if (!window.S) return false;
+    if ((window.S.watchlist || []).some((w) => w && !isDemoWatch(w))) return false;
+    const trades = window.S.trades || [];
+    const open = trades.filter((t) => t && tradeWatchSym(t) && !(Number(t.exit) > 0));
+    const pool = open.length ? open : trades.filter((t) => t && String(t.source || "").toLowerCase() === "alpaca");
+    const seen = new Set();
+    const seeded = [];
+    pool.forEach((t) => {
+      const sym = tradeWatchSym(t);
+      if (!sym || seen.has(sym)) return;
+      seen.add(sym);
+      const entry = Number(t.entry || t.fillPrice) || 0;
+      seeded.push({
+        id: Date.now() + seeded.length + 100,
+        sym,
+        dir: t.dir === "short" ? "short" : "long",
+        entry,
+        stop: 0,
+        target: 0,
+        thesis: "",
+        rr: 0,
+        urgent: false,
+      });
+    });
+    if (!seeded.length) return false;
+    window.S.watchlist = seeded;
+    try { localStorage.setItem("runnr_state", JSON.stringify(window.S)); } catch (err) {}
+    return true;
+  }
+
+  function recoverWatchlistIfEmpty() {
+    if (!window.S) return false;
+    const haveReal = (window.S.watchlist || []).some((w) => w && !isDemoWatch(w));
+    if (haveReal) return false;
+    const e = (sessionEmail() || "").trim().toLowerCase();
+    let best = [];
+    const consider = (s) => {
+      const real = ((s && s.watchlist) || []).filter((w) => w && !isDemoWatch(w));
+      if (real.length > best.length) best = real;
+    };
+    consider(parseStoredState(e ? localStorage.getItem("runnr_state:" + e) : null));
+    consider(parseStoredState(richestSnapshotForEmail(e)));
+    try {
+      for (let i = 0; i < localStorage.length; i++) {
+        const k = localStorage.key(i);
+        if (!k || k.indexOf("runnr_state") !== 0) continue;
+        const s = parseStoredState(localStorage.getItem(k));
+        const own = String((s && s.ownerEmail) || "").trim().toLowerCase();
+        if (own && e && own !== e && k !== "runnr_state:" + e) continue;
+        consider(s);
+      }
+    } catch (err) {}
+    if (best.length) {
+      window.S.watchlist = mergeWatchlist(window.S.watchlist, best);
+      try { localStorage.setItem("runnr_state", JSON.stringify(window.S)); } catch (err) {}
+      return true;
+    }
+    return seedWatchlistFromTrades();
   }
 
   function houseFirstName(email) {
@@ -1215,6 +1287,7 @@ const RunnrSync = (() => {
     if (local?.onboardingComplete) merged.onboardingComplete = true;
     if (local?.profileHandle) merged.profileHandle = local.profileHandle;
     if (local?.firstName && !merged.firstName) merged.firstName = local.firstName;
+    if (!merged.firstName) merged.firstName = houseFirstName(sessionEmail());
     if (Number(local?.journalBaseBal) > 0 && !(Number(remote?.journalBaseBal) > 0)) {
       merged.journalBaseBal = local.journalBaseBal;
     }
@@ -1265,9 +1338,13 @@ const RunnrSync = (() => {
     if (!isLoggedIn() || !window.S) return { ok: false };
     const data = await request("/api/v1/profile/state");
     const remote = data?.state;
-    if (!remote?.watchlist?.length) return { ok: false };
+    const remoteReal = ((remote && remote.watchlist) || []).filter((w) => w && !isDemoWatch(w));
+    if (!remoteReal.length) {
+      if (seedWatchlistFromTrades()) return { ok: true, count: (window.S.watchlist || []).length, seeded: true };
+      return { ok: false };
+    }
     ensureBrokerState();
-    window.S.watchlist = mergeWatchlist(window.S.watchlist, remote.watchlist);
+    window.S.watchlist = mergeWatchlist(window.S.watchlist, remoteReal);
     if (!window.S.watchlist.length) return { ok: false };
     try {
       localStorage.setItem("runnr_state", JSON.stringify(window.S));
@@ -1508,6 +1585,8 @@ const RunnrSync = (() => {
     hasMeaningfulState,
     isDemoState,
     recoverLocalState,
+    recoverWatchlistIfEmpty,
+    seedWatchlistFromTrades,
     houseFirstName,
     applyRemoteState,
     billing,
@@ -1518,3 +1597,4 @@ const RunnrSync = (() => {
     createPortal,
   };
 })();
+window.RunnrSync = RunnrSync;
