@@ -87,13 +87,15 @@ const RunnrDesk = (() => {
       .map((x) => String(x.quoteSym || x.sym || "").toUpperCase())
       .filter(isEquity);
     let uniq = [...new Set(fromWatch)];
-    if (uniq.length) return uniq;
-    const fromTrades = ((window.S && window.S.trades) || [])
-      .filter((t) => t && String(t.source || "").toLowerCase() === "alpaca")
-      .map((t) => String(t.instr || t.symbol || "").replace(/\s+CFD$/i, "").toUpperCase())
-      .filter(isEquity);
-    uniq = [...new Set(fromTrades)];
-    return uniq.length ? uniq.slice(0, 16) : ["AAPL", "MSFT", "NVDA", "META", "GOOGL"];
+    if (!uniq.length && typeof RunnrSync !== "undefined" && typeof RunnrSync.seedWatchlistFromTrades === "function") {
+      RunnrSync.seedWatchlistFromTrades();
+      const again = ((window.S && window.S.watchlist) || [])
+        .filter((x) => x && !isFactoryDemoWatch(x))
+        .map((x) => String(x.quoteSym || x.sym || "").toUpperCase())
+        .filter(isEquity);
+      uniq = [...new Set(again)];
+    }
+    return uniq;
   }
 
   async function getJson(path) {

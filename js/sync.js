@@ -258,12 +258,15 @@ const RunnrSync = (() => {
         target: 0,
         thesis: "",
         rr: 0,
-        urgent: false,
+        needsLevels: true,
         seededFromTrades: true,
       });
     });
     if (!seeded.length) return false;
-    window.S.watchlist = seeded;
+    window.S.watchlist = mergeWatchlist(
+      (window.S.watchlist || []).filter((w) => w && !isDemoWatch(w)),
+      seeded
+    );
     try { localStorage.setItem("runnr_state", JSON.stringify(window.S)); } catch (err) {}
     return true;
   }
@@ -1682,6 +1685,7 @@ const RunnrSync = (() => {
     recoverLocalState,
     recoverWatchlistIfEmpty,
     enrichFromSnapshots,
+    seedWatchlistFromTrades,
     watchlistLooksThin,
     houseFirstName,
     applyRemoteState,

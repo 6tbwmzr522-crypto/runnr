@@ -5,7 +5,7 @@
 <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
 <script>
 (function () {
-  var V = "72";
+  var V = "73";
   try {
     if (localStorage.getItem("runnr_app_v") !== V) {
       localStorage.setItem("runnr_app_v", V);
@@ -1820,8 +1820,8 @@ body.light #equity-canvas{filter:invert(0)}
 <script src="js/coach.js?v=26"></script>
 <script src="js/onboarding.js?v=22"></script>
 <script src="js/csv-presets.js?v=3"></script>
-<script src="js/sync.js?v=52"></script>
-<script src="js/desk.js?v=6"></script>
+<script src="js/sync.js?v=53"></script>
+<script src="js/desk.js?v=7"></script>
 <script>
 // ── STATE ──────────────────────────────────────────────────────────────────
 const WHOP_URL = 'https://whop.com/runnr'; // legacy; upgrades now go through Stripe
@@ -2012,17 +2012,33 @@ function persist() {
   }
 }
 
-function isDemoWatchItem(w) {
+function isFactoryDemoWatchItem(w) {
   if (!w) return true;
-  if (w.seededFromTrades) return true;
   const id = Number(w.id);
   const sym = String(w.sym || '').toUpperCase();
-  if ((id === 1 || id === 2 || id === 3) && (sym === 'RACE' || sym === 'ASTS' || sym === 'EURUSD')) return true;
-  const rich = (Number(w.entry) ? 1 : 0) + (Number(w.stop) ? 1 : 0) + (Number(w.target) ? 1 : 0) + (w.thesis ? 1 : 0);
-  return rich < 2;
+  return (id === 1 || id === 2 || id === 3) && (sym === 'RACE' || sym === 'ASTS' || sym === 'EURUSD');
+}
+function isDemoWatchItem(w) {
+  return isFactoryDemoWatchItem(w);
+}
+function isSetupWatch(w) {
+  if (!w || isFactoryDemoWatchItem(w)) return false;
+  return !!(Number(w.stop) || Number(w.target) || w.thesis);
 }
 function watchlistIsEmptyOrDemo() {
-  return !(S.watchlist || []).some((w) => w && !isDemoWatchItem(w));
+  return !(S.watchlist || []).some(isSetupWatch);
+}
+
+function ensureWatchFromPositions() {
+  const visible = (S.watchlist || []).filter((w) => w && !isFactoryDemoWatchItem(w));
+  if (visible.length) return false;
+  if (typeof RunnrSync?.seedWatchlistFromTrades !== 'function') return false;
+  const ok = RunnrSync.seedWatchlistFromTrades();
+  if (ok) {
+    S.watchlist = Array.isArray(S.watchlist) ? S.watchlist.filter((w) => w && typeof w === 'object') : [];
+    try { normalizeWatchlist(); } catch (e) {}
+  }
+  return !!ok;
 }
 
 let _watchlistCloudPulled = false;
@@ -2044,12 +2060,13 @@ function maybePullWatchlistFromCloud() {
         RunnrSync.enrichFromSnapshots();
       }
       normalizeWatchlist();
-      if (!watchlistIsEmptyOrDemo()) {
-        refreshAfterProfileSync();
-        renderWatchlist();
-        if (el) el.textContent = 'Live';
-      } else if (el) {
-        el.textContent = 'Watchlist empty — add a setup';
+      if (!(S.watchlist || []).some((w) => w && !isFactoryDemoWatchItem(w))) {
+        ensureWatchFromPositions();
+      }
+      renderWatchlist();
+      if (el) {
+        const n = (S.watchlist || []).filter((w) => w && !isFactoryDemoWatchItem(w)).length;
+        el.textContent = n ? 'Live' : 'Watchlist empty — add a setup';
       }
     })
     .catch(() => {
@@ -3285,9 +3302,11 @@ function watchRR(w) {
 function renderWatchCompactRow(w) {
   const prices = typeof liveprices !== 'undefined' ? liveprices : {};
   const lp = prices[w.sym];
-  const livePrice = lp && lp.price ? fmtPrice(lp.price) : '—';
+      const livePrice = lp && lp.price ? fmtPrice(lp.price) : '—';
+  const needsLevels = !Number(w.stop) || !Number(w.target);
   let st = { cls: 'ai-status-armed', text: 'Armed' };
   try { st = watchRowStatus(w, lp); } catch (e) {}
+  if (needsLevels) { st = { cls: 'ai-status-armed', text: 'Set levels' }; }
   const selected = watchId(S.selectedWatchId) === watchId(w.id);
   const remark = watchRemark(w);
   let remarkHtml = '';
@@ -3347,9 +3366,7 @@ function renderWatchlist() {
   if (!list) return;
   normalizeWatchlist();
   const loggedIn = !!(typeof RunnrSync !== 'undefined' && RunnrSync.isLoggedIn?.());
-  const items = loggedIn
-    ? (S.watchlist || []).filter((w) => w && !isDemoWatchItem(w))
-    : (S.watchlist || []);
+  const items = (S.watchlist || []).filter((w) => w && !isFactoryDemoWatchItem(w));
   if (!items.length) {
     list.innerHTML = '<div class="empty-state"><div class="es-icon">👁</div>No setups yet.'
       + (loggedIn
@@ -6720,6 +6737,7 @@ function initApp() {
   }
   try { if (window.RunnrI18n) RunnrI18n.init(S.lang || 'en', S); } catch (e) {}
   try { normalizeWatchlist(); } catch (e) {}
+  try { ensureWatchFromPositions(); } catch (e) {}
   try { updateHomeStats(); } catch (e) {}
   try { renderHomePreviews(); } catch (e) {}
   try { initSyncAuthForm(); } catch (e) {}
