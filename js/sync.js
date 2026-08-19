@@ -50,23 +50,126 @@ const RunnrSync = (() => {
     "janis.berzins.liepins@gmail.com",
     "berzins.j@inbox.lv",
   ];
+  const HOUSE_FIRST_NAMES = {
+    "info@thinicedigital.com": "Janis",
+    "janis.berzins.liepins@gmail.com": "Janis",
+    "berzins.j@inbox.lv": "Janis",
+  };
+  const DEMO_TRADE_IDS = new Set([1, 2, 3, 4]);
+  const DEMO_WATCH_SYMS = new Set(["RACE", "ASTS", "EURUSD"]);
+
+  function parseStoredState(raw) {
+    try {
+      const s = JSON.parse(raw);
+      return s && typeof s === "object" ? s : null;
+    } catch (e) {
+      return null;
+    }
+  }
+
+  function isDemoWatch(w) {
+    if (!w) return false;
+    const id = Number(w.id);
+    const sym = String(w.sym || "").toUpperCase();
+    return (id === 1 || id === 2 || id === 3) && DEMO_WATCH_SYMS.has(sym);
+  }
+
+  function stateLooksReal(s) {
+    if (!s) return false;
+    const trades = s.trades || [];
+    if (trades.some((t) => t && (String(t.source || "").toLowerCase() === "alpaca" || (t.id != null && !DEMO_TRADE_IDS.has(t.id))))) {
+      return true;
+    }
+    const wl = s.watchlist || [];
+    if (wl.some((w) => w && !isDemoWatch(w))) return true;
+    if (s.balFromAlpaca || s.brokerSync?.alpaca?.connected) return true;
+    if (Number(s.journalBaseBal) > 0) return true;
+    if (Number(s.bal) > 0 && Number(s.bal) !== 10000) return true;
+    return false;
+  }
+
+  function snapshotScore(s) {
+    if (!stateLooksReal(s)) return 0;
+    const trades = (s.trades || []).length;
+    const wl = (s.watchlist || []).length;
+    const bal = Number(s.bal) || 0;
+    return trades * 10 + wl * 5 + (s.balFromAlpaca ? 50 : 0) + Math.min(bal, 1);
+  }
 
   function snapshotStateForEmail(email) {
     const e = String(email || "").trim().toLowerCase();
     if (!e) return;
     try {
       const raw = localStorage.getItem("runnr_state");
-      if (raw) localStorage.setItem("runnr_state:" + e, raw);
+      if (raw && stateLooksReal(parseStoredState(raw))) {
+        localStorage.setItem("runnr_state:" + e, raw);
+      }
     } catch (err) {}
   }
 
-  function loadStateForEmail(email) {
+  function richestSnapshotForEmail(email) {
     const e = String(email || "").trim().toLowerCase();
+    if (!e) return null;
+    let bestRaw = null;
+    let bestScore = 0;
     try {
-      const raw = e ? localStorage.getItem("runnr_state:" + e) : null;
-      if (raw) localStorage.setItem("runnr_state", raw);
-      else localStorage.removeItem("runnr_state");
+      const exact = localStorage.getItem("runnr_state:" + e);
+      const exactState = parseStoredState(exact);
+      if (stateLooksReal(exactState)) {
+        bestRaw = exact;
+        bestScore = snapshotScore(exactState);
+      }
+      for (let i = 0; i < localStorage.length; i++) {
+        const k = localStorage.key(i);
+        if (!k || k === "runnr_state" || k.indexOf("runnr_state:") !== 0) continue;
+        const raw = localStorage.getItem(k);
+        const s = parseStoredState(raw);
+        if (!s) continue;
+        const own = String(s.ownerEmail || "").trim().toLowerCase();
+        if (own && own !== e) continue;
+        if (!own && k !== "runnr_state:" + e && !isHouseEmail(e)) continue;
+        const score = snapshotScore(s);
+        if (score > bestScore) {
+          bestScore = score;
+          bestRaw = raw;
+        }
+      }
     } catch (err) {}
+    return bestRaw;
+  }
+
+  function loadStateForEmail(email, opts) {
+    const e = String(email || "").trim().toLowerCase();
+    const switching = !!(opts && opts.switching);
+    try {
+      const recovered = richestSnapshotForEmail(e);
+      if (recovered) {
+        localStorage.setItem("runnr_state", recovered);
+        return;
+      }
+      const live = parseStoredState(localStorage.getItem("runnr_state"));
+      if (stateLooksReal(live) && !switching) return;
+      if (switching) localStorage.removeItem("runnr_state");
+    } catch (err) {}
+  }
+
+  function recoverLocalState() {
+    const e = (sessionEmail() || "").trim().toLowerCase();
+    if (!e || !window.S) return false;
+    if (stateLooksReal(window.S)) return false;
+    const recovered = richestSnapshotForEmail(e);
+    const parsed = parseStoredState(recovered);
+    if (!parsed || !stateLooksReal(parsed)) return false;
+    Object.keys(window.S).forEach((k) => delete window.S[k]);
+    Object.assign(window.S, parsed);
+    try { localStorage.setItem("runnr_state", recovered); } catch (err) {}
+    try { localStorage.setItem("runnr_state:" + e, recovered); } catch (err) {}
+    return true;
+  }
+
+  function houseFirstName(email) {
+    const e = String(email || "").trim().toLowerCase();
+    return HOUSE_FIRST_NAMES[e] || "";
   }
 
   function setToken(t, email) {
@@ -77,7 +180,7 @@ const RunnrSync = (() => {
         if (prev && next && prev !== next) snapshotStateForEmail(prev);
         else if (prev && !next) snapshotStateForEmail(prev);
         if (next) {
-          loadStateForEmail(next);
+          loadStateForEmail(next, { switching: !!(prev && prev !== next) });
           if (!prev || prev !== next) {
             localStorage.removeItem(ALPACA_LOCAL_KEY);
             try { sessionStorage.setItem("runnr_account_switched", "1"); } catch (e) {}
@@ -204,11 +307,14 @@ const RunnrSync = (() => {
   function applyFirstNameFromMe(me) {
     const remote = normalizeFirstName(me && me.first_name);
     const local = normalizeFirstName(window.S && window.S.firstName);
+    const house = houseFirstName(sessionEmail() || (me && me.email));
     if (remote) return applyFirstName(remote);
-    if (local && isLoggedIn()) {
-      updateFirstName(local).catch(() => {});
+    const pick = local || house;
+    if (pick && isLoggedIn()) {
+      applyFirstName(pick);
+      updateFirstName(pick).catch(() => {});
     }
-    return local;
+    return pick || "";
   }
 
   async function updateFirstName(name) {
@@ -988,7 +1094,6 @@ const RunnrSync = (() => {
     }
   }
 
-  const DEMO_TRADE_IDS = new Set([1, 2, 3, 4]);
   const DEMO_WATCH_SYMS = new Set(["RACE", "ASTS", "EURUSD"]);
   let pushTimer = null;
   let _cloudPushPaused = false;
@@ -999,22 +1104,13 @@ const RunnrSync = (() => {
     if (s.balFromAlpaca || s.brokerSync?.alpaca?.connected) return false;
     const trades = s.trades || [];
     if (trades.some((t) => t.source === "alpaca" || !DEMO_TRADE_IDS.has(t.id))) return false;
+    const wl = s.watchlist || [];
+    if (wl.some((w) => w && !isDemoWatch(w))) return false;
     return true;
   }
 
   function hasMeaningfulState(s) {
-    if (!s) return false;
-    const trades = s.trades || [];
-    if (trades.some((t) => t.source === "alpaca" || !DEMO_TRADE_IDS.has(t.id))) return true;
-    const wl = s.watchlist || [];
-    if (wl.some((w) => !DEMO_WATCH_SYMS.has(String(w.sym || "").toUpperCase()))) return true;
-    if (wl.length !== 3) return true;
-    if (Number(s.journalBaseBal) > 0) return true;
-    if (s.balFromAlpaca || s.balManualOverride) return true;
-    if (s.bal !== 10000 || (s.sym && s.sym !== "€")) return true;
-    if (s.onboardingComplete) return true;
-    if (s.profileHandle) return true;
-    return false;
+    return stateLooksReal(s);
   }
 
   function applyRemoteState(remote) {
@@ -1044,6 +1140,7 @@ const RunnrSync = (() => {
 
   async function pushProfileState() {
     if (!isLoggedIn() || !window.S || _cloudPushPaused) return false;
+    if (!hasMeaningfulState(window.S)) return false;
     await request("/api/v1/profile/state", {
       method: "PUT",
       body: JSON.stringify({ state: window.S }),
@@ -1109,8 +1206,8 @@ const RunnrSync = (() => {
     (remoteWl || []).forEach(add);
     (localWl || []).forEach(add);
     let merged = [...bySym.values()];
-    const hasReal = merged.some((w) => !DEMO_WATCH_SYMS.has(String(w.sym || "").toUpperCase()));
-    if (hasReal) merged = merged.filter((w) => !DEMO_WATCH_SYMS.has(String(w.sym || "").toUpperCase()));
+    const hasReal = merged.some((w) => !isDemoWatch(w));
+    if (hasReal) merged = merged.filter((w) => !isDemoWatch(w));
     return merged;
   }
 
@@ -1124,8 +1221,13 @@ const RunnrSync = (() => {
     // Prefer configured scalar settings from whichever side has them.
     if (local?.onboardingComplete) merged.onboardingComplete = true;
     if (local?.profileHandle) merged.profileHandle = local.profileHandle;
+    if (local?.firstName && !merged.firstName) merged.firstName = local.firstName;
     if (Number(local?.journalBaseBal) > 0 && !(Number(remote?.journalBaseBal) > 0)) {
       merged.journalBaseBal = local.journalBaseBal;
+    }
+    if (Number(local?.bal) > 10000 && !(Number(remote?.bal) > 10000)) {
+      merged.bal = local.bal;
+      if (local.sym) merged.sym = local.sym;
     }
     merged.trades = mergeTrades(local?.trades, remote?.trades);
     merged.watchlist = mergeWatchlist(local?.watchlist, remote?.watchlist);
@@ -1224,6 +1326,7 @@ const RunnrSync = (() => {
   /** Pull cloud profile on login, or push local data if cloud is empty. */
   async function syncProfileState() {
     if (!isLoggedIn()) return { action: "none" };
+    recoverLocalState();
     const data = await request("/api/v1/profile/state");
     let remote = data?.state;
     if (await shouldIgnoreRemote(remote)) {
@@ -1235,21 +1338,26 @@ const RunnrSync = (() => {
     const localOwner = String(window.S?.ownerEmail || "").trim().toLowerCase();
     const me = (sessionEmail() || "").trim().toLowerCase();
     const localMine = !localOwner || localOwner === me;
+    const localForMerge = isDemoState(window.S)
+      ? { trades: [], watchlist: [], firstName: window.S?.firstName }
+      : window.S;
 
-    if (serverHas && !localHas) {
-      applyRemoteState(remote);
-      return { action: "pulled", updated_at: data.updated_at };
-    }
-    if (!serverHas && localHas && localMine) {
-      await pushProfileState();
-      return { action: "pushed" };
-    }
     if (serverHas && localHas && localMine) {
       const merged = mergeProfiles(window.S, remote);
       merged.ownerEmail = me;
       applyRemoteState(merged);
       await pushProfileState();
       return { action: "merged", updated_at: data.updated_at };
+    }
+    if (serverHas && !localHas) {
+      const merged = mergeProfiles(localForMerge, remote);
+      merged.ownerEmail = me;
+      applyRemoteState(merged);
+      return { action: "pulled", updated_at: data.updated_at };
+    }
+    if (!serverHas && localHas && localMine) {
+      await pushProfileState();
+      return { action: "pushed" };
     }
     return { action: "empty" };
   }
@@ -1406,6 +1514,8 @@ const RunnrSync = (() => {
     pushProfileStateDebounced,
     hasMeaningfulState,
     isDemoState,
+    recoverLocalState,
+    houseFirstName,
     applyRemoteState,
     billing,
     isPro,

@@ -372,6 +372,22 @@ const RunnrDesk = (() => {
       const ok = await window.requirePro("Terminal", { skipEmail: true });
       if (!ok) return;
     }
+    if (window.RunnrSync && RunnrSync.isLoggedIn && RunnrSync.isLoggedIn()) {
+      const existing = window.S && window.S.firstName;
+      const house = typeof RunnrSync.houseFirstName === "function"
+        ? RunnrSync.houseFirstName(RunnrSync.sessionEmail())
+        : "";
+      const n = (typeof RunnrSync.normalizeFirstName === "function"
+        ? RunnrSync.normalizeFirstName(existing || house)
+        : (existing || house));
+      if (n && window.S && !window.S.firstName) {
+        if (typeof RunnrSync.applyFirstName === "function") RunnrSync.applyFirstName(n);
+        else window.S.firstName = n;
+        if (typeof RunnrSync.updateFirstName === "function") {
+          RunnrSync.updateFirstName(n).catch(() => {});
+        }
+      }
+    }
     window.switchPage("desk");
   }
 

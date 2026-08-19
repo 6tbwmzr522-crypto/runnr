@@ -157,15 +157,36 @@
   function saveSession(token, email) {
     const prev = (localStorage.getItem("runnr_api_email") || "").trim().toLowerCase();
     const next = String(email || "").trim().toLowerCase();
+    function looksReal(raw) {
+      try {
+        var s = JSON.parse(raw);
+        var trades = s.trades || [];
+        if (trades.some(function (t) { return t && (String(t.source || "").toLowerCase() === "alpaca" || (t.id != null && t.id !== 1 && t.id !== 2 && t.id !== 3 && t.id !== 4)); })) return true;
+        var wl = s.watchlist || [];
+        if (wl.some(function (w) {
+          if (!w) return false;
+          var id = Number(w.id);
+          var sym = String(w.sym || "").toUpperCase();
+          var demo = (id === 1 || id === 2 || id === 3) && (sym === "RACE" || sym === "ASTS" || sym === "EURUSD");
+          return !demo;
+        })) return true;
+        if (s.balFromAlpaca || (Number(s.bal) > 0 && Number(s.bal) !== 10000)) return true;
+        if (Number(s.journalBaseBal) > 0) return true;
+        return false;
+      } catch (e) { return false; }
+    }
     try {
       if (prev && next && prev !== next) {
         const current = localStorage.getItem("runnr_state");
-        if (current) localStorage.setItem("runnr_state:" + prev, current);
+        if (current && looksReal(current)) localStorage.setItem("runnr_state:" + prev, current);
       }
       if (next) {
-        const incoming = localStorage.getItem("runnr_state:" + next);
-        if (incoming) localStorage.setItem("runnr_state", incoming);
-        else localStorage.removeItem("runnr_state");
+        var incoming = localStorage.getItem("runnr_state:" + next);
+        if (incoming && looksReal(incoming)) {
+          localStorage.setItem("runnr_state", incoming);
+        } else if (prev && prev !== next) {
+          localStorage.removeItem("runnr_state");
+        }
         if (!prev || prev !== next) localStorage.removeItem("runnr_alpaca_device");
       }
     } catch (e) {}
