@@ -86,6 +86,7 @@ def _migrate_users_billing(conn: sqlite3.Connection) -> None:
         ("plan", "TEXT DEFAULT 'free'"),
         ("stripe_subscription_id", "TEXT"),
         ("email_verified", "INTEGER DEFAULT 1"),
+        ("first_name", "TEXT"),
     ]
     for col, ddl in migrations:
         if col not in cols:

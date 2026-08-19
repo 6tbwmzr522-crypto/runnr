@@ -1,5 +1,7 @@
 from datetime import datetime, timedelta, timezone
 
+import sqlite3
+
 import bcrypt
 from fastapi import Depends, HTTPException
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
@@ -42,6 +44,9 @@ def _user_from_row(row) -> dict:
         verified = bool(row["email_verified"])
     email = row["email"]
     boss = email_is_boss(email)
+    first_name = None
+    if "first_name" in row.keys():
+        first_name = row["first_name"] or None
     return {
         "id": row["id"],
         "email": email,
@@ -51,6 +56,7 @@ def _user_from_row(row) -> dict:
         "billing_enabled": settings.stripe_enabled,
         "stripe_customer_id": row["stripe_customer_id"] if "stripe_customer_id" in row.keys() else None,
         "email_verified": True if boss else verified,
+        "first_name": first_name,
     }
 
 
@@ -66,13 +72,22 @@ def get_current_user(
         raise HTTPException(status_code=401, detail="Invalid token") from None
 
     with get_db() as conn:
-        row = conn.execute(
-            """
-            SELECT id, email, stripe_customer_id, subscription_status, plan, email_verified
-            FROM users WHERE id = ?
-            """,
-            (user_id,),
-        ).fetchone()
+        try:
+            row = conn.execute(
+                """
+                SELECT id, email, stripe_customer_id, subscription_status, plan, email_verified, first_name
+                FROM users WHERE id = ?
+                """,
+                (user_id,),
+            ).fetchone()
+        except sqlite3.OperationalError:
+            row = conn.execute(
+                """
+                SELECT id, email, stripe_customer_id, subscription_status, plan, email_verified
+                FROM users WHERE id = ?
+                """,
+                (user_id,),
+            ).fetchone()
     if not row:
         raise HTTPException(
             status_code=401,

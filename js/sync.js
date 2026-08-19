@@ -158,13 +158,67 @@ const RunnrSync = (() => {
     return data;
   }
 
-  async function register(email, password) {
+  async function register(email, password, firstName) {
     const creds = normalizeAuth(email, password);
+    const n = normalizeFirstName(firstName);
     const data = await request("/api/v1/auth/register", {
       method: "POST",
-      body: JSON.stringify(creds),
+      body: JSON.stringify(n ? { ...creds, first_name: n } : creds),
     });
     setToken(data.access_token, data.email || creds.email);
+    applyFirstName(data.first_name || n);
+    return data;
+  }
+
+  function normalizeFirstName(raw) {
+    let s = String(raw || "").trim().replace(/\s+/g, " ");
+    try {
+      s = s.replace(/[^\p{L}\p{M}\s\-']/gu, "");
+    } catch (e) {
+      s = s.replace(/[^A-Za-zÀ-ÿ\s\-']/g, "");
+    }
+    s = s.slice(0, 24).replace(/^[\s\-']+|[\s\-']+$/g, "");
+    if (!s) return "";
+    try {
+      return s.replace(/(^|[\s\-'])(\p{L})/gu, (_, a, b) => a + b.toUpperCase());
+    } catch (e) {
+      return s.charAt(0).toUpperCase() + s.slice(1);
+    }
+  }
+
+  function terminalTitle(name) {
+    const n = normalizeFirstName(name == null ? window.S && window.S.firstName : name);
+    if (!n) return "Terminal";
+    return n + "'s terminal";
+  }
+
+  function applyFirstName(name) {
+    const n = normalizeFirstName(name);
+    if (window.S) {
+      window.S.firstName = n;
+      if (typeof persist === "function") persist();
+    }
+    return n;
+  }
+
+  function applyFirstNameFromMe(me) {
+    const remote = normalizeFirstName(me && me.first_name);
+    const local = normalizeFirstName(window.S && window.S.firstName);
+    if (remote) return applyFirstName(remote);
+    if (local && isLoggedIn()) {
+      updateFirstName(local).catch(() => {});
+    }
+    return local;
+  }
+
+  async function updateFirstName(name) {
+    const n = normalizeFirstName(name);
+    if (!n) throw new Error("Enter a first name");
+    const data = await request("/api/v1/auth/me", {
+      method: "PATCH",
+      body: JSON.stringify({ first_name: n }),
+    });
+    applyFirstName((data && data.first_name) || n);
     return data;
   }
 
@@ -187,6 +241,7 @@ const RunnrSync = (() => {
     });
     setToken(data.access_token, data.email || creds.email);
     localStorage.setItem("runnr_remember_email", creds.email);
+    if (data.first_name) applyFirstName(data.first_name);
     return data;
   }
 
@@ -220,6 +275,7 @@ const RunnrSync = (() => {
     );
     setToken(data.access_token, data.email);
     if (data.email) localStorage.setItem("runnr_remember_email", data.email);
+    if (data.first_name) applyFirstName(data.first_name);
     return data;
   }
 
@@ -240,7 +296,7 @@ const RunnrSync = (() => {
   }
 
   /** Log in, or create account if this email is new (covers server DB resets). */
-  async function signIn(email, password) {
+  async function signIn(email, password, firstName) {
     ensureApiUrl();
     if (!storageOk()) {
       throw new Error("Safari blocked saving your login — turn off Private Browsing or allow site data for runnr.fyi");
@@ -250,7 +306,7 @@ const RunnrSync = (() => {
     } catch (e) {
       const msg = String(e.message || e);
       if (/invalid email or password/i.test(msg)) {
-        return await register(email, password);
+        return await register(email, password, firstName);
       }
       throw e;
     }
@@ -1257,6 +1313,7 @@ const RunnrSync = (() => {
     }
     try {
       const me = await request("/api/v1/auth/me");
+      applyFirstNameFromMe(me);
       billingCache = {
         pro: !!me.pro,
         plan: me.plan || "free",
@@ -1302,6 +1359,11 @@ const RunnrSync = (() => {
     register,
     login,
     signIn,
+    normalizeFirstName,
+    terminalTitle,
+    updateFirstName,
+    applyFirstName,
+    applyFirstNameFromMe,
     resetPassword,
     forgotPassword,
     verifyEmail,

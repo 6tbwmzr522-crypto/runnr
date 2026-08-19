@@ -1,5 +1,5 @@
 /**
- * Runnr Desk — Pro market canvas.
+ * Runnr Terminal — Pro market canvas.
  * Universe = watchlist equities. Quotes via /api/v1/desk (Alpaca IEX when connected).
  */
 const RunnrDesk = (() => {
@@ -23,6 +23,22 @@ const RunnrDesk = (() => {
       if (t) h.Authorization = "Bearer " + t;
     } catch (e) {}
     return h;
+  }
+  function esc(s) {
+    return String(s || "").replace(/[&<>"']/g, (c) => ({
+      "&": "&amp;",
+      "<": "&lt;",
+      ">": "&gt;",
+      '"': "&quot;",
+      "'": "&#39;",
+    }[c]));
+  }
+
+  function brandTitle() {
+    if (window.RunnrSync && typeof RunnrSync.terminalTitle === "function") {
+      return RunnrSync.terminalTitle();
+    }
+    return "Terminal";
   }
   function cls(pct) {
     return pct > 0.02 ? "desk-up" : pct < -0.02 ? "desk-dn" : "";
@@ -255,7 +271,7 @@ const RunnrDesk = (() => {
     el.innerHTML =
       `<div class="desk-cmd">` +
       `<button type="button" class="back" id="desk-back">← Runnr</button>` +
-      `<div class="brand">desk://runnr</div>` +
+      `<div class="brand">${esc(brandTitle())}</div>` +
       `<span class="${chip}">${chipText}</span>` +
       `<span class="src" title="${source}">${source || "—"}${goldNote}</span>` +
       `<span class="clock" id="desk-clock"></span>` +
@@ -264,7 +280,7 @@ const RunnrDesk = (() => {
       `<div class="desk-grid">` +
       `<section class="desk-panel">` +
       `<h4>Watchlist heatmap</h4>` +
-      `<div class="desk-heat">${heatBits || '<div class="desk-empty">Add equity setups on Watch to populate Desk.</div>'}</div>` +
+      `<div class="desk-heat">${heatBits || '<div class="desk-empty">Add equity setups on Watch to populate the Terminal.</div>'}</div>` +
       `</section>` +
       `<section class="desk-panel">` +
       `<h4>Focus · 60 sessions · ${focus || "—"} · candles</h4>` +
@@ -323,8 +339,8 @@ const RunnrDesk = (() => {
       if (el && !rows.length) {
         el.innerHTML =
           `<div class="desk-cmd"><button type="button" class="back" id="desk-back">← Runnr</button>` +
-          `<div class="brand">desk://runnr</div></div>` +
-          `<div class="desk-empty">Desk could not reach the quote API. Check sign-in / network, then retry.</div>`;
+          `<div class="brand">${esc(brandTitle())}</div></div>` +
+          `<div class="desk-empty">Terminal could not reach the quote API. Check sign-in / network, then retry.</div>`;
         const back = document.getElementById("desk-back");
         if (back) back.onclick = () => window.switchPage("watchlist");
       }
@@ -353,7 +369,7 @@ const RunnrDesk = (() => {
 
   async function open() {
     if (typeof window.requirePro === "function") {
-      const ok = await window.requirePro("Desk", { skipEmail: true });
+      const ok = await window.requirePro("Terminal", { skipEmail: true });
       if (!ok) return;
     }
     window.switchPage("desk");

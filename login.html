@@ -93,11 +93,14 @@
 <div class="wrap">
   <a class="back" href="/">← Back to Runnr</a>
   <h1>runnr</h1>
-  <p class="sub">Simple sign-in for iPhone. Use the same email and password as on your Mac.</p>
+  <p class="sub">Simple sign-in for iPhone. First name is for your terminal — e.g. John’s terminal.</p>
 
   <div class="card">
     <label for="email">Email</label>
     <input id="email" type="email" inputmode="email" autocomplete="username" autocapitalize="none" autocorrect="off" placeholder="you@example.com">
+
+    <label for="first-name">First name</label>
+    <input id="first-name" type="text" autocomplete="given-name" autocapitalize="words" autocorrect="off" placeholder="John">
 
     <label for="password">Password</label>
     <input id="password" type="password" autocomplete="current-password" autocapitalize="none" autocorrect="off" placeholder="Your password">
@@ -121,6 +124,7 @@
 (function () {
   const API = "https://api.runnr.fyi";
   const emailEl = document.getElementById("email");
+  const nameEl = document.getElementById("first-name");
   const passEl = document.getElementById("password");
   const pass2El = document.getElementById("password2");
   const confirmLabel = document.getElementById("confirm-label");
@@ -201,9 +205,24 @@
     }
   }
 
+  function normalizeFirstName(raw) {
+    var s = String(raw || "").trim().replace(/\s+/g, " ");
+    try { s = s.replace(/[^\p{L}\p{M}\s\-']/gu, ""); } catch (e) {
+      s = s.replace(/[^A-Za-zÀ-ÿ\s\-']/g, "");
+    }
+    s = s.slice(0, 24).replace(/^[\s\-']+|[\s\-']+$/g, "");
+    if (!s) return "";
+    try {
+      return s.replace(/(^|[\s\-'])(\p{L})/gu, function (_, a, b) { return a + b.toUpperCase(); });
+    } catch (e) {
+      return s.charAt(0).toUpperCase() + s.slice(1);
+    }
+  }
+
   function readFields() {
     return {
       email: (emailEl.value || "").trim().toLowerCase(),
+      firstName: normalizeFirstName(nameEl && nameEl.value),
       password: (passEl.value || "").trim(),
       confirm: (pass2El.value || "").trim(),
     };
@@ -250,7 +269,9 @@
         const loginMsg = String(loginErr.message || loginErr);
         if (!/invalid email or password/i.test(loginMsg)) throw loginErr;
         setStatus("Creating your account…", "work");
-        data = await apiPost("/api/v1/auth/register", { email: fields.email, password: fields.password });
+        var body = { email: fields.email, password: fields.password };
+        if (fields.firstName) body.first_name = fields.firstName;
+        data = await apiPost("/api/v1/auth/register", body);
       }
       saveSession(data.access_token, data.email || fields.email);
       goHome();
@@ -291,7 +312,9 @@
         const resetMsg = String(resetErr.message || resetErr);
         if (!/no account/i.test(resetMsg)) throw resetErr;
         setStatus("No account yet — creating one with this password…", "work");
-        data = await apiPost("/api/v1/auth/register", { email: fields.email, password: fields.password });
+        var body = { email: fields.email, password: fields.password };
+        if (fields.firstName) body.first_name = fields.firstName;
+        data = await apiPost("/api/v1/auth/register", body);
       }
       saveSession(data.access_token, data.email || fields.email);
       goHome();

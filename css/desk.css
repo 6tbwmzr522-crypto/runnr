@@ -1,4 +1,4 @@
-/* Runnr Desk — full-width Pro canvas. Applied when #app has .desk-wide */
+/* Runnr Terminal — full-width Pro canvas. Applied when #app has .desk-wide */
 
 #app.desk-wide{
   max-width:none;
@@ -76,6 +76,11 @@
   font-weight:400;
   color:var(--gold-light);
   letter-spacing:0.02em;
+  min-width:0;
+  max-width:min(52vw, 280px);
+  overflow:hidden;
+  text-overflow:ellipsis;
+  white-space:nowrap;
 }
 .desk-cmd .clock{
   font-family:var(--font-num);

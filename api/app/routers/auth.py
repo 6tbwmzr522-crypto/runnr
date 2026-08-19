@@ -14,10 +14,26 @@ from app.models.auth import (
     RegisterRequest,
     ResetPasswordRequest,
     TokenResponse,
+    UpdateMeRequest,
     VerifyEmailRequest,
 )
+from app.names import normalize_first_name
 
 router = APIRouter(prefix="/auth", tags=["auth"])
+
+
+def _me_response(user: dict) -> MeResponse:
+    return MeResponse(
+        id=user["id"],
+        email=user["email"],
+        pro=bool(user.get("pro")),
+        plan=user.get("plan") or "free",
+        subscription_status=user.get("subscription_status") or "free",
+        billing_enabled=bool(user.get("billing_enabled")),
+        email_verified=bool(user.get("email_verified", True)),
+        email_configured=email_configured(),
+        first_name=user.get("first_name") or None,
+    )
 
 
 def _app_url() -> str:
@@ -43,25 +59,36 @@ def _issue_verification(user_id: int, email: str) -> tuple[bool, str | None]:
 @router.post("/register", response_model=TokenResponse)
 def register(body: RegisterRequest):
     email = body.email.lower()
+    first_name = normalize_first_name(body.first_name)
     with get_db() as conn:
         existing = conn.execute(
-            "SELECT id, email, password_hash, email_verified FROM users WHERE email = ?",
+            "SELECT id, email, password_hash, email_verified, first_name FROM users WHERE email = ?",
             (email,),
         ).fetchone()
         if existing:
             if verify_password(body.password, existing["password_hash"]):
+                stored_name = None
+                if "first_name" in existing.keys():
+                    stored_name = existing["first_name"] or None
+                if first_name and not stored_name:
+                    conn.execute(
+                        "UPDATE users SET first_name = ? WHERE id = ?",
+                        (first_name, existing["id"]),
+                    )
+                    stored_name = first_name
                 token = create_access_token(existing["id"], existing["email"])
                 verified = bool(existing["email_verified"]) if "email_verified" in existing.keys() else True
                 return TokenResponse(
                     access_token=token,
                     email=existing["email"],
                     email_verified=verified,
+                    first_name=stored_name,
                 )
             raise HTTPException(status_code=400, detail="Wrong password for this email")
         verified = 0 if email_configured() else 1
         cur = conn.execute(
-            "INSERT INTO users (email, password_hash, email_verified) VALUES (?, ?, ?)",
-            (email, hash_password(body.password), verified),
+            "INSERT INTO users (email, password_hash, email_verified, first_name) VALUES (?, ?, ?, ?)",
+            (email, hash_password(body.password), verified, first_name),
         )
         user_id = cur.lastrowid
 
@@ -77,21 +104,24 @@ def register(body: RegisterRequest):
         email_verified=verified_flag,
         verification_sent=sent,
         verify_url=verify_url,
+        first_name=first_name,
     )
 
 
 @router.get("/me", response_model=MeResponse)
 def me(user: dict = Depends(get_current_user)):
-    return MeResponse(
-        id=user["id"],
-        email=user["email"],
-        pro=bool(user.get("pro")),
-        plan=user.get("plan") or "free",
-        subscription_status=user.get("subscription_status") or "free",
-        billing_enabled=bool(user.get("billing_enabled")),
-        email_verified=bool(user.get("email_verified", True)),
-        email_configured=email_configured(),
-    )
+    return _me_response(user)
+
+
+@router.patch("/me", response_model=MeResponse)
+def update_me(body: UpdateMeRequest, user: dict = Depends(get_current_user)):
+    first_name = normalize_first_name(body.first_name)
+    if not first_name:
+        raise HTTPException(status_code=400, detail="Enter a first name")
+    with get_db() as conn:
+        conn.execute("UPDATE users SET first_name = ? WHERE id = ?", (first_name, user["id"]))
+    user["first_name"] = first_name
+    return _me_response(user)
 
 
 @router.post("/verify-email", response_model=MessageResponse)
@@ -145,7 +175,7 @@ def reset_password(body: ResetPasswordRequest):
     if not user_id:
         raise HTTPException(status_code=400, detail="Invalid or expired reset link — request a new one")
     with get_db() as conn:
-        row = conn.execute("SELECT id, email, email_verified FROM users WHERE id = ?", (user_id,)).fetchone()
+        row = conn.execute("SELECT id, email, email_verified, first_name FROM users WHERE id = ?", (user_id,)).fetchone()
         if not row:
             raise HTTPException(status_code=404, detail="User not found")
         conn.execute(
@@ -153,10 +183,12 @@ def reset_password(body: ResetPasswordRequest):
             (hash_password(body.new_password), user_id),
         )
     token = create_access_token(row["id"], row["email"])
+    stored_name = row["first_name"] if "first_name" in row.keys() else None
     return TokenResponse(
         access_token=token,
         email=row["email"],
         email_verified=True,
+        first_name=stored_name or None,
     )
 
 
@@ -164,15 +196,17 @@ def reset_password(body: ResetPasswordRequest):
 def login(body: LoginRequest):
     with get_db() as conn:
         row = conn.execute(
-            "SELECT id, email, password_hash, email_verified FROM users WHERE email = ?",
+            "SELECT id, email, password_hash, email_verified, first_name FROM users WHERE email = ?",
             (body.email.lower(),),
         ).fetchone()
     if not row or not verify_password(body.password, row["password_hash"]):
         raise HTTPException(status_code=401, detail="Invalid email or password")
     verified = bool(row["email_verified"]) if "email_verified" in row.keys() else True
     token = create_access_token(row["id"], row["email"])
+    stored_name = row["first_name"] if row and "first_name" in row.keys() else None
     return TokenResponse(
         access_token=token,
         email=row["email"],
         email_verified=verified,
+        first_name=stored_name or None,
     )

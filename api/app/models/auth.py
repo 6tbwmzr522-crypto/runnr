@@ -4,6 +4,7 @@ from pydantic import BaseModel, EmailStr, Field
 class RegisterRequest(BaseModel):
     email: EmailStr
     password: str = Field(min_length=8, max_length=128)
+    first_name: str | None = Field(default=None, max_length=40)
 
 
 class LoginRequest(BaseModel):
@@ -18,6 +19,7 @@ class TokenResponse(BaseModel):
     email_verified: bool = True
     verification_sent: bool = False
     verify_url: str | None = None  # only when email provider not configured
+    first_name: str | None = None
 
 
 class MeResponse(BaseModel):
@@ -29,6 +31,11 @@ class MeResponse(BaseModel):
     billing_enabled: bool = False
     email_verified: bool = True
     email_configured: bool = False
+    first_name: str | None = None
+
+
+class UpdateMeRequest(BaseModel):
+    first_name: str = Field(min_length=1, max_length=40)
 
 
 class ForgotPasswordRequest(BaseModel):
