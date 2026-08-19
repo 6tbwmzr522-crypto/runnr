@@ -257,6 +257,14 @@ const RunnrGrowth = {
   finish(state) {
     const d = this.draft;
     const symbols = d.symbols && d.symbols.length > 1 ? d.symbols : [d.instr || (d.symbols && d.symbols[0]) || "—"];
+    if (typeof canAddJournalTrade === "function" && !canAddJournalTrade(symbols.length)) {
+      if (typeof openUpgrade === "function") {
+        openUpgrade(`Free plan · ${window.FREE_TRADE_LIMIT || 10} journal trades`);
+      } else {
+        alert("Free plan journal limit reached. Upgrade for unlimited trades.");
+      }
+      return;
+    }
     const sign = d.dir === "long" ? 1 : -1;
     const dateStr = new Date().toLocaleDateString("en-GB", { month: "short", day: "numeric" });
     symbols.forEach((instr, i) => {

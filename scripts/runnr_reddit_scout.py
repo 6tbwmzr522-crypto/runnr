@@ -105,7 +105,7 @@ MIN_SCORE = 2
 MIN_COMMENTS = 1
 MAX_AGE_HOURS = 48
 
-# Landing for YOUR manual replies — /report not shipped yet
+# Landing for YOUR manual replies
 RUNNR_URL = os.environ.get("RUNNR_LANDING_URL", "https://runnr.fyi/report/")
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -117,7 +117,7 @@ DEFAULT_DIGEST_DIR = ROOT / "digests"
 DRAFT_REPLIES = [
     "I feel this. I stopped tracking P&L alone and started scoring stop/size discipline on every trade — that exposed the real leaks. If useful, happy to share how I score them.",
     "The strategy usually isn’t the killer — execution is. A simple discipline score (stop kept? size ok? plan followed?) changed how I review weeks. Curious if you journal by rules or only by P&L?",
-    "Been there on revenge trading. Logging ‘broke my own rule’ vs ‘market got me’ separately was the unlock. Free tool at runnr.fyi if you want a structured log — no pressure.",
+    "Been there on revenge trading. Logging ‘broke my own rule’ vs ‘market got me’ separately was the unlock. Free discipline report: runnr.fyi/report — no signup to generate it.",
 ]
 
 

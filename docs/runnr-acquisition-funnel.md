@@ -1,14 +1,14 @@
 # Runnr acquisition funnel
 
-**Promise:** Find wounded retail traders → show undisciplined cost → Free aha → Whop (€19 / €25).  
+**Promise:** Find wounded retail traders → show undisciplined cost → Free aha → Stripe (€19/month).  
 **Not:** Another signal robocop.
 
 ## Funnel
 
-1. **Awareness** — Reddit/Discord/TikTok/Whop/forums where people vent blown accounts & no stops  
+1. **Awareness** — Reddit/Discord/TikTok/forums where people vent blown accounts & no stops  
 2. **Hook** — “See what skipped stops/sizing cost you” in &lt;5 min → [`/report/`](../report/) discipline report  
 3. **Activation** — Free: size one trade, log 3 with discipline flags, one Coach insight  
-4. **Convert** — Whop Basic €19 / Pro €25 when they want Coach depth or sync  
+4. **Convert** — Stripe €19/month (or €190/year) when they hit the 10-trade journal cap or want Coach, sync, CSV  
 5. **Retain** — Weekly Coach + shareable discipline score  
 
 ## Hard no
@@ -21,7 +21,7 @@ No auto-DM bots, bought lists, or fake signal bait. Human-reviewed outreach only
 
 | Window | Ship |
 |--------|------|
-| 1–30 | Discipline-cost landing + CSV paste; Whop listing rewrite; 2 content posts/week |
+| 1–30 | Discipline-cost landing + CSV paste; Stripe checkout live; 2 content posts/week |
 | 31–60 | Reddit/Discord playbook; short-form templates; upgrade after ~10 trades |
 | 61–90 | Share card; optional moderated lead digests; kill bad CAC channels |
 
@@ -34,4 +34,4 @@ No auto-DM bots, bought lists, or fake signal bait. Human-reviewed outreach only
 | Free → paid | 15–25% |
 | Paid → active M3 | >70% |
 
-Whop: https://whop.com/runnr
+Pay: Stripe in-app · €19/month or €190/year · https://runnr.fyi/report/
