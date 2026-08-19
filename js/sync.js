@@ -1094,7 +1094,6 @@ const RunnrSync = (() => {
     }
   }
 
-  const DEMO_WATCH_SYMS = new Set(["RACE", "ASTS", "EURUSD"]);
   let pushTimer = null;
   let _cloudPushPaused = false;
 

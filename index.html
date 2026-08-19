@@ -5,7 +5,7 @@
 <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
 <script>
 (function () {
-  var V = "68";
+  var V = "69";
   try {
     if (localStorage.getItem("runnr_app_v") !== V) {
       localStorage.setItem("runnr_app_v", V);
@@ -1820,7 +1820,7 @@ body.light #equity-canvas{filter:invert(0)}
 <script src="js/coach.js?v=25"></script>
 <script src="js/onboarding.js?v=22"></script>
 <script src="js/csv-presets.js?v=3"></script>
-<script src="js/sync.js?v=48"></script>
+<script src="js/sync.js?v=49"></script>
 <script src="js/desk.js?v=5"></script>
 <script>
 // ── STATE ──────────────────────────────────────────────────────────────────
@@ -2189,10 +2189,10 @@ async function refreshBillingUI() {
   const upPro = document.getElementById('upgrade-pro-panel');
   const upProLine = document.getElementById('upgrade-pro-line');
   try {
-    await RunnrSync.refreshBilling?.();
+    await window.RunnrSync?.refreshBilling?.();
   } catch (e) {}
-  const b = RunnrSync.billing?.() || { pro: false, plan: 'free', status: 'free', enabled: false };
-  const isPro = !!RunnrSync.isLoggedIn() && (typeof RunnrSync.isPro === 'function' ? !!RunnrSync.isPro() : !!b.pro);
+  const b = window.RunnrSync?.billing?.() || { pro: false, plan: 'free', status: 'free', enabled: false };
+  const isPro = !!window.RunnrSync?.isLoggedIn?.() && (typeof RunnrSync.isPro === 'function' ? !!RunnrSync.isPro() : !!b.pro);
   updateProBadge(isPro);
 
   if (line) {
@@ -5227,21 +5227,21 @@ function hideSessionBanner() {
 function renderHeaderSyncPill() {
   const el = document.getElementById('header-sync-pill');
   if (!el) return;
-  if (RunnrSync.isLoggedIn()) {
+  if (window.RunnrSync?.isLoggedIn?.()) {
     const who = (RunnrSync.sessionEmail() || 'Signed in').split('@')[0];
     el.textContent = '✓';
     el.classList.add('on');
     el.title = who + ' — tap for Sync';
     hideSessionBanner();
   } else {
-    el.textContent = t('common.signIn');
+    el.textContent = (typeof t === 'function' ? t('common.signIn') : 'Sign in');
     el.classList.remove('on');
-    el.title = t('common.signInTitle');
+    el.title = (typeof t === 'function' ? t('common.signInTitle') : 'Sign in');
   }
 }
 
 function headerSyncTap() {
-  if (RunnrSync.isLoggedIn()) switchPage('sync');
+  if (window.RunnrSync?.isLoggedIn?.()) switchPage('sync');
   else window.location.href = 'login.html';
 }
 
@@ -5303,7 +5303,7 @@ function syncAuthUsesInline() {
 }
 
 function prefillSyncAuthEmail() {
-  const remembered = localStorage.getItem('runnr_remember_email') || RunnrSync.sessionEmail() || '';
+  const remembered = localStorage.getItem('runnr_remember_email') || (window.RunnrSync?.sessionEmail?.() || '');
   ['sync-email', 'sync-email-inline', 'sync-reset-email'].forEach((id) => {
     const el = document.getElementById(id);
     if (el && remembered) el.value = remembered;
@@ -5315,7 +5315,7 @@ function updateSyncAuthVisibility() {
   const signin = document.getElementById('sync-inline-auth');
   const reset = document.getElementById('sync-reset-auth');
   const mobile = document.getElementById('sync-mobile-login');
-  const loggedOut = !RunnrSync.isLoggedIn();
+  const loggedOut = !window.RunnrSync?.isLoggedIn?.();
   if (gate) gate.style.display = loggedOut ? 'block' : 'none';
   if (signin) signin.style.display = 'none';
   if (reset) reset.style.display = 'none';
@@ -6144,7 +6144,7 @@ async function runBrokerSync() {
 function bootRunnrSync() {
   renderHeaderSyncPill();
   renderSyncAuthBanner();
-  if (!RunnrSync.isLoggedIn()) {
+  if (!window.RunnrSync || !RunnrSync.isLoggedIn()) {
     renderSyncPage();
     renderHomeBrokerPreview();
     return;
@@ -6190,7 +6190,7 @@ function bootRunnrSync() {
     });
 }
 
-bootRunnrSync();
+try { bootRunnrSync(); } catch (e) { console.warn('bootRunnrSync failed', e); }
 
 // ── COACH ─────────────────────────────────────────────────────────────────
 const coachAnswers = {}; // legacy — CoachEngine used instead
@@ -6656,6 +6656,9 @@ function initSyncAuthForm() {
 }
 
 function initApp() {
+  if (!document.querySelector('.page.active')) {
+    document.getElementById('page-home')?.classList.add('active');
+  }
   try { if (window.RunnrI18n) RunnrI18n.init(S.lang || 'en', S); } catch (e) {}
   try { normalizeWatchlist(); } catch (e) {}
   try { updateHomeStats(); } catch (e) {}
@@ -6663,8 +6666,8 @@ function initApp() {
   try { initSyncAuthForm(); } catch (e) {}
   try { initCsvDropZone(); } catch (e) {}
   registerServiceWorker();
-  renderHeaderSyncPill();
-  refreshBillingUI();
+  try { renderHeaderSyncPill(); } catch (e) {}
+  try { refreshBillingUI(); } catch (e) {}
   const params = new URLSearchParams(location.search);
   if (params.get('verify')) {
     const token = params.get('verify');
@@ -6689,7 +6692,7 @@ function initApp() {
   if (/[?&]billing=success/.test(location.search)) {
     history.replaceState(null, '', location.pathname + location.hash);
     showToast('Runnr', 'Subscription active — welcome aboard');
-    if (RunnrSync.isLoggedIn()) {
+    if (window.RunnrSync?.isLoggedIn?.()) {
       RunnrSync.refreshBilling?.().then(() => refreshBillingUI()).catch(() => {});
     }
   } else if (/[?&]billing=cancel/.test(location.search)) {
@@ -6713,7 +6716,7 @@ function initApp() {
     setTimeout(() => {
       if (document.getElementById('modal-sync-auth')?.classList.contains('open')) return;
       if (window._runnrAuthPending) return;
-      if (!RunnrSync.isLoggedIn() && document.getElementById('page-sync')?.classList.contains('active')) return;
+      if (!window.RunnrSync?.isLoggedIn?.() && document.getElementById('page-sync')?.classList.contains('active')) return;
       if (RunnrGrowth.shouldShowOnboarding(S)) RunnrGrowth.open(S);
     }, 600);
   }
@@ -6721,7 +6724,7 @@ function initApp() {
     try { startFeedTimer(); } catch (e) {}
     fetchFearGreed().catch(() => {});
     refreshHomeMarkets().catch(() => {});
-    if (RunnrSync.isLoggedIn()) {
+    if (window.RunnrSync?.isLoggedIn?.()) {
       RunnrSync.refreshStatus().catch(() => {});
       refreshBillingUI();
     }
@@ -6729,9 +6732,9 @@ function initApp() {
 }
 
 if (document.readyState === 'loading') {
-  document.addEventListener('DOMContentLoaded', initApp);
+  document.addEventListener('DOMContentLoaded', () => { try { initApp(); } catch (e) { console.warn('initApp', e); } });
 } else {
-  initApp();
+  try { initApp(); } catch (e) { console.warn('initApp', e); }
 }
 
 window.addEventListener('resize', () => {
