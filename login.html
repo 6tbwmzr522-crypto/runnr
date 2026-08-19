@@ -96,6 +96,7 @@
   <p class="sub">Simple sign-in for iPhone. First name is for your terminal — e.g. John’s terminal.</p>
 
   <div class="card">
+        <form id="signin-form" action="javascript:void(0)" novalidate>
     <label for="email">Email</label>
     <input id="email" type="email" inputmode="email" autocomplete="username" autocapitalize="none" autocorrect="off" placeholder="you@example.com">
 
@@ -109,8 +110,9 @@
     <input id="password2" type="password" autocomplete="new-password" autocapitalize="none" autocorrect="off" placeholder="Type again" style="display:none">
 
     <div id="status"></div>
-    <button type="button" id="signin-btn">Sign in</button>
+    <button type="submit" id="signin-btn">Sign in</button>
     <button type="button" id="reset-btn">Forgot password? Set new one</button>
+        </form>
   </div>
 
   <p class="hint">By signing in you agree to our <a href="/terms/">Terms</a>, <a href="/privacy/">Privacy Policy</a>, and <a href="/refund/">Refund Policy</a>. Not in Private Browsing — Safari blocks saving your login there.</p>
@@ -227,17 +229,9 @@
   }
 
   function normalizeFirstName(raw) {
-    var s = String(raw || "").trim().replace(/\s+/g, " ");
-    try { s = s.replace(/[^\p{L}\p{M}\s\-']/gu, ""); } catch (e) {
-      s = s.replace(/[^A-Za-zÀ-ÿ\s\-']/g, "");
-    }
-    s = s.slice(0, 24).replace(/^[\s\-']+|[\s\-']+$/g, "");
+    var s = String(raw || "").trim().replace(/\s+/g, " ").slice(0, 24);
     if (!s) return "";
-    try {
-      return s.replace(/(^|[\s\-'])(\p{L})/gu, function (_, a, b) { return a + b.toUpperCase(); });
-    } catch (e) {
-      return s.charAt(0).toUpperCase() + s.slice(1);
-    }
+    return s.replace(/(^|[\s\-'])([A-Za-zÀ-ÿ])/, function (_, a, b) { return a + b.toUpperCase(); });
   }
 
   function readFields() {
@@ -257,7 +251,8 @@
     return "";
   }
 
-  signinBtn.addEventListener("click", function () {
+  document.getElementById("signin-form").addEventListener("submit", function (e) {
+    e.preventDefault();
     if (resetMode) return doReset();
     return doSignIn();
   });

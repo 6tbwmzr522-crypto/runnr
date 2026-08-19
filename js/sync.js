@@ -276,17 +276,11 @@ const RunnrSync = (() => {
   function normalizeFirstName(raw) {
     let s = String(raw || "").trim().replace(/\s+/g, " ");
     try {
-      s = s.replace(/[^\p{L}\p{M}\s\-']/gu, "");
-    } catch (e) {
-      s = s.replace(/[^A-Za-zÀ-ÿ\s\-']/g, "");
-    }
+      s = s.replace(/[^A-Za-zÀ-ÿĀ-ž\s\-']/g, "");
+    } catch (e) {}
     s = s.slice(0, 24).replace(/^[\s\-']+|[\s\-']+$/g, "");
     if (!s) return "";
-    try {
-      return s.replace(/(^|[\s\-'])(\p{L})/gu, (_, a, b) => a + b.toUpperCase());
-    } catch (e) {
-      return s.charAt(0).toUpperCase() + s.slice(1);
-    }
+    return s.replace(/(^|[\s\-'])([A-Za-zÀ-ÿ])/, (_, a, b) => a + b.toUpperCase());
   }
 
   function terminalTitle(name) {

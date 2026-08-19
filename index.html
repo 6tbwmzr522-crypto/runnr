@@ -5,7 +5,7 @@
 <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
 <script>
 (function () {
-  var V = "69";
+  var V = "70";
   try {
     if (localStorage.getItem("runnr_app_v") !== V) {
       localStorage.setItem("runnr_app_v", V);
@@ -609,7 +609,7 @@ body.light #equity-canvas{filter:invert(0)}
 #coach-institutional-card.inst-locked .stat-delta{color:var(--text3)!important}
 #traffic-banner{display:none;align-items:center;justify-content:space-between;gap:10px;margin:0 16px 10px;padding:10px 12px;background:rgba(255,181,71,0.1);border:1px solid rgba(255,181,71,0.35);border-radius:var(--r-sm);font-size:12px;color:var(--text2)}
 #traffic-banner .traffic-banner-text{flex:1;line-height:1.4}
-#header-sync-pill{font-size:11px;padding:4px 8px;border-radius:999px;border:1px solid var(--border);color:var(--text3);cursor:pointer;white-space:nowrap;touch-action:manipulation;-webkit-tap-highlight-color:transparent;user-select:none;flex-shrink:0}
+#header-sync-pill{font-size:11px;padding:4px 8px;border-radius:999px;border:1px solid var(--border);color:var(--text3);cursor:pointer;white-space:nowrap;touch-action:manipulation;-webkit-tap-highlight-color:transparent;user-select:none;flex-shrink:0;text-decoration:none;display:inline-block}
 #header-sync-pill.on{border-color:var(--accent);color:var(--accent);background:var(--accent-dim);min-width:28px;padding:4px 7px;text-align:center}
 #sync-auth-error{font-size:12px;color:var(--red);min-height:16px;margin:8px 0 4px}
 .sync-auth-error{font-size:12px;color:var(--red);min-height:16px;margin:8px 0 4px}
@@ -643,7 +643,7 @@ body.light #equity-canvas{filter:invert(0)}
     </div>
     <div class="header-tools">
       <button type="button" class="header-desk-btn" onclick="RunnrDesk.open()" data-i18n="header.terminal">Terminal</button>
-      <span id="header-sync-pill" onclick="headerSyncTap()" data-i18n-title="common.signInTitle">Sign in</span>
+      <a id="header-sync-pill" href="/login.html" onclick="return headerSyncTap(event)" data-i18n-title="common.signInTitle">Sign in</a>
       <button type="button" class="header-bal-settings" onclick="openSettingsModal()" data-i18n-title="settings.title" aria-label="Settings">
         <span id="acct-display">€10,000</span>
         <svg class="header-gear" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>
@@ -1994,8 +1994,8 @@ function persist() {
   }
   try { localStorage.setItem('runnr_state', JSON.stringify(S)); } catch(e) {}
   try {
-    const who = (RunnrSync.sessionEmail() || '').trim().toLowerCase();
-    if (who && RunnrSync.isLoggedIn()) localStorage.setItem('runnr_state:' + who, JSON.stringify(S));
+    const who = (RunnrSync?.sessionEmail?.() || '').trim().toLowerCase();
+    if (who && RunnrSync?.isLoggedIn?.()) localStorage.setItem('runnr_state:' + who, JSON.stringify(S));
   } catch (e) {}
   if (RunnrSync?.isLoggedIn?.() && RunnrSync?.hasMeaningfulState?.(S)) {
     RunnrSync.pushProfileStateDebounced?.();
@@ -5232,17 +5232,23 @@ function renderHeaderSyncPill() {
     el.textContent = '✓';
     el.classList.add('on');
     el.title = who + ' — tap for Sync';
+    if (el.tagName === 'A') el.setAttribute('href', '#');
     hideSessionBanner();
   } else {
     el.textContent = (typeof t === 'function' ? t('common.signIn') : 'Sign in');
     el.classList.remove('on');
     el.title = (typeof t === 'function' ? t('common.signInTitle') : 'Sign in');
+    if (el.tagName === 'A') el.setAttribute('href', '/login.html');
   }
 }
 
-function headerSyncTap() {
-  if (window.RunnrSync?.isLoggedIn?.()) switchPage('sync');
-  else window.location.href = 'login.html';
+function headerSyncTap(e) {
+  if (window.RunnrSync?.isLoggedIn?.()) {
+    if (e && typeof e.preventDefault === 'function') e.preventDefault();
+    switchPage('sync');
+    return false;
+  }
+  return true;
 }
 
 function signOutRunnr() {
@@ -5447,11 +5453,11 @@ function restoreAlpacaInBackground() {
 }
 
 function openSyncAuthModal() {
-  if (RunnrSync.isLoggedIn()) {
+  if (window.RunnrSync?.isLoggedIn?.()) {
     switchPage('sync');
     return;
   }
-  window.location.href = 'login.html';
+  window.location.href = '/login.html';
 }
 
 function showSyncSignInStatus(text, kind) {
@@ -6699,7 +6705,7 @@ function initApp() {
     history.replaceState(null, '', location.pathname + location.hash);
     showToast('Runnr', 'Checkout cancelled');
   }
-  if (/[?&]signedin=1/.test(location.search) && RunnrSync.isLoggedIn()) {
+  if (/[?&]signedin=1/.test(location.search) && window.RunnrSync?.isLoggedIn?.()) {
     history.replaceState(null, '', location.pathname + location.hash);
     renderHeaderSyncPill();
     switchPage('sync');
