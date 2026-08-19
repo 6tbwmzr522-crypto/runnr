@@ -18,17 +18,21 @@ const RunnrDesk = (() => {
   const TFS = ["15m", "1H", "1D", "1W"];
   const MAS = [9, 20, 50, 200];
   const MA_COLORS = { 9: "#7eb8e8", 20: "#C9A96E", 50: "rgba(245,242,236,0.45)", 200: "#E8C97A" };
+  const DEFAULT_PREFS = { tf: "1D", ma: { 9: false, 20: true, 50: true, 200: false } };
 
   function loadPrefs() {
     try {
       const p = JSON.parse(localStorage.getItem(PREF_KEY) || "{}");
       return {
-        tf: TFS.includes(p.tf) ? p.tf : "1D",
-        ma: Object.assign({ 9: false, 20: true, 50: true, 200: false }, p.ma || {}),
+        tf: TFS.includes(p.tf) ? p.tf : DEFAULT_PREFS.tf,
+        ma: Object.assign({}, DEFAULT_PREFS.ma, p.ma || {}),
       };
     } catch (e) {
-      return { tf: "1D", ma: { 9: false, 20: true, 50: true, 200: false } };
+      return { tf: DEFAULT_PREFS.tf, ma: Object.assign({}, DEFAULT_PREFS.ma) };
     }
+  }
+  function isStandard(p) {
+    return p.tf === "1D" && !!p.ma[20] && !!p.ma[50] && !p.ma[9] && !p.ma[200];
   }
   function savePrefs(p) {
     try { localStorage.setItem(PREF_KEY, JSON.stringify(p)); } catch (e) {}
@@ -120,6 +124,32 @@ const RunnrDesk = (() => {
     return uniq;
   }
 
+  function levelsFor(sym) {
+    const want = String(sym || "").toUpperCase();
+    if (!want) return [];
+    const w = ((window.S && window.S.watchlist) || []).find((x) => {
+      if (!x || isFactoryDemoWatch(x)) return false;
+      return String(x.quoteSym || x.sym || "").toUpperCase() === want;
+    });
+    if (!w) return [];
+    const out = [];
+    const n = (v) => {
+      const x = Number(v);
+      return x && isFinite(x) ? x : 0;
+    };
+    if (n(w.entry)) out.push({ k: "entry", label: "Entry", v: n(w.entry), color: "#C9A96E" });
+    if (n(w.stop)) out.push({ k: "stop", label: "Stop", v: n(w.stop), color: "#e85d6f" });
+    if (n(w.target)) out.push({ k: "target", label: "Target", v: n(w.target), color: "#00e5a0" });
+    return out;
+  }
+
+  function levelMeta(levels, last) {
+    if (!last || !levels.length) return "";
+    return levels
+      .map((lv) => lv.k + " " + fmtPct(((lv.v - last) / last) * 100))
+      .join(" · ");
+  }
+
   async function getJson(path) {
     const res = await fetch(apiBase() + path, { headers: authHeaders(), cache: "no-store" });
     if (!res.ok) throw new Error("HTTP " + res.status);
@@ -173,6 +203,7 @@ const RunnrDesk = (() => {
     const slot = plotW / n;
     const bodyW = Math.max(2, Math.min(7, slot * 0.62));
     const maLines = MAS.filter((n) => prefs.ma[n]).map((n) => ({ n, arr: sma(series, n) }));
+    const lvls = levelsFor(focus);
 
     let lo = Infinity;
     let hi = -Infinity;
@@ -187,6 +218,10 @@ const RunnrDesk = (() => {
         if (m.arr[i] != null) { lo = Math.min(lo, m.arr[i]); hi = Math.max(hi, m.arr[i]); }
       });
       vmax = Math.max(vmax, b.v || 0);
+    });
+    lvls.forEach((lv) => {
+      lo = Math.min(lo, lv.v);
+      hi = Math.max(hi, lv.v);
     });
     const padPx = (hi - lo) * 0.08 || 1;
     lo -= padPx;
@@ -252,6 +287,24 @@ const RunnrDesk = (() => {
     }
     maLines.forEach((m) => strokeMa(m.arr, MA_COLORS[m.n] || "#C9A96E", m.n === 20 ? 1.5 : 1.2));
 
+    lvls.forEach((lv) => {
+      const y = yPrice(lv.v);
+      if (y < padT - 4 || y > padT + priceH + 4) return;
+      ctx.strokeStyle = lv.color;
+      ctx.lineWidth = 1;
+      ctx.setLineDash([5, 3]);
+      ctx.beginPath();
+      ctx.moveTo(padL, y);
+      ctx.lineTo(w - padR, y);
+      ctx.stroke();
+      ctx.setLineDash([]);
+      ctx.fillStyle = lv.color;
+      ctx.font = "9px Jost, sans-serif";
+      ctx.textAlign = "left";
+      ctx.textBaseline = "bottom";
+      ctx.fillText(lv.label + " " + fmt(lv.v, lv.v >= 100 ? 1 : 2), padL + 2, y - 1);
+    });
+
     const volTop = padT + priceH + gap;
     series.forEach((b, i) => {
       const o = b.o != null ? b.o : b.c;
@@ -276,12 +329,14 @@ const RunnrDesk = (() => {
   function render() {
     const el = root();
     if (!el) return;
-    const eqRows = rows.filter((r) => r.kind !== "METAL");
+    const watchSet = new Set(universe());
+    const eqRows = rows.filter((r) => r.kind !== "METAL" && watchSet.has(r.sym));
     const metal = rows.find((r) => r.kind === "METAL");
-    const focusRow = eqRows.find((r) => r.sym === focus) || eqRows[0];
-    if (focusRow && !focus) focus = focusRow.sym;
+    const tapeRows = rows.filter((r) => r.kind === "METAL" || watchSet.has(r.sym));
+    const focusRow = rows.find((r) => r.sym === focus) || eqRows[0];
+    if (!focus && focusRow) focus = focusRow.sym;
 
-    const tapeBits = rows
+    const tapeBits = tapeRows
       .map((r) => {
         const on = r.sym === focus ? " on" : "";
         return (
@@ -328,11 +383,11 @@ const RunnrDesk = (() => {
           const w = Math.min(50, (Math.abs(pct) / maxAbs) * 50);
           const left = pct >= 0 ? 50 : 50 - w;
           return (
-            `<div class="desk-sbar">` +
+            `<button type="button" class="desk-sbar${s.sym === focus ? " on" : ""}" data-sym="${esc(s.sym)}">` +
             `<span class="k">${esc(s.name)} <em>${esc(s.sym)}</em></span>` +
             `<div class="track"><i class="zero"></i><i class="fill ${pct >= 0 ? "up" : "dn"}" style="left:${left}%;width:${w}%"></i></div>` +
             `<span class="p ${cls(pct)}">${fmtPct(pct)}</span>` +
-            `</div>`
+            `</button>`
           );
         }).join("")
       : (sectorsLoaded ? '<div class="desk-empty">Sector tape unavailable right now.</div>' : '<div class="desk-empty">Loading sectors…</div>');
@@ -343,9 +398,16 @@ const RunnrDesk = (() => {
     const maBits = MAS.map((n) =>
       `<button type="button" class="desk-chip${prefs.ma[n] ? " on" : ""}" data-desk-ma="${n}">MA${n}</button>`
     ).join("");
-    const tfLabel = prefs.tf === "1D" ? "60 sessions" : prefs.tf === "1W" ? "60 weeks" : "60 bars";
+    const stdBit =
+      `<button type="button" class="desk-chip desk-chip-std${isStandard(prefs) ? " on" : ""}" data-desk-std="1" title="1D · MA20 · MA50">Runnr</button>`;
     const lastBar = bars[bars.length - 1];
     const firstBar = bars[0];
+    const sectorHit = sectorRows.find((s) => s.sym === focus);
+    const focusLabel = sectorHit ? focus + " · " + sectorHit.name : (focus || "—");
+    const lvls = levelsFor(focus);
+    const lastPx = lastBar ? lastBar.c : (focusRow && focusRow.last);
+    const lvNote = levelMeta(lvls, lastPx);
+    const tfLabel = prefs.tf === "1D" ? "60 sessions" : prefs.tf === "1W" ? "60 weeks" : "60 bars";
     const chip = alpaca ? "chip live" : "chip";
     const chipText = alpaca ? "ALPACA IEX" : "LIVE";
     const goldNote = metal ? ` · XAU ${fmt(metal.last, 2)} spot` : "";
@@ -368,19 +430,20 @@ const RunnrDesk = (() => {
       `<h4>Sectors · day</h4>` +
       `<div class="desk-sectors">${sectorBits}</div>` +
       `</section>` +
-      `<section class="desk-panel">` +
+      `<section class="desk-panel desk-panel-heat">` +
       `<h4>Watchlist heatmap</h4>` +
       `<div class="desk-heat">${heatBits || '<div class="desk-empty">Add equity setups on Watch to populate the Terminal.</div>'}</div>` +
       `</section>` +
       `<section class="desk-panel desk-panel-chart">` +
-      `<h4>Focus · ${tfLabel} · ${focus || "—"} · candles</h4>` +
-      `<div class="desk-tools">${tfBits}<span class="desk-tools-gap"></span>${maBits}</div>` +
+      `<h4>Focus · ${tfLabel} · ${esc(focusLabel)} · candles</h4>` +
+      `<div class="desk-tools">${tfBits}<span class="desk-tools-gap"></span>${maBits}<span class="desk-tools-gap"></span>${stdBit}</div>` +
       `<div class="desk-chart-box"><canvas id="desk-chart" style="width:100%;height:100%"></canvas></div>` +
       `<div class="desk-chart-meta">${
         lastBar
           ? `${bars.length} ${prefs.tf} ${firstBar.d} → ${lastBar.d} · O ${fmt(lastBar.o ?? lastBar.c, 2)} H ${fmt(lastBar.h ?? lastBar.c, 2)} L ${fmt(lastBar.l ?? lastBar.c, 2)} C ${fmt(lastBar.c, 2)}` +
             (focusRow ? ` · ${fmtPct(focusRow.chgPct)} today` : "") +
-            " · " + (MAS.filter((n) => prefs.ma[n]).map((n) => "MA" + n).join(" · ") || "no MA")
+            " · " + (MAS.filter((n) => prefs.ma[n]).map((n) => "MA" + n).join(" · ") || "no MA") +
+            (lvNote ? " · " + lvNote : "")
           : "Loading chart…"
       }</div>` +
       `</section>` +
@@ -393,7 +456,8 @@ const RunnrDesk = (() => {
         const sym = btn.getAttribute("data-sym");
         if (!sym || sym === "XAU") return;
         focus = sym;
-        loadBars(sym).then(render);
+        const needQuote = !rows.some((r) => r.sym === sym);
+        Promise.all([needQuote ? loadSnap() : Promise.resolve(), loadBars(sym)]).then(render);
         render();
       });
     });
@@ -414,10 +478,23 @@ const RunnrDesk = (() => {
         el.querySelectorAll("[data-desk-ma]").forEach((b) => {
           b.classList.toggle("on", !!prefs.ma[Number(b.getAttribute("data-desk-ma"))]);
         });
+        const std = el.querySelector("[data-desk-std]");
+        if (std) std.classList.toggle("on", isStandard(prefs));
         const c = document.getElementById("desk-chart");
         if (c) drawChart(c, bars);
       });
     });
+    const stdBtn = el.querySelector("[data-desk-std]");
+    if (stdBtn) {
+      stdBtn.addEventListener("click", () => {
+        if (isStandard(prefs)) return;
+        const tfChanged = prefs.tf !== "1D";
+        prefs = { tf: "1D", ma: { 9: false, 20: true, 50: true, 200: false } };
+        savePrefs(prefs);
+        if (tfChanged) loadBars(focus).then(render);
+        else render();
+      });
+    }
     tickClock();
     tickSessions();
     requestAnimationFrame(() => {
@@ -448,8 +525,14 @@ const RunnrDesk = (() => {
   }
 
   async function loadSnap() {
-    const syms = universe();
-    if (!focus || !syms.includes(focus)) focus = syms[0];
+    const u = universe();
+    const syms = u.slice();
+    if (focus && isEquity(focus) && !syms.includes(focus)) syms.push(focus);
+    if (!focus && u.length) focus = u[0];
+    if (!syms.length) {
+      rows = [];
+      return;
+    }
     const j = await getJson("/api/v1/desk/snapshot?symbols=" + encodeURIComponent(syms.join(",")));
     rows = j.rows || [];
     source = j.source || "";
