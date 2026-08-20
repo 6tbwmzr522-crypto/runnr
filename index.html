@@ -5,7 +5,7 @@
 <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
 <script>
 (function () {
-  var V = "77";
+  var V = "78";
   try {
     if (localStorage.getItem("runnr_app_v") !== V) {
       localStorage.setItem("runnr_app_v", V);
@@ -704,6 +704,11 @@ body.light #equity-canvas{filter:invert(0)}
   #page-home > .card,
   #page-home > .highlight-card,
   #page-home > .fg-card{margin-bottom:0}
+  #page-home > .fg-card,
+  #page-home > .home-commodities-card,
+  #page-home > .home-brokers-card{grid-column:1}
+  #page-home > .home-progress-card,
+  #page-home > .home-markets-card{grid-column:2}
   #page-home .stat-grid{grid-template-columns:repeat(4,minmax(0,1fr));margin-bottom:0}
   #page-sizer .tabs{max-width:560px}
   .modal-overlay{align-items:center}
@@ -872,8 +877,17 @@ body.light #equity-canvas{filter:invert(0)}
         </div>
       </div>
 
+      <!-- Commodities sit under sentiment on desktop to close the column gap -->
+      <div class="card home-commodities-card">
+        <div class="section-hdr">
+          <h3>Commodities</h3>
+          <button class="see-all" onclick="RunnrDesk.open()" data-i18n="header.terminal">Terminal</button>
+        </div>
+        <div class="market-grid" id="home-markets-commodities"></div>
+      </div>
+
       <!-- Progression -->
-      <div class="card">
+      <div class="card home-progress-card">
         <div class="card-title">Progress</div>
         <div style="display:flex;justify-content:space-between;font-size:12px;margin-bottom:8px">
           <span style="color:var(--text2)">🌱 Discipline Novice</span>
@@ -892,7 +906,7 @@ body.light #equity-canvas{filter:invert(0)}
       </div>
 
       <!-- Synced brokers -->
-      <div class="card">
+      <div class="card home-brokers-card">
         <div class="section-hdr">
           <h3>Connected Brokers</h3>
           <button class="see-all" onclick="switchPage('sync')" data-i18n="home.manage">Manage</button>
@@ -901,7 +915,7 @@ body.light #equity-canvas{filter:invert(0)}
       </div>
 
       <!-- Global markets -->
-      <div class="card">
+      <div class="card home-markets-card">
         <div class="section-hdr">
           <h3>Global Markets</h3>
           <div style="display:flex;align-items:center;gap:10px">
@@ -909,10 +923,7 @@ body.light #equity-canvas{filter:invert(0)}
             <button class="see-all" onclick="RunnrDesk.open()" data-i18n="header.terminal">Terminal</button>
           </div>
         </div>
-        <div style="font-size:10px;color:var(--text3);margin-bottom:8px;letter-spacing:0.08em;text-transform:uppercase">Indices</div>
         <div class="market-grid" id="home-markets-indices"></div>
-        <div style="font-size:10px;color:var(--text3);margin:12px 0 8px;letter-spacing:0.08em;text-transform:uppercase">Commodities</div>
-        <div class="market-grid" id="home-markets-commodities"></div>
       </div>
 
       <footer class="home-footer">
