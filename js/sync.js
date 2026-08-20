@@ -275,18 +275,15 @@ const RunnrSync = (() => {
     if (!window.S) return false;
     const e = (sessionEmail() || "").trim().toLowerCase();
     let merged = (window.S.watchlist || []).slice();
-    const before = merged.filter((w) => w && !isThinWatch(w)).length;
+    const beforeN = merged.length;
     eachOwnedSnapshot(e, (s) => {
       merged = mergeWatchlist(merged, s.watchlist);
     });
-    const rich = merged.filter((w) => w && !isThinWatch(w));
-    if (rich.length) merged = rich;
     window.S.watchlist = merged;
-    const after = (window.S.watchlist || []).filter((w) => w && !isThinWatch(w)).length;
-    if (after !== before) {
+    if (merged.length !== beforeN) {
       try { localStorage.setItem("runnr_state", JSON.stringify(window.S)); } catch (err) {}
     }
-    return after > before;
+    return merged.length > beforeN;
   }
 
   function enrichFromSnapshots() {
@@ -1356,11 +1353,7 @@ const RunnrSync = (() => {
     };
     (remoteWl || []).forEach(add);
     (localWl || []).forEach(add);
-    let merged = [...bySym.values()];
-    const hasReal = merged.some((w) => w && !isThinWatch(w));
-    if (hasReal) merged = merged.filter((w) => w && !isThinWatch(w));
-    else merged = merged.filter((w) => w && !isDemoWatch(w));
-    return merged;
+    return [...bySym.values()].filter((w) => w && !isDemoWatch(w));
   }
 
   /** Combine two full states without losing journal or watchlist from either side. */
@@ -1382,12 +1375,17 @@ const RunnrSync = (() => {
         merged.bal || local?.bal || remote?.bal
       );
     }
-    if (Number(local?.bal) > 10000 && !(Number(remote?.bal) > 10000)) {
+    merged.trades = mergeTrades(local?.trades, remote?.trades);
+    merged.watchlist = mergeWatchlist(local?.watchlist, remote?.watchlist);
+    if (local?.balFromAlpaca) {
+      merged.bal = local.bal;
+      merged.balFromAlpaca = true;
+      if (local.sym) merged.sym = local.sym;
+      if (local.brokerSync) merged.brokerSync = local.brokerSync;
+    } else if (Number(local?.bal) > 10000 && !(Number(remote?.bal) > Number(local?.bal))) {
       merged.bal = local.bal;
       if (local.sym) merged.sym = local.sym;
     }
-    merged.trades = mergeTrades(local?.trades, remote?.trades);
-    merged.watchlist = mergeWatchlist(local?.watchlist, remote?.watchlist);
     return merged;
   }
 
@@ -1430,9 +1428,9 @@ const RunnrSync = (() => {
     enrichFromSnapshots();
     const data = await request("/api/v1/profile/state");
     const remote = data?.state;
-    const remoteReal = ((remote && remote.watchlist) || []).filter((w) => w && !isThinWatch(w));
-    if (remoteReal.length) {
-      window.S.watchlist = mergeWatchlist(window.S.watchlist, remoteReal);
+    const remoteList = ((remote && remote.watchlist) || []).filter((w) => w && !isDemoWatch(w));
+    if (remoteList.length) {
+      window.S.watchlist = mergeWatchlist(window.S.watchlist, remoteList);
     }
     if (remote && Number(remote.journalBaseBal) > 0) {
       window.S.journalBaseBal = pickJournalBase(
@@ -1442,7 +1440,7 @@ const RunnrSync = (() => {
       );
     }
     ensureBrokerState();
-    const count = (window.S.watchlist || []).filter((w) => w && !isThinWatch(w)).length;
+    const count = (window.S.watchlist || []).filter((w) => w && !isDemoWatch(w)).length;
     if (!count) return { ok: false };
     try {
       localStorage.setItem("runnr_state", JSON.stringify(window.S));

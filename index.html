@@ -5,7 +5,7 @@
 <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
 <script>
 (function () {
-  var V = "78";
+  var V = "79";
   try {
     if (localStorage.getItem("runnr_app_v") !== V) {
       localStorage.setItem("runnr_app_v", V);
@@ -694,6 +694,7 @@ body.light #equity-canvas{filter:invert(0)}
     grid-template-columns:minmax(0,1.12fr) minmax(0,0.88fr);
     gap:16px 24px;
     align-items:start;
+    grid-auto-flow:dense;
   }
   #page-home > .notif,
   #page-home > .incomplete-banner,
@@ -710,6 +711,26 @@ body.light #equity-canvas{filter:invert(0)}
   #page-home > .home-progress-card,
   #page-home > .home-markets-card{grid-column:2}
   #page-home .stat-grid{grid-template-columns:repeat(4,minmax(0,1fr));margin-bottom:0}
+  .watch-compact-row{padding:7px 0}
+  .wcr-remark{-webkit-line-clamp:1;margin-top:2px}
+  #page-watchlist{max-width:1120px}
+  #page-portfolio.active{
+    display:grid;
+    grid-template-columns:minmax(0,1fr) minmax(0,1fr);
+    gap:16px 24px;
+    align-items:start;
+    grid-auto-flow:dense;
+  }
+  #page-portfolio > .period-tabs,
+  #page-portfolio > .port-equity-card,
+  #page-portfolio > .port-cal-card{grid-column:1 / -1}
+  #page-portfolio > .port-hero{grid-column:1;margin-bottom:0}
+  #page-portfolio > .port-kpis{grid-column:2;margin-bottom:0;grid-template-columns:repeat(3,minmax(0,1fr))}
+  #page-portfolio > .port-disc-card{grid-column:1;margin-bottom:0}
+  #page-portfolio > .port-bestworst{grid-column:2;margin-bottom:0}
+  #page-portfolio > .port-instr-card{grid-column:1;margin-bottom:0}
+  #page-portfolio > .port-ls-card{grid-column:2;margin-bottom:0}
+  #page-portfolio > .card{margin-bottom:0}
   #page-sizer .tabs{max-width:560px}
   .modal-overlay{align-items:center}
   .modal{
@@ -1535,7 +1556,7 @@ body.light #equity-canvas{filter:invert(0)}
       </div>
 
       <!-- Equity curve -->
-      <div class="card" style="margin-bottom:12px">
+      <div class="card port-equity-card" style="margin-bottom:12px">
         <div class="section-hdr">
           <h3>Equity Curve</h3>
           <span style="font-size:10px;color:var(--text3);font-family:var(--font-mono)">vs Flat Line</span>
@@ -1544,7 +1565,7 @@ body.light #equity-canvas{filter:invert(0)}
       </div>
 
       <!-- Discipline vs P&L insight -->
-      <div class="card" style="margin-bottom:12px">
+      <div class="card port-disc-card" style="margin-bottom:12px">
         <div class="section-hdr" style="margin-bottom:14px">
           <h3>Discipline Impact</h3>
           <span style="font-size:10px;color:var(--text3)" id="disc-trade-count">— trades</span>
@@ -1600,7 +1621,7 @@ body.light #equity-canvas{filter:invert(0)}
       </div>
 
       <!-- Best / Worst -->
-      <div style="display:flex;gap:8px;margin-bottom:12px">
+      <div class="port-bestworst" style="display:flex;gap:8px;margin-bottom:12px">
         <div class="trade-highlight">
           <div class="th-tag" style="color:var(--accent)">🏆 Best Trade</div>
           <div class="th-sym" id="best-sym">BE</div>
@@ -1616,13 +1637,13 @@ body.light #equity-canvas{filter:invert(0)}
       </div>
 
       <!-- Instrument breakdown -->
-      <div class="card" style="margin-bottom:12px">
+      <div class="card port-instr-card" style="margin-bottom:12px">
         <div class="section-hdr"><h3>By Instrument</h3></div>
         <div id="port-instr-breakdown"></div>
       </div>
 
       <!-- P&L by direction -->
-      <div class="card" style="margin-bottom:12px">
+      <div class="card port-ls-card" style="margin-bottom:12px">
         <div class="section-hdr"><h3>Long vs Short</h3></div>
         <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px">
           <div style="background:rgba(0,229,160,0.08);border:1px solid rgba(0,229,160,0.2);border-radius:var(--r-sm);padding:12px">
@@ -1639,7 +1660,7 @@ body.light #equity-canvas{filter:invert(0)}
       </div>
 
       <!-- Trade calendar heatmap -->
-      <div class="card" style="margin-bottom:12px">
+      <div class="card port-cal-card" style="margin-bottom:12px">
         <div class="section-hdr"><h3>Activity Heatmap</h3><span style="font-size:10px;color:var(--text3)">Last 28 days</span></div>
         <div class="cal-labels">
           <span>M</span><span>T</span><span>W</span><span>T</span><span>F</span><span>S</span><span>S</span>
@@ -1938,7 +1959,7 @@ body.light #equity-canvas{filter:invert(0)}
 <script src="js/coach.js?v=26"></script>
 <script src="js/onboarding.js?v=23"></script>
 <script src="js/csv-presets.js?v=3"></script>
-<script src="js/sync.js?v=54"></script>
+<script src="js/sync.js?v=55"></script>
 <script src="js/desk-sessions.js?v=2"></script>
 <script src="js/desk.js?v=10"></script>
 <script>
@@ -6995,7 +7016,8 @@ function initApp() {
   if (/[?&]signedin=1/.test(location.search) && window.RunnrSync?.isLoggedIn?.()) {
     history.replaceState(null, '', location.pathname + location.hash);
     renderHeaderSyncPill();
-    switchPage('sync');
+    switchPage('home');
+    try { updateHomeStats(); renderHomePreviews(); renderHomeBrokerPreview(); } catch (e) {}
     RunnrSync.syncProfileState()
       .then((profile) => {
         if (profile && profile.action !== 'none') refreshAfterProfileSync();
