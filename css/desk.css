@@ -4,6 +4,11 @@
   max-width:none;
   width:100%;
   margin:0;
+  display:flex;
+  flex-direction:column;
+  grid-template-columns:none;
+  grid-template-rows:none;
+  grid-template-areas:none;
 }
 #app.desk-wide #header,
 #app.desk-wide #nav,
