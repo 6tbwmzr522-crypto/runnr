@@ -5,7 +5,7 @@
 <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
 <script>
 (function () {
-  var V = "80";
+  var V = "81";
   try {
     if (localStorage.getItem("runnr_app_v") !== V) {
       localStorage.setItem("runnr_app_v", V);
@@ -488,6 +488,7 @@ body.light #equity-canvas{filter:invert(0)}
 .period-tab{background:var(--surface2);border:1px solid var(--border);border-radius:20px;padding:4px 12px;font-size:11px;font-weight:600;color:var(--text3);cursor:pointer;font-family:var(--font-mono);transition:all 0.15s}
 .period-tab.active{background:var(--accent);color:#070d0b;border-color:var(--accent)}
 /* Best/worst trade */
+.port-bestworst{display:flex;gap:8px;margin-bottom:12px}
 .trade-highlight{background:var(--surface2);border-radius:var(--r-sm);padding:12px;border:1px solid var(--border);flex:1}
 .th-tag{font-size:9px;font-weight:700;text-transform:uppercase;letter-spacing:0.8px;margin-bottom:4px}
 .th-sym{font-family:var(--font-head);font-size:18px;font-weight:400;font-style:italic}
@@ -625,7 +626,7 @@ body.light #equity-canvas{filter:invert(0)}
 #sync-reset-status.ok{background:var(--accent-dim);color:var(--accent);border:1px solid var(--accent2)}
 #sync-reset-status.err{background:rgba(255,77,109,0.12);color:var(--red);border:1px solid rgba(255,77,109,0.35)}
 .home-footer{text-align:center;padding:28px 16px 40px;margin-top:4px;border-top:1px solid var(--border)}
-.home-frame{display:contents}
+.home-frame,.port-frame{display:contents}
 .home-footer-mark{font-size:10px;letter-spacing:0.16em;text-transform:uppercase;color:var(--text3);margin-bottom:8px}
 .home-footer-brand{font-family:var(--font-head);font-size:15px;font-weight:500;color:var(--gold);letter-spacing:0.05em}
 .btn,.btn-sm,.btn-ghost{touch-action:manipulation;-webkit-tap-highlight-color:transparent}
@@ -690,8 +691,10 @@ body.light #equity-canvas{filter:invert(0)}
     padding:24px 32px 48px;
   }
   .page.active{display:block}
-  #page-home.active{display:block}
-  #page-home .home-frame{
+  #page-home.active,
+  #page-portfolio.active{display:block}
+  #page-home .home-frame,
+  #page-portfolio .port-frame{
     display:grid;
     grid-template-columns:minmax(0,1.05fr) minmax(0,0.95fr);
     gap:1px;
@@ -701,7 +704,8 @@ body.light #equity-canvas{filter:invert(0)}
     overflow:hidden;
     align-items:stretch;
   }
-  #page-home .home-frame > *{
+  #page-home .home-frame > *,
+  #page-portfolio .port-frame > *{
     margin:0;
     border:none;
     border-radius:0;
@@ -721,7 +725,9 @@ body.light #equity-canvas{filter:invert(0)}
   #page-home .home-frame > .incomplete-banner{background:var(--amber-dim)}
   #page-home .home-frame > .card,
   #page-home .home-frame > .highlight-card,
-  #page-home .home-frame > .fg-card{
+  #page-home .home-frame > .fg-card,
+  #page-portfolio .port-frame > .card,
+  #page-portfolio .port-frame > .port-hero{
     display:flex;
     flex-direction:column;
     height:100%;
@@ -760,33 +766,67 @@ body.light #equity-canvas{filter:invert(0)}
     margin-top:22px;
     padding-top:18px;
   }
-  body.light #page-home .home-frame{background:var(--border)}
+  body.light #page-home .home-frame,
+  body.light #page-portfolio .port-frame{background:var(--border)}
   body.light #page-home .home-frame > *,
+  body.light #page-portfolio .port-frame > *,
   body.light #page-home .stat-item,
-  body.light #page-home .market-tile{background:var(--surface2)}
-  body.light #page-home .home-frame > .highlight-card{
-    background:linear-gradient(135deg,var(--surface2),var(--surface3));
-  }
+  body.light #page-home .market-tile,
+  body.light #page-portfolio .kpi,
+  body.light #page-portfolio .trade-highlight{background:var(--surface2)}
+  body.light #page-portfolio .port-kpis,
+  body.light #page-portfolio .port-bestworst,
+  body.light #page-portfolio .disc-legend{background:var(--border)}
   .watch-compact-row{padding:7px 0}
   .wcr-remark{-webkit-line-clamp:1;margin-top:2px}
   #page-watchlist{max-width:1120px}
-  #page-portfolio.active{
-    display:grid;
-    grid-template-columns:minmax(0,1fr) minmax(0,1fr);
-    gap:16px 24px;
-    align-items:start;
-    grid-auto-flow:dense;
+  #page-portfolio .port-frame > .period-tabs,
+  #page-portfolio .port-frame > .port-equity-card{grid-column:1 / -1}
+  #page-portfolio .port-frame > .port-hero{
+    background:linear-gradient(145deg,rgba(201,169,110,0.09),var(--surface) 62%);
+    justify-content:center;
   }
-  #page-portfolio > .period-tabs,
-  #page-portfolio > .port-equity-card,
-  #page-portfolio > .port-cal-card{grid-column:1 / -1}
-  #page-portfolio > .port-hero{grid-column:1;margin-bottom:0}
-  #page-portfolio > .port-kpis{grid-column:2;margin-bottom:0;grid-template-columns:repeat(3,minmax(0,1fr))}
-  #page-portfolio > .port-disc-card{grid-column:1;margin-bottom:0}
-  #page-portfolio > .port-bestworst{grid-column:2;margin-bottom:0}
-  #page-portfolio > .port-instr-card{grid-column:1;margin-bottom:0}
-  #page-portfolio > .port-ls-card{grid-column:2;margin-bottom:0}
-  #page-portfolio > .card{margin-bottom:0}
+  #page-portfolio .period-tabs{gap:8px;padding:12px 16px;align-items:center}
+  #page-portfolio .port-kpis{
+    display:grid;
+    grid-template-columns:repeat(3,minmax(0,1fr));
+    grid-template-rows:repeat(3,minmax(0,1fr));
+    gap:1px;
+    background:rgba(201,169,110,0.28);
+    height:100%;
+    padding:0;
+  }
+  #page-portfolio .kpi{
+    border:none;
+    border-radius:0;
+    background:var(--surface2);
+    display:flex;
+    flex-direction:column;
+    justify-content:center;
+    padding:12px 14px;
+  }
+  #page-portfolio .port-bestworst{
+    display:grid;
+    grid-template-columns:1fr 1fr;
+    gap:1px;
+    background:rgba(201,169,110,0.28);
+    height:100%;
+  }
+  #page-portfolio .trade-highlight{
+    border:none;
+    border-radius:0;
+    display:flex;
+    flex-direction:column;
+    justify-content:center;
+    padding:18px 16px;
+    height:100%;
+  }
+  #page-portfolio .port-instr-card{grid-column:1;grid-row:span 2}
+  #page-portfolio .port-ls-card,
+  #page-portfolio .port-cal-card{grid-column:2}
+  #page-portfolio .port-cal-card .cal-grid{flex:1;min-height:120px}
+  #page-portfolio .disc-legend{gap:1px;background:rgba(201,169,110,0.22)}
+  #page-portfolio .disc-leg-item{border:none;border-radius:0}
   #page-sizer .tabs{max-width:560px}
   .modal-overlay{align-items:center}
   .modal{
@@ -1548,6 +1588,7 @@ body.light #equity-canvas{filter:invert(0)}
 
     <!-- ══ PORTFOLIO ═══════════════════════════════════════════════════════ -->
     <div class="page" id="page-portfolio">
+      <div class="port-frame">
 
       <!-- Period selector -->
       <div class="period-tabs">
@@ -1612,7 +1653,7 @@ body.light #equity-canvas{filter:invert(0)}
       </div>
 
       <!-- Equity curve -->
-      <div class="card port-equity-card" style="margin-bottom:12px">
+      <div class="card port-equity-card">
         <div class="section-hdr">
           <h3>Equity Curve</h3>
           <span style="font-size:10px;color:var(--text3);font-family:var(--font-mono)">vs Flat Line</span>
@@ -1621,7 +1662,7 @@ body.light #equity-canvas{filter:invert(0)}
       </div>
 
       <!-- Discipline vs P&L insight -->
-      <div class="card port-disc-card" style="margin-bottom:12px">
+      <div class="card port-disc-card">
         <div class="section-hdr" style="margin-bottom:14px">
           <h3>Discipline Impact</h3>
           <span style="font-size:10px;color:var(--text3)" id="disc-trade-count">— trades</span>
@@ -1677,7 +1718,7 @@ body.light #equity-canvas{filter:invert(0)}
       </div>
 
       <!-- Best / Worst -->
-      <div class="port-bestworst" style="display:flex;gap:8px;margin-bottom:12px">
+      <div class="port-bestworst">
         <div class="trade-highlight">
           <div class="th-tag" style="color:var(--accent)">🏆 Best Trade</div>
           <div class="th-sym" id="best-sym">BE</div>
@@ -1693,13 +1734,13 @@ body.light #equity-canvas{filter:invert(0)}
       </div>
 
       <!-- Instrument breakdown -->
-      <div class="card port-instr-card" style="margin-bottom:12px">
+      <div class="card port-instr-card">
         <div class="section-hdr"><h3>By Instrument</h3></div>
         <div id="port-instr-breakdown"></div>
       </div>
 
       <!-- P&L by direction -->
-      <div class="card port-ls-card" style="margin-bottom:12px">
+      <div class="card port-ls-card">
         <div class="section-hdr"><h3>Long vs Short</h3></div>
         <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px">
           <div style="background:rgba(0,229,160,0.08);border:1px solid rgba(0,229,160,0.2);border-radius:var(--r-sm);padding:12px">
@@ -1716,7 +1757,7 @@ body.light #equity-canvas{filter:invert(0)}
       </div>
 
       <!-- Trade calendar heatmap -->
-      <div class="card port-cal-card" style="margin-bottom:12px">
+      <div class="card port-cal-card">
         <div class="section-hdr"><h3>Activity Heatmap</h3><span style="font-size:10px;color:var(--text3)">Last 28 days</span></div>
         <div class="cal-labels">
           <span>M</span><span>T</span><span>W</span><span>T</span><span>F</span><span>S</span><span>S</span>
@@ -1732,6 +1773,7 @@ body.light #equity-canvas{filter:invert(0)}
         </div>
       </div>
 
+      </div>
     </div>
 
     <div class="page" id="page-desk">
