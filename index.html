@@ -5,7 +5,7 @@
 <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
 <script>
 (function () {
-  var V = "82";
+  var V = "83";
   try {
     if (localStorage.getItem("runnr_app_v") !== V) {
       localStorage.setItem("runnr_app_v", V);
@@ -490,7 +490,13 @@ body.light #equity-canvas{filter:invert(0)}
 .period-tab{background:var(--surface2);border:1px solid var(--border);border-radius:20px;padding:4px 12px;font-size:11px;font-weight:600;color:var(--text3);cursor:pointer;font-family:var(--font-mono);transition:all 0.15s}
 .period-tab.active{background:var(--accent);color:#070d0b;border-color:var(--accent)}
 /* Best/worst trade */
-.port-bestworst{display:flex;gap:8px;margin-bottom:12px}
+.port-bestworst{display:flex;gap:8px;margin-bottom:0}
+.port-highlights{margin-bottom:12px}
+.port-ls-embed{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:8px}
+.port-right-stack{display:contents}
+.port-side-row{display:flex;justify-content:space-between;align-items:baseline;gap:10px;padding:8px 0;border-bottom:1px solid var(--border)}
+.port-side-row:last-child{border-bottom:none}
+.port-side-kicker{font-size:9px;color:var(--gold);letter-spacing:0.22em;text-transform:uppercase;margin:12px 0 4px}
 .trade-highlight{background:var(--surface2);border-radius:var(--r-sm);padding:12px;border:1px solid var(--border);flex:1}
 .th-tag{font-size:9px;font-weight:700;text-transform:uppercase;letter-spacing:0.8px;margin-bottom:4px}
 .th-sym{font-family:var(--font-head);font-size:18px;font-weight:400;font-style:italic}
@@ -778,6 +784,9 @@ body.light #equity-canvas{filter:invert(0)}
   body.light #page-portfolio .trade-highlight{background:var(--surface2)}
   body.light #page-portfolio .port-kpis,
   body.light #page-portfolio .port-bestworst,
+  body.light #page-portfolio .port-highlights,
+  body.light #page-portfolio .port-ls-embed,
+  body.light #page-portfolio .port-right-stack,
   body.light #page-portfolio .disc-legend{background:var(--border)}
   .watch-compact-row{padding:7px 0}
   .wcr-remark{-webkit-line-clamp:1;margin-top:2px}
@@ -807,12 +816,22 @@ body.light #equity-canvas{filter:invert(0)}
     justify-content:center;
     padding:12px 14px;
   }
+  #page-portfolio .port-highlights{
+    display:flex;
+    flex-direction:column;
+    gap:1px;
+    background:rgba(201,169,110,0.28);
+    height:100%;
+    padding:0;
+  }
   #page-portfolio .port-bestworst{
     display:grid;
     grid-template-columns:1fr 1fr;
     gap:1px;
     background:rgba(201,169,110,0.28);
-    height:100%;
+    flex:0 0 auto;
+    height:auto;
+    margin:0;
   }
   #page-portfolio .trade-highlight{
     border:none;
@@ -820,12 +839,46 @@ body.light #equity-canvas{filter:invert(0)}
     display:flex;
     flex-direction:column;
     justify-content:center;
-    padding:18px 16px;
-    height:100%;
+    padding:16px 16px 14px;
+    height:auto;
+    background:var(--surface2);
   }
-  #page-portfolio .port-instr-card{grid-column:1;grid-row:span 2}
-  #page-portfolio .port-ls-card,
-  #page-portfolio .port-cal-card{grid-column:2}
+  #page-portfolio .port-ls-embed{
+    display:grid;
+    grid-template-columns:1fr 1fr;
+    gap:1px;
+    background:rgba(201,169,110,0.28);
+    margin:0;
+  }
+  #page-portfolio .port-ls-embed > div{
+    border:none;
+    border-radius:0;
+    padding:12px 14px;
+  }
+  #page-portfolio .port-instr-card{grid-column:1}
+  #page-portfolio .port-right-stack{
+    display:flex;
+    flex-direction:column;
+    gap:1px;
+    background:rgba(201,169,110,0.28);
+    grid-column:2;
+    height:100%;
+    min-height:0;
+  }
+  #page-portfolio .port-right-stack > .card{
+    margin:0;
+    border:none;
+    border-radius:0;
+    height:auto;
+  }
+  #page-portfolio .port-cal-card{flex:0 0 auto}
+  #page-portfolio .port-open-card{
+    flex:1 1 auto;
+    min-height:140px;
+    display:flex;
+    flex-direction:column;
+  }
+  #page-portfolio .port-open-card #port-open-list{flex:1;min-height:0;overflow:auto}
   #page-portfolio .port-cal-card .cal-grid,
   #page-portfolio .port-cal-card .cal-labels{flex:none;min-height:0;max-width:224px}
   #page-portfolio .disc-legend{gap:1px;background:rgba(201,169,110,0.22)}
@@ -1720,19 +1773,33 @@ body.light #equity-canvas{filter:invert(0)}
         </div>
       </div>
 
-      <!-- Best / Worst -->
-      <div class="port-bestworst">
-        <div class="trade-highlight">
-          <div class="th-tag" style="color:var(--accent)">🏆 Best Trade</div>
-          <div class="th-sym" id="best-sym">BE</div>
-          <div style="font-size:10px;color:var(--text3)" id="best-date">Apr 15</div>
-          <div class="th-pnl" id="best-pnl" style="color:var(--accent)">+€910</div>
+      <!-- Best / Worst + long vs short -->
+      <div class="port-highlights">
+        <div class="port-bestworst">
+          <div class="trade-highlight">
+            <div class="th-tag" style="color:var(--accent)">🏆 Best Trade</div>
+            <div class="th-sym" id="best-sym">BE</div>
+            <div style="font-size:10px;color:var(--text3)" id="best-date">Apr 15</div>
+            <div class="th-pnl" id="best-pnl" style="color:var(--accent)">+€910</div>
+          </div>
+          <div class="trade-highlight">
+            <div class="th-tag" style="color:var(--red)">💀 Worst Trade</div>
+            <div class="th-sym" id="worst-sym">AAPL CFD</div>
+            <div style="font-size:10px;color:var(--text3)" id="worst-date">Apr 10</div>
+            <div class="th-pnl" id="worst-pnl" style="color:var(--red)">-€45</div>
+          </div>
         </div>
-        <div class="trade-highlight">
-          <div class="th-tag" style="color:var(--red)">💀 Worst Trade</div>
-          <div class="th-sym" id="worst-sym">AAPL CFD</div>
-          <div style="font-size:10px;color:var(--text3)" id="worst-date">Apr 10</div>
-          <div class="th-pnl" id="worst-pnl" style="color:var(--red)">-€45</div>
+        <div class="port-ls-embed">
+          <div style="background:rgba(0,229,160,0.08)">
+            <div style="font-size:10px;color:var(--text3);text-transform:uppercase;letter-spacing:0.8px;margin-bottom:4px">Longs</div>
+            <div style="font-family:var(--font-mono);font-size:18px;color:var(--accent)" id="pnl-long">—</div>
+            <div style="font-size:10px;color:var(--text3);margin-top:2px" id="count-long">— trades</div>
+          </div>
+          <div style="background:rgba(255,77,109,0.08)">
+            <div style="font-size:10px;color:var(--text3);text-transform:uppercase;letter-spacing:0.8px;margin-bottom:4px">Shorts</div>
+            <div style="font-family:var(--font-mono);font-size:18px" id="pnl-short">—</div>
+            <div style="font-size:10px;color:var(--text3);margin-top:2px" id="count-short">— trades</div>
+          </div>
         </div>
       </div>
 
@@ -1742,23 +1809,7 @@ body.light #equity-canvas{filter:invert(0)}
         <div id="port-instr-breakdown"></div>
       </div>
 
-      <!-- P&L by direction -->
-      <div class="card port-ls-card">
-        <div class="section-hdr"><h3>Long vs Short</h3></div>
-        <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px">
-          <div style="background:rgba(0,229,160,0.08);border:1px solid rgba(0,229,160,0.2);border-radius:var(--r-sm);padding:12px">
-            <div style="font-size:10px;color:var(--text3);text-transform:uppercase;letter-spacing:0.8px;margin-bottom:4px">Longs</div>
-            <div style="font-family:var(--font-mono);font-size:18px;color:var(--accent)" id="pnl-long">—</div>
-            <div style="font-size:10px;color:var(--text3);margin-top:2px" id="count-long">— trades</div>
-          </div>
-          <div style="background:rgba(255,77,109,0.08);border:1px solid rgba(255,77,109,0.2);border-radius:var(--r-sm);padding:12px">
-            <div style="font-size:10px;color:var(--text3);text-transform:uppercase;letter-spacing:0.8px;margin-bottom:4px">Shorts</div>
-            <div style="font-family:var(--font-mono);font-size:18px" id="pnl-short">—</div>
-            <div style="font-size:10px;color:var(--text3);margin-top:2px" id="count-short">— trades</div>
-          </div>
-        </div>
-      </div>
-
+      <div class="port-right-stack">
       <!-- Trade calendar heatmap -->
       <div class="card port-cal-card">
         <div class="section-hdr"><h3>Activity Heatmap</h3><span style="font-size:10px;color:var(--text3)" id="port-cal-meta">Last 28 days</span></div>
@@ -1774,6 +1825,15 @@ body.light #equity-canvas{filter:invert(0)}
           <div style="width:10px;height:10px;border-radius:2px;background:rgba(0,229,160,0.7)"></div>
           <span style="font-size:9px;color:var(--text3)">More</span>
         </div>
+      </div>
+
+      <div class="card port-open-card">
+        <div class="section-hdr">
+          <h3 id="port-open-title">Open book</h3>
+          <button class="see-all" onclick="switchPage('journal')">Journal</button>
+        </div>
+        <div id="port-open-list"></div>
+      </div>
       </div>
 
       </div>
@@ -5124,6 +5184,8 @@ function loadPortfolio(period, tabEl) {
   document.getElementById('pnl-short').style.color = shortT.length && shortPnl>=0?'var(--accent)':'var(--text3)';
   document.getElementById('count-short').textContent = shortT.length + ' trade' + (shortT.length!==1?'s':'');
 
+  renderPortOpenBook(openTrades, completed, sym);
+
   // Calendar heatmap
   renderCalendar(completed);
 }
@@ -5291,6 +5353,54 @@ function drawDonut(pct, stopPct, sizePct) {
     ctx.beginPath(); ctx.arc(ex,ey,10,0,PI2);
     ctx.fillStyle=glow; ctx.fill();
   }
+}
+
+function renderPortOpenBook(openTrades, completed, sym) {
+  const list = document.getElementById('port-open-list');
+  const title = document.getElementById('port-open-title');
+  if (!list) return;
+  const opens = openTrades || [];
+  const recents = (completed || []).slice().sort((a, b) => {
+    const da = window.CoachEngine?.tradeDate?.(a)?.getTime() || 0;
+    const db = window.CoachEngine?.tradeDate?.(b)?.getTime() || 0;
+    return db - da;
+  }).slice(0, 8);
+  const fmtPnl = (pnl) => (pnl >= 0 ? '+' : '') + sym + Math.round(Math.abs(pnl)).toLocaleString();
+  const openRow = (t) => {
+    const dir = t.dir === 'short' ? 'SHORT' : 'LONG';
+    const entry = t.entry != null && t.entry !== '' ? t.entry : '—';
+    return `<div class="port-side-row">
+      <div>
+        <div class="instr-name">${t.instr || '—'}</div>
+        <div class="instr-trades">${dir} · ${t.date || 'open'} · @ ${entry}</div>
+      </div>
+      <span class="instr-trades">open</span>
+    </div>`;
+  };
+  const closeRow = (t) => {
+    const col = t.pnl >= 0 ? 'var(--accent)' : 'var(--red)';
+    return `<div class="port-side-row">
+      <div>
+        <div class="instr-name">${t.instr || '—'}</div>
+        <div class="instr-trades">${t.date || ''}</div>
+      </div>
+      <span class="instr-pnl" style="color:${col}">${fmtPnl(t.pnl)}</span>
+    </div>`;
+  };
+  if (title) title.textContent = opens.length ? 'Open book' : 'Recent closes';
+  if (opens.length) {
+    let html = opens.map(openRow).join('');
+    if (opens.length < 6 && recents.length) {
+      html += '<div class="port-side-kicker">Recent closes</div>' + recents.slice(0, 6).map(closeRow).join('');
+    }
+    list.innerHTML = html;
+    return;
+  }
+  if (recents.length) {
+    list.innerHTML = recents.map(closeRow).join('');
+    return;
+  }
+  list.innerHTML = '<div style="font-size:12px;color:var(--text3);padding:6px 0">No open trades in this period</div>';
 }
 
 function calendarDayKey(d) {
