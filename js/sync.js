@@ -434,12 +434,39 @@ const RunnrSync = (() => {
     return n + "'s terminal";
   }
 
+  function persistRememberedName(email, name) {
+    const e = String(email || "").trim().toLowerCase();
+    const n = normalizeFirstName(name);
+    if (!e || !n) return;
+    try {
+      let map = {};
+      try {
+        map = JSON.parse(localStorage.getItem("runnr_remember_first_name") || "{}") || {};
+      } catch (err) {
+        map = {};
+      }
+      map[e] = n;
+      localStorage.setItem("runnr_remember_first_name", JSON.stringify(map));
+    } catch (err) {}
+  }
+
+  function recalledFirstName(email) {
+    const e = String(email || "").trim().toLowerCase();
+    try {
+      const map = JSON.parse(localStorage.getItem("runnr_remember_first_name") || "{}") || {};
+      if (e && map[e]) return map[e];
+    } catch (err) {}
+    const local = normalizeFirstName(window.S && window.S.firstName);
+    return local || houseFirstName(e) || "";
+  }
+
   function applyFirstName(name) {
     const n = normalizeFirstName(name);
     if (window.S) {
       window.S.firstName = n;
       if (typeof persist === "function") persist();
     }
+    persistRememberedName(sessionEmail(), n);
     return n;
   }
 
@@ -486,7 +513,9 @@ const RunnrSync = (() => {
     });
     setToken(data.access_token, data.email || creds.email);
     localStorage.setItem("runnr_remember_email", creds.email);
-    if (data.first_name) applyFirstName(data.first_name);
+    const n = data.first_name || (window.S && window.S.firstName);
+    if (n) applyFirstName(n);
+    persistRememberedName(creds.email, n);
     return data;
   }
 
@@ -547,7 +576,10 @@ const RunnrSync = (() => {
       throw new Error("Safari blocked saving your login — turn off Private Browsing or allow site data for runnr.fyi");
     }
     try {
-      return await login(email, password);
+      const data = await login(email, password);
+      if (firstName) applyFirstName(data.first_name || firstName);
+      persistRememberedName(email, data.first_name || firstName);
+      return data;
     } catch (e) {
       const msg = String(e.message || e);
       if (/invalid email or password/i.test(msg)) {
@@ -1638,6 +1670,7 @@ const RunnrSync = (() => {
     updateFirstName,
     applyFirstName,
     applyFirstNameFromMe,
+    recalledFirstName,
     resetPassword,
     forgotPassword,
     verifyEmail,

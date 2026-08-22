@@ -5,7 +5,7 @@
 <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
 <script>
 (function () {
-  var V = "85";
+  var V = "86";
   try {
     if (localStorage.getItem("runnr_app_v") !== V) {
       localStorage.setItem("runnr_app_v", V);
@@ -1460,7 +1460,7 @@ body.light #equity-canvas{filter:invert(0)}
         <div style="font-size:12px;color:var(--text2);margin-bottom:12px">Sync journal &amp; watchlist across devices. First name is for your terminal — e.g. John’s terminal.</div>
         <form id="sync-inline-form" action="/" method="post" autocomplete="on">
           <div class="field"><label for="sync-email-inline">Email</label><input id="sync-email-inline" name="email" type="email" placeholder="you@example.com" autocomplete="username" inputmode="email" autocapitalize="none" autocorrect="off" enterkeyhint="next"></div>
-          <div class="field"><label for="sync-first-name-inline">First name</label><input id="sync-first-name-inline" name="given-name" type="text" placeholder="John" autocomplete="given-name" autocapitalize="words" enterkeyhint="next"></div>
+          <div class="field"><label for="sync-first-name-inline">First name</label><input id="sync-first-name-inline" name="given-name" type="text" placeholder="John" autocomplete="off" autocapitalize="words" enterkeyhint="next"></div>
           <div class="field"><label for="sync-password-inline">Password</label><input id="sync-password-inline" name="password" type="password" placeholder="8+ characters" autocomplete="current-password" minlength="8" autocapitalize="none" autocorrect="off" spellcheck="false" enterkeyhint="go"></div>
           <div id="sync-auth-error-inline" class="sync-auth-error"></div>
           <div id="sync-signin-status"></div>
@@ -1932,7 +1932,7 @@ body.light #equity-canvas{filter:invert(0)}
     <div style="font-size:12px;color:var(--text2);margin-bottom:14px">One sign-in syncs journal & watchlist across devices.</div>
     <form id="sync-auth-form" action="/" method="post" autocomplete="on">
       <div class="field"><label for="sync-email">Email</label><input id="sync-email" name="email" type="email" placeholder="you@example.com" autocomplete="username" required inputmode="email" autocapitalize="none" autocorrect="off" enterkeyhint="go"></div>
-      <div class="field"><label for="sync-first-name">First name</label><input id="sync-first-name" name="given-name" type="text" placeholder="John" autocomplete="given-name" autocapitalize="words" enterkeyhint="go"></div>
+      <div class="field"><label for="sync-first-name">First name</label><input id="sync-first-name" name="given-name" type="text" placeholder="John" autocomplete="off" autocapitalize="words" enterkeyhint="go"></div>
       <div class="field"><label for="sync-password">Password</label><input id="sync-password" name="password" type="password" placeholder="8+ characters" autocomplete="current-password" required minlength="8" autocapitalize="none" autocorrect="off" spellcheck="false" enterkeyhint="go"></div>
       <div id="sync-auth-error"></div>
       <button class="btn" type="submit" id="sync-login-btn">Continue</button>
@@ -2108,7 +2108,7 @@ body.light #equity-canvas{filter:invert(0)}
 <script src="js/coach.js?v=26"></script>
 <script src="js/onboarding.js?v=23"></script>
 <script src="js/csv-presets.js?v=3"></script>
-<script src="js/sync.js?v=55"></script>
+<script src="js/sync.js?v=56"></script>
 <script src="js/desk-sessions.js?v=2"></script>
 <script src="js/desk.js?v=10"></script>
 <script>
@@ -5732,12 +5732,38 @@ function syncAuthUsesInline() {
   return isIOS || document.getElementById('page-sync')?.classList.contains('active');
 }
 
+function recalledFirstNameForEmail(email) {
+  const e = String(email || '').trim().toLowerCase();
+  if (window.RunnrSync?.recalledFirstName) return RunnrSync.recalledFirstName(e);
+  try {
+    const map = JSON.parse(localStorage.getItem('runnr_remember_first_name') || '{}') || {};
+    if (e && map[e]) return map[e];
+  } catch (err) {}
+  try {
+    const st = JSON.parse(localStorage.getItem('runnr_state') || '{}');
+    if (st && st.firstName) return st.firstName;
+  } catch (err) {}
+  return '';
+}
+
+function fillSyncAuthFirstName() {
+  const email = readFieldValue('sync-email-inline', 'sync-email')
+    || localStorage.getItem('runnr_remember_email')
+    || '';
+  const name = recalledFirstNameForEmail(email);
+  ['sync-first-name', 'sync-first-name-inline'].forEach((id) => {
+    const el = document.getElementById(id);
+    if (el && name && document.activeElement !== el) el.value = name;
+  });
+}
+
 function prefillSyncAuthEmail() {
   const remembered = localStorage.getItem('runnr_remember_email') || (window.RunnrSync?.sessionEmail?.() || '');
   ['sync-email', 'sync-email-inline', 'sync-reset-email'].forEach((id) => {
     const el = document.getElementById(id);
     if (el && remembered) el.value = remembered;
   });
+  fillSyncAuthFirstName();
 }
 
 function updateSyncAuthVisibility() {
@@ -7088,6 +7114,14 @@ function initSyncAuthForm() {
   bindAuthButton('sync-reset-btn', submitSyncResetPassword);
   bindAuthButton('sync-reset-send-btn', submitSyncForgotPassword);
   bindAuthButton('sync-login-btn', submitSyncContinue);
+
+  ['sync-email', 'sync-email-inline'].forEach((id) => {
+    const el = document.getElementById(id);
+    if (!el || el.dataset.namePrefill) return;
+    el.dataset.namePrefill = '1';
+    el.addEventListener('input', fillSyncAuthFirstName);
+    el.addEventListener('change', fillSyncAuthFirstName);
+  });
 
   if (signinForm && !signinForm.dataset.bound) {
     signinForm.dataset.bound = '1';

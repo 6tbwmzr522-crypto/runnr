@@ -101,7 +101,7 @@
     <input id="email" name="email" type="email" inputmode="email" autocomplete="username" autocapitalize="none" autocorrect="off" placeholder="you@example.com" enterkeyhint="next">
 
     <label for="first-name">First name</label>
-    <input id="first-name" name="given-name" type="text" autocomplete="given-name" autocapitalize="words" autocorrect="off" placeholder="John" enterkeyhint="next">
+    <input id="first-name" name="given-name" type="text" autocomplete="off" autocapitalize="words" autocorrect="off" spellcheck="false" placeholder="John" enterkeyhint="next">
 
     <label for="password">Password</label>
     <input id="password" name="password" type="password" autocomplete="current-password" autocapitalize="none" autocorrect="off" placeholder="Your password" enterkeyhint="go">
@@ -151,6 +151,54 @@
     const remembered = localStorage.getItem("runnr_remember_email");
     if (remembered) emailEl.value = remembered;
   } catch (e) {}
+  fillFirstName();
+  emailEl.addEventListener("input", fillFirstName);
+  emailEl.addEventListener("change", fillFirstName);
+  setTimeout(fillFirstName, 200);
+  setTimeout(fillFirstName, 800);
+
+  function houseFirstName(email) {
+    var house = {
+      "info@thinicedigital.com": "Janis",
+      "janis.berzins.liepins@gmail.com": "Janis",
+      "berzins.j@inbox.lv": "Janis"
+    };
+    var e = String(email || "").trim().toLowerCase();
+    if (house[e]) return house[e];
+    if (e.indexOf("@thinicedigital.com") !== -1) return "Janis";
+    return "";
+  }
+
+  function rememberFirstName(email, name) {
+    var e = String(email || "").trim().toLowerCase();
+    var n = normalizeFirstName(name);
+    if (!e || !n) return;
+    try {
+      var map = {};
+      try { map = JSON.parse(localStorage.getItem("runnr_remember_first_name") || "{}") || {}; } catch (err) { map = {}; }
+      map[e] = n;
+      localStorage.setItem("runnr_remember_first_name", JSON.stringify(map));
+    } catch (err) {}
+  }
+
+  function recalledFirstName(email) {
+    var e = String(email || "").trim().toLowerCase();
+    try {
+      var map = JSON.parse(localStorage.getItem("runnr_remember_first_name") || "{}") || {};
+      if (e && map[e]) return map[e];
+    } catch (err) {}
+    try {
+      var st = JSON.parse(localStorage.getItem("runnr_state") || "{}");
+      if (st && st.firstName) return st.firstName;
+    } catch (err) {}
+    return houseFirstName(e);
+  }
+
+  function fillFirstName() {
+    if (!nameEl || document.activeElement === nameEl) return;
+    var n = recalledFirstName(emailEl && emailEl.value);
+    if (n) nameEl.value = n;
+  }
 
   function setStatus(text, kind) {
     statusEl.textContent = text || "";
@@ -211,18 +259,13 @@
   }
 
   function applySavedFirstName(email, apiName, typedName) {
-    var house = {
-      "info@thinicedigital.com": "Janis",
-      "janis.berzins.liepins@gmail.com": "Janis",
-      "berzins.j@inbox.lv": "Janis"
-    };
-    var given = apiName || typedName || house[String(email || "").trim().toLowerCase()] || "";
+    var given = apiName || typedName || houseFirstName(email);
     if (!given) return;
+    rememberFirstName(email, given);
     try {
       var raw = localStorage.getItem("runnr_state");
-      if (!raw) return;
-      var st = JSON.parse(raw);
-      if (!st || typeof st !== "object") return;
+      var st = raw ? JSON.parse(raw) : {};
+      if (!st || typeof st !== "object") st = {};
       st.firstName = given;
       localStorage.setItem("runnr_state", JSON.stringify(st));
     } catch (e) {}
