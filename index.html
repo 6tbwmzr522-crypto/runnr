@@ -5,7 +5,7 @@
 <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
 <script>
 (function () {
-  var V = "83";
+  var V = "84";
   try {
     if (localStorage.getItem("runnr_app_v") !== V) {
       localStorage.setItem("runnr_app_v", V);
@@ -784,9 +784,7 @@ body.light #equity-canvas{filter:invert(0)}
   body.light #page-portfolio .trade-highlight{background:var(--surface2)}
   body.light #page-portfolio .port-kpis,
   body.light #page-portfolio .port-bestworst,
-  body.light #page-portfolio .port-highlights,
   body.light #page-portfolio .port-ls-embed,
-  body.light #page-portfolio .port-right-stack,
   body.light #page-portfolio .disc-legend{background:var(--border)}
   .watch-compact-row{padding:7px 0}
   .wcr-remark{-webkit-line-clamp:1;margin-top:2px}
@@ -820,7 +818,7 @@ body.light #equity-canvas{filter:invert(0)}
     display:flex;
     flex-direction:column;
     gap:1px;
-    background:rgba(201,169,110,0.28);
+    background:var(--surface);
     height:100%;
     padding:0;
   }
@@ -860,7 +858,7 @@ body.light #equity-canvas{filter:invert(0)}
     display:flex;
     flex-direction:column;
     gap:1px;
-    background:rgba(201,169,110,0.28);
+    background:var(--surface);
     grid-column:2;
     height:100%;
     min-height:0;
@@ -869,7 +867,7 @@ body.light #equity-canvas{filter:invert(0)}
     margin:0;
     border:none;
     border-radius:0;
-    height:auto;
+    background:var(--surface);
   }
   #page-portfolio .port-cal-card{flex:0 0 auto}
   #page-portfolio .port-open-card{
@@ -877,6 +875,7 @@ body.light #equity-canvas{filter:invert(0)}
     min-height:140px;
     display:flex;
     flex-direction:column;
+    background:var(--surface);
   }
   #page-portfolio .port-open-card #port-open-list{flex:1;min-height:0;overflow:auto}
   #page-portfolio .port-cal-card .cal-grid,
@@ -1805,7 +1804,7 @@ body.light #equity-canvas{filter:invert(0)}
 
       <!-- Instrument breakdown -->
       <div class="card port-instr-card">
-        <div class="section-hdr"><h3>By Instrument</h3></div>
+        <div class="section-hdr"><h3>Closed trades</h3></div>
         <div id="port-instr-breakdown"></div>
       </div>
 
@@ -5126,51 +5125,37 @@ function loadPortfolio(period, tabEl) {
     document.getElementById('worst-pnl').textContent = '—';
   }
 
-  // Instrument breakdown
+  // Closed trades by instrument — opens live only in Open book
   const instrMap = {};
   completed.forEach(t => {
-    if (!instrMap[t.instr]) instrMap[t.instr] = { pnl:0, count:0, wins:0, open:0, openRisk:0 };
+    if (!instrMap[t.instr]) instrMap[t.instr] = { pnl:0, count:0, wins:0 };
     instrMap[t.instr].pnl   += t.pnl;
     instrMap[t.instr].count += 1;
     if (t.pnl > 0) instrMap[t.instr].wins += 1;
   });
-  openTrades.forEach(t => {
-    if (!instrMap[t.instr]) instrMap[t.instr] = { pnl:0, count:0, wins:0, open:0, openRisk:0 };
-    instrMap[t.instr].open += 1;
-    const pair = t.pair || Baron.parseForexPair?.(t.instr);
-    const risk = Baron.riskAtStop?.(pair, t.entry, t.stop, t.size) || 0;
-    instrMap[t.instr].openRisk += risk;
-  });
-  const instrArr = Object.entries(instrMap).sort((a,b) => {
-    const scoreA = Math.abs(a[1].pnl) + a[1].openRisk;
-    const scoreB = Math.abs(b[1].pnl) + b[1].openRisk;
-    return scoreB - scoreA;
-  });
-  const maxAbsPnl = Math.max(...instrArr.map(([,v]) => Math.max(Math.abs(v.pnl), v.openRisk)), 1);
+  const instrArr = Object.entries(instrMap).sort((a,b) => Math.abs(b[1].pnl) - Math.abs(a[1].pnl));
+  const maxAbsPnl = Math.max(...instrArr.map(([,v]) => Math.abs(v.pnl)), 1);
   document.getElementById('port-instr-breakdown').innerHTML = instrArr.length ? instrArr.map(([instr,v],i) => {
-    const barW = (Math.max(Math.abs(v.pnl), v.openRisk)/maxAbsPnl*100).toFixed(0);
+    const barW = (Math.abs(v.pnl)/maxAbsPnl*100).toFixed(0);
     const col = INSTR_COLORS[i % INSTR_COLORS.length];
     const wr = v.count ? (v.wins/v.count*100).toFixed(0) : '—';
-    const pnlLabel = v.open && !v.count
-      ? `<span class="instr-pnl" style="color:var(--amber)">Open · ${S.sym}${Math.round(v.openRisk).toLocaleString()} at risk</span>`
-      : `<span class="instr-pnl" style="color:${v.pnl>=0?'var(--accent)':'var(--red)'}">${v.pnl>=0?'+':''}${S.sym}${Math.abs(Math.round(v.pnl)).toLocaleString()}${v.open ? ` · ${v.open} open` : ''}</span>`;
     return `<div class="instr-row">
       <div class="instr-dot" style="background:${col}"></div>
       <div style="flex:1">
         <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:3px">
           <span class="instr-name">${instr}</span>
-          ${pnlLabel}
+          <span class="instr-pnl" style="color:${v.pnl>=0?'var(--accent)':'var(--red)'}">${v.pnl>=0?'+':''}${S.sym}${Math.abs(Math.round(v.pnl)).toLocaleString()}</span>
         </div>
         <div style="height:4px;background:var(--surface3);border-radius:2px;overflow:hidden">
-          <div style="height:100%;width:${barW}%;background:${col};border-radius:2px;opacity:${v.pnl>=0||v.open?1:0.6}"></div>
+          <div style="height:100%;width:${barW}%;background:${col};border-radius:2px;opacity:${v.pnl>=0?1:0.6}"></div>
         </div>
         <div style="display:flex;justify-content:space-between;margin-top:2px">
-          <span class="instr-trades">${v.count + v.open} position${(v.count + v.open)!==1?'s':''}</span>
-          <span class="instr-trades">${v.count ? wr + '% win rate' : 'tap Journal to close'}</span>
+          <span class="instr-trades">${v.count} closed</span>
+          <span class="instr-trades">${wr}% win rate</span>
         </div>
       </div>
     </div>`;
-  }).join('') : '<div style="font-size:12px;color:var(--text3);padding:8px 0">No trades in this period</div>';
+  }).join('') : '<div style="font-size:12px;color:var(--text3);padding:8px 0">No closed trades in this period</div>';
 
   // Long vs Short
   const longT  = completed.filter(t=>t.dir==='long');
@@ -5360,13 +5345,12 @@ function renderPortOpenBook(openTrades, completed, sym) {
   const title = document.getElementById('port-open-title');
   if (!list) return;
   const opens = openTrades || [];
-  const recents = (completed || []).slice().sort((a, b) => {
-    const da = window.CoachEngine?.tradeDate?.(a)?.getTime() || 0;
-    const db = window.CoachEngine?.tradeDate?.(b)?.getTime() || 0;
-    return db - da;
-  }).slice(0, 8);
-  const fmtPnl = (pnl) => (pnl >= 0 ? '+' : '') + sym + Math.round(Math.abs(pnl)).toLocaleString();
-  const openRow = (t) => {
+  if (title) title.textContent = 'Open book';
+  if (!opens.length) {
+    list.innerHTML = '<div style="font-size:12px;color:var(--text3);padding:6px 0">No open trades in this period</div>';
+    return;
+  }
+  list.innerHTML = opens.map((t) => {
     const dir = t.dir === 'short' ? 'SHORT' : 'LONG';
     const entry = t.entry != null && t.entry !== '' ? t.entry : '—';
     return `<div class="port-side-row">
@@ -5376,31 +5360,7 @@ function renderPortOpenBook(openTrades, completed, sym) {
       </div>
       <span class="instr-trades">open</span>
     </div>`;
-  };
-  const closeRow = (t) => {
-    const col = t.pnl >= 0 ? 'var(--accent)' : 'var(--red)';
-    return `<div class="port-side-row">
-      <div>
-        <div class="instr-name">${t.instr || '—'}</div>
-        <div class="instr-trades">${t.date || ''}</div>
-      </div>
-      <span class="instr-pnl" style="color:${col}">${fmtPnl(t.pnl)}</span>
-    </div>`;
-  };
-  if (title) title.textContent = opens.length ? 'Open book' : 'Recent closes';
-  if (opens.length) {
-    let html = opens.map(openRow).join('');
-    if (opens.length < 6 && recents.length) {
-      html += '<div class="port-side-kicker">Recent closes</div>' + recents.slice(0, 6).map(closeRow).join('');
-    }
-    list.innerHTML = html;
-    return;
-  }
-  if (recents.length) {
-    list.innerHTML = recents.map(closeRow).join('');
-    return;
-  }
-  list.innerHTML = '<div style="font-size:12px;color:var(--text3);padding:6px 0">No open trades in this period</div>';
+  }).join('');
 }
 
 function calendarDayKey(d) {
