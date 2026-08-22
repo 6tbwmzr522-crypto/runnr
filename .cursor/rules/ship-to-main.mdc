@@ -1,0 +1,13 @@
+---
+description: After finishing requested work, commit the relevant files and push main without asking
+alwaysApply: true
+---
+
+# Ship to main
+
+When a user-requested change is done, commit only the files for that change and `git push origin HEAD` to `main`. Do not ask “want it on main?”
+
+- Bump `index.html` `V` and `sw.js` `CACHE` together when the live PWA changes
+- Leave unrelated dirty files (scout, funnel, `marketing/`) unstaged
+- Do not force-push; do not skip hooks
+- If they say not to ship a specific change, skip the push for that one
