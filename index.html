@@ -5,7 +5,7 @@
 <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
 <script>
 (function () {
-  var V = "81";
+  var V = "82";
   try {
     if (localStorage.getItem("runnr_app_v") !== V) {
       localStorage.setItem("runnr_app_v", V);
@@ -473,15 +473,17 @@ body.light #equity-canvas{filter:invert(0)}
 /* Drawdown + equity */
 .chart-label{font-size:9px;color:var(--text3);text-transform:uppercase;letter-spacing:0.8px;margin-bottom:6px}
 /* Calendar heatmap */
-.cal-grid{display:grid;grid-template-columns:repeat(7,1fr);gap:3px;margin-top:6px}
-.cal-day{aspect-ratio:1;border-radius:3px;background:var(--surface3);cursor:default;position:relative}
+.cal-grid{display:grid;grid-template-columns:repeat(7,minmax(0,1fr));gap:4px;margin-top:6px;width:100%;max-width:224px}
+.cal-day{aspect-ratio:1;border-radius:3px;background:var(--surface3);cursor:default;position:relative;min-width:0}
 .cal-day.win{background:rgba(0,229,160,0.35)}
 .cal-day.win-big{background:rgba(0,229,160,0.7)}
 .cal-day.loss{background:rgba(255,77,109,0.3)}
 .cal-day.loss-big{background:rgba(255,77,109,0.6)}
 .cal-day.flat{background:var(--surface3)}
+.cal-day.traded{background:rgba(201,169,110,0.4)}
+.cal-day.pad{background:transparent;opacity:0.2}
 .cal-day.today{outline:2px solid var(--accent);outline-offset:1px}
-.cal-labels{display:grid;grid-template-columns:repeat(7,1fr);gap:3px;margin-bottom:2px}
+.cal-labels{display:grid;grid-template-columns:repeat(7,minmax(0,1fr));gap:4px;margin-bottom:2px;width:100%;max-width:224px}
 .cal-labels span{font-size:8px;color:var(--text3);text-align:center;font-family:var(--font-mono)}
 /* Period tabs */
 .period-tabs{display:flex;gap:4px;margin-bottom:10px}
@@ -824,7 +826,8 @@ body.light #equity-canvas{filter:invert(0)}
   #page-portfolio .port-instr-card{grid-column:1;grid-row:span 2}
   #page-portfolio .port-ls-card,
   #page-portfolio .port-cal-card{grid-column:2}
-  #page-portfolio .port-cal-card .cal-grid{flex:1;min-height:120px}
+  #page-portfolio .port-cal-card .cal-grid,
+  #page-portfolio .port-cal-card .cal-labels{flex:none;min-height:0;max-width:224px}
   #page-portfolio .disc-legend{gap:1px;background:rgba(201,169,110,0.22)}
   #page-portfolio .disc-leg-item{border:none;border-radius:0}
   #page-sizer .tabs{max-width:560px}
@@ -1758,7 +1761,7 @@ body.light #equity-canvas{filter:invert(0)}
 
       <!-- Trade calendar heatmap -->
       <div class="card port-cal-card">
-        <div class="section-hdr"><h3>Activity Heatmap</h3><span style="font-size:10px;color:var(--text3)">Last 28 days</span></div>
+        <div class="section-hdr"><h3>Activity Heatmap</h3><span style="font-size:10px;color:var(--text3)" id="port-cal-meta">Last 28 days</span></div>
         <div class="cal-labels">
           <span>M</span><span>T</span><span>W</span><span>T</span><span>F</span><span>S</span><span>S</span>
         </div>
@@ -5290,32 +5293,63 @@ function drawDonut(pct, stopPct, sizePct) {
   }
 }
 
+function calendarDayKey(d) {
+  return d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0');
+}
+
 function renderCalendar(trades) {
   const cal = document.getElementById('port-cal');
   if (!cal) return;
-  const tradeByDate = {};
-  trades.forEach(t => {
-    if (t.date) tradeByDate[t.date] = (tradeByDate[t.date] || 0) + t.pnl;
+  const byDay = {};
+  (trades || []).forEach((t) => {
+    const parsed = window.CoachEngine?.tradeDate?.(t);
+    if (!parsed || Number.isNaN(parsed.getTime())) return;
+    const key = calendarDayKey(parsed);
+    const pnl = Number(t.pnl);
+    if (!byDay[key]) byDay[key] = { pnl: 0, n: 0 };
+    byDay[key].pnl += Number.isFinite(pnl) ? pnl : 0;
+    byDay[key].n += 1;
   });
 
-  // Build 28 days grid
   const today = new Date();
+  today.setHours(0, 0, 0, 0);
+  const windowStart = new Date(today);
+  windowStart.setDate(today.getDate() - 27);
+
+  const gridStart = new Date(windowStart);
+  gridStart.setDate(gridStart.getDate() - ((gridStart.getDay() + 6) % 7));
+  const gridEnd = new Date(today);
+  gridEnd.setDate(gridEnd.getDate() + ((7 - gridEnd.getDay()) % 7));
+
   let html = '';
-  for (let i=27; i>=0; i--) {
-    const d = new Date(today); d.setDate(today.getDate()-i);
-    const key = d.toLocaleDateString('en-US',{month:'short',day:'numeric'}).replace(',','');
-    const pnl = tradeByDate[key] || 0;
-    const isToday = i===0;
-    let cls = 'cal-day flat';
-    if (pnl > 500)  cls = 'cal-day win-big';
-    else if (pnl > 0) cls = 'cal-day win';
-    else if (pnl < -200) cls = 'cal-day loss-big';
-    else if (pnl < 0)   cls = 'cal-day loss';
-    if (isToday) cls += ' today';
-    const title = pnl !== 0 ? `${d.toLocaleDateString('en-US',{month:'short',day:'numeric'})}: ${pnl>=0?'+':''}€${Math.round(pnl)}` : d.toLocaleDateString('en-US',{month:'short',day:'numeric'});
+  let activeDays = 0;
+  for (let d = new Date(gridStart); d <= gridEnd; d.setDate(d.getDate() + 1)) {
+    const key = calendarDayKey(d);
+    const inWindow = d >= windowStart && d <= today;
+    const hit = inWindow ? byDay[key] : null;
+    if (hit) activeDays += 1;
+    let cls = 'cal-day';
+    if (!inWindow) cls += ' pad';
+    else if (!hit) cls += ' flat';
+    else if (hit.pnl > 500) cls += ' win-big';
+    else if (hit.pnl > 0) cls += ' win';
+    else if (hit.pnl < -200) cls += ' loss-big';
+    else if (hit.pnl < 0) cls += ' loss';
+    else cls += ' traded';
+    if (inWindow && d.getTime() === today.getTime()) cls += ' today';
+    const label = d.toLocaleDateString('en-GB', { weekday: 'short', day: 'numeric', month: 'short' });
+    const title = hit
+      ? `${label}: ${hit.n} trade${hit.n === 1 ? '' : 's'} · ${hit.pnl >= 0 ? '+' : ''}${Math.round(hit.pnl)}`
+      : label;
     html += `<div class="${cls}" title="${title}"></div>`;
   }
   cal.innerHTML = html;
+  const meta = document.getElementById('port-cal-meta');
+  if (meta) {
+    meta.textContent = activeDays
+      ? activeDays + ' active day' + (activeDays === 1 ? '' : 's') + ' · last 28'
+      : 'Last 28 days · no closed P&L in this window';
+  }
 }
 
 // ── CRYPTO SIZER ────────────────────────────────────────────────────────────
