@@ -5,7 +5,7 @@ from fastapi.middleware.cors import CORSMiddleware
 
 from app.config import settings
 from app.db import init_db
-from app.routers import auth, billing, brokers, desk, profile, quotes
+from app.routers import auth, billing, brokers, desk, profile, quotes, stats
 
 
 @asynccontextmanager
@@ -17,7 +17,7 @@ async def lifespan(_app: FastAPI):
 app = FastAPI(
     title="Runnr API",
     description="Small backend for Runnr — login, encrypted broker keys, read-only sync.",
-    version="0.1.8",
+    version="0.1.9",
     lifespan=lifespan,
     docs_url="/docs",
 )
@@ -37,6 +37,7 @@ app.include_router(brokers.router, prefix="/api/v1")
 app.include_router(profile.router, prefix="/api/v1")
 app.include_router(quotes.router, prefix="/api/v1/quotes", tags=["quotes"])
 app.include_router(desk.router, prefix="/api/v1/desk", tags=["desk"])
+app.include_router(stats.router, prefix="/api/v1")
 
 
 @app.get("/health")

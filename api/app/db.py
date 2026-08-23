@@ -76,6 +76,7 @@ def init_db() -> None:
         _migrate_users_billing(conn)
         _migrate_auth_tokens(conn)
         _migrate_checkout_tickets(conn)
+        _migrate_site_stats(conn)
 
 
 def _migrate_users_billing(conn: sqlite3.Connection) -> None:
@@ -94,6 +95,27 @@ def _migrate_users_billing(conn: sqlite3.Connection) -> None:
     # Existing accounts are grandfathered as verified
     if "email_verified" not in cols:
         conn.execute("UPDATE users SET email_verified = 1 WHERE email_verified IS NULL")
+
+
+def _migrate_site_stats(conn: sqlite3.Connection) -> None:
+    conn.execute(
+        """
+        CREATE TABLE IF NOT EXISTS site_stats_days (
+            day TEXT PRIMARY KEY,
+            pageviews INTEGER NOT NULL DEFAULT 0,
+            uniques INTEGER NOT NULL DEFAULT 0
+        )
+        """
+    )
+    conn.execute(
+        """
+        CREATE TABLE IF NOT EXISTS site_stats_visitors (
+            day TEXT NOT NULL,
+            visitor_hash TEXT NOT NULL,
+            PRIMARY KEY (day, visitor_hash)
+        )
+        """
+    )
 
 
 def _migrate_auth_tokens(conn: sqlite3.Connection) -> None:

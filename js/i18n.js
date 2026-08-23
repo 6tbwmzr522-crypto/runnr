@@ -107,6 +107,7 @@
       "footer.terms": "Terms",
       "footer.refund": "Refund Policy",
       "footer.privacy": "Privacy",
+      "footer.stats": "Stats",
       "footer.pricing": "Pricing",
       "coach.instLocked": "Unlocks at {n} closed trades",
       "coach.instLockedNote": "{count} of {min} closed trades logged. Sortino, Recovery Factor and allocator-grade Profit Factor appear once your sample is large enough.",
