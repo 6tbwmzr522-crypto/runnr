@@ -46,13 +46,13 @@ const RunnrSync = (() => {
   }
 
   const HOUSE_EMAILS = [
+    "janis@thinicedigital.com",
     "info@thinicedigital.com",
-    "janis.berzins.liepins@gmail.com",
     "berzins.j@inbox.lv",
   ];
   const HOUSE_FIRST_NAMES = {
+    "janis@thinicedigital.com": "Janis",
     "info@thinicedigital.com": "Janis",
-    "janis.berzins.liepins@gmail.com": "Janis",
     "berzins.j@inbox.lv": "Janis",
   };
   const DEMO_TRADE_IDS = new Set([1, 2, 3, 4]);
@@ -1575,9 +1575,7 @@ const RunnrSync = (() => {
 
   function isHouseEmail(email) {
     const e = String(email || "").trim().toLowerCase();
-    if (!e) return false;
-    if (HOUSE_EMAILS.indexOf(e) !== -1) return true;
-    return e.endsWith("@thinicedigital.com");
+    return !!e && HOUSE_EMAILS.indexOf(e) !== -1;
   }
 
   function isPro() {

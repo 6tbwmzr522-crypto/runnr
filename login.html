@@ -159,14 +159,12 @@
 
   function houseFirstName(email) {
     var house = {
+      "janis@thinicedigital.com": "Janis",
       "info@thinicedigital.com": "Janis",
-      "janis.berzins.liepins@gmail.com": "Janis",
       "berzins.j@inbox.lv": "Janis"
     };
     var e = String(email || "").trim().toLowerCase();
-    if (house[e]) return house[e];
-    if (e.indexOf("@thinicedigital.com") !== -1) return "Janis";
-    return "";
+    return house[e] || "";
   }
 
   function rememberFirstName(email, name) {
@@ -280,10 +278,9 @@
 
   function isHouseEmail(email) {
     var e = String(email || "").trim().toLowerCase();
-    return e === "info@thinicedigital.com"
-      || e === "janis.berzins.liepins@gmail.com"
-      || e === "berzins.j@inbox.lv"
-      || e.indexOf("@thinicedigital.com") !== -1;
+    return e === "janis@thinicedigital.com"
+      || e === "info@thinicedigital.com"
+      || e === "berzins.j@inbox.lv";
   }
 
   function showVerify(email, data) {

@@ -5,20 +5,10 @@ from app.config import settings
 
 PRO_STATUSES = frozenset({"active", "trialing"})
 _DEFAULT_BOSS = (
+    "janis@thinicedigital.com,"
     "info@thinicedigital.com,"
-    "janis.berzins.liepins@gmail.com,"
     "berzins.j@inbox.lv"
 )
-
-
-def email_is_boss(email: str | None) -> bool:
-    """Founder / house accounts skip Stripe forever."""
-    e = (email or "").strip().lower()
-    if not e:
-        return False
-    if e in boss_emails():
-        return True
-    return e.endswith("@thinicedigital.com")
 
 
 def boss_emails() -> set[str]:
@@ -27,13 +17,9 @@ def boss_emails() -> set[str]:
 
 
 def email_is_boss(email: str | None) -> bool:
-    """Founder / house accounts skip Stripe forever."""
+    """Founder / house accounts skip Stripe and email confirm."""
     e = (email or "").strip().lower()
-    if not e:
-        return False
-    if e in boss_emails():
-        return True
-    return e.endswith("@thinicedigital.com")
+    return bool(e) and e in boss_emails()
 
 
 def subscription_is_pro(status: str | None, plan: str | None = None, email: str | None = None) -> bool:
