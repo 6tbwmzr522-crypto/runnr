@@ -25,6 +25,14 @@ Runnr is operated by **Thin Ice Digital Ltd**, registered in England and Wales. 
 ### Data collected automatically
 - Device type and browser (for compatibility purposes)
 - General usage patterns (to improve the product)
+- First-party visitor counts on the app and sign-in page (see below)
+
+### First-party visitor counts
+We count daily unique visitors and pageviews ourselves on the Runnr API (hosted on Railway). We do **not** use Google Analytics or any other third-party analytics service.
+
+On each counted page load, the server hashes the visitor’s IP address together with the UTC date and browser user-agent, using a secret that never leaves the server. The IP address is then discarded. We store only that hash (so we can tell if the visitor is new that UTC day) and the public counters. Hashes older than two days are deleted. We never store IP addresses.
+
+If your browser sends a **Do Not Track (DNT)** or **Global Privacy Control** signal, we do not record the visit. Public totals are at runnr.fyi/stats.html.
 
 ### Broker integration data
 If you connect Alpaca or IBKR Flex, we retrieve your trade history in read-only mode. We do not store your raw broker credentials — API keys and Flex tokens are encrypted at rest using AES/Fernet encryption. We cannot place, modify, or cancel orders on your behalf.
@@ -58,6 +66,8 @@ Your journal, watchlist, and settings are stored:
 
 We take reasonable technical measures to protect your data, including encryption in transit (HTTPS) and at rest.
 
+First-party visitor hashes and daily counters are stored in the same Railway database as the API. They do not include IP addresses.
+
 ---
 
 ## 5. Data Retention
@@ -87,7 +97,7 @@ If you are unsatisfied with our response, you have the right to lodge a complain
 
 ## 7. Cookies
 
-Runnr uses minimal cookies necessary for session management and authentication. We do not use advertising or tracking cookies. We do not use third-party analytics that collect personally identifiable information.
+Runnr uses minimal cookies necessary for session management and authentication. We do not use advertising or tracking cookies. We do not use Google Analytics or any other third-party analytics. First-party visitor counts (described above) do not set a tracking cookie — uniqueness is derived from a daily hash, not a stored identifier on your device.
 
 ---
 

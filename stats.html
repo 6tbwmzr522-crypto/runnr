@@ -1,0 +1,176 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Site stats — Runnr</title>
+<meta name="description" content="First-party visitor counts for runnr.fyi. Daily unique visitors and pageviews. No Google Analytics.">
+<meta name="theme-color" content="#080c12">
+<link rel="canonical" href="https://runnr.fyi/stats.html">
+<link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,300;0,400;0,500;1,300&family=Jost:wght@300;400;500&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="/css/legal.css">
+<style>
+  .lead { color: var(--text2); margin-bottom: 22px; max-width: 52ch; }
+  .kpis {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 10px;
+    margin: 8px 0 22px;
+  }
+  .kpi {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 16px 14px 14px;
+  }
+  .kpi .label {
+    font-size: 11px;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: var(--text3);
+    margin-bottom: 6px;
+  }
+  .kpi .num {
+    font-family: var(--font-head);
+    font-size: 36px;
+    line-height: 1;
+    color: var(--text);
+    font-weight: 400;
+  }
+  .kpi .hint { font-size: 12px; color: var(--text3); margin-top: 8px; margin-bottom: 0; }
+  .status { font-size: 13px; color: var(--text3); margin: 0 0 16px; }
+  .status.err { color: #e85d6f; }
+  .bar-wrap {
+    height: 6px;
+    background: rgba(201,169,110,0.12);
+    border-radius: 99px;
+    overflow: hidden;
+    min-width: 48px;
+  }
+  .bar {
+    height: 100%;
+    background: linear-gradient(90deg, #C9A96E, #00e5a0);
+    border-radius: 99px;
+    width: 0;
+  }
+  td.num, th.num { text-align: right; font-variant-numeric: tabular-nums; }
+  .empty { color: var(--text3); font-size: 14px; }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <div class="top">
+    <a class="brand" href="/">runnr <span>PRO</span></a>
+    <a class="back" href="/">← App</a>
+  </div>
+  <h1>Site stats</h1>
+  <p class="meta">runnr.fyi · first-party counts · UTC</p>
+  <p class="lead">Daily unique visitors and pageviews, counted on our own Railway API. No Google Analytics. Browsers that send Do Not Track or Global Privacy Control are not recorded.</p>
+  <p class="status" id="status">Loading…</p>
+
+  <h2>Today</h2>
+  <div class="kpis">
+    <div class="kpi">
+      <div class="label">Unique visitors</div>
+      <div class="num" id="today-uniques">—</div>
+      <p class="hint">Hashed IP + date + browser, once per UTC day</p>
+    </div>
+    <div class="kpi">
+      <div class="label">Pageviews</div>
+      <div class="num" id="today-views">—</div>
+      <p class="hint">Loads of the app and sign-in page</p>
+    </div>
+  </div>
+
+  <h2>All recorded days</h2>
+  <div class="kpis">
+    <div class="kpi">
+      <div class="label">Unique visits</div>
+      <div class="num" id="total-uniques">—</div>
+      <p class="hint">Sum of daily uniques — not lifetime people</p>
+    </div>
+    <div class="kpi">
+      <div class="label">Pageviews</div>
+      <div class="num" id="total-views">—</div>
+      <p class="hint">Every counted page load</p>
+    </div>
+  </div>
+
+  <h2>Last 90 days</h2>
+  <table>
+    <thead>
+      <tr>
+        <th>Day (UTC)</th>
+        <th class="num">Uniques</th>
+        <th class="num">Pageviews</th>
+        <th>Uniques</th>
+      </tr>
+    </thead>
+    <tbody id="days-body">
+      <tr><td colspan="4" class="empty">No days yet.</td></tr>
+    </tbody>
+  </table>
+
+  <h2>How this is counted</h2>
+  <p>On each load of <code>index.html</code> or <code>login.html</code>, the page sends a tiny beacon to our API. The server hashes the visitor’s IP address together with the UTC date and user-agent, using a secret that never leaves the server, then discards the IP. We store only that hash (to know if the visitor is new today) and the counters you see here. Hashes older than two days are deleted.</p>
+  <p>We do not store IP addresses. We do not use advertising cookies. We do not send this data to Google or any other analytics vendor. Public totals live only on this page. Details are in the <a href="/privacy/">Privacy Policy</a>.</p>
+
+  <nav class="legal-nav">
+    <a href="/terms/">Terms</a>
+    <a href="/refund/">Refund Policy</a>
+    <a href="/privacy/">Privacy</a>
+    <a href="/stats.html">Stats</a>
+    <a href="/">Pricing / App</a>
+  </nav>
+  <p class="foot">© 2026 Thin Ice Digital Ltd · All rights reserved</p>
+</div>
+<script>
+(function () {
+  var API = "https://api.runnr.fyi/api/v1/stats";
+  var statusEl = document.getElementById("status");
+  function fmt(n) {
+    return Number(n || 0).toLocaleString("en-GB");
+  }
+  function setText(id, value) {
+    var el = document.getElementById(id);
+    if (el) el.textContent = value;
+  }
+  fetch(API, { credentials: "omit" })
+    .then(function (res) {
+      if (!res.ok) throw new Error("Could not load stats");
+      return res.json();
+    })
+    .then(function (data) {
+      var today = data.today || {};
+      var totals = data.totals || {};
+      var days = (data.days || []).slice().reverse();
+      setText("today-uniques", fmt(today.uniques));
+      setText("today-views", fmt(today.pageviews));
+      setText("total-uniques", fmt(totals.uniques));
+      setText("total-views", fmt(totals.pageviews));
+      var maxU = 1;
+      days.forEach(function (row) {
+        if (row.uniques > maxU) maxU = row.uniques;
+      });
+      var body = document.getElementById("days-body");
+      if (!days.length) {
+        statusEl.textContent = "No visits recorded yet.";
+        return;
+      }
+      body.innerHTML = days.map(function (row) {
+        var pct = Math.max(2, Math.round((row.uniques / maxU) * 100));
+        return "<tr><td>" + row.day + "</td>" +
+          '<td class="num">' + fmt(row.uniques) + "</td>" +
+          '<td class="num">' + fmt(row.pageviews) + "</td>" +
+          '<td><div class="bar-wrap"><div class="bar" style="width:' + pct + '%"></div></div></td></tr>';
+      }).join("");
+      statusEl.textContent = "Updated just now · " + (data.timezone || "UTC");
+    })
+    .catch(function () {
+      statusEl.className = "status err";
+      statusEl.textContent = "Stats are unavailable right now. Try again in a moment.";
+    });
+})();
+</script>
+</body>
+</html>
