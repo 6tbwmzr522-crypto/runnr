@@ -1,0 +1,20 @@
+{
+  "name": "Runnr",
+  "install": "sudo apt-get update && sudo apt-get install -y python3.12-venv && python3 -m venv api/.venv && api/.venv/bin/pip install --upgrade pip && api/.venv/bin/pip install -r api/requirements.txt",
+  "terminals": [
+    {
+      "name": "api",
+      "command": "cd api && .venv/bin/uvicorn app.main:app --reload --host 0.0.0.0 --port 8090",
+      "description": "Runnr FastAPI backend (broker sync, auth, quotes, stats). Docs at http://localhost:8090/docs. SQLite falls back to /tmp/runnr.db when no /data volume is mounted."
+    },
+    {
+      "name": "web",
+      "command": "python3 -m http.server 8080",
+      "description": "Static PWA frontend. Open http://localhost:8080 — on localhost the app auto-targets the local API at http://localhost:8090."
+    }
+  ],
+  "ports": [
+    { "name": "web", "port": 8080 },
+    { "name": "api", "port": 8090 }
+  ]
+}
