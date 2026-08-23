@@ -2,6 +2,7 @@ from fastapi import APIRouter, Depends, HTTPException
 
 from app.auth import create_access_token, get_current_user, hash_password, verify_password
 from app.auth_tokens import consume_token, issue_token
+from app.billing_util import email_is_boss
 from app.config import settings
 from app.db import get_db
 from app.email_util import email_configured, send_reset_email, send_verify_email
@@ -48,6 +49,11 @@ def _reset_link(token: str) -> str:
     return f"{_app_url()}/?reset={token}"
 
 
+def _token_response(**kwargs) -> TokenResponse:
+    kwargs.setdefault("email_configured", email_configured())
+    return TokenResponse(**kwargs)
+
+
 def _issue_verification(user_id: int, email: str) -> tuple[bool, str | None]:
     raw = issue_token(user_id, "verify", hours=24)
     url = _verify_link(raw)
@@ -78,13 +84,23 @@ def register(body: RegisterRequest):
                     stored_name = first_name
                 token = create_access_token(existing["id"], existing["email"])
                 verified = bool(existing["email_verified"]) if "email_verified" in existing.keys() else True
-                return TokenResponse(
+                sent, verify_url = False, None
+                if email_configured() and not verified:
+                    sent, verify_url = _issue_verification(existing["id"], existing["email"])
+                return _token_response(
                     access_token=token,
                     email=existing["email"],
                     email_verified=verified,
+                    verification_sent=sent,
+                    verify_url=verify_url,
                     first_name=stored_name,
                 )
             raise HTTPException(status_code=400, detail="Wrong password for this email")
+        if not email_configured() and not email_is_boss(email):
+            raise HTTPException(
+                status_code=503,
+                detail="Confirmation emails are not sending yet. Try again later, or use your Runnr house account.",
+            )
         verified = 0 if email_configured() else 1
         cur = conn.execute(
             "INSERT INTO users (email, password_hash, email_verified, first_name) VALUES (?, ?, ?, ?)",
@@ -98,7 +114,7 @@ def register(body: RegisterRequest):
     else:
         sent, verify_url, verified_flag = False, None, True
     token = create_access_token(user_id, email)
-    return TokenResponse(
+    return _token_response(
         access_token=token,
         email=email,
         email_verified=verified_flag,
@@ -141,6 +157,11 @@ def resend_verification(user: dict = Depends(get_current_user)):
     sent, verify_url = _issue_verification(user["id"], user["email"])
     if sent:
         return MessageResponse(ok=True, detail="Verification email sent")
+    if email_configured():
+        raise HTTPException(
+            status_code=502,
+            detail="Could not send the confirmation email. Check Resend, then tap resend.",
+        )
     return MessageResponse(
         ok=True,
         detail="Email provider not configured — use this link to verify",
@@ -184,7 +205,7 @@ def reset_password(body: ResetPasswordRequest):
         )
     token = create_access_token(row["id"], row["email"])
     stored_name = row["first_name"] if "first_name" in row.keys() else None
-    return TokenResponse(
+    return _token_response(
         access_token=token,
         email=row["email"],
         email_verified=True,
@@ -207,7 +228,7 @@ def login(body: LoginRequest):
     sent, verify_url = False, None
     if not verified:
         sent, verify_url = _issue_verification(row["id"], row["email"])
-    return TokenResponse(
+    return _token_response(
         access_token=token,
         email=row["email"],
         email_verified=verified,

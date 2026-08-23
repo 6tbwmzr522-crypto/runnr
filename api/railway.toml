@@ -8,3 +8,7 @@ restartPolicyMaxRetries = 10
 
 # In Railway dashboard: add a Volume mounted at /data (keeps SQLite across deploys).
 # Optional variable: DATABASE_PATH=/data/runnr.db
+# Email confirm:
+#   RESEND_API_KEY=re_...
+#   RESEND_FROM_EMAIL=Runnr <noreply@runnr.fyi>
+# Verify the domain in Resend, then health.email_configured should be true.

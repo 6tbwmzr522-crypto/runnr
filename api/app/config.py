@@ -28,6 +28,7 @@ class Settings(BaseSettings):
     stripe_price_yearly: str = ""
     stripe_success_url: str = "https://runnr.fyi/?billing=success"
     stripe_cancel_url: str = "https://runnr.fyi/?billing=cancel"
+    # Railway: RESEND_API_KEY + RESEND_FROM_EMAIL (e.g. Runnr <noreply@runnr.fyi>)
     resend_api_key: str = ""
     resend_from_email: str = ""
     app_public_url: str = "https://runnr.fyi"

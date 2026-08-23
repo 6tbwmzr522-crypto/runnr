@@ -41,7 +41,15 @@ def send_email(*, to: str, subject: str, html: str, text: str) -> bool:
         with urlopen(req, timeout=20) as resp:
             resp.read()
         return True
-    except (HTTPError, URLError, TimeoutError) as exc:
+    except HTTPError as exc:
+        err_body = ""
+        try:
+            err_body = exc.read().decode("utf-8", "replace")[:800]
+        except Exception:
+            err_body = ""
+        log.error("Resend failed: %s %s", exc, err_body)
+        return False
+    except (URLError, TimeoutError, OSError) as exc:
         log.error("Resend failed: %s", exc)
         return False
 

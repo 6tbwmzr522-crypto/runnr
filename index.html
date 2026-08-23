@@ -5,7 +5,7 @@
 <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
 <script>
 (function () {
-  var V = "86";
+  var V = "87";
   try {
     if (localStorage.getItem("runnr_app_v") !== V) {
       localStorage.setItem("runnr_app_v", V);
@@ -2108,7 +2108,7 @@ body.light #equity-canvas{filter:invert(0)}
 <script src="js/coach.js?v=26"></script>
 <script src="js/onboarding.js?v=23"></script>
 <script src="js/csv-presets.js?v=3"></script>
-<script src="js/sync.js?v=56"></script>
+<script src="js/sync.js?v=57"></script>
 <script src="js/desk-sessions.js?v=2"></script>
 <script src="js/desk.js?v=10"></script>
 <script>
@@ -6029,19 +6029,20 @@ async function submitSyncContinue() {
       }
     } catch (e) {}
     showSyncSignInStatus('Signed in — loading your profile…', 'ok');
-    finishSyncSignIn(email);
-    showToast('Runnr', 'Signed in');
     const house = typeof RunnrSync.isHouseEmail === 'function' && RunnrSync.isHouseEmail(email);
-    if (!house && data && data.email_verified === false) {
+    const needsVerify = !house && data && data.email_verified === false;
+    if (needsVerify) {
       if (typeof switchPage === 'function') switchPage('sync');
       showSyncVerify(email, data);
+      showToast('Runnr', 'Confirm your email to continue');
+      try { await RunnrSync.refreshBilling?.(); refreshBillingUI(); } catch (e) {}
+      return;
     }
+    finishSyncSignIn(email);
+    showToast('Runnr', 'Signed in');
     try {
-      const me = await RunnrSync.refreshBilling?.();
+      await RunnrSync.refreshBilling?.();
       refreshBillingUI();
-      if (me && me.emailVerified === false && me.emailConfigured && !house) {
-        showSyncVerify(email, { verification_sent: true });
-      }
     } catch (e) {}
   } catch (e) {
     const msg = String(e.message || e);
@@ -6162,10 +6163,12 @@ function showSyncVerify(email, data) {
   const sent = data && data.verification_sent;
   const link = data && data.verify_url;
   let html = 'We sent a confirmation link to <strong>' + safe + '</strong>. Open it, then you are good.';
-  if (!sent && link) {
+  if (data && data.email_configured === false) {
+    html = 'Confirmation emails are not sending yet (Resend is not set on the API). House accounts can still get in.';
+  } else if (!sent && link) {
     html += ' Email isn’t configured yet — <a href="' + link + '" style="color:var(--gold)">verify now</a>.';
   } else if (!sent) {
-    html = 'Confirm <strong>' + safe + '</strong> from the link we email you. You can continue and verify later.';
+    html = 'We could not send the confirmation email to <strong>' + safe + '</strong>. Tap resend, or check spam.';
   }
   copy.innerHTML = html;
   card.style.display = 'block';
@@ -7188,7 +7191,15 @@ function initSyncAuthForm() {
   }
   if (continueVerify && !continueVerify.dataset.bound) {
     continueVerify.dataset.bound = '1';
-    continueVerify.addEventListener('click', hideSyncVerify);
+    continueVerify.addEventListener('click', async () => {
+      try { await RunnrSync.refreshBilling?.(); } catch (e) {}
+      const house = typeof RunnrSync.isHouseEmail === 'function' && RunnrSync.isHouseEmail(RunnrSync.sessionEmail?.());
+      if (house || RunnrSync.isEmailVerified?.()) {
+        hideSyncVerify();
+        return;
+      }
+      showToast('Runnr', 'Open the Confirm email link in your inbox first');
+    });
   }
 }
 
@@ -7215,6 +7226,10 @@ function initApp() {
       .then(() => {
         showToast('Runnr', 'Email verified');
         return RunnrSync.refreshBilling?.();
+      })
+      .then(() => {
+        hideSyncVerify();
+        refreshBillingUI();
       })
       .catch((e) => alert('Verification failed: ' + (e.message || e)));
   } else if (params.get('reset')) {
@@ -7266,7 +7281,17 @@ function initApp() {
     refreshHomeMarkets().catch(() => {});
     if (window.RunnrSync?.isLoggedIn?.()) {
       RunnrSync.refreshStatus().catch(() => {});
-      refreshBillingUI();
+      RunnrSync.refreshBilling?.()
+        .then(() => {
+          refreshBillingUI();
+          const house = typeof RunnrSync.isHouseEmail === 'function' && RunnrSync.isHouseEmail(RunnrSync.sessionEmail?.());
+          const mailerOn = !!RunnrSync.billing?.().emailConfigured;
+          if (!house && mailerOn && !RunnrSync.isEmailVerified?.()) {
+            if (typeof switchPage === 'function') switchPage('sync');
+            showSyncVerify(RunnrSync.sessionEmail?.(), { verification_sent: true });
+          }
+        })
+        .catch(() => refreshBillingUI());
     }
   }, 400);
 }

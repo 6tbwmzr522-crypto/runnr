@@ -293,8 +293,13 @@
     var sent = data && data.verification_sent;
     var link = data && data.verify_url;
     var html = "We sent a confirmation link to <strong>" + String(email || "").replace(/</g, "") + "</strong>. Open it, then continue.";
-    if (!sent && link) html += " Email isn’t configured yet — use this link: <a href=\"" + link + "\" style=\"color:var(--gold)\">verify now</a>.";
-    else if (!sent) html = "Confirm <strong>" + String(email || "").replace(/</g, "") + "</strong> from the link we email you. You can continue and verify later.";
+    if (data && data.email_configured === false) {
+      html = "Confirmation emails are not sending yet (Resend is not set on the API). House accounts can still get in.";
+    } else if (!sent && link) {
+      html += " Email isn’t configured yet — use this link: <a href=\"" + link + "\" style=\"color:var(--gold)\">verify now</a>.";
+    } else if (!sent) {
+      html = "We could not send the confirmation email to <strong>" + String(email || "").replace(/</g, "") + "</strong>. Tap resend, or check spam.";
+    }
     verifyCopy.innerHTML = html;
     setStatus("", "");
     signinBtn.disabled = false;
@@ -370,7 +375,32 @@
     else if (resetMode) doReset();
     else doSignIn();
   });
-  continueBtn.addEventListener("click", goHome);
+  continueBtn.addEventListener("click", async function () {
+    var email = (emailEl.value || "").trim().toLowerCase();
+    if (isHouseEmail(email)) return goHome();
+    if (!pendingToken) {
+      setStatus("Open the Confirm email link in your inbox first.", "err");
+      return;
+    }
+    continueBtn.disabled = true;
+    setStatus("Checking confirmation…", "work");
+    try {
+      const res = await fetch(API + "/api/v1/auth/me", {
+        headers: { Authorization: "Bearer " + pendingToken },
+      });
+      let data = {};
+      try { data = await res.json(); } catch (err) {}
+      if (data && data.email_verified) return goHome();
+      if (data && data.email_configured === false) {
+        setStatus("Confirm email is not sending yet — add Resend on the API.", "err");
+      } else {
+        setStatus("Open the Confirm email link we sent, then tap Continue.", "err");
+      }
+    } catch (err) {
+      setStatus("Could not check confirmation.", "err");
+    }
+    continueBtn.disabled = false;
+  });
   resendBtn.addEventListener("click", async function () {
     if (!pendingToken) return setStatus("Sign in first, then resend.", "err");
     resendBtn.disabled = true;

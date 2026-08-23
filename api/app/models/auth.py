@@ -19,6 +19,7 @@ class TokenResponse(BaseModel):
     email_verified: bool = True
     verification_sent: bool = False
     verify_url: str | None = None  # only when email provider not configured
+    email_configured: bool = False
     first_name: str | None = None
 
 
