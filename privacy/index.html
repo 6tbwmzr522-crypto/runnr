@@ -37,7 +37,12 @@
   <ul>
     <li>Device type and browser (for compatibility purposes)</li>
     <li>General usage patterns (to improve the product)</li>
+    <li>First-party visitor counts on the app and sign-in page (see below)</li>
   </ul>
+  <h3>First-party visitor counts</h3>
+  <p>We count daily unique visitors and pageviews ourselves on the Runnr API (hosted on Railway). We do <strong>not</strong> use Google Analytics or any other third-party analytics service.</p>
+  <p>On each counted page load, the server hashes the visitor’s IP address together with the UTC date and browser user-agent, using a secret that never leaves the server. The IP address is then discarded. We store only that hash (so we can tell if the visitor is new that UTC day) and the public counters. Hashes older than two days are deleted. We never store IP addresses.</p>
+  <p>If your browser sends a <strong>Do Not Track (DNT)</strong> or <strong>Global Privacy Control</strong> signal, we do not record the visit. Public totals are at <a href="/stats.html">runnr.fyi/stats.html</a>.</p>
   <h3>Broker integration data</h3>
   <p>If you connect Alpaca or IBKR Flex, we retrieve your trade history in read-only mode. We do not store your raw broker credentials — API keys and Flex tokens are encrypted at rest using AES/Fernet encryption. We cannot place, modify, or cancel orders on your behalf.</p>
   <h3>Payment data</h3>
@@ -62,6 +67,7 @@
     <li><strong>In your encrypted cloud profile</strong> hosted on Railway (EU-friendly infrastructure) when you are signed in</li>
   </ul>
   <p>We take reasonable technical measures to protect your data, including encryption in transit (HTTPS) and at rest.</p>
+  <p>First-party visitor hashes and daily counters are stored in the same Railway database as the API. They do not include IP addresses.</p>
 
   <h2>5. Data Retention</h2>
   <p>We retain your account data for as long as your account is active. If you delete your account, we will remove your personal data within 30 days, except where retention is required by law.</p>
@@ -81,7 +87,7 @@
   <p>If you are unsatisfied with our response, you have the right to lodge a complaint with your local data protection authority (in the UK: the ICO at <a href="https://ico.org.uk">ico.org.uk</a>).</p>
 
   <h2>7. Cookies</h2>
-  <p>Runnr uses minimal cookies necessary for session management and authentication. We do not use advertising or tracking cookies. We do not use third-party analytics that collect personally identifiable information.</p>
+  <p>Runnr uses minimal cookies necessary for session management and authentication. We do not use advertising or tracking cookies. We do not use Google Analytics or any other third-party analytics. First-party visitor counts (described above) do not set a tracking cookie — uniqueness is derived from a daily hash, not a stored identifier on your device.</p>
 
   <h2>8. Third-Party Services</h2>
   <p>Runnr uses the following third-party services:</p>
@@ -123,6 +129,7 @@
     <a href="/terms/">Terms</a>
     <a href="/refund/">Refund Policy</a>
     <a href="/privacy/">Privacy</a>
+    <a href="/stats.html">Stats</a>
     <a href="/">Pricing / App</a>
   </nav>
   <p class="foot">© 2026 Thin Ice Digital Ltd · All rights reserved</p>
