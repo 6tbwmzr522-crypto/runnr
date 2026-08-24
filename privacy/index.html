@@ -41,8 +41,8 @@
   </ul>
   <h3>First-party visitor counts</h3>
   <p>We count daily unique visitors and pageviews ourselves on the Runnr API (hosted on Railway). We do <strong>not</strong> use Google Analytics or any other third-party analytics service.</p>
-  <p>On each counted page load, the server hashes the visitor’s IP address together with the UTC date and browser user-agent, using a secret that never leaves the server. The IP address is then discarded. We store only that hash (so we can tell if the visitor is new that UTC day) and the public counters. Hashes older than two days are deleted. We never store IP addresses.</p>
-  <p>If your browser sends a <strong>Do Not Track (DNT)</strong> or <strong>Global Privacy Control</strong> signal, we do not record the visit. Public totals are at <a href="/stats.html">runnr.fyi/stats.html</a>.</p>
+  <p>On each counted page load, the server hashes the visitor’s IP address together with the UTC date and browser user-agent, using a secret that never leaves the server. The IP address is then discarded. We store only that hash (so we can tell if the visitor is new that UTC day) and the daily counters. Hashes older than two days are deleted. We never store IP addresses. These totals are internal and are not published.</p>
+  <p>If your browser sends a <strong>Do Not Track (DNT)</strong> or <strong>Global Privacy Control</strong> signal, we do not record the visit.</p>
   <h3>Broker integration data</h3>
   <p>If you connect Alpaca or IBKR Flex, we retrieve your trade history in read-only mode. We do not store your raw broker credentials — API keys and Flex tokens are encrypted at rest using AES/Fernet encryption. We cannot place, modify, or cancel orders on your behalf.</p>
   <h3>Payment data</h3>
@@ -129,7 +129,6 @@
     <a href="/terms/">Terms</a>
     <a href="/refund/">Refund Policy</a>
     <a href="/privacy/">Privacy</a>
-    <a href="/stats.html">Stats</a>
     <a href="/">Pricing / App</a>
   </nav>
   <p class="foot">© 2026 Thin Ice Digital Ltd · All rights reserved</p>

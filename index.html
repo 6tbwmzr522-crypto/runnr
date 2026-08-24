@@ -5,7 +5,7 @@
 <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
 <script>
 (function () {
-  var V = "88";
+  var V = "89";
   try {
     if (localStorage.getItem("runnr_app_v") !== V) {
       localStorage.setItem("runnr_app_v", V);
@@ -1099,7 +1099,7 @@ body.light #equity-canvas{filter:invert(0)}
           <a href="/terms/" data-i18n="footer.terms">Terms</a>
           <a href="/refund/" data-i18n="footer.refund">Refund Policy</a>
           <a href="/privacy/" data-i18n="footer.privacy">Privacy</a>
-          <a href="/stats.html" data-i18n="footer.stats">Stats</a>
+          <a href="/stats.html" class="js-stats-link" hidden data-i18n="footer.stats">Stats</a>
           <button type="button" onclick="openPricing()" data-i18n="footer.pricing">Pricing</button>
         </div>
         <div class="home-footer-copy">© 2026 Thin Ice Digital Ltd · All rights reserved</div>
@@ -1528,7 +1528,7 @@ body.light #equity-canvas{filter:invert(0)}
           <a href="/terms/" data-i18n="footer.terms">Terms</a>
           <a href="/refund/" data-i18n="footer.refund">Refund Policy</a>
           <a href="/privacy/" data-i18n="footer.privacy">Privacy</a>
-          <a href="/stats.html" data-i18n="footer.stats">Stats</a>
+          <a href="/stats.html" class="js-stats-link" hidden data-i18n="footer.stats">Stats</a>
           <button type="button" onclick="openPricing()" data-i18n="footer.pricing">Pricing</button>
         </div>
         <div style="font-size:11px;color:var(--text3);margin-top:8px;line-height:1.45">Alpaca &amp; IBKR Flex: read-only · keys encrypted · no order execution</div>
@@ -2078,7 +2078,7 @@ body.light #equity-canvas{filter:invert(0)}
       <p style="margin:0 0 12px"><strong style="color:var(--text)">Contact</strong><br>
         <a href="mailto:info@thinicedigital.com" style="color:var(--accent)">info@thinicedigital.com</a></p>
       <p style="margin:0;font-size:12px;color:var(--text3)">Alpaca &amp; IBKR Flex sync are <strong>read-only</strong> — Runnr cannot place trades. API keys / Flex tokens are encrypted server-side (Fernet). CSV presets cover Trading 212, eToro, Degiro, Schwab and more.</p>
-      <p style="margin:12px 0 0;font-size:12px;line-height:1.55"><a href="/terms/" style="color:var(--gold)">Terms</a> · <a href="/refund/" style="color:var(--gold)">Refund Policy</a> · <a href="/privacy/" style="color:var(--gold)">Privacy</a> · <a href="/stats.html" style="color:var(--gold)">Stats</a></p>
+      <p style="margin:12px 0 0;font-size:12px;line-height:1.55"><a href="/terms/" style="color:var(--gold)">Terms</a> · <a href="/refund/" style="color:var(--gold)">Refund Policy</a> · <a href="/privacy/" style="color:var(--gold)">Privacy</a><span class="js-stats-link" hidden> · <a href="/stats.html" style="color:var(--gold)">Stats</a></span></p>
     </div>
   </div>
 </div>
@@ -2110,7 +2110,7 @@ body.light #equity-canvas{filter:invert(0)}
 <script src="js/coach.js?v=26"></script>
 <script src="js/onboarding.js?v=23"></script>
 <script src="js/csv-presets.js?v=3"></script>
-<script src="js/sync.js?v=58"></script>
+<script src="js/sync.js?v=59"></script>
 <script src="js/desk-sessions.js?v=2"></script>
 <script src="js/desk.js?v=10"></script>
 <script src="js/visit.js?v=1"></script>
@@ -5647,7 +5647,16 @@ function hideSessionBanner() {
   if (el) el.style.display = 'none';
 }
 
+function renderStatsFooterLinks() {
+  const allow = typeof RunnrSync !== 'undefined' && typeof RunnrSync.canViewStats === 'function'
+    && RunnrSync.canViewStats();
+  document.querySelectorAll('.js-stats-link').forEach((el) => {
+    el.hidden = !allow;
+  });
+}
+
 function renderHeaderSyncPill() {
+  try { renderStatsFooterLinks(); } catch (e) {}
   const el = document.getElementById('header-sync-pill');
   if (!el) return;
   const inSession = !!(typeof RunnrSync !== 'undefined' && RunnrSync.isLoggedIn?.())
