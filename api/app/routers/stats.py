@@ -6,13 +6,29 @@ import hashlib
 import hmac
 from datetime import datetime, timedelta, timezone
 
-from fastapi import APIRouter, Request, Response
+from fastapi import APIRouter, Depends, HTTPException, Request, Response
 from fastapi.responses import JSONResponse
 
+from app.auth import get_current_user
 from app.config import settings
 from app.db import get_db
 
 router = APIRouter(tags=["stats"])
+
+# Visitor totals are internal. Do not reuse email_is_boss (that list is wider/configurable).
+STATS_VIEWER_EMAILS = frozenset(
+    {
+        "janis@thinicedigital.com",
+        "berzins.j@inbox.lv",
+        "janis.berzins.liepins@gmail.com",
+    }
+)
+
+
+def email_can_view_stats(email: str | None) -> bool:
+    e = (email or "").strip().lower()
+    return bool(e) and e in STATS_VIEWER_EMAILS
+
 
 _HASH_KEEP_DAYS = 2
 _UA_MAX = 512
@@ -87,7 +103,9 @@ def stats_hit(request: Request):
 
 
 @router.get("/stats")
-def stats_public():
+def stats_get(user: dict = Depends(get_current_user)):
+    if not email_can_view_stats(user.get("email")):
+        raise HTTPException(status_code=403, detail="This page is only for Janis")
     today = utc_day()
     with get_db() as conn:
         rows = conn.execute(

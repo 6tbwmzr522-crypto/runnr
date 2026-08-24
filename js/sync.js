@@ -50,6 +50,11 @@ const RunnrSync = (() => {
     "info@thinicedigital.com",
     "berzins.j@inbox.lv",
   ];
+  const STATS_VIEWER_EMAILS = [
+    "janis@thinicedigital.com",
+    "berzins.j@inbox.lv",
+    "janis.berzins.liepins@gmail.com",
+  ];
   const HOUSE_FIRST_NAMES = {
     "janis@thinicedigital.com": "Janis",
     "info@thinicedigital.com": "Janis",
@@ -1578,6 +1583,11 @@ const RunnrSync = (() => {
     return !!e && HOUSE_EMAILS.indexOf(e) !== -1;
   }
 
+  function canViewSiteStats(email) {
+    const e = String(email || sessionEmail() || "").trim().toLowerCase();
+    return !!e && STATS_VIEWER_EMAILS.indexOf(e) !== -1;
+  }
+
   function isPro() {
     if (isLoggedIn() && isHouseEmail(sessionEmail())) return true;
     if (!billingCache.enabled) return true;
@@ -1717,6 +1727,7 @@ const RunnrSync = (() => {
     seedWatchlistFromTrades,
     watchlistLooksThin,
     isHouseEmail,
+    canViewSiteStats,
     houseFirstName,
     applyRemoteState,
     billing,

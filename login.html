@@ -126,7 +126,6 @@
     <a href="/terms/">Terms</a>
     <a href="/refund/">Refund Policy</a>
     <a href="/privacy/">Privacy</a>
-    <a href="/stats.html">Stats</a>
   </div>
 </div>
 <script src="js/visit.js?v=1"></script>
@@ -271,10 +270,19 @@
     } catch (e) {}
   }
 
+  function safeNextPath() {
+    try {
+      var n = String(new URLSearchParams(window.location.search).get("next") || "").trim();
+      if (n === "/stats.html") return n;
+    } catch (e) {}
+    return "";
+  }
+
   function goHome() {
+    var next = safeNextPath();
     setStatus("Signed in — opening Runnr…", "ok");
     setTimeout(function () {
-      window.location.href = "/?signedin=1";
+      window.location.href = next || "/?signedin=1";
     }, 400);
   }
 

@@ -30,9 +30,9 @@ Runnr is operated by **Thin Ice Digital Ltd**, registered in England and Wales. 
 ### First-party visitor counts
 We count daily unique visitors and pageviews ourselves on the Runnr API (hosted on Railway). We do **not** use Google Analytics or any other third-party analytics service.
 
-On each counted page load, the server hashes the visitor’s IP address together with the UTC date and browser user-agent, using a secret that never leaves the server. The IP address is then discarded. We store only that hash (so we can tell if the visitor is new that UTC day) and the public counters. Hashes older than two days are deleted. We never store IP addresses.
+On each counted page load, the server hashes the visitor’s IP address together with the UTC date and browser user-agent, using a secret that never leaves the server. The IP address is then discarded. We store only that hash (so we can tell if the visitor is new that UTC day) and the internal counters. Hashes older than two days are deleted. We never store IP addresses.
 
-If your browser sends a **Do Not Track (DNT)** or **Global Privacy Control** signal, we do not record the visit. Public totals are at runnr.fyi/stats.html.
+If your browser sends a **Do Not Track (DNT)** or **Global Privacy Control** signal, we do not record the visit. These totals are internal and are not published.
 
 ### Broker integration data
 If you connect Alpaca or IBKR Flex, we retrieve your trade history in read-only mode. We do not store your raw broker credentials — API keys and Flex tokens are encrypted at rest using AES/Fernet encryption. We cannot place, modify, or cancel orders on your behalf.
