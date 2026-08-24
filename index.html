@@ -5,7 +5,7 @@
 <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
 <script>
 (function () {
-  var V = "90";
+  var V = "91";
   try {
     if (localStorage.getItem("runnr_app_v") !== V) {
       localStorage.setItem("runnr_app_v", V);
@@ -262,6 +262,9 @@ body::before{content:'';position:fixed;inset:0;background:radial-gradient(ellips
 .watch-shelf-tile .ws-st{font-size:9px;letter-spacing:0.1em;text-transform:uppercase;margin-top:6px;color:var(--gold)}
 .watch-shelf-tile.zone .ws-st{color:var(--accent)}
 .watch-shelf-tile.alerted .ws-st{color:var(--amber)}
+.watch-shelf-tile.add{border-left-color:var(--border);border-style:dashed;min-height:76px;display:flex;flex-direction:column;justify-content:center;gap:4px}
+.watch-shelf-tile.add .ws-sym{font-style:normal;font-size:13px;color:var(--gold);letter-spacing:0.08em;text-transform:uppercase}
+.watch-shelf-tile.add .ws-st{margin-top:0;color:var(--text3);text-transform:none;letter-spacing:0.02em;font-size:11px}
 .watch-shelf-empty{font-size:12px;color:var(--text3);line-height:1.45;padding:4px 0 2px}
 
 /* ── COACH ── */
@@ -793,7 +796,7 @@ body.light #equity-canvas{filter:invert(0)}
   }
   #page-home .watch-shelf-track{
     display:grid;
-    grid-template-columns:repeat(auto-fill,minmax(148px,1fr));
+    grid-template-columns:repeat(auto-fit,minmax(160px,1fr));
     overflow:visible;
     gap:1px;
     background:rgba(201,169,110,0.22);
@@ -809,6 +812,7 @@ body.light #equity-canvas{filter:invert(0)}
     background:var(--surface2);
     border-left:2px solid var(--gold);
   }
+  #page-home .watch-shelf-tile.add{border-left:2px dashed var(--border);}
   #page-home .watch-shelf-empty{padding:8px 2px}
   #page-home .home-footer{
     margin-top:22px;
@@ -3725,6 +3729,21 @@ function openWatchFromShelf(id) {
 }
 window.openWatchFromShelf = openWatchFromShelf;
 
+function addWatchFromShelf() {
+  openModal('modal-add-watch');
+}
+window.addWatchFromShelf = addWatchFromShelf;
+
+function renderWatchShelfAddTile() {
+  const empty = !watchShelfItems().length;
+  const label = tt('watch.addSetup', '+ Add Setup');
+  const hint = empty ? tt('home.watchShelfEmpty', 'No setups yet — add one on Watch') : '';
+  return `<button type="button" class="watch-shelf-tile add" onclick="addWatchFromShelf()">
+    <div class="ws-sym">${escHtml(label)}</div>
+    ${hint ? `<div class="ws-st">${escHtml(hint)}</div>` : ''}
+  </button>`;
+}
+
 function renderWatchShelfTile(w) {
   const prices = typeof liveprices !== 'undefined' ? liveprices : {};
   const lp = prices[w.sym];
@@ -3745,12 +3764,8 @@ function renderWatchShelf() {
   const el = document.getElementById('home-watch-shelf');
   if (!el) return;
   const items = watchShelfItems();
-  if (!items.length) {
-    el.innerHTML = `<div class="watch-shelf-empty">${escHtml(tt('home.watchShelfEmpty', 'No setups yet — add one on Watch'))}</div>`;
-    return;
-  }
   const ordered = groupWatchShelves(items).flatMap((g) => g.items).slice(0, 12);
-  el.innerHTML = ordered.map(renderWatchShelfTile).join('');
+  el.innerHTML = ordered.map(renderWatchShelfTile).join('') + renderWatchShelfAddTile();
 }
 
 function renderWatchCompactRow(w) {
