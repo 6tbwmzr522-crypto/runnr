@@ -6,13 +6,24 @@ import hashlib
 import hmac
 from datetime import datetime, timedelta, timezone
 
-from fastapi import APIRouter, Request, Response
+from fastapi import APIRouter, Depends, HTTPException, Request, Response
 from fastapi.responses import JSONResponse
 
+from app.auth import get_current_user
 from app.config import settings
 from app.db import get_db
 
 router = APIRouter(tags=["stats"])
+
+# Visitor totals are internal. Do not reuse email_is_boss — house billing
+# emails are a different set (info@ is boss, gmail is not).
+STATS_VIEWER_EMAILS = frozenset(
+    {
+        "janis@thinicedigital.com",
+        "berzins.j@inbox.lv",
+        "janis.berzins.liepins@gmail.com",
+    }
+)
 
 _HASH_KEEP_DAYS = 2
 _UA_MAX = 512
@@ -77,6 +88,16 @@ def record_hit(ip: str, user_agent: str, secret: str) -> None:
         conn.execute("DELETE FROM site_stats_visitors WHERE day < ?", (cutoff,))
 
 
+def email_can_view_stats(email: str | None) -> bool:
+    return (email or "").strip().lower() in STATS_VIEWER_EMAILS
+
+
+def require_stats_viewer(user: dict = Depends(get_current_user)) -> dict:
+    if not email_can_view_stats(user.get("email")):
+        raise HTTPException(status_code=403, detail="Forbidden")
+    return user
+
+
 @router.post("/stats/hit", status_code=204)
 def stats_hit(request: Request):
     if dnt_enabled(request):
@@ -87,7 +108,7 @@ def stats_hit(request: Request):
 
 
 @router.get("/stats")
-def stats_public():
+def stats_get(_user: dict = Depends(require_stats_viewer)):
     today = utc_day()
     with get_db() as conn:
         rows = conn.execute(
