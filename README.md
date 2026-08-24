@@ -55,7 +55,7 @@ runnr/
 
 ## Runnr API (broker sync)
 
-Deploy `api/` to Railway (root directory: `api`). Mount a **Volume at `/data`** so SQLite survives redeploys.
+Deploy `api/` to Railway (root directory: `api`). Mount a **Volume at `/data`** so SQLite survives redeploys — without it, visitor stats and accounts reset to empty on every deploy. `api/railway.toml` sets `requiredMountPath = "/data"` and only rebuilds the API when files under `/api/**` change.
 
 **Required env vars:** `RUNNR_SECRET_KEY`, `RUNNR_ENCRYPTION_KEY`
 
