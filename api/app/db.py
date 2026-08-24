@@ -1,26 +1,80 @@
 import os
 import sqlite3
 from contextlib import contextmanager
+from datetime import datetime, timezone
 
-from app.config import settings
+
+def on_railway() -> bool:
+    return bool(
+        (os.environ.get("RAILWAY_ENVIRONMENT") or "").strip()
+        or (os.environ.get("RAILWAY_PROJECT_ID") or "").strip()
+    )
+
+
+def volume_mount_path() -> str:
+    return (os.environ.get("RAILWAY_VOLUME_MOUNT_PATH") or "").strip().rstrip("/")
+
+
+def _is_mount(path: str) -> bool:
+    target = (path or "").rstrip("/") or "/"
+    if os.path.ismount(target):
+        return True
+    try:
+        with open("/proc/self/mounts", encoding="utf-8") as fh:
+            return any(line.split()[1] == target for line in fh if line.strip())
+    except OSError:
+        return False
+
+
+def path_is_persistent(path: str) -> bool:
+    """True when the sqlite file sits on a Railway volume (survives redeploys)."""
+    vol = volume_mount_path()
+    if vol and (path == vol or path.startswith(vol + "/")):
+        return True
+    if on_railway() and (path == "/data" or path.startswith("/data/")):
+        return _is_mount("/data")
+    return False
+
+
+def _ensure_parent(path: str, *, allow_create: bool) -> None:
+    parent = os.path.dirname(path)
+    if not parent:
+        return
+    if os.path.isdir(parent):
+        return
+    if not allow_create:
+        raise RuntimeError(
+            "Runnr API on Railway needs a persistent Volume mounted at /data "
+            "(service → Volumes → Add, mount path /data). Writing sqlite on the "
+            "container disk resets visitor stats and accounts on every deploy."
+        )
+    os.makedirs(parent, exist_ok=True)
 
 
 def _resolve_database_path() -> str:
-    candidates = [
-        os.environ.get("DATABASE_PATH"),
-        "/data/runnr.db",
-        "/tmp/runnr.db",
-    ]
-    for path in candidates:
-        if not path:
-            continue
-        parent = os.path.dirname(path)
-        try:
-            if parent:
-                os.makedirs(parent, exist_ok=True)
-            return path
-        except OSError:
-            continue
+    explicit = (os.environ.get("DATABASE_PATH") or "").strip()
+    if explicit:
+        _ensure_parent(explicit, allow_create=True)
+        return explicit
+
+    vol = volume_mount_path()
+    if vol:
+        path = os.path.join(vol, "runnr.db")
+        _ensure_parent(path, allow_create=False)
+        return path
+
+    data_db = "/data/runnr.db"
+    if os.path.isdir("/data") and (not on_railway() or _is_mount("/data")):
+        return data_db
+
+    if on_railway():
+        raise RuntimeError(
+            "Runnr API on Railway needs a persistent Volume mounted at /data "
+            "(service → Volumes → Add, mount path /data). Without it, visitor "
+            "stats reset to 0 on every deploy."
+        )
+
+    _ensure_parent("/tmp/runnr.db", allow_create=True)
     return "/tmp/runnr.db"
 
 
@@ -77,6 +131,7 @@ def init_db() -> None:
         _migrate_auth_tokens(conn)
         _migrate_checkout_tickets(conn)
         _migrate_site_stats(conn)
+        _migrate_meta(conn)
 
 
 def _migrate_users_billing(conn: sqlite3.Connection) -> None:
@@ -118,6 +173,41 @@ def _migrate_site_stats(conn: sqlite3.Connection) -> None:
     )
 
 
+def _migrate_meta(conn: sqlite3.Connection) -> None:
+    conn.execute(
+        """
+        CREATE TABLE IF NOT EXISTS runnr_meta (
+            k TEXT PRIMARY KEY,
+            v TEXT NOT NULL
+        )
+        """
+    )
+    row = conn.execute("SELECT v FROM runnr_meta WHERE k = 'db_created_at'").fetchone()
+    if not row:
+        conn.execute(
+            "INSERT INTO runnr_meta (k, v) VALUES ('db_created_at', ?)",
+            (datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ"),),
+        )
+
+
+def db_created_at() -> str | None:
+    try:
+        with get_db() as conn:
+            row = conn.execute("SELECT v FROM runnr_meta WHERE k = 'db_created_at'").fetchone()
+        return str(row["v"]) if row else None
+    except sqlite3.Error:
+        return None
+
+
+def stats_day_count() -> int:
+    try:
+        with get_db() as conn:
+            row = conn.execute("SELECT COUNT(*) AS n FROM site_stats_days").fetchone()
+        return int(row["n"] if row else 0)
+    except sqlite3.Error:
+        return 0
+
+
 def _migrate_auth_tokens(conn: sqlite3.Connection) -> None:
     conn.execute(
         """
@@ -142,9 +232,23 @@ def get_db():
     conn = sqlite3.connect(DB_PATH, timeout=5)
     conn.row_factory = sqlite3.Row
     conn.execute("PRAGMA journal_mode=WAL")
+    conn.execute("PRAGMA synchronous=NORMAL")
     conn.execute("PRAGMA busy_timeout=5000")
     try:
         yield conn
         conn.commit()
     finally:
         conn.close()
+
+
+def checkpoint_db() -> None:
+    """Flush WAL into runnr.db so a SIGTERM deploy does not drop recent hits."""
+    try:
+        conn = sqlite3.connect(DB_PATH, timeout=5)
+        try:
+            conn.execute("PRAGMA wal_checkpoint(TRUNCATE)")
+            conn.commit()
+        finally:
+            conn.close()
+    except sqlite3.Error:
+        pass

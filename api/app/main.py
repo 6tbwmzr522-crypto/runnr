@@ -4,14 +4,17 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
 from app.config import settings
-from app.db import init_db
+from app.db import checkpoint_db, init_db
 from app.routers import auth, billing, brokers, desk, profile, quotes, stats
 
 
 @asynccontextmanager
 async def lifespan(_app: FastAPI):
     init_db()
-    yield
+    try:
+        yield
+    finally:
+        checkpoint_db()
 
 
 app = FastAPI(
@@ -44,13 +47,19 @@ app.include_router(stats.router, prefix="/api/v1")
 def health():
     import os
 
-    from app.db import DB_PATH
+    from app.db import (
+        DB_PATH,
+        db_created_at,
+        path_is_persistent,
+        stats_day_count,
+        volume_mount_path,
+    )
     from app.quote_cache import fear_greed_cache, quote_cache
 
-    data_dir = "/data"
+    mount = volume_mount_path() or "/data"
     data_volume_ok = False
-    if os.path.isdir(data_dir):
-        probe = os.path.join(data_dir, ".runnr_write_probe")
+    if os.path.isdir(mount):
+        probe = os.path.join(mount, ".runnr_write_probe")
         try:
             with open(probe, "w", encoding="utf-8") as fh:
                 fh.write("ok")
@@ -58,6 +67,12 @@ def health():
             data_volume_ok = True
         except OSError:
             data_volume_ok = False
+
+    db_bytes = 0
+    try:
+        db_bytes = os.path.getsize(DB_PATH)
+    except OSError:
+        db_bytes = 0
 
     key = (settings.openai_api_key or "").strip()
     fh = (settings.finnhub_api_key or "").strip()
@@ -67,7 +82,12 @@ def health():
         "status": "ok",
         "service": "runnr-api",
         "database_path": DB_PATH,
-        "data_volume_ok": data_volume_ok,
+        "database_persistent": path_is_persistent(DB_PATH),
+        "database_bytes": db_bytes,
+        "database_created_at": db_created_at(),
+        "stats_days": stats_day_count(),
+        "railway_volume_mount_path": volume_mount_path() or None,
+        "data_volume_ok": data_volume_ok and path_is_persistent(DB_PATH),
         "ai_configured": bool(key),
         "ai_model": settings.openai_model,
         "finnhub_configured": bool(fh),
