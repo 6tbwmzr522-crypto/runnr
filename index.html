@@ -5,7 +5,7 @@
 <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
 <script>
 (function () {
-  var V = "89";
+  var V = "90";
   try {
     if (localStorage.getItem("runnr_app_v") !== V) {
       localStorage.setItem("runnr_app_v", V);
@@ -243,6 +243,26 @@ body::before{content:'';position:fixed;inset:0;background:radial-gradient(ellips
 .wi-price .p-val{font-family:var(--font-mono);font-size:14px;color:var(--text)}
 .wi-price .p-lbl{font-size:8px;color:var(--text3);letter-spacing:0.28em;text-transform:uppercase}
 .watch-item .wi-thesis{font-family:var(--font-head);font-size:13px;color:var(--text2);margin-top:10px;line-height:1.5;font-style:italic}
+
+/* ── WATCH SHELF ── */
+.watch-shelf-label{font-size:10px;letter-spacing:0.16em;text-transform:uppercase;color:var(--gold);font-weight:500;margin:14px 2px 6px}
+.watch-shelf-group:first-child .watch-shelf-label{margin-top:4px}
+.watch-shelf-group .watch-compact-list{margin-bottom:4px}
+.home-watch-shelf{margin-bottom:12px}
+.watch-shelf-track{display:flex;gap:8px;overflow-x:auto;-webkit-overflow-scrolling:touch;scroll-snap-type:x proximity;padding:2px 0 8px;scrollbar-width:thin}
+.watch-shelf-tile{flex:0 0 138px;scroll-snap-align:start;background:var(--surface2);border:1px solid var(--border);border-radius:var(--r-sm);padding:10px 12px;cursor:pointer;text-align:left;color:inherit;font:inherit;border-left:2px solid var(--gold)}
+.watch-shelf-tile:active{border-color:var(--border-strong)}
+.watch-shelf-tile.zone{border-left-color:var(--accent)}
+.watch-shelf-tile.alerted{border-left-color:var(--amber)}
+.watch-shelf-tile.levels{border-left-color:var(--text3)}
+.watch-shelf-tile .ws-sym{font-family:var(--font-head);font-size:16px;font-style:italic;letter-spacing:0.02em}
+.watch-shelf-tile .ws-meta{display:flex;justify-content:space-between;align-items:baseline;gap:8px;margin-top:4px}
+.watch-shelf-tile .ws-px{font-family:var(--font-mono);font-size:13px}
+.watch-shelf-tile .ws-dir{font-size:9px;letter-spacing:0.1em;text-transform:uppercase;color:var(--text3)}
+.watch-shelf-tile .ws-st{font-size:9px;letter-spacing:0.1em;text-transform:uppercase;margin-top:6px;color:var(--gold)}
+.watch-shelf-tile.zone .ws-st{color:var(--accent)}
+.watch-shelf-tile.alerted .ws-st{color:var(--amber)}
+.watch-shelf-empty{font-size:12px;color:var(--text3);line-height:1.45;padding:4px 0 2px}
 
 /* ── COACH ── */
 .coach-insight{background:rgba(245,242,236,0.02);border:1px solid var(--border);border-radius:var(--r);padding:14px;margin-bottom:10px;position:relative}
@@ -726,6 +746,7 @@ body.light #equity-canvas{filter:invert(0)}
   #page-home .home-frame > .notif,
   #page-home .home-frame > .incomplete-banner,
   #page-home .home-frame > .stat-grid,
+  #page-home .home-frame > .home-watch-shelf,
   #page-home .home-frame > .home-brokers-card{
     grid-column:1 / -1;
   }
@@ -770,6 +791,25 @@ body.light #equity-canvas{filter:invert(0)}
     flex-direction:column;
     justify-content:center;
   }
+  #page-home .watch-shelf-track{
+    display:grid;
+    grid-template-columns:repeat(auto-fill,minmax(148px,1fr));
+    overflow:visible;
+    gap:1px;
+    background:rgba(201,169,110,0.22);
+    padding:0;
+    flex:1;
+    min-height:0;
+  }
+  #page-home .watch-shelf-tile{
+    flex:none;
+    width:auto;
+    border:none;
+    border-radius:0;
+    background:var(--surface2);
+    border-left:2px solid var(--gold);
+  }
+  #page-home .watch-shelf-empty{padding:8px 2px}
   #page-home .home-footer{
     margin-top:22px;
     padding-top:18px;
@@ -780,6 +820,7 @@ body.light #equity-canvas{filter:invert(0)}
   body.light #page-portfolio .port-frame > *,
   body.light #page-home .stat-item,
   body.light #page-home .market-tile,
+  body.light #page-home .watch-shelf-tile,
   body.light #page-portfolio .kpi,
   body.light #page-portfolio .trade-highlight{background:var(--surface2)}
   body.light #page-portfolio .port-kpis,
@@ -1018,6 +1059,13 @@ body.light #equity-canvas{filter:invert(0)}
         </div>
       </div>
 
+      <div class="card home-watch-shelf">
+        <div class="section-hdr">
+          <h3 data-i18n="home.watchShelf">Watch shelf</h3>
+          <button class="see-all" onclick="switchPage('watchlist')" data-i18n="nav.watch">Watch</button>
+        </div>
+        <div class="watch-shelf-track" id="home-watch-shelf"></div>
+      </div>
 
       <!-- Fear / Greed Index -->
       <div class="fg-card">
@@ -3627,6 +3675,84 @@ function watchRR(w) {
   return typeof w.rr === 'number' && isFinite(w.rr) ? w.rr : 0;
 }
 
+const WATCH_SHELF_KEYS = ['zone', 'alerted', 'armed', 'levels'];
+
+function tt(key, fallback) {
+  try {
+    if (typeof t === 'function') {
+      const s = t(key);
+      if (s && s !== key) return s;
+    }
+  } catch (e) {}
+  return fallback;
+}
+
+function watchShelfBucket(w) {
+  if (!Number(w.stop) || !Number(w.target)) return 'levels';
+  const prices = typeof liveprices !== 'undefined' ? liveprices : {};
+  const lp = prices[w.sym];
+  let st = { cls: 'ai-status-armed', text: 'Armed' };
+  try { st = watchRowStatus(w, lp); } catch (e) {}
+  if (st.cls === 'ai-status-hit') return 'zone';
+  if (st.cls === 'ai-status-fired') return 'alerted';
+  return 'armed';
+}
+
+function watchShelfLabel(key) {
+  if (key === 'zone') return tt('watch.shelfZone', 'In zone');
+  if (key === 'alerted') return tt('watch.shelfAlerted', 'Alerted');
+  if (key === 'armed') return tt('watch.shelfArmed', 'Armed');
+  return tt('watch.shelfLevels', 'Set levels');
+}
+
+function watchShelfItems() {
+  return (S.watchlist || []).filter((w) => w && !isFactoryDemoWatchItem(w));
+}
+
+function groupWatchShelves(items) {
+  const groups = { zone: [], alerted: [], armed: [], levels: [] };
+  (items || []).forEach((w) => {
+    const key = watchShelfBucket(w);
+    (groups[key] || groups.armed).push(w);
+  });
+  return WATCH_SHELF_KEYS.filter((k) => groups[k].length).map((k) => ({ key: k, items: groups[k] }));
+}
+
+function openWatchFromShelf(id) {
+  S.selectedWatchId = watchId(id);
+  persist();
+  switchPage('watchlist');
+}
+window.openWatchFromShelf = openWatchFromShelf;
+
+function renderWatchShelfTile(w) {
+  const prices = typeof liveprices !== 'undefined' ? liveprices : {};
+  const lp = prices[w.sym];
+  const px = lp && lp.price ? fmtPrice(lp.price) : '—';
+  const bucket = watchShelfBucket(w);
+  const st = bucket === 'levels'
+    ? { text: watchShelfLabel('levels') }
+    : (() => { try { return watchRowStatus(w, lp); } catch (e) { return { text: watchShelfLabel(bucket) }; } })();
+  const label = String(st.text || watchShelfLabel(bucket)).replace(/^●\s*/, '');
+  return `<button type="button" class="watch-shelf-tile ${bucket}" onclick="openWatchFromShelf(${JSON.stringify(w.id)})">
+    <div class="ws-sym">${escHtml(w.sym)}</div>
+    <div class="ws-meta"><span class="ws-px">${px}</span><span class="ws-dir">${escHtml(w.dir || '')}</span></div>
+    <div class="ws-st">${escHtml(label)}</div>
+  </button>`;
+}
+
+function renderWatchShelf() {
+  const el = document.getElementById('home-watch-shelf');
+  if (!el) return;
+  const items = watchShelfItems();
+  if (!items.length) {
+    el.innerHTML = `<div class="watch-shelf-empty">${escHtml(tt('home.watchShelfEmpty', 'No setups yet — add one on Watch'))}</div>`;
+    return;
+  }
+  const ordered = groupWatchShelves(items).flatMap((g) => g.items).slice(0, 12);
+  el.innerHTML = ordered.map(renderWatchShelfTile).join('');
+}
+
 function renderWatchCompactRow(w) {
   const prices = typeof liveprices !== 'undefined' ? liveprices : {};
   const lp = prices[w.sym];
@@ -3703,29 +3829,37 @@ function renderWatchlist() {
         : ' Add your first watch.')
       + '</div>';
     maybePullWatchlistFromCloud();
+    renderWatchShelf();
     return;
   }
   const selectedId = watchId(S.selectedWatchId);
-  const rows = items.map(w => {
-    try {
-      let html = renderWatchCompactRow(w);
-      if (watchId(w.id) === selectedId) {
-        html += `<div id="watchlist-detail" class="watch-inline-detail">${renderWatchDetailCard(w)}</div>`;
-      }
-      return html;
-    } catch (e) { console.warn('skip bad watch item', w && w.sym, e); return ''; }
+  const shelves = groupWatchShelves(items);
+  const rows = shelves.map((shelf) => {
+    const body = shelf.items.map((w) => {
+      try {
+        let html = renderWatchCompactRow(w);
+        if (watchId(w.id) === selectedId) {
+          html += `<div id="watchlist-detail" class="watch-inline-detail">${renderWatchDetailCard(w)}</div>`;
+        }
+        return html;
+      } catch (e) { console.warn('skip bad watch item', w && w.sym, e); return ''; }
+    }).join('');
+    if (!body.trim()) return '';
+    return `<div class="watch-shelf-group"><div class="watch-shelf-label">${escHtml(watchShelfLabel(shelf.key))} · ${shelf.items.length}</div><div class="watch-compact-list">${body}</div></div>`;
   }).join('');
   if (!rows.trim()) {
     list.innerHTML = '<div class="empty-state"><div class="es-icon">👁</div>Setups could not load.'
       + ' <span style="color:var(--accent);cursor:pointer" onclick="forcePullWatchlist()">Pull from cloud</span>'
       + '<div style="margin-top:12px;font-size:11px"><span style="color:var(--text3);cursor:pointer" onclick="diagnoseSyncNow()">Diagnose sync</span></div></div>';
     maybePullWatchlistFromCloud();
+    renderWatchShelf();
     return;
   }
   const hint = selectedId ? '' : '<div style="font-size:11px;color:var(--text3);text-align:center;margin:8px 0 12px">' + t('watch.tapTicker') + '</div>';
-  list.innerHTML = `<div class="watch-compact-list">${rows}</div>${hint}`;
+  list.innerHTML = `${rows}${hint}`;
   renderNotifSettings();
   refreshWatchBriefs();
+  renderWatchShelf();
 }
 
 function renderLivePriceRow(lp, w) {
@@ -3791,6 +3925,7 @@ function isNearEntry(price, entry, dir) {
 
 function renderHomePreviews() {
   paintHomeMarkets();
+  renderWatchShelf();
 }
 
 const HOME_MARKETS = {
