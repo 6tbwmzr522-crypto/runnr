@@ -226,16 +226,13 @@ const RunnrShelf = (() => {
     let marked = 0;
     let covered = 0;
     book.holdings.forEach((h) => {
-      filed += h.value;
       const m = mark(h.sym);
-      if (m) {
-        marked += m.price * h.shrs;
-        covered += 1;
-      } else {
-        marked += h.value;
-      }
+      if (!m) return;
+      filed += h.value;
+      marked += m.price * h.shrs;
+      covered += 1;
     });
-    if (!filed) return { pct: null, covered: 0, n: book.holdings.length };
+    if (!filed || !covered) return { pct: null, covered: 0, n: book.holdings.length };
     return { pct: ((marked - filed) / filed) * 100, covered, n: book.holdings.length };
   }
 
@@ -300,23 +297,26 @@ const RunnrShelf = (() => {
     if (!missing.length) return;
     pulling = true;
     try {
-      await Promise.all(missing.map(async (sym) => {
-        try {
-          const json = await fetchYahooChart(sym, "1d", "5d");
-          const result = json && json.chart && json.chart.result && json.chart.result[0];
-          const meta = result && result.meta;
-          if (!meta) return;
-          const price = parseFloat(meta.regularMarketPrice || meta.previousClose);
-          const prev = parseFloat(meta.previousClose || meta.chartPreviousClose || price);
-          if (!price || isNaN(price)) return;
-          const change = price - prev;
-          const changePct = prev > 0 ? (change / prev) * 100 : 0;
-          const now = new Date();
-          const ts = now.getHours() + ":" + String(now.getMinutes()).padStart(2, "0");
-          if (!window.liveprices) window.liveprices = {};
-          window.liveprices[sym] = { price, change, changePct, timestamp: ts, stale: json._runnrCache === "stale", sym };
-        } catch (e) { /* leave unmarked */ }
-      }));
+      for (let i = 0; i < missing.length; i += 8) {
+        const slice = missing.slice(i, i + 8);
+        await Promise.all(slice.map(async (sym) => {
+          try {
+            const json = await fetchYahooChart(sym, "1d", "5d");
+            const result = json && json.chart && json.chart.result && json.chart.result[0];
+            const meta = result && result.meta;
+            if (!meta) return;
+            const price = parseFloat(meta.regularMarketPrice || meta.previousClose);
+            const prev = parseFloat(meta.previousClose || meta.chartPreviousClose || price);
+            if (!price || isNaN(price)) return;
+            const change = price - prev;
+            const changePct = prev > 0 ? (change / prev) * 100 : 0;
+            const now = new Date();
+            const ts = now.getHours() + ":" + String(now.getMinutes()).padStart(2, "0");
+            if (!window.liveprices) window.liveprices = {};
+            window.liveprices[sym] = { price, change, changePct, timestamp: ts, stale: json._runnrCache === "stale", sym };
+          } catch (e) { /* leave unmarked */ }
+        }));
+      }
     } finally {
       pulling = false;
     }
@@ -489,7 +489,7 @@ const RunnrShelf = (() => {
 
   function render() {
     paint();
-    pullMarks(bookOf(selectedId)).then(paint);
+    pullMarks(bookOf(selectedId)).then(paint).then(() => pullMarks().then(paint));
   }
 
   return { render, paint, books: () => BOOKS, yourBook, sharedRow, liveBookPct, select(id) { selectedId = id; sleeve = "all"; render(); } };
