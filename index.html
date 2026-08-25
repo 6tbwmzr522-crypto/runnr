@@ -573,19 +573,20 @@ body.light #wave-canvas{background:rgba(201,169,110,0.08)}
 .instr-pnl{font-family:var(--font-mono);font-size:14px;font-weight:500}
 /* Drawdown + equity */
 .chart-label{font-size:9px;color:var(--text3);text-transform:uppercase;letter-spacing:0.8px;margin-bottom:6px}
-/* Calendar heatmap */
-.cal-grid{display:grid;grid-template-columns:repeat(7,minmax(0,1fr));gap:4px;margin-top:6px;width:100%;max-width:224px}
-.cal-day{aspect-ratio:1;border-radius:3px;background:var(--surface3);cursor:default;position:relative;min-width:0}
+/* Calendar heatmap — GitHub-style weeks as columns */
+.cal-board{display:grid;grid-template-columns:16px minmax(0,1fr);gap:6px;margin-top:8px;align-items:stretch;width:100%}
+.cal-grid{display:grid;grid-template-rows:repeat(7,minmax(11px,1fr));grid-auto-flow:column;grid-auto-columns:minmax(11px,1fr);gap:3px;width:100%;max-width:none}
+.cal-day{aspect-ratio:1;border-radius:2px;background:rgba(201,169,110,0.12);cursor:default;position:relative;min-width:11px;min-height:11px}
 .cal-day.win{background:rgba(0,229,160,0.35)}
-.cal-day.win-big{background:rgba(0,229,160,0.7)}
-.cal-day.loss{background:rgba(255,77,109,0.3)}
-.cal-day.loss-big{background:rgba(255,77,109,0.6)}
-.cal-day.flat{background:var(--surface3)}
-.cal-day.traded{background:rgba(201,169,110,0.4)}
-.cal-day.pad{background:transparent;opacity:0.2}
-.cal-day.today{outline:2px solid var(--accent);outline-offset:1px}
-.cal-labels{display:grid;grid-template-columns:repeat(7,minmax(0,1fr));gap:4px;margin-bottom:2px;width:100%;max-width:224px}
-.cal-labels span{font-size:8px;color:var(--text3);text-align:center;font-family:var(--font-mono)}
+.cal-day.win-big{background:rgba(0,229,160,0.75)}
+.cal-day.loss{background:rgba(255,77,109,0.35)}
+.cal-day.loss-big{background:rgba(255,77,109,0.7)}
+.cal-day.flat{background:rgba(201,169,110,0.12)}
+.cal-day.traded{background:rgba(201,169,110,0.45)}
+.cal-day.pad{background:transparent;opacity:0.25}
+.cal-day.today{outline:1px solid var(--accent);outline-offset:1px}
+.cal-labels{display:grid;grid-template-rows:repeat(7,minmax(11px,1fr));gap:3px}
+.cal-labels span{font-size:9px;color:var(--text3);text-align:right;font-family:var(--font-mono);line-height:1;display:flex;align-items:center;justify-content:flex-end}
 /* Period tabs */
 .period-tabs{display:flex;gap:4px;margin-bottom:10px}
 .period-tab{background:var(--surface2);border:1px solid var(--border);border-radius:20px;padding:4px 12px;font-size:11px;font-weight:600;color:var(--text3);cursor:pointer;font-family:var(--font-mono);transition:all 0.15s}
@@ -999,8 +1000,9 @@ body.light #wave-canvas{background:rgba(201,169,110,0.08)}
     background:var(--surface);
   }
   #page-portfolio .port-open-card #port-open-list{flex:1;min-height:0;overflow:auto}
+  #page-portfolio .port-cal-card .cal-board{width:100%}
   #page-portfolio .port-cal-card .cal-grid,
-  #page-portfolio .port-cal-card .cal-labels{flex:none;min-height:0;max-width:224px}
+  #page-portfolio .port-cal-card .cal-labels{flex:none;min-height:11px;max-width:none}
   #page-portfolio .disc-legend{gap:1px;background:rgba(201,169,110,0.22)}
   #page-portfolio .disc-leg-item{border:none;border-radius:0}
   #page-sizer .tabs{max-width:560px}
@@ -1961,14 +1963,16 @@ body.light #wave-canvas{background:rgba(201,169,110,0.08)}
           </div>
         </div>
         <div class="card port-cal-card">
-          <div class="section-hdr"><h3>Activity Heatmap</h3><span style="font-size:10px;color:var(--text3)" id="port-cal-meta">Last 28 days</span></div>
-          <div class="cal-labels">
-            <span>M</span><span>T</span><span>W</span><span>T</span><span>F</span><span>S</span><span>S</span>
+          <div class="section-hdr"><h3>Activity Heatmap</h3><span style="font-size:10px;color:var(--text3)" id="port-cal-meta">Last 26 weeks</span></div>
+          <div class="cal-board">
+            <div class="cal-labels">
+              <span>M</span><span>T</span><span>W</span><span>T</span><span>F</span><span>S</span><span>S</span>
+            </div>
+            <div class="cal-grid" id="port-cal"></div>
           </div>
-          <div class="cal-grid" id="port-cal"></div>
           <div style="display:flex;gap:8px;margin-top:8px;align-items:center">
             <span style="font-size:9px;color:var(--text3)">Less</span>
-            <div style="width:10px;height:10px;border-radius:2px;background:var(--surface3)"></div>
+            <div style="width:10px;height:10px;border-radius:2px;background:rgba(201,169,110,0.12)"></div>
             <div style="width:10px;height:10px;border-radius:2px;background:rgba(255,77,109,0.3)"></div>
             <div style="width:10px;height:10px;border-radius:2px;background:rgba(0,229,160,0.35)"></div>
             <div style="width:10px;height:10px;border-radius:2px;background:rgba(0,229,160,0.7)"></div>
@@ -5443,8 +5447,8 @@ function loadPortfolio(period, tabEl) {
 
   renderPortOpenBook(openTrades, completed, sym);
 
-  // Calendar heatmap
-  renderCalendar(completed);
+  // Calendar heatmap — all journal activity in the selected period
+  renderCalendar(completed, (S.trades || []).filter((t) => t && !t.mergedAway), period);
 }
 
 function drawPortEquity(trades) {
@@ -5639,29 +5643,55 @@ function calendarDayKey(d) {
   return d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0');
 }
 
-function renderCalendar(trades) {
-  const cal = document.getElementById('port-cal');
-  if (!cal) return;
-  const byDay = {};
-  (trades || []).forEach((t) => {
-    const parsed = window.CoachEngine?.tradeDate?.(t);
-    if (!parsed || Number.isNaN(parsed.getTime())) return;
-    const key = calendarDayKey(parsed);
-    const pnl = Number(t.pnl);
-    if (!byDay[key]) byDay[key] = { pnl: 0, n: 0 };
-    byDay[key].pnl += Number.isFinite(pnl) ? pnl : 0;
-    byDay[key].n += 1;
-  });
-
+function heatmapRange(period) {
   const today = new Date();
   today.setHours(0, 0, 0, 0);
-  const windowStart = new Date(today);
-  windowStart.setDate(today.getDate() - 27);
+  const start = new Date(today);
+  if (period === '1m') start.setDate(today.getDate() - 29);
+  else if (period === '3m') start.setDate(today.getDate() - 89);
+  else if (period === 'ytd') start.setMonth(0, 1);
+  else start.setDate(today.getDate() - (26 * 7 - 1));
+  return { today, start };
+}
 
+function tradeHeatDate(t) {
+  const parsed = window.CoachEngine?.tradeDate?.(t);
+  if (parsed && !Number.isNaN(parsed.getTime())) return parsed;
+  if (!t) return null;
+  if (t.filledAt) {
+    const iso = new Date(t.filledAt);
+    if (!Number.isNaN(iso.getTime())) return iso;
+  }
+  const s = String(t.date || '').trim();
+  if (!s) return null;
+  const d = new Date(s);
+  return Number.isNaN(d.getTime()) ? null : d;
+}
+
+function renderCalendar(closedTrades, allTrades, period) {
+  const cal = document.getElementById('port-cal');
+  if (!cal) return;
+  const closedIds = new Set((closedTrades || []).map((t) => t && t.id));
+  const byDay = {};
+  (allTrades || []).forEach((t) => {
+    const parsed = tradeHeatDate(t);
+    if (!parsed || Number.isNaN(parsed.getTime())) return;
+    const key = calendarDayKey(parsed);
+    if (!byDay[key]) byDay[key] = { pnl: 0, n: 0, closed: 0 };
+    byDay[key].n += 1;
+    if (closedIds.has(t.id) || (t.pnl != null && t.exit != null && t.exit !== '')) {
+      const pnl = Number(t.pnl);
+      byDay[key].pnl += Number.isFinite(pnl) ? pnl : 0;
+      byDay[key].closed += 1;
+    }
+  });
+
+  const { today, start: windowStart } = heatmapRange(period);
   const gridStart = new Date(windowStart);
   gridStart.setDate(gridStart.getDate() - ((gridStart.getDay() + 6) % 7));
   const gridEnd = new Date(today);
-  gridEnd.setDate(gridEnd.getDate() + ((7 - gridEnd.getDay()) % 7));
+  const padEnd = (7 - gridEnd.getDay()) % 7;
+  gridEnd.setDate(gridEnd.getDate() + padEnd);
 
   let html = '';
   let activeDays = 0;
@@ -5673,24 +5703,25 @@ function renderCalendar(trades) {
     let cls = 'cal-day';
     if (!inWindow) cls += ' pad';
     else if (!hit) cls += ' flat';
-    else if (hit.pnl > 500) cls += ' win-big';
-    else if (hit.pnl > 0) cls += ' win';
-    else if (hit.pnl < -200) cls += ' loss-big';
-    else if (hit.pnl < 0) cls += ' loss';
+    else if (hit.closed && hit.pnl > 500) cls += ' win-big';
+    else if (hit.closed && hit.pnl > 0) cls += ' win';
+    else if (hit.closed && hit.pnl < -200) cls += ' loss-big';
+    else if (hit.closed && hit.pnl < 0) cls += ' loss';
     else cls += ' traded';
     if (inWindow && d.getTime() === today.getTime()) cls += ' today';
     const label = d.toLocaleDateString('en-GB', { weekday: 'short', day: 'numeric', month: 'short' });
     const title = hit
-      ? `${label}: ${hit.n} trade${hit.n === 1 ? '' : 's'} · ${hit.pnl >= 0 ? '+' : ''}${Math.round(hit.pnl)}`
+      ? `${label}: ${hit.n} logged · ${hit.closed ? (hit.pnl >= 0 ? '+' : '') + Math.round(hit.pnl) : 'open / no P&L yet'}`
       : label;
     html += `<div class="${cls}" title="${title}"></div>`;
   }
   cal.innerHTML = html;
   const meta = document.getElementById('port-cal-meta');
   if (meta) {
+    const span = period === '1m' ? '1M' : period === '3m' ? '3M' : period === 'ytd' ? 'YTD' : '26 weeks';
     meta.textContent = activeDays
-      ? activeDays + ' active day' + (activeDays === 1 ? '' : 's') + ' · last 28'
-      : 'Last 28 days · no closed P&L in this window';
+      ? activeDays + ' active day' + (activeDays === 1 ? '' : 's') + ' · ' + span
+      : span + ' · no journal activity in this window';
   }
 }
 
