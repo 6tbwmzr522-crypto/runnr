@@ -63,9 +63,7 @@ const RunnrDesk = (() => {
   function brandTitle() {
     let n = (window.S && window.S.firstName) || "";
     if (typeof RunnrSync !== "undefined") {
-      if (!n && typeof RunnrSync.houseFirstName === "function") {
-        n = RunnrSync.houseFirstName(RunnrSync.sessionEmail && RunnrSync.sessionEmail());
-      }
+      if (!n && window.S && window.S.firstName) n = window.S.firstName;
       if (typeof RunnrSync.terminalTitle === "function") {
         return RunnrSync.terminalTitle(n || undefined);
       }
@@ -602,12 +600,9 @@ const RunnrDesk = (() => {
     }
     if (typeof RunnrSync !== "undefined" && RunnrSync.isLoggedIn && RunnrSync.isLoggedIn()) {
       const existing = window.S && window.S.firstName;
-      const house = typeof RunnrSync.houseFirstName === "function"
-        ? RunnrSync.houseFirstName(RunnrSync.sessionEmail())
-        : "";
       const n = (typeof RunnrSync.normalizeFirstName === "function"
-        ? RunnrSync.normalizeFirstName(existing || house)
-        : (existing || house));
+        ? RunnrSync.normalizeFirstName(existing)
+        : (existing || ""));
       if (n && window.S && !window.S.firstName) {
         if (typeof RunnrSync.applyFirstName === "function") RunnrSync.applyFirstName(n);
         else window.S.firstName = n;

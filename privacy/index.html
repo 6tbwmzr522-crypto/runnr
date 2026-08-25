@@ -44,7 +44,7 @@
   <p>On each counted page load, the server hashes the visitor’s IP address together with the UTC date and browser user-agent, using a secret that never leaves the server. The IP address is then discarded. We store only that hash (so we can tell if the visitor is new that UTC day) and the daily counters. Hashes older than two days are deleted. We never store IP addresses. These totals are internal and are not published.</p>
   <p>If your browser sends a <strong>Do Not Track (DNT)</strong> or <strong>Global Privacy Control</strong> signal, we do not record the visit.</p>
   <h3>Broker integration data</h3>
-  <p>If you connect Alpaca or IBKR Flex, we retrieve your trade history in read-only mode. We do not store your raw broker credentials — API keys and Flex tokens are encrypted at rest using AES/Fernet encryption. We cannot place, modify, or cancel orders on your behalf.</p>
+  <p>If you connect Alpaca or IBKR Flex, we retrieve your trade history in read-only mode. Broker API keys and Flex tokens are stored only on the server, encrypted at rest using AES/Fernet. We do not keep raw broker secrets in your browser. We cannot place, modify, or cancel orders on your behalf.</p>
   <h3>Payment data</h3>
   <p>Payments are handled entirely by <strong>Stripe</strong>. Runnr does not store your card number, bank details, or full payment information. Stripe's privacy policy applies to payment processing: <a href="https://stripe.com/privacy">stripe.com/privacy</a>.</p>
 

@@ -147,6 +147,7 @@
   const continueBtn = document.getElementById("continue-verify-btn");
   let resetMode = false;
   let pendingToken = "";
+  let resetToken = "";
 
   try {
     const remembered = localStorage.getItem("runnr_remember_email");
@@ -158,14 +159,8 @@
   setTimeout(fillFirstName, 200);
   setTimeout(fillFirstName, 800);
 
-  function houseFirstName(email) {
-    var house = {
-      "janis@thinicedigital.com": "Janis",
-      "info@thinicedigital.com": "Janis",
-      "berzins.j@inbox.lv": "Janis"
-    };
-    var e = String(email || "").trim().toLowerCase();
-    return house[e] || "";
+  function houseFirstName() {
+    return "";
   }
 
   function rememberFirstName(email, name) {
@@ -246,7 +241,8 @@
         if (incoming && looksReal(incoming)) {
           localStorage.setItem("runnr_state", incoming);
         } else if (prev && prev !== next) {
-          localStorage.removeItem("runnr_state");
+          var live = localStorage.getItem("runnr_state");
+          if (live && looksReal(live)) localStorage.removeItem("runnr_state");
         }
         if (!prev || prev !== next) localStorage.removeItem("runnr_alpaca_device");
       }
@@ -263,8 +259,9 @@
     rememberFirstName(email, given);
     try {
       var raw = localStorage.getItem("runnr_state");
-      var st = raw ? JSON.parse(raw) : {};
-      if (!st || typeof st !== "object") st = {};
+      if (!raw) return;
+      var st = JSON.parse(raw);
+      if (!st || typeof st !== "object") return;
       st.firstName = given;
       localStorage.setItem("runnr_state", JSON.stringify(st));
     } catch (e) {}
@@ -290,26 +287,19 @@
     }, 400);
   }
 
-  function isHouseEmail(email) {
-    var e = String(email || "").trim().toLowerCase();
-    return e === "janis@thinicedigital.com"
-      || e === "info@thinicedigital.com"
-      || e === "berzins.j@inbox.lv";
-  }
-
   function showVerify(email, data) {
     pendingToken = data && data.access_token || pendingToken;
     if (signinCard) signinCard.style.display = "none";
     verifyCard.style.display = "block";
     var sent = data && data.verification_sent;
     var link = data && data.verify_url;
-    var html = "We sent a confirmation link to <strong>" + String(email || "").replace(/</g, "") + "</strong>. Open it, then continue.";
+    var html = "We sent a confirmation link to <strong>" + String(email || "").replace(/</g, "") + "</strong>. Open it when you can — you can continue into Runnr now.";
     if (data && data.email_configured === false) {
-      html = "Confirmation emails are not sending yet (Resend is not set on the API). House accounts can still get in.";
+      html = "Confirmation emails are not sending yet. You can still continue into Runnr.";
     } else if (!sent && link) {
       html += " Email isn’t configured yet — use this link: <a href=\"" + link + "\" style=\"color:var(--gold)\">verify now</a>.";
     } else if (!sent) {
-      html = "We could not send the confirmation email to <strong>" + String(email || "").replace(/</g, "") + "</strong>. Tap resend, or check spam.";
+      html = "We could not send the confirmation email to <strong>" + String(email || "").replace(/</g, "") + "</strong>. Tap resend, or continue into Runnr and confirm later.";
     }
     verifyCopy.innerHTML = html;
     setStatus("", "");
@@ -320,7 +310,7 @@
     saveSession(data.access_token, data.email || fields.email);
     applySavedFirstName(data.email || fields.email, data.first_name, fields.firstName);
     var email = data.email || fields.email;
-    if (data.email_verified || isHouseEmail(email)) {
+    if (data.email_verified) {
       goHome();
       return;
     }
@@ -386,31 +376,9 @@
     else if (resetMode) doReset();
     else doSignIn();
   });
-  continueBtn.addEventListener("click", async function () {
-    var email = (emailEl.value || "").trim().toLowerCase();
-    if (isHouseEmail(email)) return goHome();
-    if (!pendingToken) {
-      setStatus("Open the Confirm email link in your inbox first.", "err");
-      return;
-    }
+  continueBtn.addEventListener("click", function () {
     continueBtn.disabled = true;
-    setStatus("Checking confirmation…", "work");
-    try {
-      const res = await fetch(API + "/api/v1/auth/me", {
-        headers: { Authorization: "Bearer " + pendingToken },
-      });
-      let data = {};
-      try { data = await res.json(); } catch (err) {}
-      if (data && data.email_verified) return goHome();
-      if (data && data.email_configured === false) {
-        setStatus("Confirm email is not sending yet — add Resend on the API.", "err");
-      } else {
-        setStatus("Open the Confirm email link we sent, then tap Continue.", "err");
-      }
-    } catch (err) {
-      setStatus("Could not check confirmation.", "err");
-    }
-    continueBtn.disabled = false;
+    goHome();
   });
   resendBtn.addEventListener("click", async function () {
     if (!pendingToken) return setStatus("Sign in first, then resend.", "err");
@@ -432,16 +400,55 @@
     resendBtn.disabled = false;
   });
 
-  resetBtn.addEventListener("click", function () {
-    resetMode = !resetMode;
-    const show = resetMode;
-    pass2El.style.display = show ? "block" : "none";
-    confirmLabel.style.display = show ? "block" : "none";
-    passEl.autocomplete = show ? "new-password" : "current-password";
-    document.querySelector('label[for="password"]').textContent = show ? "New password" : "Password";
-    signinBtn.textContent = show ? "Set new password & sign in" : "Sign in";
-    resetBtn.textContent = show ? "← Back to sign in" : "Forgot password? Set new one";
-    setStatus("", "");
+  function showResetFields(token, message) {
+    resetToken = String(token || "").trim();
+    resetMode = !!resetToken;
+    pass2El.style.display = resetMode ? "block" : "none";
+    confirmLabel.style.display = resetMode ? "block" : "none";
+    passEl.autocomplete = resetMode ? "new-password" : "current-password";
+    document.querySelector('label[for="password"]').textContent = resetMode ? "New password" : "Password";
+    signinBtn.textContent = resetMode ? "Set new password & sign in" : "Sign in";
+    resetBtn.textContent = resetMode ? "← Back to sign in" : "Forgot password? Set new one";
+    if (message) setStatus(message, "ok");
+    else setStatus("", "");
+  }
+
+  try {
+    var urlReset = (new URLSearchParams(location.search).get("reset") || "").trim();
+    if (urlReset.length >= 10) {
+      showResetFields(urlReset, "Choose a new password below.");
+      try { history.replaceState(null, "", location.pathname); } catch (e) {}
+    }
+  } catch (e) {}
+
+  resetBtn.addEventListener("click", async function () {
+    if (resetMode) {
+      showResetFields("", "");
+      return;
+    }
+    const fields = readFields();
+    if (!fields.email || !fields.email.includes("@")) {
+      return setStatus("Enter your email, then tap Forgot password.", "err");
+    }
+    resetBtn.disabled = true;
+    setStatus("Sending reset link…", "work");
+    try {
+      const data = await apiPost("/api/v1/auth/forgot-password", { email: fields.email });
+      if (data && data.reset_url) {
+        var token = "";
+        try { token = new URL(data.reset_url).searchParams.get("reset") || ""; } catch (err) {}
+        if (token) {
+          showResetFields(token, data.detail || "Use this reset link to set a new password.");
+        } else {
+          setStatus((data.detail || "Use this reset link:") + " " + data.reset_url, "ok");
+        }
+      } else {
+        setStatus(data && data.detail ? data.detail : "Check your email for a reset link, then open it to set a new password.", "ok");
+      }
+    } catch (err) {
+      setStatus(String(err.message || err), "err");
+    }
+    resetBtn.disabled = false;
   });
 
   async function doSignIn() {
@@ -484,8 +491,12 @@
 
   async function doReset() {
     const fields = readFields();
-    const err = validate(fields.email, fields.password);
-    if (err) return setStatus(err, "err");
+    if (!resetToken || resetToken.length < 10) {
+      return setStatus("Request a reset link first — tap Forgot password, then open the email.", "err");
+    }
+    if (!fields.password || fields.password.length < 8) {
+      return setStatus("Password must be at least 8 characters.", "err");
+    }
     if (fields.password !== fields.confirm) {
       return setStatus("Passwords do not match.", "err");
     }
@@ -494,28 +505,16 @@
     signinBtn.disabled = true;
     setStatus("Updating password…", "work");
     try {
-      let data;
-      try {
-        data = await apiPost("/api/v1/auth/reset-password", {
-          email: fields.email,
-          new_password: fields.password,
-        });
-      } catch (resetErr) {
-        const resetMsg = String(resetErr.message || resetErr);
-        if (!/no account/i.test(resetMsg)) throw resetErr;
-        setStatus("No account yet — creating one with this password…", "work");
-        var body = { email: fields.email, password: fields.password };
-        if (fields.firstName) body.first_name = fields.firstName;
-        data = await apiPost("/api/v1/auth/register", body);
-      }
+      const data = await apiPost("/api/v1/auth/reset-password", {
+        token: resetToken,
+        new_password: fields.password,
+      });
       saveSession(data.access_token, data.email || fields.email);
       applySavedFirstName(data.email || fields.email, data.first_name, fields.firstName);
       await afterAuth(data, fields);
     } catch (e) {
       const msg = String(e.message || e);
-      if (/wrong password/i.test(msg)) {
-        setStatus("Account exists but password is wrong — try Sign in with your Mac password first.", "err");
-      } else if (/abort/i.test(msg)) {
+      if (/abort/i.test(msg)) {
         setStatus("Timed out — check your connection.", "err");
       } else {
         setStatus(msg, "err");

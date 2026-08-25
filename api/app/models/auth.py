@@ -21,6 +21,8 @@ class TokenResponse(BaseModel):
     verify_url: str | None = None  # only when email provider not configured
     email_configured: bool = False
     first_name: str | None = None
+    house: bool = False
+    can_view_stats: bool = False
 
 
 class MeResponse(BaseModel):
@@ -33,6 +35,8 @@ class MeResponse(BaseModel):
     email_verified: bool = True
     email_configured: bool = False
     first_name: str | None = None
+    house: bool = False
+    can_view_stats: bool = False
 
 
 class UpdateMeRequest(BaseModel):
