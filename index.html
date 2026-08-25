@@ -5,7 +5,7 @@
 <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
 <script>
 (function () {
-  var V = "94";
+  var V = "95";
   try {
     if (localStorage.getItem("runnr_app_v") !== V) {
       localStorage.setItem("runnr_app_v", V);
@@ -7310,12 +7310,6 @@ function drawFGGauge(value) {
   ctx.arc(cx, cy, 3, 0, 2 * Math.PI);
   ctx.fillStyle = '#0f1a16';
   ctx.fill();
-
-  // Value text in center
-  ctx.font = `bold ${14 * dpr / dpr}px Cormorant Garamond, serif`;
-  ctx.fillStyle = '#e8f5f0';
-  ctx.textAlign = 'center';
-  ctx.fillText(value, cx, cy - 8);
 }
 
 function updateFGDisplay(value, meta = {}) {
