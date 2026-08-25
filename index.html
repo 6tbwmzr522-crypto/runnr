@@ -5,7 +5,7 @@
 <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
 <script>
 (function () {
-  var V = "94";
+  var V = "95";
   try {
     if (localStorage.getItem("runnr_app_v") !== V) {
       localStorage.setItem("runnr_app_v", V);
@@ -34,7 +34,7 @@
 <link rel="manifest" href="manifest.webmanifest">
 <meta name="theme-color" content="#080c12">
 <meta name="apple-mobile-web-app-title" content="Runnr">
-<link rel="apple-touch-icon" href="icons/icon-192.svg">
+<link rel="apple-touch-icon" href="icons/icon-192.png">
 <link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,300;0,400;0,500;0,600;1,300;1,400;1,500&family=Jost:wght@300;400;500&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="css/desk.css?v=7">
 <style>
@@ -717,6 +717,9 @@ body.light #wave-canvas{background:rgba(201,169,110,0.08)}
 #demo-banner{display:none;align-items:center;justify-content:space-between;gap:10px;margin:0 16px 10px;padding:10px 12px;background:rgba(0,229,160,0.08);border:1px solid rgba(0,229,160,0.35);border-radius:var(--r-sm);font-size:12px;color:var(--text2);cursor:pointer}
 #demo-banner.show{display:flex}
 #demo-banner .demo-banner-text{flex:1;line-height:1.45}
+#verify-banner{display:none;align-items:center;justify-content:space-between;gap:10px;margin:0 16px 10px;padding:10px 12px;background:var(--gold-dim);border:1px solid var(--border-strong);border-radius:var(--r-sm);font-size:12px;color:var(--text2)}
+#verify-banner.show{display:flex}
+#verify-banner .verify-banner-text{flex:1;line-height:1.45}
 .demo-badge{display:inline-block;font-size:9px;font-weight:700;letter-spacing:0.12em;color:var(--accent);border:1px solid rgba(0,229,160,0.45);padding:2px 6px;border-radius:4px;margin-left:8px;vertical-align:middle}
 .home-footer-links{display:flex;flex-wrap:wrap;justify-content:center;gap:8px 14px;margin:10px 0 8px;font-size:12px}
 .home-footer-links button,.home-footer-links a{background:none;border:none;color:var(--gold);cursor:pointer;padding:0;font-size:12px;text-decoration:underline;text-underline-offset:3px;font-family:inherit}
@@ -756,10 +759,11 @@ body.light #wave-canvas{background:rgba(201,169,110,0.08)}
     margin:0;
     display:grid;
     grid-template-columns:200px minmax(0,1fr);
-    grid-template-rows:auto auto auto auto minmax(0,1fr);
+    grid-template-rows:auto auto auto auto auto minmax(0,1fr);
     grid-template-areas:
       "nav header"
       "nav session"
+      "nav verify"
       "nav demo"
       "nav traffic"
       "nav pages";
@@ -793,6 +797,7 @@ body.light #wave-canvas{background:rgba(201,169,110,0.08)}
   #header .logo{font-size:26px}
   #session-banner{grid-area:session;margin:10px 28px 0}
   #demo-banner{grid-area:demo;margin:10px 28px 0}
+  #verify-banner{grid-area:verify;margin:10px 28px 0}
   #traffic-banner{grid-area:traffic;margin:10px 28px 0}
   #pages{
     grid-area:pages;
@@ -1063,6 +1068,12 @@ body.light #wave-canvas{background:rgba(201,169,110,0.08)}
   <div id="demo-banner" onclick="switchPage('sync')">
     <span class="demo-banner-text" data-i18n="header.demoBanner">Sample journal — connect Alpaca or import CSV for your data</span>
     <button type="button" style="background:none;border:none;color:var(--text3);font-size:16px;cursor:pointer;padding:0 4px" onclick="event.stopPropagation();dismissDemoBanner()">✕</button>
+  </div>
+
+  <div id="verify-banner">
+    <span class="verify-banner-text" id="verify-banner-copy">Confirm your email to unlock sync, CSV, and billing.</span>
+    <button type="button" class="btn btn-sm btn-ghost" style="flex-shrink:0" onclick="event.stopPropagation();resendFromVerifyBanner()">Resend</button>
+    <button type="button" style="background:none;border:none;color:var(--text3);font-size:16px;cursor:pointer;padding:0 4px" onclick="event.stopPropagation();dismissVerifyBanner()">✕</button>
   </div>
 
   <div id="traffic-banner">
@@ -1616,7 +1627,8 @@ body.light #wave-canvas{background:rgba(201,169,110,0.08)}
         <div class="card-title">Confirm your email</div>
         <div id="sync-verify-copy" style="font-size:13px;color:var(--text2);margin-bottom:12px;line-height:1.45"></div>
         <button type="button" class="btn btn-ghost" id="sync-resend-verify-btn" style="width:100%;margin-bottom:8px">Resend verification email</button>
-        <button type="button" class="btn" id="sync-continue-verify-btn" style="width:100%">Continue to Runnr</button>
+        <button type="button" class="btn" id="sync-continue-verify-btn" style="width:100%;margin-bottom:8px">Continue to Runnr</button>
+        <button type="button" class="btn btn-ghost" id="sync-dismiss-verify-btn" style="width:100%">Remind me later</button>
       </div>
       <div id="sync-reset-auth" class="card" style="display:none;margin-bottom:12px">
         <div class="card-title">Reset password</div>
@@ -2292,9 +2304,9 @@ body.light #wave-canvas{background:rgba(201,169,110,0.08)}
 <script src="js/coach.js?v=26"></script>
 <script src="js/onboarding.js?v=23"></script>
 <script src="js/csv-presets.js?v=3"></script>
-<script src="js/sync.js?v=59"></script>
+<script src="js/sync.js?v=60"></script>
 <script src="js/desk-sessions.js?v=2"></script>
-<script src="js/desk.js?v=10"></script>
+<script src="js/desk.js?v=11"></script>
 <script src="js/wave.js?v=1"></script>
 <script src="js/shelf.js?v=3"></script>
 <script src="js/visit.js?v=1"></script>
@@ -2752,6 +2764,9 @@ async function refreshBillingUI() {
       ? ('Plan: ' + (b.plan || 'pro') + ' · ' + (b.status || 'active'))
       : '—';
   }
+  try { renderStatsFooterLinks(); } catch (e) {}
+  try { renderSyncAuthBanner(); } catch (e) {}
+  try { updateVerifyBanner(); } catch (e) {}
 }
 async function startStripeCheckout(interval) {
   if (!RunnrSync.isLoggedIn()) {
@@ -2816,6 +2831,52 @@ function dismissDemoBanner() {
   try { sessionStorage.setItem('runnr_demo_banner_dismissed', '1'); } catch (e) {}
   updateDemoBanner();
 }
+function dismissVerifyBanner() {
+  try { sessionStorage.setItem('runnr_verify_banner_dismissed', '1'); } catch (e) {}
+  hideSyncVerify();
+  updateVerifyBanner();
+  if (typeof switchPage === 'function') switchPage('home');
+}
+function rememberVerificationSent(data) {
+  try {
+    if (data && data.verification_sent) sessionStorage.setItem('runnr_verify_sent', '1');
+    else if (data && data.verification_sent === false) sessionStorage.setItem('runnr_verify_sent', '0');
+  } catch (e) {}
+}
+function updateVerifyBanner() {
+  const el = document.getElementById('verify-banner');
+  const copy = document.getElementById('verify-banner-copy');
+  if (!el) return;
+  let dismissed = false;
+  try { dismissed = sessionStorage.getItem('runnr_verify_banner_dismissed') === '1'; } catch (e) {}
+  const loggedIn = !!(window.RunnrSync?.isLoggedIn?.());
+  const verified = !!(window.RunnrSync?.isEmailVerified?.());
+  const mailerOn = !!(window.RunnrSync?.billing?.()?.emailConfigured);
+  const show = loggedIn && mailerOn && !verified && !dismissed;
+  el.classList.toggle('show', show);
+  if (copy && show) {
+    let sent = true;
+    try { sent = sessionStorage.getItem('runnr_verify_sent') !== '0'; } catch (e) {}
+    const email = (RunnrSync.sessionEmail?.() || 'your inbox').replace(/</g, '');
+    copy.textContent = sent
+      ? ('Confirm your email to unlock sync, CSV, and billing. We sent a link to ' + email + '.')
+      : ('We could not send a confirmation email to ' + email + '. Tap Resend, or continue using Runnr and confirm later.');
+  }
+}
+async function resendFromVerifyBanner() {
+  try {
+    const data = await RunnrSync.resendVerification();
+    rememberVerificationSent({ verification_sent: true });
+    showToast('Runnr', data && data.detail ? data.detail : 'Verification email sent');
+    updateVerifyBanner();
+  } catch (e) {
+    rememberVerificationSent({ verification_sent: false });
+    showToast('Runnr', String(e.message || e));
+    updateVerifyBanner();
+  }
+}
+window.dismissVerifyBanner = dismissVerifyBanner;
+window.resendFromVerifyBanner = resendFromVerifyBanner;
 function updateDemoBanner() {
   const el = document.getElementById('demo-banner');
   const badge = document.getElementById('home-demo-badge');
@@ -2970,7 +3031,7 @@ function updateHomeStats() {
   };
   setStat('qs-stop', allM.count ? allM.stopPct.toFixed(0) + '%' : '—', allM.stopPct >= 80 ? 'var(--accent)' : 'var(--amber)');
   setStat('qs-size', allM.count ? allM.sizePct.toFixed(0) + '%' : '—', allM.sizePct >= 80 ? 'var(--accent)' : 'var(--amber)');
-  setStat('qs-pf', allM.count ? allM.profitFactor.toFixed(1) : '—', allM.profitFactor >= 1 ? 'var(--accent)' : 'var(--red)');
+  setStat('qs-pf', allM.count ? (allM.profitFactor >= 999 ? '—' : allM.profitFactor.toFixed(1)) : '—', allM.profitFactor >= 1 && allM.profitFactor < 999 ? 'var(--accent)' : 'var(--text3)');
   setStat('qs-wr', allM.count ? allM.winRate.toFixed(0) + '%' : '—', allM.winRate >= 50 ? 'var(--accent)' : 'var(--text)');
   const wrMeta = document.getElementById('qs-wr-meta');
   if (wrMeta) wrMeta.textContent = allM.count ? `${allM.count} trades` : '0 trades';
@@ -3971,10 +4032,7 @@ function renderWatchlist() {
   const items = (S.watchlist || []).filter((w) => w && !isFactoryDemoWatchItem(w));
   if (!items.length) {
     list.innerHTML = '<div class="empty-state"><div class="es-icon">👁</div>No setups yet.'
-      + (loggedIn
-        ? ' <span style="color:var(--accent);cursor:pointer" onclick="forcePullWatchlist()">Pull from cloud</span> or add one.'
-          + '<div style="margin-top:12px;font-size:11px"><span style="color:var(--text3);cursor:pointer" onclick="diagnoseSyncNow()">Diagnose sync</span></div>'
-        : ' Add your first watch.')
+      + (loggedIn ? ' Add one, or open Watch after syncing from another device.' : ' Add your first watch.')
       + '</div>';
     maybePullWatchlistFromCloud();
     renderWatchShelf();
@@ -3996,9 +4054,7 @@ function renderWatchlist() {
     return `<div class="watch-shelf-group"><div class="watch-shelf-label">${escHtml(watchShelfLabel(shelf.key))} · ${shelf.items.length}</div><div class="watch-compact-list">${body}</div></div>`;
   }).join('');
   if (!rows.trim()) {
-    list.innerHTML = '<div class="empty-state"><div class="es-icon">👁</div>Setups could not load.'
-      + ' <span style="color:var(--accent);cursor:pointer" onclick="forcePullWatchlist()">Pull from cloud</span>'
-      + '<div style="margin-top:12px;font-size:11px"><span style="color:var(--text3);cursor:pointer" onclick="diagnoseSyncNow()">Diagnose sync</span></div></div>';
+    list.innerHTML = '<div class="empty-state"><div class="es-icon">👁</div>Setups could not load. Add one on Watch.</div>';
     maybePullWatchlistFromCloud();
     renderWatchShelf();
     return;
@@ -5322,7 +5378,7 @@ function loadPortfolio(period, tabEl) {
   }
   document.getElementById('kpi-wr').textContent = fmtKpi(winRate, v => v.toFixed(0) + '%');
   document.getElementById('kpi-wr').style.color = !hasClosed ? 'var(--text3)' : winRate >= 50 ? 'var(--accent)' : 'var(--red)';
-  document.getElementById('kpi-pf').textContent = fmtKpi(profitFactor, v => v >= 999 ? '999+' : v.toFixed(2));
+  document.getElementById('kpi-pf').textContent = fmtKpi(profitFactor, v => (v >= 999 || !isFinite(v)) ? '—' : v.toFixed(2));
   document.getElementById('kpi-pf').style.color = !hasClosed ? 'var(--text3)' : profitFactor >= 1 ? 'var(--accent)' : 'var(--red)';
   document.getElementById('kpi-avgwin').textContent = fmtKpi(avgWin, fmt);
   document.getElementById('kpi-avgloss').textContent = fmtKpi(avgLoss, fmt);
@@ -6120,12 +6176,15 @@ function renderSyncAuthBanner() {
     el.innerHTML = `<div class="card-sm" style="display:flex;justify-content:space-between;align-items:center;gap:8px;flex-wrap:wrap">
       <span style="font-size:12px;color:var(--text2)">✓ ${who} · journal & watchlist sync</span>
       <button class="btn btn-sm btn-ghost" type="button" onclick="signOutRunnr()">Log out</button>
-    </div>
-    <div style="display:flex;gap:8px;margin-top:8px;flex-wrap:wrap">
+    </div>`;
+    const house = typeof RunnrSync.isHouse === 'function' && RunnrSync.isHouse();
+    if (house) {
+      el.innerHTML += `<div style="display:flex;gap:8px;margin-top:8px;flex-wrap:wrap">
       <button class="btn btn-sm btn-ghost" type="button" onclick="diagnoseSyncNow()">Diagnose sync</button>
       <button class="btn btn-sm btn-ghost" type="button" onclick="forcePushThisDevice()">Push this device → cloud</button>
       <button class="btn btn-sm btn-ghost" type="button" onclick="forcePullWatchlist()">Pull watchlist ← cloud</button>
     </div>`;
+    }
   } else if (syncAuthUsesInline()) {
     el.innerHTML = `<div style="font-size:12px;color:var(--text2);margin-bottom:4px">Tap <strong>Open sign-in page</strong> above.</div>`;
   } else {
@@ -6355,13 +6414,14 @@ async function submitSyncContinue() {
       }
     } catch (e) {}
     showSyncSignInStatus('Signed in — loading your profile…', 'ok');
-    const house = typeof RunnrSync.isHouseEmail === 'function' && RunnrSync.isHouseEmail(email);
-    const needsVerify = !house && data && data.email_verified === false;
+    const needsVerify = data && data.email_verified === false;
+    rememberVerificationSent(data);
     if (needsVerify) {
-      if (typeof switchPage === 'function') switchPage('sync');
       showSyncVerify(email, data);
-      showToast('Runnr', 'Confirm your email to continue');
+      updateVerifyBanner();
+      showToast('Runnr', 'Signed in — confirm your email when you can');
       try { await RunnrSync.refreshBilling?.(); refreshBillingUI(); } catch (e) {}
+      finishSyncSignIn(email);
       return;
     }
     finishSyncSignIn(email);
@@ -6488,14 +6548,15 @@ function showSyncVerify(email, data) {
   const safe = String(email || '').replace(/</g, '');
   const sent = data && data.verification_sent;
   const link = data && data.verify_url;
-  let html = 'We sent a confirmation link to <strong>' + safe + '</strong>. Open it, then you are good.';
+  let html = 'We sent a confirmation link to <strong>' + safe + '</strong>. Open it when you can — you can use Runnr now.';
   if (data && data.email_configured === false) {
-    html = 'Confirmation emails are not sending yet (Resend is not set on the API). House accounts can still get in.';
+    html = 'Confirmation emails are not sending yet. You can still use Runnr.';
   } else if (!sent && link) {
     html += ' Email isn’t configured yet — <a href="' + link + '" style="color:var(--gold)">verify now</a>.';
   } else if (!sent) {
-    html = 'We could not send the confirmation email to <strong>' + safe + '</strong>. Tap resend, or check spam.';
+    html = 'We could not send the confirmation email to <strong>' + safe + '</strong>. Tap resend, or continue and confirm later.';
   }
+  rememberVerificationSent(data);
   copy.innerHTML = html;
   card.style.display = 'block';
   scrollSyncAuthIntoView('sync-verify-auth');
@@ -7517,14 +7578,15 @@ function initSyncAuthForm() {
   }
   if (continueVerify && !continueVerify.dataset.bound) {
     continueVerify.dataset.bound = '1';
-    continueVerify.addEventListener('click', async () => {
-      try { await RunnrSync.refreshBilling?.(); } catch (e) {}
-      const house = typeof RunnrSync.isHouseEmail === 'function' && RunnrSync.isHouseEmail(RunnrSync.sessionEmail?.());
-      if (house || RunnrSync.isEmailVerified?.()) {
-        hideSyncVerify();
-        return;
-      }
-      showToast('Runnr', 'Open the Confirm email link in your inbox first');
+    continueVerify.addEventListener('click', () => {
+      dismissVerifyBanner();
+    });
+  }
+  const dismissVerify = document.getElementById('sync-dismiss-verify-btn');
+  if (dismissVerify && !dismissVerify.dataset.bound) {
+    dismissVerify.dataset.bound = '1';
+    dismissVerify.addEventListener('click', () => {
+      dismissVerifyBanner();
     });
   }
 }
@@ -7610,11 +7672,12 @@ function initApp() {
       RunnrSync.refreshBilling?.()
         .then(() => {
           refreshBillingUI();
-          const house = typeof RunnrSync.isHouseEmail === 'function' && RunnrSync.isHouseEmail(RunnrSync.sessionEmail?.());
           const mailerOn = !!RunnrSync.billing?.().emailConfigured;
-          if (!house && mailerOn && !RunnrSync.isEmailVerified?.()) {
-            if (typeof switchPage === 'function') switchPage('sync');
-            showSyncVerify(RunnrSync.sessionEmail?.(), { verification_sent: true });
+          if (mailerOn && !RunnrSync.isEmailVerified?.()) {
+            let sent = true;
+            try { sent = sessionStorage.getItem('runnr_verify_sent') !== '0'; } catch (e) {}
+            rememberVerificationSent({ verification_sent: sent });
+            updateVerifyBanner();
           }
         })
         .catch(() => refreshBillingUI());

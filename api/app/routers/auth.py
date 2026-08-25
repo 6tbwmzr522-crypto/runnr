@@ -23,6 +23,16 @@ from app.names import normalize_first_name
 router = APIRouter(prefix="/auth", tags=["auth"])
 
 
+def _email_flags(email: str | None) -> dict:
+    from app.routers.stats import email_can_view_stats
+
+    e = (email or "").strip().lower()
+    return {
+        "house": email_is_boss(e),
+        "can_view_stats": email_can_view_stats(e),
+    }
+
+
 def _me_response(user: dict) -> MeResponse:
     return MeResponse(
         id=user["id"],
@@ -34,6 +44,7 @@ def _me_response(user: dict) -> MeResponse:
         email_verified=bool(user.get("email_verified", True)),
         email_configured=email_configured(),
         first_name=user.get("first_name") or None,
+        **_email_flags(user.get("email")),
     )
 
 
@@ -51,6 +62,9 @@ def _reset_link(token: str) -> str:
 
 def _token_response(**kwargs) -> TokenResponse:
     kwargs.setdefault("email_configured", email_configured())
+    flags = _email_flags(kwargs.get("email"))
+    kwargs.setdefault("house", flags["house"])
+    kwargs.setdefault("can_view_stats", flags["can_view_stats"])
     return TokenResponse(**kwargs)
 
 

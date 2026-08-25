@@ -45,21 +45,6 @@ const RunnrSync = (() => {
     return localStorage.getItem(TOKEN_KEY) || "";
   }
 
-  const HOUSE_EMAILS = [
-    "janis@thinicedigital.com",
-    "info@thinicedigital.com",
-    "berzins.j@inbox.lv",
-  ];
-  const STATS_VIEWER_EMAILS = [
-    "janis@thinicedigital.com",
-    "berzins.j@inbox.lv",
-    "janis.berzins.liepins@gmail.com",
-  ];
-  const HOUSE_FIRST_NAMES = {
-    "janis@thinicedigital.com": "Janis",
-    "info@thinicedigital.com": "Janis",
-    "berzins.j@inbox.lv": "Janis",
-  };
   const DEMO_TRADE_IDS = new Set([1, 2, 3, 4]);
   const DEMO_WATCH_SYMS = new Set(["RACE", "ASTS", "EURUSD"]);
 
@@ -186,7 +171,7 @@ const RunnrSync = (() => {
         if (!s) continue;
         const own = String(s.ownerEmail || "").trim().toLowerCase();
         if (own && own !== e) continue;
-        if (!own && k !== "runnr_state:" + e && !isHouseEmail(e)) continue;
+        if (!own && k !== "runnr_state:" + e) continue;
         const score = snapshotScore(s);
         if (score > bestScore) {
           bestScore = score;
@@ -208,7 +193,9 @@ const RunnrSync = (() => {
       }
       const live = parseStoredState(localStorage.getItem("runnr_state"));
       if (stateLooksReal(live) && !switching) return;
-      if (switching) localStorage.removeItem("runnr_state");
+      // Switching accounts: drop the previous account's real journal so it
+      // is not shown as the new user's. Keep a local sample/demo journal.
+      if (switching && stateLooksReal(live)) localStorage.removeItem("runnr_state");
     } catch (err) {}
   }
 
@@ -317,9 +304,8 @@ const RunnrSync = (() => {
     return changed;
   }
 
-  function houseFirstName(email) {
-    const e = String(email || "").trim().toLowerCase();
-    return HOUSE_FIRST_NAMES[e] || "";
+  function houseFirstName() {
+    return "";
   }
 
   function setToken(t, email) {
@@ -332,7 +318,7 @@ const RunnrSync = (() => {
         if (next) {
           loadStateForEmail(next, { switching: !!(prev && prev !== next) });
           if (!prev || prev !== next) {
-            localStorage.removeItem(ALPACA_LOCAL_KEY);
+            wipeAlpacaLocalSecrets();
             try { sessionStorage.setItem("runnr_account_switched", "1"); } catch (e) {}
           }
         }
@@ -342,7 +328,7 @@ const RunnrSync = (() => {
         snapshotStateForEmail(localStorage.getItem(EMAIL_KEY));
         localStorage.removeItem(TOKEN_KEY);
         localStorage.removeItem(EMAIL_KEY);
-        localStorage.removeItem(ALPACA_LOCAL_KEY);
+        wipeAlpacaLocalSecrets();
         localStorage.removeItem("runnr_state");
       }
     } catch (e) {
@@ -420,6 +406,7 @@ const RunnrSync = (() => {
     });
     setToken(data.access_token, data.email || creds.email);
     applyFirstName(data.first_name || n);
+    applyAuthFlags(data);
     return data;
   }
 
@@ -462,7 +449,7 @@ const RunnrSync = (() => {
       if (e && map[e]) return map[e];
     } catch (err) {}
     const local = normalizeFirstName(window.S && window.S.firstName);
-    return local || houseFirstName(e) || "";
+    return local || "";
   }
 
   function applyFirstName(name) {
@@ -478,14 +465,13 @@ const RunnrSync = (() => {
   function applyFirstNameFromMe(me) {
     const remote = normalizeFirstName(me && me.first_name);
     const local = normalizeFirstName(window.S && window.S.firstName);
-    const house = houseFirstName(sessionEmail() || (me && me.email));
+    applyAuthFlags(me);
     if (remote) return applyFirstName(remote);
-    const pick = local || house;
-    if (pick && isLoggedIn()) {
-      applyFirstName(pick);
-      updateFirstName(pick).catch(() => {});
+    if (local && isLoggedIn()) {
+      applyFirstName(local);
+      updateFirstName(local).catch(() => {});
     }
-    return pick || "";
+    return local || "";
   }
 
   async function updateFirstName(name) {
@@ -521,6 +507,7 @@ const RunnrSync = (() => {
     const n = data.first_name || (window.S && window.S.firstName);
     if (n) applyFirstName(n);
     persistRememberedName(creds.email, n);
+    applyAuthFlags(data);
     return data;
   }
 
@@ -555,6 +542,7 @@ const RunnrSync = (() => {
     setToken(data.access_token, data.email);
     if (data.email) localStorage.setItem("runnr_remember_email", data.email);
     if (data.first_name) applyFirstName(data.first_name);
+    applyAuthFlags(data);
     return data;
   }
 
@@ -598,25 +586,51 @@ const RunnrSync = (() => {
     setToken("");
   }
 
-  function saveAlpacaLocal(apiKey, apiSecret, paper) {
-    localStorage.setItem(
-      ALPACA_LOCAL_KEY,
-      JSON.stringify({ key: apiKey, secret: apiSecret, paper: !!paper })
-    );
+  function wipeAlpacaLocalSecrets() {
+    try { localStorage.removeItem(ALPACA_LOCAL_KEY); } catch (e) {}
+  }
+
+  function readLegacyAlpacaLocal() {
+    try {
+      const raw = localStorage.getItem(ALPACA_LOCAL_KEY);
+      const parsed = raw ? JSON.parse(raw) : null;
+      if (parsed && parsed.key && parsed.secret) return parsed;
+    } catch (e) {}
+    return null;
+  }
+
+  /** Do not persist raw Alpaca secrets in localStorage — server stores them encrypted. */
+  function saveAlpacaLocal(_apiKey, _apiSecret, _paper) {
+    wipeAlpacaLocalSecrets();
   }
 
   function loadAlpacaLocal() {
-    try {
-      const raw = localStorage.getItem(ALPACA_LOCAL_KEY);
-      return raw ? JSON.parse(raw) : null;
-    } catch (e) {
-      return null;
-    }
+    return null;
   }
 
   function hasLocalAlpaca() {
-    const c = loadAlpacaLocal();
-    return !!(c && c.key && c.secret);
+    return false;
+  }
+
+  async function migrateLegacyAlpacaLocal() {
+    if (!isLoggedIn()) {
+      wipeAlpacaLocalSecrets();
+      return false;
+    }
+    const legacy = readLegacyAlpacaLocal();
+    if (!legacy?.key || !legacy?.secret) {
+      wipeAlpacaLocalSecrets();
+      return false;
+    }
+    try {
+      const st = await connectAlpaca(legacy.key, legacy.secret, legacy.paper !== false);
+      applyAlpacaStatus({ ...st, connected: true });
+      wipeAlpacaLocalSecrets();
+      return true;
+    } catch (e) {
+      wipeAlpacaLocalSecrets();
+      return false;
+    }
   }
 
   function applyAlpacaBalance(equity) {
@@ -670,15 +684,8 @@ const RunnrSync = (() => {
         return false;
       }
     }
-    const creds = loadAlpacaLocal();
-    if (!creds?.key || !creds?.secret) return false;
-    try {
-      const st = await connectAlpaca(creds.key, creds.secret, creds.paper !== false);
-      applyAlpacaStatus({ ...st, connected: true });
-      return true;
-    } catch (e) {
-      return false;
-    }
+    const migrated = await migrateLegacyAlpacaLocal();
+    return migrated;
   }
 
   async function alpacaStatus() {
@@ -1139,18 +1146,10 @@ const RunnrSync = (() => {
     }
   }
 
-  /** If this device still has Alpaca keys locally, upload them to the server account. */
+  /** If this device still has legacy Alpaca keys locally, upload them then wipe. */
   async function pushLocalAlpacaToAccount() {
     if (!isLoggedIn()) return false;
-    const creds = loadAlpacaLocal();
-    if (!creds?.key || !creds?.secret) return false;
-    try {
-      const st = await connectAlpaca(creds.key, creds.secret, creds.paper !== false);
-      applyAlpacaStatus({ ...st, connected: true });
-      return true;
-    } catch (e) {
-      return false;
-    }
+    return migrateLegacyAlpacaLocal();
   }
 
   async function runSync() {
@@ -1374,8 +1373,14 @@ const RunnrSync = (() => {
     (remoteTrades || []).forEach(add);
     (localTrades || []).forEach(add);
     let merged = [...byKey.values()];
-    const hasReal = merged.some((t) => t.source === "alpaca" || !DEMO_TRADE_IDS.has(t.id));
-    if (hasReal) merged = merged.filter((t) => t.source === "alpaca" || !DEMO_TRADE_IDS.has(t.id));
+    const remoteHasOwn = (remoteTrades || []).some(
+      (t) => t && (String(t.source || "").toLowerCase() === "alpaca" || !DEMO_TRADE_IDS.has(Number(t.id)))
+    );
+    if (remoteHasOwn) {
+      merged = merged.filter(
+        (t) => t && (String(t.source || "").toLowerCase() === "alpaca" || !DEMO_TRADE_IDS.has(Number(t.id)))
+      );
+    }
     return merged;
   }
 
@@ -1404,7 +1409,7 @@ const RunnrSync = (() => {
     if (local?.onboardingComplete) merged.onboardingComplete = true;
     if (local?.profileHandle) merged.profileHandle = local.profileHandle;
     if (local?.firstName && !merged.firstName) merged.firstName = local.firstName;
-    if (!merged.firstName) merged.firstName = houseFirstName(sessionEmail());
+    if (!merged.firstName) merged.firstName = (window.S && window.S.firstName) || "";
     if (Number(local?.journalBaseBal) > 0 || Number(remote?.journalBaseBal) > 0) {
       merged.journalBaseBal = pickJournalBase(
         local?.journalBaseBal,
@@ -1493,7 +1498,7 @@ const RunnrSync = (() => {
   async function shouldIgnoreRemote(remote) {
     if (!remote || !hasMeaningfulState(remote)) return false;
     const me = (sessionEmail() || "").trim().toLowerCase();
-    if (!me || isHouseEmail(me)) return false;
+    if (!me || isHouse()) return false;
     const own = String(remote.ownerEmail || "").trim().toLowerCase();
     if (own && own !== me) return true;
     if (own && own === me) return false;
@@ -1562,6 +1567,7 @@ const RunnrSync = (() => {
       await pushProfileState();
       return { action: "pushed" };
     }
+    // Empty cloud + local sample journal: keep the sample. Do not look like the book vanished.
     return { action: "empty" };
   }
 
@@ -1572,31 +1578,47 @@ const RunnrSync = (() => {
     enabled: false,
     emailVerified: true,
     emailConfigured: false,
+    house: false,
+    canViewStats: false,
   };
 
   function billing() {
     return billingCache;
   }
 
-  function isHouseEmail(email) {
-    const e = String(email || "").trim().toLowerCase();
-    return !!e && HOUSE_EMAILS.indexOf(e) !== -1;
+  function applyAuthFlags(data) {
+    if (!data) return billingCache;
+    if (data.house != null) billingCache.house = !!data.house;
+    if (data.can_view_stats != null) billingCache.canViewStats = !!data.can_view_stats;
+    if (data.email_verified != null) billingCache.emailVerified = data.email_verified !== false;
+    if (data.email_configured != null) billingCache.emailConfigured = !!data.email_configured;
+    if (data.pro != null) billingCache.pro = !!data.pro;
+    if (data.plan) billingCache.plan = data.plan;
+    if (data.subscription_status) billingCache.status = data.subscription_status;
+    if (data.billing_enabled != null) billingCache.enabled = !!data.billing_enabled;
+    return billingCache;
   }
 
-  function canViewStats(email) {
-    const e = String(email == null ? sessionEmail() : email).trim().toLowerCase();
-    return !!e && STATS_VIEWER_EMAILS.indexOf(e) !== -1;
+  function isHouse() {
+    return isLoggedIn() && !!billingCache.house;
+  }
+
+  function isHouseEmail() {
+    return isHouse();
+  }
+
+  function canViewStats() {
+    return isLoggedIn() && !!billingCache.canViewStats;
   }
 
   function isPro() {
-    if (isLoggedIn() && isHouseEmail(sessionEmail())) return true;
     if (!billingCache.enabled) return true;
     return !!billingCache.pro;
   }
 
   function isEmailVerified() {
     if (!isLoggedIn()) return false;
-    if (isHouseEmail(sessionEmail())) return true;
+    if (billingCache.house) return true;
     return !!billingCache.emailVerified;
   }
 
@@ -1609,6 +1631,8 @@ const RunnrSync = (() => {
         enabled: true,
         emailVerified: false,
         emailConfigured: false,
+        house: false,
+        canViewStats: false,
       };
       try {
         const health = await fetch(apiBase() + "/health").then((r) => r.json()).catch(() => null);
@@ -1620,6 +1644,8 @@ const RunnrSync = (() => {
             enabled: false,
             emailVerified: true,
             emailConfigured: false,
+            house: false,
+            canViewStats: false,
           };
         }
       } catch (e) {}
@@ -1635,6 +1661,8 @@ const RunnrSync = (() => {
         enabled: !!me.billing_enabled,
         emailVerified: me.email_verified !== false,
         emailConfigured: !!me.email_configured,
+        house: !!me.house,
+        canViewStats: !!me.can_view_stats,
       };
     } catch (e) {
       /* keep cache */
@@ -1727,6 +1755,7 @@ const RunnrSync = (() => {
     seedWatchlistFromTrades,
     watchlistLooksThin,
     isHouseEmail,
+    isHouse,
     canViewStats,
     houseFirstName,
     applyRemoteState,

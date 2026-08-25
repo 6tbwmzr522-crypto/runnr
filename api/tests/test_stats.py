@@ -123,3 +123,89 @@ def test_app_hides_stats_link_until_janis():
     login = (ROOT / "login.html").read_text(encoding="utf-8")
     assert "safeNextPath" in login
     assert 'get("next")' in login
+
+
+PERSONAL_EMAILS = (
+    "janis@thinicedigital.com",
+    "berzins.j@inbox.lv",
+    "janis.berzins.liepins@gmail.com",
+)
+
+
+def test_public_js_omits_personal_house_emails():
+    for rel in ("js/sync.js", "login.html", "js/desk.js"):
+        text = (ROOT / rel).read_text(encoding="utf-8").lower()
+        for email in PERSONAL_EMAILS:
+            assert email not in text, f"{rel} still publishes {email}"
+        assert "info@thinicedigital.com" not in text, rel
+
+
+def test_me_exposes_house_and_stats_flags_not_emails():
+    with TestClient(app) as client:
+        res = client.get(
+            "/api/v1/auth/me",
+            headers={"Authorization": f"Bearer {token_for('someone@example.com')}"},
+        )
+        assert res.status_code == 200
+        data = res.json()
+        assert data["house"] is False
+        assert data["can_view_stats"] is False
+
+        res = client.get(
+            "/api/v1/auth/me",
+            headers={"Authorization": f"Bearer {token_for('janis@thinicedigital.com')}"},
+        )
+        assert res.status_code == 200
+        data = res.json()
+        assert data["house"] is True
+        assert data["can_view_stats"] is True
+
+        res = client.get(
+            "/api/v1/auth/me",
+            headers={"Authorization": f"Bearer {token_for('info@thinicedigital.com')}"},
+        )
+        assert res.status_code == 200
+        data = res.json()
+        assert data["house"] is True
+        assert data["can_view_stats"] is False
+
+
+def test_login_html_uses_emailed_token_reset():
+    html = (ROOT / "login.html").read_text(encoding="utf-8")
+    assert "/api/v1/auth/forgot-password" in html
+    assert "/api/v1/auth/reset-password" in html
+    assert "token: resetToken" in html
+    assert "new_password: fields.password" in html
+    assert "email: fields.email,\n          new_password" not in html
+    assert "Continue to Runnr" in html
+    assert "goHome();" in html
+
+
+def test_operator_sync_controls_are_house_gated():
+    html = (ROOT / "index.html").read_text(encoding="utf-8")
+    assert "RunnrSync.isHouse" in html
+    assert 'onclick="forcePullWatchlist()">Pull from cloud' not in html
+    assert "dismissVerifyBanner" in html
+    assert 'href="icons/icon-192.png"' in html
+
+
+def test_pwa_png_icons_exist():
+    for name, size in (("icon-192.png", 192), ("icon-512.png", 512)):
+        path = ROOT / "icons" / name
+        raw = path.read_bytes()
+        assert raw[:8] == b"\x89PNG\r\n\x1a\n", name
+        manifest = (ROOT / "manifest.webmanifest").read_text(encoding="utf-8")
+        assert f"icons/{name}" in manifest
+        assert str(size) in manifest
+
+
+def test_privacy_says_broker_secrets_stay_off_device():
+    html = (ROOT / "privacy/index.html").read_text(encoding="utf-8")
+    md = (ROOT / "legal/runnr-privacy-policy.md").read_text(encoding="utf-8")
+    for text in (html, md):
+        assert "do not keep raw broker secrets in your browser" in text.lower()
+    sync = (ROOT / "js/sync.js").read_text(encoding="utf-8")
+    assert "Do not persist raw Alpaca secrets" in sync
+    assert "wipeAlpacaLocalSecrets" in sync
+    assert "JSON.stringify({ key: apiKey, secret: apiSecret" not in sync
+
