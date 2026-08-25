@@ -1664,6 +1664,14 @@ const RunnrSync = (() => {
         house: !!me.house,
         canViewStats: !!me.can_view_stats,
       };
+      if (!billingCache.canViewStats) {
+        try {
+          const st = await fetch(apiBase() + "/api/v1/stats", {
+            headers: { Authorization: "Bearer " + token() },
+          });
+          billingCache.canViewStats = st.ok;
+        } catch (e) {}
+      }
     } catch (e) {
       /* keep cache */
     }

@@ -117,6 +117,7 @@ def test_app_hides_stats_link_until_janis():
     html = (ROOT / "index.html").read_text(encoding="utf-8")
     assert "js-stats-link" in html
     assert "canViewStats" in (ROOT / "js/sync.js").read_text(encoding="utf-8")
+    assert "/api/v1/stats" in (ROOT / "js/sync.js").read_text(encoding="utf-8")
     stats_py = (ROOT / "api/app/routers/stats.py").read_text(encoding="utf-8")
     assert "from app.billing_util import" not in stats_py
     assert "email_is_boss(" not in stats_py

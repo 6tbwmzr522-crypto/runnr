@@ -2304,7 +2304,7 @@ body.light #wave-canvas{background:rgba(201,169,110,0.08)}
 <script src="js/coach.js?v=26"></script>
 <script src="js/onboarding.js?v=23"></script>
 <script src="js/csv-presets.js?v=3"></script>
-<script src="js/sync.js?v=60"></script>
+<script src="js/sync.js?v=61"></script>
 <script src="js/desk-sessions.js?v=2"></script>
 <script src="js/desk.js?v=11"></script>
 <script src="js/wave.js?v=1"></script>
@@ -6177,7 +6177,8 @@ function renderSyncAuthBanner() {
       <span style="font-size:12px;color:var(--text2)">✓ ${who} · journal & watchlist sync</span>
       <button class="btn btn-sm btn-ghost" type="button" onclick="signOutRunnr()">Log out</button>
     </div>`;
-    const house = typeof RunnrSync.isHouse === 'function' && RunnrSync.isHouse();
+    const house = (typeof RunnrSync.isHouse === 'function' && RunnrSync.isHouse())
+      || (typeof RunnrSync.canViewStats === 'function' && RunnrSync.canViewStats());
     if (house) {
       el.innerHTML += `<div style="display:flex;gap:8px;margin-top:8px;flex-wrap:wrap">
       <button class="btn btn-sm btn-ghost" type="button" onclick="diagnoseSyncNow()">Diagnose sync</button>
