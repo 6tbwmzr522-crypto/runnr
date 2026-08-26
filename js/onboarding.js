@@ -1,5 +1,6 @@
-/** Runnr growth engine — onboarding, weekly digest, share cards */
+/** Runnr growth engine — first-minute hook, onboarding, weekly digest, share cards */
 const RunnrGrowth = {
+  HOOK_KEY: "runnr_hook_v1",
   DEMO_TRADE: {
     instr: "NVDA",
     dir: "long",
@@ -11,12 +12,36 @@ const RunnrGrowth = {
     sizeOk: false,
   },
 
+  isDemoOrEmpty(state) {
+    if (typeof RunnrSync !== "undefined" && typeof RunnrSync.isDemoState === "function") {
+      return !!RunnrSync.isDemoState(state);
+    }
+    const trades = (state && state.trades) || [];
+    return !trades.some((t) => t && t.source);
+  },
+
+  shouldShowHook(state) {
+    try {
+      if (localStorage.getItem(this.HOOK_KEY) === "done") return false;
+    } catch (e) {}
+    if (typeof RunnrSync !== "undefined" && RunnrSync.isLoggedIn?.()) return false;
+    if (!this.isDemoOrEmpty(state)) return false;
+    return true;
+  },
+
+  completeHook() {
+    try { localStorage.setItem(this.HOOK_KEY, "done"); } catch (e) {}
+    try { document.documentElement.classList.remove("runnr-show-hook"); } catch (e) {}
+  },
+
   shouldShowOnboarding(state) {
     if (state.onboardingComplete) return false;
     try {
       if (localStorage.getItem("runnr_onboarding_v1") === "done") return false;
     } catch (e) {}
-    if (state.trades && state.trades.length >= 3) {
+    // Sample journal (ids 1–4) must not count as “already onboarded”.
+    const real = ((state && state.trades) || []).filter((t) => t && t.source);
+    if (real.length >= 3) {
       this.completeOnboarding(state);
       return false;
     }
@@ -58,16 +83,95 @@ const RunnrGrowth = {
   // ── Onboarding wizard ──
   step: 0,
   draft: {},
+  mode: "",
+
+  openHook() {
+    this.mode = "hook";
+    const overlay = document.getElementById("onboarding-overlay");
+    if (!overlay) return;
+    overlay.classList.add("open", "hook-mode");
+    overlay.setAttribute("role", "dialog");
+    overlay.setAttribute("aria-modal", "true");
+    overlay.setAttribute("aria-label", "What Runnr is");
+    const body = document.getElementById("ob-body");
+    if (body && !body.querySelector(".ob-hook")) this.renderHook();
+    document.documentElement.classList.add("runnr-show-hook");
+  },
+
+  renderHook() {
+    const body = document.getElementById("ob-body");
+    if (!body) return;
+    body.innerHTML = `
+      <div class="ob-hook">
+        <div class="ob-hero">
+          <div class="ob-kicker">Not a broker · you do not trade here</div>
+          <h2>Trading discipline — size, journal, coach.</h2>
+          <p>Position size with a stop. A journal that flags broken rules. A coach on the one trade that hurt.</p>
+        </div>
+        <dl class="ob-hook-pills">
+          <div class="ob-hook-pill"><dt>Sizer</dt><dd>Account, risk %, and a stop</dd></div>
+          <div class="ob-hook-pill"><dt>Journal</dt><dd>Flags skipped stops and oversized trades</dd></div>
+          <div class="ob-hook-pill"><dt>Coach</dt><dd>Report on the one trade that hurt</dd></div>
+        </dl>
+        <p class="ob-hook-price">Free to try · 10 journal trades · then €19/month or €190/year</p>
+        <p class="ob-hook-sample">Next screen is a sample journal. Those numbers are not yours.</p>
+        <button type="button" class="btn" id="ob-hook-enter">Open sample journal</button>
+        <a class="ob-hook-secondary" id="ob-hook-report" href="/report/">Score one trade</a>
+      </div>`;
+  },
+
+  dismissHook(state) {
+    this.completeHook();
+    if (state) this.completeOnboarding(state);
+    if (typeof persist === "function") persist();
+    this.close();
+  },
+
+  hideHookPaint() {
+    try { document.documentElement.classList.remove("runnr-show-hook"); } catch (e) {}
+    const overlay = document.getElementById("onboarding-overlay");
+    if (overlay && this.mode !== "wizard") {
+      overlay.classList.remove("open", "hook-mode");
+    }
+  },
+
+  bootGate(state) {
+    if (document.getElementById("modal-sync-auth")?.classList.contains("open")) {
+      this.hideHookPaint();
+      return;
+    }
+    if (window._runnrAuthPending) {
+      this.hideHookPaint();
+      return;
+    }
+    if (!window.RunnrSync?.isLoggedIn?.() && document.getElementById("page-sync")?.classList.contains("active")) {
+      this.hideHookPaint();
+      return;
+    }
+    if (this.shouldShowHook(state)) {
+      this.openHook();
+      return;
+    }
+    this.hideHookPaint();
+    if (this.shouldShowOnboarding(state)) this.open(state);
+  },
 
   open(state) {
+    this.mode = "wizard";
     this.step = 0;
     this.draft = { balance: state.bal, risk: state.risk };
-    document.getElementById("onboarding-overlay")?.classList.add("open");
+    const overlay = document.getElementById("onboarding-overlay");
+    overlay?.classList.remove("hook-mode");
+    overlay?.classList.add("open");
+    document.documentElement.classList.remove("runnr-show-hook");
     this.renderStep(state);
   },
 
   close() {
-    document.getElementById("onboarding-overlay")?.classList.remove("open");
+    const overlay = document.getElementById("onboarding-overlay");
+    overlay?.classList.remove("open", "hook-mode");
+    document.documentElement.classList.remove("runnr-show-hook");
+    this.mode = "";
   },
 
   renderStep(state) {
@@ -295,6 +399,10 @@ const RunnrGrowth = {
   },
 
   skip(state) {
+    if (this.mode === "hook" || document.getElementById("onboarding-overlay")?.classList.contains("hook-mode")) {
+      this.dismissHook(state);
+      return;
+    }
     this.completeOnboarding(state);
     persist();
     this.close();
