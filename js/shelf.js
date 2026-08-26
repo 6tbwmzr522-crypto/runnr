@@ -137,6 +137,35 @@ const RunnrShelf = (() => {
         { sym: "BLCO", name: "Bausch + Lomb", shrs: 3500000, value: 58e6 },
       ],
     },
+    {
+      id: "duquesne",
+      short: "Duquesne",
+      manager: "Stanley Druckenmiller",
+      legal: "Duquesne Family Office",
+      thesis: "Macro first — the 13F is leftover US longs, not the book.",
+      filedCount: 95,
+      filedValue: 5.21086e9,
+      holdings: [
+        { sym: "NTRA", name: "Natera", shrs: 3186306, value: 864.923e6 },
+        { sym: "TSM", name: "Taiwan Semiconductor", shrs: 589680, value: 281.613e6 },
+        { sym: "STM", name: "STMicroelectronics", shrs: 3102880, value: 232.375e6 },
+        { sym: "INSM", name: "Insmed", shrs: 1424690, value: 151.900e6 },
+        { sym: "YPF", name: "YPF", shrs: 3138897, value: 142.726e6 },
+        { sym: "AMZN", name: "Amazon", shrs: 541600, value: 129.085e6 },
+        { sym: "TBBB", name: "BBB Foods", shrs: 2901733, value: 120.915e6 },
+        { sym: "GOOGL", name: "Alphabet Class A", shrs: 336300, value: 120.184e6 },
+        { sym: "EWZ", name: "iShares MSCI Brazil", shrs: 3436170, value: 118.548e6 },
+        { sym: "STX", name: "Seagate", shrs: 122000, value: 117.730e6 },
+        { sym: "FOXA", name: "Fox Class A", shrs: 2204600, value: 114.992e6 },
+        { sym: "UAL", name: "United Airlines", shrs: 794795, value: 108.084e6 },
+        { sym: "SE", name: "Sea Limited", shrs: 1099905, value: 105.404e6 },
+        { sym: "CDW", name: "CDW", shrs: 743950, value: 104.629e6 },
+        { sym: "NAMS", name: "NewAmsterdam Pharma", shrs: 3070146, value: 104.047e6 },
+        { sym: "SNDK", name: "SanDisk", shrs: 34900, value: 79.353e6 },
+        { sym: "RVMD", name: "Revolution Medicines", shrs: 399587, value: 74.835e6 },
+        { sym: "BTDR", name: "Bitdeer", shrs: 4074993, value: 64.670e6 },
+      ],
+    },
   ];
 
   const SLEEVES = [
@@ -409,7 +438,7 @@ const RunnrShelf = (() => {
       </tr></thead>
       <tbody>${body}</tbody>
     </table></div>
-    <div class="shelf-footnote">Disclosed 13F longs as of 30 Jun 2026, filed 14 Aug. Live marks revalue that snapshot at last print — not the fund's live book, not a scrape. Four smaller Situational names without a public ticker are omitted from the table.</div>`;
+    <div class="shelf-footnote">Disclosed 13F longs as of 30 Jun 2026, filed 14 Aug. Live marks revalue that snapshot at last print — not the fund's live book, not a scrape. Four smaller Situational names without a public ticker are omitted from the table. Duquesne options and the rest of the 95 names are omitted.</div>`;
   }
 
   function fmtLast(p) {
