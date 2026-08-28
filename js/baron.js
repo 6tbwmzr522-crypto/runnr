@@ -151,6 +151,220 @@ const Baron = {
     if (typeof calcShares === "function") calcShares();
     return true;
   },
+
+  /** Prop-eval presets — round numbers, not a vendor's TOS. */
+  CHALLENGE_PRESETS: [
+    {
+      id: "ftmo100",
+      label: "FTMO 100k-style",
+      firm: "FTMO",
+      accountSize: 100000,
+      maxDailyLoss: 2000,
+      maxTrailingDd: 5000,
+      profitTarget: 10000,
+    },
+    {
+      id: "eval50",
+      label: "50k eval-style",
+      firm: "Eval",
+      accountSize: 50000,
+      maxDailyLoss: 1000,
+      maxTrailingDd: 2500,
+      profitTarget: 3000,
+    },
+  ],
+
+  defaultChallenge() {
+    const p = this.CHALLENGE_PRESETS[0];
+    return {
+      enabled: false,
+      preset: p.id,
+      firm: p.firm,
+      accountSize: p.accountSize,
+      maxDailyLoss: p.maxDailyLoss,
+      maxTrailingDd: p.maxTrailingDd,
+      profitTarget: p.profitTarget,
+      overrideDailyUsed: null,
+      overrideDdUsed: null,
+      overrideProfit: null,
+    };
+  },
+
+  normalizeChallenge(raw) {
+    const d = this.defaultChallenge();
+    if (!raw || typeof raw !== "object") return d;
+    const num = (v, fallback) => {
+      const n = Number(v);
+      return Number.isFinite(n) ? n : fallback;
+    };
+    const opt = (v) => {
+      if (v == null || v === "") return null;
+      const n = Number(v);
+      return Number.isFinite(n) ? n : null;
+    };
+    return {
+      enabled: !!raw.enabled,
+      preset: typeof raw.preset === "string" && raw.preset ? raw.preset : d.preset,
+      firm: typeof raw.firm === "string" && raw.firm.trim() ? raw.firm.trim() : d.firm,
+      accountSize: Math.max(0, num(raw.accountSize, d.accountSize)),
+      maxDailyLoss: Math.max(0, num(raw.maxDailyLoss, d.maxDailyLoss)),
+      maxTrailingDd: Math.max(0, num(raw.maxTrailingDd, d.maxTrailingDd)),
+      profitTarget: Math.max(0, num(raw.profitTarget, d.profitTarget)),
+      overrideDailyUsed: opt(raw.overrideDailyUsed),
+      overrideDdUsed: opt(raw.overrideDdUsed),
+      overrideProfit: opt(raw.overrideProfit),
+    };
+  },
+
+  applyChallengePreset(cfg, presetId) {
+    const next = this.normalizeChallenge(cfg);
+    const p = this.CHALLENGE_PRESETS.find((x) => x.id === presetId);
+    if (!p) {
+      next.preset = "custom";
+      return next;
+    }
+    next.preset = p.id;
+    next.firm = p.firm;
+    next.accountSize = p.accountSize;
+    next.maxDailyLoss = p.maxDailyLoss;
+    next.maxTrailingDd = p.maxTrailingDd;
+    next.profitTarget = p.profitTarget;
+    return next;
+  },
+
+  isoDay(d) {
+    const x = d instanceof Date ? d : new Date(d || Date.now());
+    if (Number.isNaN(x.getTime())) return "";
+    const y = x.getFullYear();
+    const m = String(x.getMonth() + 1).padStart(2, "0");
+    const day = String(x.getDate()).padStart(2, "0");
+    return y + "-" + m + "-" + day;
+  },
+
+  dateLabels(d) {
+    const x = d instanceof Date ? d : new Date(d || Date.now());
+    if (Number.isNaN(x.getTime())) return [];
+    return [
+      x.toLocaleDateString("en-GB", { month: "short", day: "numeric" }),
+      x.toLocaleDateString("en-US", { month: "short", day: "numeric" }),
+    ];
+  },
+
+  tradeDayKey(t, now) {
+    if (!t) return "";
+    if (t.dateKey && /^\d{4}-\d{2}-\d{2}/.test(String(t.dateKey))) return String(t.dateKey).slice(0, 10);
+    const raw = String(t.date || "");
+    if (/^\d{4}-\d{2}-\d{2}/.test(raw)) return raw.slice(0, 10);
+    const today = this.isoDay(now);
+    const labels = this.dateLabels(now);
+    if (raw && labels.includes(raw)) return today;
+    return "";
+  },
+
+  isChallengeTrade(t) {
+    if (!t || typeof t !== "object") return false;
+    if (t.book === "challenge") return true;
+    return !!t.challengeFail;
+  },
+
+  sizerBalance(state) {
+    const s = state || {};
+    if (s.challenge && s.challenge.enabled) {
+      const n = Number(s.challenge.accountSize);
+      if (Number.isFinite(n) && n > 0) return n;
+    }
+    return Number(s.bal) || 0;
+  },
+
+  challengeRemaining(cfg, trades, now, helpers) {
+    const c = this.normalizeChallenge(cfg);
+    const resolvePnl = helpers && helpers.resolvePnl
+      ? helpers.resolvePnl
+      : (t) => this.resolveTradePnl(t);
+    const isOpen = helpers && helpers.isOpenTrade
+      ? helpers.isOpenTrade
+      : (t) => this.isOpenTrade(t);
+    const today = this.isoDay(now);
+    const book = (trades || []).filter((t) => this.isChallengeTrade(t) && !t.disciplineOnly);
+    const closed = book.filter((t) => !isOpen(t));
+    closed.sort((a, b) => {
+      const da = this.tradeDayKey(a, now) || "";
+      const db = this.tradeDayKey(b, now) || "";
+      if (da !== db) return da < db ? -1 : 1;
+      return (Number(a.id) || 0) - (Number(b.id) || 0);
+    });
+    let cum = 0;
+    let hwm = c.accountSize;
+    let todayPnl = 0;
+    closed.forEach((t) => {
+      const pnl = Number(resolvePnl(t));
+      const n = Number.isFinite(pnl) ? pnl : 0;
+      cum += n;
+      const equity = c.accountSize + cum;
+      if (equity > hwm) hwm = equity;
+      if (today && this.tradeDayKey(t, now) === today) todayPnl += n;
+    });
+    const dailyUsed = c.overrideDailyUsed != null ? c.overrideDailyUsed : Math.max(0, -todayPnl);
+    const ddUsed = c.overrideDdUsed != null ? c.overrideDdUsed : Math.max(0, hwm - (c.accountSize + cum));
+    const profit = c.overrideProfit != null ? c.overrideProfit : cum;
+    const dailyLeft = Math.max(0, c.maxDailyLoss - dailyUsed);
+    const ddLeft = Math.max(0, c.maxTrailingDd - ddUsed);
+    return {
+      firm: c.firm,
+      accountSize: c.accountSize,
+      dailyUsed,
+      dailyLimit: c.maxDailyLoss,
+      dailyLeft,
+      ddUsed,
+      ddLimit: c.maxTrailingDd,
+      ddLeft,
+      profit,
+      profitTarget: c.profitTarget,
+      todayPnl,
+      cum,
+      hwm,
+      dailyFromJournal: c.overrideDailyUsed == null,
+      ddFromJournal: c.overrideDdUsed == null,
+      profitFromJournal: c.overrideProfit == null,
+    };
+  },
+
+  evaluateChallengeFill(remaining, cashRisk, size) {
+    const rem = remaining || {};
+    const risk = Number(cashRisk) || 0;
+    const qty = Number(size) || 0;
+    const dailyLeft = Math.max(0, Number(rem.dailyLeft) || 0);
+    const ddLeft = Math.max(0, Number(rem.ddLeft) || 0);
+    const headroom = Math.min(dailyLeft, ddLeft);
+    const blocked = risk > 0 && risk > headroom;
+    const riskPerUnit = qty > 0 ? risk / qty : 0;
+    const maxSize = riskPerUnit > 0 ? Math.floor(headroom / riskPerUnit + 1e-9) : 0;
+    let reason = null;
+    if (blocked) reason = dailyLeft <= ddLeft ? "daily" : "dd";
+    return {
+      blocked,
+      reason,
+      cashRisk: risk,
+      size: qty,
+      maxSize,
+      dailyLeft,
+      ddLeft,
+      headroom,
+    };
+  },
+
+  challengeNearMissNote(verdict, unitLabel) {
+    const v = verdict || {};
+    const units = unitLabel || "contracts";
+    const size = Number.isFinite(Number(v.size)) ? Number(v.size) : 0;
+    const maxSize = Number.isFinite(Number(v.maxSize)) ? Number(v.maxSize) : 0;
+    const why = v.reason === "dd" ? "trailing DD left" : "daily loss left";
+    const fmt = (n) => {
+      if (!Number.isFinite(n)) return "0";
+      return Number.isInteger(n) ? String(n) : String(Math.round(n * 100) / 100);
+    };
+    return fmt(size) + " " + units + " vs " + fmt(maxSize) + " max for " + why + ".";
+  },
 };
 
 window.Baron = Baron;
