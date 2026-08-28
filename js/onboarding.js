@@ -106,12 +106,13 @@ const RunnrGrowth = {
         <div class="ob-hero">
           <div class="ob-kicker">Not a broker · you do not trade here</div>
           <h2>Trading discipline — size, journal, coach.</h2>
-          <p>Position size with a stop. A journal that flags broken rules. A coach on the one trade that hurt.</p>
+          <p>Position size with a stop. A journal that flags broken rules. A coach on the one trade that hurt. Terminal is the desk.</p>
         </div>
         <dl class="ob-hook-pills">
           <div class="ob-hook-pill"><dt>Sizer</dt><dd>Account, risk %, and a stop</dd></div>
           <div class="ob-hook-pill"><dt>Journal</dt><dd>Flags skipped stops and oversized trades</dd></div>
           <div class="ob-hook-pill"><dt>Coach</dt><dd>Report on the one trade that hurt</dd></div>
+          <div class="ob-hook-pill"><dt>Terminal</dt><dd>Session clocks, heatmap, chart — look without paying</dd></div>
         </dl>
         <p class="ob-hook-price">Free to try · 10 journal trades · then €19/month or €190/year</p>
         <p class="ob-hook-sample">Next screen is a sample journal. Those numbers are not yours.</p>
