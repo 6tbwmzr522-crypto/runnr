@@ -5,7 +5,7 @@
 <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
 <script>
 (function () {
-  var V = "100";
+  var V = "101";
   try {
     if (localStorage.getItem("runnr_app_v") !== V) {
       localStorage.setItem("runnr_app_v", V);
@@ -1353,10 +1353,6 @@ html.runnr-show-hook #onboarding-overlay .ob-progress-wrap,#onboarding-overlay.h
           </div>
         </div>
         <div class="challenge-source" id="ch-source">From journal P&amp;L — override in Settings if your eval dashboard differs.</div>
-        <div class="opt-gate" id="challenge-gate">
-          <div class="opt-gate-title">⛔ Trade Blocked</div>
-          <div class="opt-gate-body" id="challenge-gate-msg">This fill would fail the eval.</div>
-        </div>
       </div>
       <div class="tabs">
         <div class="tab active" onclick="switchSizerTab('cfd',this)">CFD/Forex</div>
@@ -1400,6 +1396,10 @@ html.runnr-show-hook #onboarding-overlay .ob-progress-wrap,#onboarding-overlay.h
           <div class="rr-verdict" id="cfd-verdict" style="display:none"></div>
           <div class="challenge-gate-line" id="cfd-challenge-line"></div>
         </div>
+        <div class="opt-gate" id="cfd-challenge-gate">
+          <div class="opt-gate-title">⛔ Trade Blocked</div>
+          <div class="opt-gate-body" id="cfd-challenge-gate-msg">This fill would fail the eval.</div>
+        </div>
         <button class="btn" id="cfd-log-btn" onclick="saveLogFromSizer('cfd')">Log This Trade</button>
         <button type="button" class="btn btn-ghost" style="margin-top:8px;font-size:12px;width:100%" onclick="fillLogFromSizer('cfd')">Review or edit before saving</button>
       </div>
@@ -1435,6 +1435,10 @@ html.runnr-show-hook #onboarding-overlay .ob-progress-wrap,#onboarding-overlay.h
           <div class="rr-verdict" id="sh-verdict" style="display:none"></div>
           <div class="challenge-gate-line" id="sh-challenge-line"></div>
         </div>
+        <div class="opt-gate" id="sh-challenge-gate">
+          <div class="opt-gate-title">⛔ Trade Blocked</div>
+          <div class="opt-gate-body" id="sh-challenge-gate-msg">This fill would fail the eval.</div>
+        </div>
         <button class="btn" id="sh-log-btn" onclick="saveLogFromSizer('shares')">Log This Trade</button>
         <button type="button" class="btn btn-ghost" style="margin-top:8px;font-size:12px;width:100%" onclick="fillLogFromSizer('shares')">Review or edit before saving</button>
       </div>
@@ -1456,6 +1460,10 @@ html.runnr-show-hook #onboarding-overlay .ob-progress-wrap,#onboarding-overlay.h
         <div class="opt-gate" id="opt-gate">
           <div class="opt-gate-title">⛔ Trade Blocked</div>
           <div class="opt-gate-body" id="opt-gate-msg"></div>
+        </div>
+        <div class="opt-gate" id="opt-challenge-gate">
+          <div class="opt-gate-title">⛔ Trade Blocked</div>
+          <div class="opt-gate-body" id="opt-challenge-gate-msg">This fill would fail the eval.</div>
         </div>
 
         <div class="card">
@@ -3432,16 +3440,13 @@ function renderChallengePanel() {
   }
   if (!on || !rem) {
     lastChallengeVerdict = null;
-    const gate = document.getElementById('challenge-gate');
-    if (gate) gate.style.display = 'none';
+    hideAllChallengeGates();
     ['cfd', 'sh', 'cry'].forEach((p) => {
       const line = document.getElementById(p + '-challenge-line');
       if (line) line.style.display = 'none';
     });
     const cryStatus = document.getElementById('crypto-challenge-status');
     if (cryStatus) cryStatus.style.display = 'none';
-    const cryGate = document.getElementById('crypto-challenge-gate');
-    if (cryGate) cryGate.style.display = 'none';
     resetSizerLogButtons();
     return rem;
   }
@@ -3506,6 +3511,20 @@ function renderChallengePanel() {
   return rem;
 }
 
+function challengeGateId(type) {
+  if (type === 'shares') return 'sh-challenge-gate';
+  if (type === 'crypto') return 'crypto-challenge-gate';
+  if (type === 'options') return 'opt-challenge-gate';
+  return 'cfd-challenge-gate';
+}
+
+function hideAllChallengeGates() {
+  ['cfd-challenge-gate', 'sh-challenge-gate', 'crypto-challenge-gate', 'opt-challenge-gate'].forEach((id) => {
+    const el = document.getElementById(id);
+    if (el) el.style.display = 'none';
+  });
+}
+
 function resetSizerLogButtons() {
   [['cfd-log-btn', 'Log This Trade'], ['sh-log-btn', 'Log This Trade'], ['cry-log-btn', 'Log This Trade']].forEach(([id, label]) => {
     const btn = document.getElementById(id);
@@ -3520,7 +3539,8 @@ function applyChallengeFill(type, size, cashRisk) {
   const rem = renderChallengePanel();
   const lineId = type === 'shares' ? 'sh-challenge-line' : (type === 'crypto' ? 'cry-challenge-line' : (type === 'options' ? null : 'cfd-challenge-line'));
   const line = lineId ? document.getElementById(lineId) : null;
-  const gate = document.getElementById('challenge-gate');
+  hideAllChallengeGates();
+  const gate = document.getElementById(challengeGateId(type));
   const btnId = type === 'shares' ? 'sh-log-btn' : (type === 'crypto' ? 'cry-log-btn' : (type === 'options' ? null : 'cfd-log-btn'));
   const btn = btnId ? document.getElementById(btnId) : null;
   if (!challengeEnabled() || !rem || typeof Baron === 'undefined') {
@@ -3550,21 +3570,13 @@ function applyChallengeFill(type, size, cashRisk) {
     }
     if (gate) {
       gate.style.display = 'block';
-      const msg = document.getElementById('challenge-gate-msg');
+      const msg = gate.querySelector('.opt-gate-body');
       if (msg) msg.textContent = 'This fill would fail the eval. ' + verdict.note;
-    }
-    const cryGate = document.getElementById('crypto-challenge-gate');
-    if (cryGate && type === 'crypto') {
-      cryGate.style.display = 'block';
-      const cmsg = document.getElementById('crypto-challenge-gate-msg');
-      if (cmsg) cmsg.textContent = 'This fill would fail the eval. ' + verdict.note;
     }
     if (btn) btn.textContent = 'Log near-miss';
   } else {
     if (line) line.style.display = 'none';
     if (gate) gate.style.display = 'none';
-    const cryGate = document.getElementById('crypto-challenge-gate');
-    if (cryGate && type === 'crypto') cryGate.style.display = 'none';
     if (btn) btn.textContent = 'Log This Trade';
   }
   return verdict;

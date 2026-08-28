@@ -22,7 +22,7 @@ check("index.html V matches sw.js CACHE", v === cache);
 check("baron.js cache-busted", html.includes("js/baron.js?v=29"));
 check("personal book stays the default toggle", html.includes('id="sizer-book-personal"') && html.includes("Personal 1%"));
 check("challenge book toggle exists", html.includes('id="sizer-book-challenge"'));
-check("sizer reuses Trade Blocked gate", html.includes("id=\"challenge-gate\"") && html.includes("Trade Blocked"));
+check("sizer reuses Trade Blocked gate", html.includes("id=\"cfd-challenge-gate\"") && html.includes("Trade Blocked"));
 check("journal near-miss banner exists", html.includes("journal-challenge-banner"));
 check("settings keep custom eval fields", html.includes("set-ch-daily") && html.includes("set-ch-dd") && html.includes("set-ch-target"));
 check("sample journal still ships", html.includes("instr:'RACE'") && html.includes("instr:'AAPL CFD'"));
