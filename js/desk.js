@@ -1,9 +1,11 @@
 /**
- * Runnr Terminal — Pro market canvas.
- * Universe = watchlist equities. Quotes via /api/v1/desk (Alpaca IEX when connected).
+ * Runnr Terminal — market canvas.
+ * Pro: universe = the trader’s watchlist; Alpaca IEX when connected; entry/stop/target on the chart.
+ * Logged-out / free: public preview (session clocks, sample tape/heatmap, sample chart). No personal book.
  */
 const RunnrDesk = (() => {
   const TOKEN_KEY = "runnr_api_token";
+  const PREVIEW_UNIVERSE = ["SPY", "QQQ", "GLD", "SLV", "USO", "AAPL"];
   let timer = null;
   let clockTimer = null;
   let focus = "";
@@ -19,6 +21,17 @@ const RunnrDesk = (() => {
   const MAS = [9, 20, 50, 200];
   const MA_COLORS = { 9: "#7eb8e8", 20: "#C9A96E", 50: "rgba(245,242,236,0.45)", 200: "#E8C97A" };
   const DEFAULT_PREFS = { tf: "1D", ma: { 9: false, 20: true, 50: true, 200: false } };
+
+  function isPersonalDesk() {
+    const sync = window.RunnrSync;
+    if (!sync || typeof sync.isLoggedIn !== "function") return false;
+    if (!sync.isLoggedIn()) return false;
+    if (typeof sync.isPro === "function" && !sync.isPro()) return false;
+    return true;
+  }
+  function isPreview() {
+    return !isPersonalDesk();
+  }
 
   function loadPrefs() {
     try {
@@ -44,6 +57,7 @@ const RunnrDesk = (() => {
   }
   function authHeaders() {
     const h = { Accept: "application/json" };
+    if (isPreview()) return h;
     try {
       const t = localStorage.getItem(TOKEN_KEY);
       if (t) h.Authorization = "Bearer " + t;
@@ -61,6 +75,7 @@ const RunnrDesk = (() => {
   }
 
   function brandTitle() {
+    if (isPreview()) return "Terminal";
     let n = (window.S && window.S.firstName) || "";
     if (typeof RunnrSync !== "undefined") {
       if (!n && window.S && window.S.firstName) n = window.S.firstName;
@@ -105,6 +120,7 @@ const RunnrDesk = (() => {
   }
 
   function universe() {
+    if (isPreview()) return PREVIEW_UNIVERSE.slice();
     const w = (window.S && window.S.watchlist) || [];
     const fromWatch = w
       .filter((x) => x && !isFactoryDemoWatch(x))
@@ -123,6 +139,7 @@ const RunnrDesk = (() => {
   }
 
   function levelsFor(sym) {
+    if (isPreview()) return [];
     const want = String(sym || "").toUpperCase();
     if (!want) return [];
     const w = ((window.S && window.S.watchlist) || []).find((x) => {
@@ -327,6 +344,8 @@ const RunnrDesk = (() => {
   function render() {
     const el = root();
     if (!el) return;
+    const preview = isPreview();
+    el.setAttribute("data-desk-preview", preview ? "1" : "0");
     const watchSet = new Set(universe());
     const eqRows = rows.filter((r) => r.kind !== "METAL" && watchSet.has(r.sym));
     const metal = rows.find((r) => r.kind === "METAL");
@@ -406,9 +425,18 @@ const RunnrDesk = (() => {
     const lastPx = lastBar ? lastBar.c : (focusRow && focusRow.last);
     const lvNote = levelMeta(lvls, lastPx);
     const tfLabel = prefs.tf === "1D" ? "60 sessions" : prefs.tf === "1W" ? "60 weeks" : "60 bars";
-    const chip = alpaca ? "chip live" : "chip";
-    const chipText = alpaca ? "ALPACA IEX" : "LIVE";
+    const chip = preview ? "chip" : alpaca ? "chip live" : "chip";
+    const chipText = preview ? "PREVIEW" : alpaca ? "ALPACA IEX" : "LIVE";
     const goldNote = metal ? ` · XAU ${fmt(metal.last, 2)} spot` : "";
+    const heatEmpty = preview
+      ? "Sample heatmap could not load."
+      : "Add equity setups on Watch to populate the Terminal.";
+    const cta = preview
+      ? `<div class="desk-preview-cta">` +
+        `<p>Public look at the desk. Pro is your watchlist heatmap, Alpaca IEX tape, and your entry / stop / target on the chart.</p>` +
+        `<button type="button" class="desk-preview-unlock" id="desk-unlock">Unlock · €19/mo</button>` +
+        `</div>`
+      : "";
 
     el.innerHTML =
       `<div class="desk-cmd">` +
@@ -418,6 +446,7 @@ const RunnrDesk = (() => {
       `<span class="src" title="${source}">${source || "—"}${goldNote}</span>` +
       `<span class="clock" id="desk-clock"></span>` +
       `</div>` +
+      cta +
       `<div class="desk-tape">${tapeBits || '<div class="desk-empty">No tape yet</div>'}</div>` +
       `<div class="desk-grid">` +
       `<section class="desk-panel">` +
@@ -429,8 +458,8 @@ const RunnrDesk = (() => {
       `<div class="desk-sectors">${sectorBits}</div>` +
       `</section>` +
       `<section class="desk-panel desk-panel-heat">` +
-      `<h4>Watchlist heatmap</h4>` +
-      `<div class="desk-heat">${heatBits || '<div class="desk-empty">Add equity setups on Watch to populate the Terminal.</div>'}</div>` +
+      `<h4>${preview ? "Sample heatmap" : "Watchlist heatmap"}</h4>` +
+      `<div class="desk-heat">${heatBits || '<div class="desk-empty">' + heatEmpty + "</div>"}</div>` +
       `</section>` +
       `<section class="desk-panel desk-panel-chart">` +
       `<h4>Focus · ${tfLabel} · ${esc(focusLabel)} · candles</h4>` +
@@ -449,6 +478,12 @@ const RunnrDesk = (() => {
 
     const back = document.getElementById("desk-back");
     if (back) back.onclick = () => window.switchPage("watchlist");
+    const unlock = document.getElementById("desk-unlock");
+    if (unlock) {
+      unlock.onclick = () => {
+        if (typeof window.openUpgrade === "function") window.openUpgrade("Your Terminal");
+      };
+    }
     el.querySelectorAll("[data-sym]").forEach((btn) => {
       btn.addEventListener("click", () => {
         const sym = btn.getAttribute("data-sym");
@@ -566,7 +601,7 @@ const RunnrDesk = (() => {
         el.innerHTML =
           `<div class="desk-cmd"><button type="button" class="back" id="desk-back">← Runnr</button>` +
           `<div class="brand">${esc(brandTitle())}</div></div>` +
-          `<div class="desk-empty">Terminal could not reach the quote API. Check sign-in / network, then retry.</div>`;
+          `<div class="desk-empty">Terminal could not reach the quote API. Check network, then retry.</div>`;
         const back = document.getElementById("desk-back");
         if (back) back.onclick = () => window.switchPage("watchlist");
       }
@@ -577,6 +612,11 @@ const RunnrDesk = (() => {
     if (timer) { clearInterval(timer); timer = null; }
     if (clockTimer) { clearInterval(clockTimer); clockTimer = null; }
     alive = true;
+    if (isPreview()) {
+      const allowed = new Set(universe());
+      sectorRows.forEach((s) => { if (s && s.sym) allowed.add(s.sym); });
+      if (!focus || !allowed.has(focus)) focus = universe()[0] || "SPY";
+    }
     const app = document.getElementById("app");
     if (app) app.classList.add("desk-wide");
     render();
@@ -594,11 +634,8 @@ const RunnrDesk = (() => {
   }
 
   async function open() {
-    if (typeof window.requirePro === "function") {
-      const ok = await window.requirePro("Terminal", { skipEmail: true });
-      if (!ok) return;
-    }
-    if (typeof RunnrSync !== "undefined" && RunnrSync.isLoggedIn && RunnrSync.isLoggedIn()) {
+    try { await window.RunnrSync?.refreshBilling?.(); } catch (e) {}
+    if (isPersonalDesk() && typeof RunnrSync !== "undefined" && RunnrSync.isLoggedIn && RunnrSync.isLoggedIn()) {
       const existing = window.S && window.S.firstName;
       const n = (typeof RunnrSync.normalizeFirstName === "function"
         ? RunnrSync.normalizeFirstName(existing)
@@ -614,6 +651,6 @@ const RunnrDesk = (() => {
     window.switchPage("desk");
   }
 
-  return { open, enter, leave, refresh };
+  return { open, enter, leave, refresh, isPreview };
 })();
 window.RunnrDesk = RunnrDesk;
