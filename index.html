@@ -5,7 +5,7 @@
 <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
 <script>
 (function () {
-  var V = "99";
+  var V = "100";
   try {
     if (localStorage.getItem("runnr_app_v") !== V) {
       localStorage.setItem("runnr_app_v", V);
@@ -503,6 +503,33 @@ body::before{content:'';position:fixed;inset:0;background:radial-gradient(ellips
 .opt-gate{background:var(--red-dim);border:1px solid rgba(255,77,109,0.3);border-radius:var(--r-sm);padding:12px 14px;margin-bottom:12px;display:none}
 .opt-gate-title{font-size:13px;font-weight:700;color:var(--red);margin-bottom:4px}
 .opt-gate-body{font-size:12px;color:var(--text2);line-height:1.5}
+.sizer-book-row{display:flex;align-items:center;justify-content:space-between;gap:10px;margin-bottom:12px;flex-wrap:wrap}
+.sizer-book-toggle{display:flex;background:var(--surface2);border:1px solid var(--border);border-radius:20px;padding:3px}
+.sizer-book-toggle button{background:none;border:none;color:var(--text3);font-size:10px;font-weight:500;letter-spacing:0.12em;text-transform:uppercase;padding:6px 12px;border-radius:16px;cursor:pointer;font-family:var(--font-body)}
+.sizer-book-toggle button.active{background:var(--gold);color:#080c12}
+.challenge-pill{font-size:9px;font-weight:600;letter-spacing:0.14em;text-transform:uppercase;color:var(--gold);border:1px solid var(--gold);background:var(--gold-dim);border-radius:20px;padding:5px 10px;white-space:nowrap}
+.challenge-limits{display:flex;flex-direction:column;gap:8px;margin-bottom:12px}
+.challenge-limit{background:rgba(245,242,236,0.02);border:1px solid var(--border);border-radius:var(--r-sm);padding:10px 12px}
+.challenge-limit-top{display:flex;justify-content:space-between;align-items:baseline;gap:8px;margin-bottom:6px;flex-wrap:wrap}
+.challenge-limit-lbl{font-size:9px;font-weight:500;letter-spacing:0.28em;text-transform:uppercase;color:var(--gold)}
+.challenge-limit-val{font-family:var(--font-num);font-size:13px;color:var(--gold-light)}
+.challenge-limit-val.mint{color:var(--accent)}
+.challenge-limit-val.hot{color:var(--red)}
+.challenge-limit-cap{font-size:10px;color:var(--text3)}
+.challenge-bar{height:5px;background:var(--surface3);border-radius:3px;overflow:hidden}
+.challenge-bar>span{display:block;height:100%;border-radius:3px;background:var(--gold)}
+.challenge-bar>span.mint{background:var(--accent)}
+.challenge-bar>span.hot{background:var(--red)}
+.challenge-source{font-size:10px;color:var(--text3);line-height:1.4;margin:-4px 0 10px}
+.challenge-gate-line{font-size:12px;color:var(--red);margin:8px 0 0;line-height:1.4;display:none}
+.journal-challenge-status{display:none;margin-bottom:12px}
+.journal-challenge-metrics{display:flex;gap:8px}
+.journal-challenge-metrics>div{flex:1;background:rgba(245,242,236,0.02);border:1px solid var(--border);border-radius:var(--r-sm);padding:8px}
+.journal-challenge-metrics .lbl{font-size:8px;letter-spacing:0.16em;text-transform:uppercase;color:var(--gold);margin-bottom:4px}
+.journal-challenge-metrics .val{font-family:var(--font-num);font-size:13px;color:var(--accent)}
+.journal-challenge-banner{display:none;border:1px solid var(--gold);background:var(--gold-dim);border-radius:var(--r-sm);padding:10px 12px;margin-bottom:12px;font-size:12px;color:var(--gold);line-height:1.45}
+.journal-challenge-foot{display:none;text-align:center;font-family:var(--font-head);font-size:13px;font-style:italic;color:var(--gold);margin-top:16px}
+.te-note{font-size:11px;color:var(--red);margin-top:6px;line-height:1.35}
 .opt-portfolio-input{background:var(--surface2);border:1px solid var(--border);border-radius:var(--r-sm);padding:10px 14px;margin-bottom:12px}
 .opt-portfolio-input label{font-size:10px;font-weight:700;color:var(--text3);letter-spacing:0.8px;text-transform:uppercase;display:block;margin-bottom:5px}
 .opt-portfolio-input .pi-row{display:flex;gap:8px;align-items:center}
@@ -1294,6 +1321,43 @@ html.runnr-show-hook #onboarding-overlay .ob-progress-wrap,#onboarding-overlay.h
 
     <!-- ══ SIZER ══════════════════════════════════════════════════════════ -->
     <div class="page" id="page-sizer">
+      <div class="sizer-book-row">
+        <div class="sizer-book-toggle" role="tablist" aria-label="Sizer book">
+          <button type="button" id="sizer-book-personal" class="active" onclick="setChallengeBook(false)">Personal 1%</button>
+          <button type="button" id="sizer-book-challenge" onclick="setChallengeBook(true)">Challenge</button>
+        </div>
+        <div id="sizer-challenge-pill" class="challenge-pill" style="display:none">CHALLENGE</div>
+      </div>
+      <div id="sizer-challenge-panel" style="display:none">
+        <div class="challenge-limits">
+          <div class="challenge-limit">
+            <div class="challenge-limit-top">
+              <span class="challenge-limit-lbl">Daily loss</span>
+              <span><span class="challenge-limit-val" id="ch-daily-used">—</span> <span class="challenge-limit-cap" id="ch-daily-cap">of —</span></span>
+            </div>
+            <div class="challenge-bar"><span id="ch-daily-bar" style="width:0%"></span></div>
+          </div>
+          <div class="challenge-limit">
+            <div class="challenge-limit-top">
+              <span class="challenge-limit-lbl">Trailing DD</span>
+              <span><span class="challenge-limit-val mint" id="ch-dd-used">—</span> <span class="challenge-limit-cap" id="ch-dd-cap">of —</span></span>
+            </div>
+            <div class="challenge-bar"><span class="mint" id="ch-dd-bar" style="width:0%"></span></div>
+          </div>
+          <div class="challenge-limit">
+            <div class="challenge-limit-top">
+              <span class="challenge-limit-lbl">Profit</span>
+              <span><span class="challenge-limit-val mint" id="ch-profit-val">—</span> <span class="challenge-limit-cap" id="ch-profit-cap">/ — target</span></span>
+            </div>
+            <div class="challenge-bar"><span class="mint" id="ch-profit-bar" style="width:0%"></span></div>
+          </div>
+        </div>
+        <div class="challenge-source" id="ch-source">From journal P&amp;L — override in Settings if your eval dashboard differs.</div>
+        <div class="opt-gate" id="challenge-gate">
+          <div class="opt-gate-title">⛔ Trade Blocked</div>
+          <div class="opt-gate-body" id="challenge-gate-msg">This fill would fail the eval.</div>
+        </div>
+      </div>
       <div class="tabs">
         <div class="tab active" onclick="switchSizerTab('cfd',this)">CFD/Forex</div>
         <div class="tab" onclick="switchSizerTab('shares',this)">Shares</div>
@@ -1334,8 +1398,9 @@ html.runnr-show-hook #onboarding-overlay .ob-progress-wrap,#onboarding-overlay.h
           </div>
           <div id="cfd-forex-hint" style="display:none;font-size:11px;color:var(--text2);margin-top:8px;line-height:1.4"></div>
           <div class="rr-verdict" id="cfd-verdict" style="display:none"></div>
+          <div class="challenge-gate-line" id="cfd-challenge-line"></div>
         </div>
-        <button class="btn" onclick="saveLogFromSizer('cfd')">Log This Trade</button>
+        <button class="btn" id="cfd-log-btn" onclick="saveLogFromSizer('cfd')">Log This Trade</button>
         <button type="button" class="btn btn-ghost" style="margin-top:8px;font-size:12px;width:100%" onclick="fillLogFromSizer('cfd')">Review or edit before saving</button>
       </div>
 
@@ -1368,8 +1433,9 @@ html.runnr-show-hook #onboarding-overlay .ob-progress-wrap,#onboarding-overlay.h
             <div class="result-sub-item"><div class="val" id="sh-reward">—</div><div class="lbl" id="sh-reward-lbl">REWARD</div></div>
           </div>
           <div class="rr-verdict" id="sh-verdict" style="display:none"></div>
+          <div class="challenge-gate-line" id="sh-challenge-line"></div>
         </div>
-        <button class="btn" onclick="saveLogFromSizer('shares')">Log This Trade</button>
+        <button class="btn" id="sh-log-btn" onclick="saveLogFromSizer('shares')">Log This Trade</button>
         <button type="button" class="btn btn-ghost" style="margin-top:8px;font-size:12px;width:100%" onclick="fillLogFromSizer('shares')">Review or edit before saving</button>
       </div>
 
@@ -1473,8 +1539,20 @@ html.runnr-show-hook #onboarding-overlay .ob-progress-wrap,#onboarding-overlay.h
         <h3 style="font-size:15px">Trade Journal</h3>
         <button class="btn btn-sm" onclick="saveLogFromSizer('cfd')" style="background:var(--accent);color:#070d0b;font-family:var(--font-head);font-size:12px;font-weight:700;border:none;cursor:pointer;padding:7px 14px;border-radius:20px">+ Log Trade</button>
       </div>
+      <div id="journal-challenge-status" class="journal-challenge-status">
+        <div class="sizer-book-row" style="margin-bottom:8px">
+          <div class="challenge-pill" id="journal-challenge-pill">CHALLENGE</div>
+        </div>
+        <div class="journal-challenge-metrics">
+          <div><div class="lbl">Daily</div><div class="val" id="journal-ch-daily">—</div></div>
+          <div><div class="lbl">DD</div><div class="val" id="journal-ch-dd">—</div></div>
+          <div><div class="lbl">Target</div><div class="val" id="journal-ch-target">—</div></div>
+        </div>
+      </div>
+      <div id="journal-challenge-banner" class="journal-challenge-banner"></div>
       <div id="journal-hint" style="display:none;margin-bottom:12px;padding:12px 14px;background:var(--accent-dim);border:1px solid var(--border);border-radius:var(--r-sm);font-size:12px;color:var(--text2);line-height:1.5"></div>
       <div id="journal-list"></div>
+      <div id="journal-challenge-foot" class="journal-challenge-foot">Journal the breach that did not happen.</div>
     </div>
 
     <!-- ══ COACH ══════════════════════════════════════════════════════════ -->
@@ -1726,6 +1804,13 @@ html.runnr-show-hook #onboarding-overlay .ob-progress-wrap,#onboarding-overlay.h
     <div class="page" id="page-crypto">
       <div style="display:flex;align-items:center;gap:10px;margin-bottom:4px"><button onclick="switchPage('sizer')" style="background:var(--surface2);border:1px solid var(--border);border-radius:20px;padding:4px 12px;font-size:12px;color:var(--text2);cursor:pointer">← Back</button><div style="font-family:var(--font-head);font-size:20px;font-weight:700">Crypto Sizer</div></div>
       <div style="font-size:12px;color:var(--text3);margin-bottom:14px">Spot · Margin · Perpetuals · Futures</div>
+      <div id="crypto-challenge-status" class="journal-challenge-status">
+        <div class="journal-challenge-metrics">
+          <div><div class="lbl">Daily left</div><div class="val" id="crypto-ch-daily">—</div></div>
+          <div><div class="lbl">DD left</div><div class="val" id="crypto-ch-dd">—</div></div>
+          <div><div class="lbl">Target</div><div class="val" id="crypto-ch-target">—</div></div>
+        </div>
+      </div>
 
       <!-- Quick select pills -->
       <div class="card" style="padding:12px 16px;margin-bottom:10px">
@@ -1789,6 +1874,11 @@ html.runnr-show-hook #onboarding-overlay .ob-progress-wrap,#onboarding-overlay.h
           <div class="result-sub-item"><div class="val" id="cry-liq">—</div><div class="lbl">LIQ PRICE</div></div>
         </div>
         <div class="rr-verdict" id="cry-verdict" style="display:none"></div>
+        <div class="challenge-gate-line" id="cry-challenge-line"></div>
+      </div>
+      <div class="opt-gate" id="crypto-challenge-gate">
+        <div class="opt-gate-title">⛔ Trade Blocked</div>
+        <div class="opt-gate-body" id="crypto-challenge-gate-msg">This fill would fail the eval.</div>
       </div>
 
       <!-- Risk rules -->
@@ -1817,7 +1907,7 @@ html.runnr-show-hook #onboarding-overlay .ob-progress-wrap,#onboarding-overlay.h
         <strong>Perpetual reminder:</strong> funding rates typically run 0.01–0.03% every 8 hours. On a leveraged long, costs compound — factor this into your hold time.
       </div>
 
-      <button class="btn" onclick="saveLogFromSizer('crypto')">Log This Trade</button>
+      <button class="btn" id="cry-log-btn" onclick="saveLogFromSizer('crypto')">Log This Trade</button>
       <button type="button" class="btn btn-ghost" style="margin-top:8px;font-size:12px;width:100%" onclick="fillLogFromSizer('crypto')">Review or edit before saving</button>
     </div>
 
@@ -2300,6 +2390,32 @@ html.runnr-show-hook #onboarding-overlay .ob-progress-wrap,#onboarding-overlay.h
     <div class="field"><label data-i18n="settings.portBase">Portfolio P&amp;L base</label><input id="set-port-base" type="number" placeholder="100000"></div>
     <div style="font-size:11px;color:var(--text3);margin:-6px 0 10px" data-i18n="settings.portBaseHint">Starting balance for Portfolio % — separate from live Alpaca equity</div>
     <div class="field"><label data-i18n="settings.risk">Risk % per Trade</label><input id="set-risk" type="number" placeholder="1" step="0.5"></div>
+    <div class="divider"></div>
+    <div style="font-size:12px;color:var(--text3);margin-bottom:8px;font-weight:600;text-transform:uppercase;letter-spacing:0.8px">Challenge book</div>
+    <div style="font-size:11px;color:var(--text3);margin-bottom:10px;line-height:1.45">Eval limits for the sizer — not a live prop dashboard. Personal 1% stays the default book.</div>
+    <div class="notif-global-toggle" style="margin:0 0 12px">
+      <div>
+        <div style="font-size:13px;font-weight:600">Use Challenge book</div>
+        <div style="font-size:11px;color:var(--text3)">Sizer blocks a fill that would fail the eval</div>
+      </div>
+      <label class="toggle-switch"><input type="checkbox" id="set-ch-enabled" onchange="setChallengeBook(this.checked, { fromSettings: true })"><span class="toggle-slider"></span></label>
+    </div>
+    <div class="field"><label>Template</label>
+      <select id="set-ch-preset" onchange="applyChallengePresetFromSettings(this.value)">
+        <option value="ftmo100">FTMO 100k-style</option>
+        <option value="eval50">50k eval-style</option>
+        <option value="custom">Custom</option>
+      </select>
+    </div>
+    <div class="field"><label>Firm label</label><input id="set-ch-firm" placeholder="FTMO" oninput="markChallengeCustom()"></div>
+    <div class="field"><label>Account size</label><input id="set-ch-size" type="number" placeholder="100000" oninput="markChallengeCustom()"></div>
+    <div class="field"><label>Max daily loss</label><input id="set-ch-daily" type="number" placeholder="2000" oninput="markChallengeCustom()"></div>
+    <div class="field"><label>Max trailing drawdown</label><input id="set-ch-dd" type="number" placeholder="5000" oninput="markChallengeCustom()"></div>
+    <div class="field"><label>Profit target</label><input id="set-ch-target" type="number" placeholder="10000" oninput="markChallengeCustom()"></div>
+    <div style="font-size:11px;color:var(--text3);margin:4px 0 8px;line-height:1.45">Remaining is journal P&amp;L on this book. Override if the eval screen is ahead of the journal.</div>
+    <div class="field"><label>Override — daily loss used</label><input id="set-ch-over-daily" type="number" placeholder="Leave blank to use journal"></div>
+    <div class="field"><label>Override — trailing DD used</label><input id="set-ch-over-dd" type="number" placeholder="Leave blank to use journal"></div>
+    <div class="field"><label>Override — profit so far</label><input id="set-ch-over-profit" type="number" placeholder="Leave blank to use journal"></div>
     <div class="field"><label data-i18n="settings.currency">Currency</label>
       <select id="set-currency">
         <option value="€">EUR (€)</option>
@@ -2372,7 +2488,7 @@ html.runnr-show-hook #onboarding-overlay .ob-progress-wrap,#onboarding-overlay.h
 </div>
 
 <script src="js/i18n.js?v=12"></script>
-<script src="js/baron.js?v=28"></script>
+<script src="js/baron.js?v=29"></script>
 <script src="js/coach.js?v=26"></script>
 <script src="js/onboarding.js?v=25"></script>
 <script src="js/csv-presets.js?v=3"></script>
@@ -2434,6 +2550,7 @@ const S = {
   lang: 'en',
   brokerSync: { alpaca: { connected: false, lastSync: null, imported: 0 }, importedOrderIds: [] },
   journalBaseBal: 0,
+  challenge: (typeof Baron !== 'undefined' && Baron.defaultChallenge) ? Baron.defaultChallenge() : { enabled: false },
 };
 
 try {
@@ -2445,6 +2562,7 @@ try {
 // A single null in trades/watchlist would otherwise throw at boot and blank the whole app.
 S.trades = Array.isArray(S.trades) ? S.trades.filter(t => t && typeof t === 'object') : [];
 S.watchlist = Array.isArray(S.watchlist) ? S.watchlist.filter(w => w && typeof w === 'object') : [];
+if (typeof Baron !== 'undefined' && Baron.normalizeChallenge) S.challenge = Baron.normalizeChallenge(S.challenge);
 
 function normalizeTradePnls() {
   if (!window.Baron?.resolveTradePnl) return;
@@ -2759,6 +2877,8 @@ function switchPage(key) {
   document.getElementById(pageMap[key] || 'page-home').classList.add('active');
   document.querySelectorAll('.nav-btn').forEach((b,i) => b.classList.toggle('active', i === (navIdx[key] ?? -1) || b.dataset.nav === key));
   if (key === 'journal') renderJournal();
+  if (key === 'sizer') { renderChallengePanel(); try { calcCFD(); } catch (e) {} }
+  if (key === 'crypto') { renderChallengePanel(); try { calcCrypto(); } catch (e) {} }
   if (key === 'watchlist') {
     renderWatchlist();
     renderNotifSettings();
@@ -2993,6 +3113,7 @@ function saveSettings() {
   if (portBase > 0) S.journalBaseBal = Math.round(portBase);
   S.risk = parseFloat(document.getElementById('set-risk').value) || S.risk;
   S.sym = document.getElementById('set-currency').value;
+  readChallengeSettingsForm();
   S.balManualOverride = true;
   S.balFromAlpaca = false;
   S.profileHandle = (document.getElementById('set-handle')?.value || '').trim().replace(/[^a-zA-Z0-9_-]/g, '') || S.profileHandle;
@@ -3014,6 +3135,7 @@ function saveSettings() {
   if (langEl && langEl.value !== S.lang) changeLanguage(langEl.value);
   persist();
   updateHomeStats();
+  renderChallengePanel();
   closeModal('modal-settings');
   if (typeof RunnrDesk?.refresh === 'function') RunnrDesk.refresh();
 }
@@ -3022,6 +3144,7 @@ function openSettingsModal() {
   const portBaseEl = document.getElementById('set-port-base');
   if (portBaseEl) portBaseEl.value = S.journalBaseBal > 0 ? S.journalBaseBal : '';
   document.getElementById('set-risk').value = S.risk;
+  fillChallengeSettingsForm();
   const cur = document.getElementById('set-currency');
   if (cur) cur.value = S.sym || '€';
   const hint = document.getElementById('set-bal-hint');
@@ -3124,6 +3247,8 @@ function switchSizerTab(tab, el) {
   if (tab === 'crypto') {
     // Crypto lives on its own page
     switchPage('crypto');
+    renderChallengePanel();
+    try { calcCrypto(); } catch (e) {}
     return;
   }
   ['cfd','shares','options'].forEach(t => {
@@ -3131,6 +3256,9 @@ function switchSizerTab(tab, el) {
   });
   document.querySelectorAll('#page-sizer > .tabs > .tab').forEach(t => t.classList.remove('active'));
   el.classList.add('active');
+  if (tab === 'cfd') try { calcCFD(); } catch (e) {}
+  if (tab === 'shares') try { calcShares(); } catch (e) {}
+  if (tab === 'options') try { calcOptions(); } catch (e) {}
 }
 function switchOptType(type, el) {
   S.optType = type;
@@ -3153,17 +3281,345 @@ function showVerdict(elId, rr) {
   else el.style.display='none';
 }
 
+function sizerBalance() {
+  return (typeof Baron !== 'undefined' && Baron.sizerBalance) ? Baron.sizerBalance(S) : (S.bal || 0);
+}
+
+function challengeEnabled() {
+  return !!(S.challenge && S.challenge.enabled);
+}
+
+function getChallengeRemaining() {
+  if (typeof Baron === 'undefined' || !Baron.challengeRemaining) return null;
+  return Baron.challengeRemaining(S.challenge, S.trades, new Date(), {
+    resolvePnl: (t) => (typeof resolveTradePnl === 'function' ? resolveTradePnl(t) : Baron.resolveTradePnl(t)),
+    isOpenTrade: (t) => Baron.isOpenTrade(t),
+  });
+}
+
+function moneyAmt(n) {
+  const v = Math.round(Number(n) || 0);
+  return S.sym + Math.abs(v).toLocaleString();
+}
+
+let lastChallengeVerdict = null;
+
+function challengeUnitLabel(type) {
+  if (type === 'shares') return 'shares';
+  if (type === 'crypto') return 'units';
+  return 'contracts';
+}
+
+function syncChallengeBookUI() {
+  const on = challengeEnabled();
+  const pers = document.getElementById('sizer-book-personal');
+  const chal = document.getElementById('sizer-book-challenge');
+  if (pers) pers.classList.toggle('active', !on);
+  if (chal) chal.classList.toggle('active', on);
+  const tog = document.getElementById('set-ch-enabled');
+  if (tog) tog.checked = on;
+}
+
+function setChallengeBook(on, opts) {
+  opts = opts || {};
+  if (typeof Baron !== 'undefined' && Baron.normalizeChallenge) {
+    S.challenge = Baron.normalizeChallenge(S.challenge);
+  } else {
+    S.challenge = S.challenge || { enabled: false };
+  }
+  S.challenge.enabled = !!on;
+  persist();
+  syncChallengeBookUI();
+  renderChallengePanel();
+  if (document.getElementById('page-journal')?.classList.contains('active')) renderJournal();
+  if (!opts.skipCalc) {
+    try { calcCFD(); } catch (e) {}
+    try { calcShares(); } catch (e) {}
+    try { if (document.getElementById('sizer-options')?.style.display !== 'none') calcOptions(); } catch (e) {}
+    try { calcCrypto(); } catch (e) {}
+  }
+}
+window.setChallengeBook = setChallengeBook;
+
+function parseOverrideInput(id) {
+  const el = document.getElementById(id);
+  if (!el) return null;
+  const raw = String(el.value || '').trim();
+  if (raw === '') return null;
+  const n = parseFloat(raw);
+  return Number.isFinite(n) ? n : null;
+}
+
+function applyChallengePresetFromSettings(presetId) {
+  if (typeof Baron === 'undefined' || !Baron.applyChallengePreset) return;
+  const next = Baron.applyChallengePreset(S.challenge, presetId);
+  const firm = document.getElementById('set-ch-firm');
+  const size = document.getElementById('set-ch-size');
+  const daily = document.getElementById('set-ch-daily');
+  const dd = document.getElementById('set-ch-dd');
+  const target = document.getElementById('set-ch-target');
+  const sel = document.getElementById('set-ch-preset');
+  if (firm) firm.value = next.firm;
+  if (size) size.value = next.accountSize;
+  if (daily) daily.value = next.maxDailyLoss;
+  if (dd) dd.value = next.maxTrailingDd;
+  if (target) target.value = next.profitTarget;
+  if (sel) sel.value = presetId === 'custom' ? 'custom' : (next.preset || presetId);
+}
+window.applyChallengePresetFromSettings = applyChallengePresetFromSettings;
+
+function markChallengeCustom() {
+  const sel = document.getElementById('set-ch-preset');
+  if (sel) sel.value = 'custom';
+  if (S.challenge) S.challenge.preset = 'custom';
+}
+window.markChallengeCustom = markChallengeCustom;
+
+function fillChallengeSettingsForm() {
+  const c = (typeof Baron !== 'undefined' && Baron.normalizeChallenge)
+    ? Baron.normalizeChallenge(S.challenge)
+    : (S.challenge || {});
+  S.challenge = c;
+  const en = document.getElementById('set-ch-enabled');
+  const preset = document.getElementById('set-ch-preset');
+  const firm = document.getElementById('set-ch-firm');
+  const size = document.getElementById('set-ch-size');
+  const daily = document.getElementById('set-ch-daily');
+  const dd = document.getElementById('set-ch-dd');
+  const target = document.getElementById('set-ch-target');
+  if (en) en.checked = !!c.enabled;
+  if (preset) preset.value = c.preset || 'custom';
+  if (firm) firm.value = c.firm || '';
+  if (size) size.value = c.accountSize || '';
+  if (daily) daily.value = c.maxDailyLoss || '';
+  if (dd) dd.value = c.maxTrailingDd || '';
+  if (target) target.value = c.profitTarget || '';
+  const od = document.getElementById('set-ch-over-daily');
+  const odd = document.getElementById('set-ch-over-dd');
+  const op = document.getElementById('set-ch-over-profit');
+  if (od) od.value = c.overrideDailyUsed != null ? c.overrideDailyUsed : '';
+  if (odd) odd.value = c.overrideDdUsed != null ? c.overrideDdUsed : '';
+  if (op) op.value = c.overrideProfit != null ? c.overrideProfit : '';
+}
+
+function readChallengeSettingsForm() {
+  if (typeof Baron === 'undefined' || !Baron.normalizeChallenge) return;
+  S.challenge = Baron.normalizeChallenge({
+    enabled: document.getElementById('set-ch-enabled')?.checked,
+    preset: document.getElementById('set-ch-preset')?.value,
+    firm: document.getElementById('set-ch-firm')?.value,
+    accountSize: document.getElementById('set-ch-size')?.value,
+    maxDailyLoss: document.getElementById('set-ch-daily')?.value,
+    maxTrailingDd: document.getElementById('set-ch-dd')?.value,
+    profitTarget: document.getElementById('set-ch-target')?.value,
+    overrideDailyUsed: parseOverrideInput('set-ch-over-daily'),
+    overrideDdUsed: parseOverrideInput('set-ch-over-dd'),
+    overrideProfit: parseOverrideInput('set-ch-over-profit'),
+  });
+}
+
+function renderChallengePanel() {
+  syncChallengeBookUI();
+  const on = challengeEnabled();
+  const panel = document.getElementById('sizer-challenge-panel');
+  const pill = document.getElementById('sizer-challenge-pill');
+  if (panel) panel.style.display = on ? 'block' : 'none';
+  const rem = on ? getChallengeRemaining() : null;
+  const label = rem ? ('CHALLENGE · ' + (rem.firm || 'Eval') + (rem.accountSize >= 1000 ? ' ' + Math.round(rem.accountSize / 1000) + 'k' : '')) : 'CHALLENGE';
+  if (pill) {
+    pill.style.display = on ? 'inline-block' : 'none';
+    pill.textContent = label;
+  }
+  if (!on || !rem) {
+    lastChallengeVerdict = null;
+    const gate = document.getElementById('challenge-gate');
+    if (gate) gate.style.display = 'none';
+    ['cfd', 'sh', 'cry'].forEach((p) => {
+      const line = document.getElementById(p + '-challenge-line');
+      if (line) line.style.display = 'none';
+    });
+    const cryStatus = document.getElementById('crypto-challenge-status');
+    if (cryStatus) cryStatus.style.display = 'none';
+    const cryGate = document.getElementById('crypto-challenge-gate');
+    if (cryGate) cryGate.style.display = 'none';
+    resetSizerLogButtons();
+    return rem;
+  }
+  const dailyPct = rem.dailyLimit > 0 ? Math.min(100, (rem.dailyUsed / rem.dailyLimit) * 100) : 0;
+  const ddPct = rem.ddLimit > 0 ? Math.min(100, (rem.ddUsed / rem.ddLimit) * 100) : 0;
+  const profitPct = rem.profitTarget > 0 ? Math.min(100, Math.max(0, rem.profit / rem.profitTarget) * 100) : 0;
+  const dailyVal = document.getElementById('ch-daily-used');
+  const dailyCap = document.getElementById('ch-daily-cap');
+  const dailyBar = document.getElementById('ch-daily-bar');
+  const ddVal = document.getElementById('ch-dd-used');
+  const ddCap = document.getElementById('ch-dd-cap');
+  const ddBar = document.getElementById('ch-dd-bar');
+  const pVal = document.getElementById('ch-profit-val');
+  const pCap = document.getElementById('ch-profit-cap');
+  const pBar = document.getElementById('ch-profit-bar');
+  if (dailyVal) {
+    dailyVal.textContent = moneyAmt(rem.dailyUsed) + ' used';
+    dailyVal.classList.toggle('hot', rem.dailyLeft <= 0);
+  }
+  if (dailyCap) dailyCap.textContent = 'of ' + moneyAmt(rem.dailyLimit);
+  if (dailyBar) {
+    dailyBar.style.width = dailyPct + '%';
+    dailyBar.className = rem.dailyLeft <= 0 ? 'hot' : '';
+  }
+  if (ddVal) {
+    ddVal.textContent = moneyAmt(rem.ddUsed) + ' used';
+    ddVal.classList.toggle('mint', rem.ddLeft > 0);
+    ddVal.classList.toggle('hot', rem.ddLeft <= 0);
+  }
+  if (ddCap) ddCap.textContent = 'of ' + moneyAmt(rem.ddLimit);
+  if (ddBar) {
+    ddBar.style.width = ddPct + '%';
+    ddBar.className = rem.ddLeft <= 0 ? 'hot' : 'mint';
+  }
+  if (pVal) pVal.textContent = (rem.profit < 0 ? '−' : '') + moneyAmt(rem.profit);
+  if (pCap) pCap.textContent = '/ ' + moneyAmt(rem.profitTarget) + ' target';
+  if (pBar) {
+    pBar.style.width = profitPct + '%';
+    pBar.className = 'mint';
+  }
+  const src = document.getElementById('ch-source');
+  if (src) {
+    const bits = [];
+    if (!rem.dailyFromJournal || !rem.ddFromJournal || !rem.profitFromJournal) bits.push('Using manual override');
+    else bits.push('From journal P&L on this book');
+    bits.push('override in Settings if your eval dashboard differs.');
+    src.textContent = bits.join(' — ');
+  }
+  const cryStatus = document.getElementById('crypto-challenge-status');
+  if (cryStatus) {
+    cryStatus.style.display = 'block';
+    const d = document.getElementById('crypto-ch-daily');
+    const dd = document.getElementById('crypto-ch-dd');
+    const tgt = document.getElementById('crypto-ch-target');
+    if (d) d.textContent = moneyAmt(rem.dailyLeft);
+    if (dd) dd.textContent = moneyAmt(rem.ddLeft);
+    if (tgt) {
+      const pct = rem.profitTarget > 0 ? Math.max(0, Math.round((rem.profit / rem.profitTarget) * 100)) : 0;
+      tgt.textContent = pct + '%';
+    }
+  }
+  return rem;
+}
+
+function resetSizerLogButtons() {
+  [['cfd-log-btn', 'Log This Trade'], ['sh-log-btn', 'Log This Trade'], ['cry-log-btn', 'Log This Trade']].forEach(([id, label]) => {
+    const btn = document.getElementById(id);
+    if (!btn) return;
+    btn.textContent = label;
+    btn.style.opacity = '1';
+    btn.style.pointerEvents = 'auto';
+  });
+}
+
+function applyChallengeFill(type, size, cashRisk) {
+  const rem = renderChallengePanel();
+  const lineId = type === 'shares' ? 'sh-challenge-line' : (type === 'crypto' ? 'cry-challenge-line' : (type === 'options' ? null : 'cfd-challenge-line'));
+  const line = lineId ? document.getElementById(lineId) : null;
+  const gate = document.getElementById('challenge-gate');
+  const btnId = type === 'shares' ? 'sh-log-btn' : (type === 'crypto' ? 'cry-log-btn' : (type === 'options' ? null : 'cfd-log-btn'));
+  const btn = btnId ? document.getElementById(btnId) : null;
+  if (!challengeEnabled() || !rem || typeof Baron === 'undefined') {
+    lastChallengeVerdict = null;
+    if (line) line.style.display = 'none';
+    if (gate) gate.style.display = 'none';
+    if (btn) { btn.textContent = 'Log This Trade'; btn.style.opacity = '1'; btn.style.pointerEvents = 'auto'; }
+    return { blocked: false };
+  }
+  if (!(cashRisk > 0) || !(size > 0)) {
+    lastChallengeVerdict = { blocked: false };
+    if (line) line.style.display = 'none';
+    if (gate) gate.style.display = 'none';
+    if (btn) { btn.textContent = 'Log This Trade'; }
+    return lastChallengeVerdict;
+  }
+  const verdict = Baron.evaluateChallengeFill(rem, cashRisk, size);
+  const unitLabel = challengeUnitLabel(type);
+  verdict.unitLabel = unitLabel;
+  verdict.note = verdict.blocked ? Baron.challengeNearMissNote(verdict, unitLabel) : '';
+  lastChallengeVerdict = verdict;
+  if (verdict.blocked) {
+    const why = verdict.reason === 'dd' ? 'trailing DD left ' + moneyAmt(verdict.ddLeft) : 'daily loss left ' + moneyAmt(verdict.dailyLeft);
+    if (line) {
+      line.style.display = 'block';
+      line.textContent = `${Number.isInteger(size) ? size : size} ${unitLabel} would risk ${moneyAmt(cashRisk)} — ${why}`;
+    }
+    if (gate) {
+      gate.style.display = 'block';
+      const msg = document.getElementById('challenge-gate-msg');
+      if (msg) msg.textContent = 'This fill would fail the eval. ' + verdict.note;
+    }
+    const cryGate = document.getElementById('crypto-challenge-gate');
+    if (cryGate && type === 'crypto') {
+      cryGate.style.display = 'block';
+      const cmsg = document.getElementById('crypto-challenge-gate-msg');
+      if (cmsg) cmsg.textContent = 'This fill would fail the eval. ' + verdict.note;
+    }
+    if (btn) btn.textContent = 'Log near-miss';
+  } else {
+    if (line) line.style.display = 'none';
+    if (gate) gate.style.display = 'none';
+    const cryGate = document.getElementById('crypto-challenge-gate');
+    if (cryGate && type === 'crypto') cryGate.style.display = 'none';
+    if (btn) btn.textContent = 'Log This Trade';
+  }
+  return verdict;
+}
+
+function renderJournalChallengeChrome() {
+  const on = challengeEnabled();
+  const status = document.getElementById('journal-challenge-status');
+  const pill = document.getElementById('journal-challenge-pill');
+  const banner = document.getElementById('journal-challenge-banner');
+  const foot = document.getElementById('journal-challenge-foot');
+  const rem = on ? getChallengeRemaining() : null;
+  if (status) status.style.display = on ? 'block' : 'none';
+  if (foot) foot.style.display = on ? 'block' : 'none';
+  if (pill && rem) pill.textContent = 'CHALLENGE · ' + (rem.firm || 'Eval') + (rem.accountSize >= 1000 ? ' ' + Math.round(rem.accountSize / 1000) + 'k' : '');
+  if (on && rem) {
+    const d = document.getElementById('journal-ch-daily');
+    const dd = document.getElementById('journal-ch-dd');
+    const tgt = document.getElementById('journal-ch-target');
+    if (d) d.textContent = moneyAmt(rem.dailyLeft) + ' LEFT';
+    if (dd) dd.textContent = moneyAmt(rem.ddLeft) + ' LEFT';
+    if (tgt) {
+      const pct = rem.profitTarget > 0 ? Math.max(0, Math.round((rem.profit / rem.profitTarget) * 100)) : 0;
+      tgt.textContent = pct + '%';
+    }
+  }
+  const misses = (S.trades || []).filter(t => t && t.challengeFail);
+  if (banner) {
+    if (misses.length) {
+      banner.style.display = 'block';
+      banner.textContent = misses.length === 1
+        ? '1 fill would have failed the eval.'
+        : misses.length + ' fills would have failed the eval.';
+    } else {
+      banner.style.display = 'none';
+    }
+  }
+}
+
+function escapeTeText(s) {
+  return String(s || '').replace(/[&<>"']/g, (ch) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[ch]));
+}
+
 function calcCFD() {
   const instr = document.getElementById('cfd-instr')?.value || '';
   const entry = parseFloat(document.getElementById('cfd-entry').value);
   const stop  = parseFloat(document.getElementById('cfd-stop').value);
   const target= parseFloat(document.getElementById('cfd-target').value);
-  if (!entry || !stop) return;
-  const maxRisk = S.bal * S.risk / 100;
+  if (!entry || !stop) { applyChallengeFill('cfd', 0, 0); return; }
+  const bal = sizerBalance();
+  const maxRisk = bal * S.risk / 100;
   const stopDist = Math.abs(entry - stop);
   if (!stopDist) return;
   const sized = (typeof Baron !== 'undefined' && Baron.sizeForex)
-    ? Baron.sizeForex(S.bal, S.risk, entry, stop, instr)
+    ? Baron.sizeForex(bal, S.risk, entry, stop, instr)
     : { units: Math.floor(maxRisk / stopDist), risk: Math.floor(maxRisk / stopDist) * stopDist, pair: null };
   const pair = sized.pair;
   const suggested = sized.units;
@@ -3182,7 +3638,7 @@ function calcCFD() {
   }
   const rr = target ? Math.abs(target - entry) / stopDist : null;
   const sym = S.sym;
-  const riskPct = S.bal > 0 ? (riskAmt / S.bal * 100) : 0;
+  const riskPct = bal > 0 ? (riskAmt / bal * 100) : 0;
   document.getElementById('cfd-units').textContent = units.toLocaleString();
   document.getElementById('cfd-risk-amt').textContent = sym + Math.round(riskAmt).toLocaleString();
   document.getElementById('cfd-risk-amt').style.color = riskAmt > maxRisk * 1.05 ? 'var(--amber)' : '';
@@ -3217,18 +3673,20 @@ function calcCFD() {
     } else hint.style.display = 'none';
   }
   showVerdict('cfd-verdict', rr);
+  applyChallengeFill('cfd', units, riskAmt);
 }
 
 function calcShares() {
   const entry = parseFloat(document.getElementById('sh-entry').value);
   const stop  = parseFloat(document.getElementById('sh-stop').value);
   const target= parseFloat(document.getElementById('sh-target').value);
-  if (!entry || !stop) return;
-  const maxRisk = S.bal * S.risk / 100;
+  if (!entry || !stop) { applyChallengeFill('shares', 0, 0); return; }
+  const bal = sizerBalance();
+  const maxRisk = bal * S.risk / 100;
   const stopDist = Math.abs(entry - stop);
   if (!stopDist) return;
   const sized = (typeof Baron !== 'undefined' && Baron.sizeShares)
-    ? Baron.sizeShares(S.bal, S.risk, entry, stop)
+    ? Baron.sizeShares(bal, S.risk, entry, stop)
     : { shares: Math.floor(maxRisk / stopDist), risk: Math.floor(maxRisk / stopDist) * stopDist };
   const suggested = sized.shares;
   const manualRaw = document.getElementById('sh-manual-size')?.value;
@@ -3250,6 +3708,7 @@ function calcShares() {
   if (shRiskLbl) shRiskLbl.textContent = 'RISK';
   if (shRewLbl) shRewLbl.textContent = 'REWARD';
   showVerdict('sh-verdict', rr);
+  applyChallengeFill('shares', shares, riskAmt);
 }
 
 function calcOptions() {
@@ -3390,6 +3849,15 @@ function calcOptions() {
     logBtn.textContent = '✓ Log This Trade';
   }
 
+  if (challengeEnabled()) {
+    applyChallengeFill('options', Math.max(1, contracts), totalCost);
+    if (failures.length > 0) {
+      logBtn.style.opacity = '0.4';
+      logBtn.style.pointerEvents = 'none';
+      logBtn.textContent = '⛔ Fix Rule Violations to Log';
+    }
+  }
+
   // ─────────────────────────────────────────────────────
   // Scenario table
   // ─────────────────────────────────────────────────────
@@ -3441,6 +3909,7 @@ function bindJournalClicks() {
 
 function renderJournal() {
   bindJournalClicks();
+  renderJournalChallengeChrome();
   const list = document.getElementById('journal-list');
   const hint = document.getElementById('journal-hint');
   const alpacaPending = S.trades.filter(t => t.source === 'alpaca' && t.incomplete);
@@ -3473,10 +3942,11 @@ function renderJournal() {
     const isAlpaca = t.source === 'alpaca';
     const pnlStr = formatTradePnl(t, isAlpaca);
     const pnlCls = Baron.isOpenTrade?.(t) ? '' : (resolveTradePnl(t) >= 0 ? 'pos' : 'neg');
-    const stopFlag = t.incomplete ? '<span class="flag flag-incomplete">Stop ?</span>' :
+    const stopFlag = t.incomplete && !t.challengeFail ? '<span class="flag flag-incomplete">Stop ?</span>' :
       (t.stopOk ? '<span class="flag flag-ok">✓ Stop</span>' : '<span class="flag flag-no">✗ Stop</span>');
-    const sizeFlag = t.incomplete ? '<span class="flag flag-incomplete">Size ?</span>' :
-      (t.sizeOk ? '<span class="flag flag-ok">✓ Size</span>' : '<span class="flag flag-no">✗ Size</span>');
+    const sizeFlag = t.challengeFail ? '<span class="flag flag-no">FAIL</span>' :
+      (t.incomplete ? '<span class="flag flag-incomplete">Size ?</span>' :
+      (t.sizeOk ? '<span class="flag flag-ok">✓ Size</span>' : '<span class="flag flag-no">✗ Size</span>'));
     const fill = Number(t.fillPrice || t.entry || t.exit || 0);
     const priceLabel = fill > 0 ? `$${fill.toFixed(2)}` : 'price pending';
     const metaLine = isAlpaca
@@ -3497,7 +3967,8 @@ function renderJournal() {
         </div>
       </div>
       <div class="te-meta">${metaLine}</div>
-      <div class="flags">${stopFlag}${sizeFlag}${t.incomplete?'<span class="flag flag-miss">Incomplete</span>':''}</div>
+      <div class="flags">${stopFlag}${sizeFlag}${t.challengeFail ? '' : (t.incomplete?'<span class="flag flag-miss">Incomplete</span>':'')}</div>
+      ${t.challengeNote ? `<div class="te-note">${escapeTeText(t.challengeNote)}</div>` : ''}
     </div>`;
     } catch (e) { console.warn('skip bad trade', t && t.id, e); return ''; }
   }).join('');
@@ -3618,7 +4089,8 @@ window.applyBaronRulesToAll = applyDisciplineDefaultsToAll;
 
 // ── LOG MODAL ──────────────────────────────────────────────────────────────
 function getSizerDraft(type) {
-  const maxRisk = S.bal * S.risk / 100;
+  const maxRisk = sizerBalance() * S.risk / 100;
+  const blocked = !!(lastChallengeVerdict && lastChallengeVerdict.blocked);
   if (type === 'cfd') {
     const instr = document.getElementById('cfd-instr')?.value?.trim() || '';
     const entry = parseFloat(document.getElementById('cfd-entry')?.value);
@@ -3633,7 +4105,7 @@ function getSizerDraft(type) {
       : size * Math.abs(entry - stop);
     return {
       type: 'cfd', instr, entry, stop, target: target || null, dir, size, exit: null,
-      pair, withinRules: riskAmt <= maxRisk * 1.05,
+      pair, withinRules: riskAmt <= maxRisk * 1.05 && !blocked,
     };
   }
   if (type === 'shares') {
@@ -3646,7 +4118,7 @@ function getSizerDraft(type) {
     const riskAmt = size * Math.abs(entry - stop);
     return {
       type: 'shares', instr, entry, stop, target: target || null, dir: 'long', size, exit: null,
-      pair: null, withinRules: riskAmt <= maxRisk * 1.05,
+      pair: null, withinRules: riskAmt <= maxRisk * 1.05 && !blocked,
     };
   }
   if (type === 'crypto') {
@@ -3660,7 +4132,7 @@ function getSizerDraft(type) {
     const riskAmt = size * Math.abs(entry - stop);
     return {
       type: 'crypto', instr, entry, stop, target: target || null, dir: 'long', size, exit: null,
-      pair: null, leverage, withinRules: riskAmt <= maxRisk * 1.05,
+      pair: null, leverage, withinRules: riskAmt <= maxRisk * 1.05 && !blocked,
     };
   }
   return null;
@@ -3696,6 +4168,15 @@ function commitLog(draft) {
   };
   if (pair) patch.pair = pair;
   if (draft.leverage) patch.leverage = draft.leverage;
+  if (draft.book) patch.book = draft.book;
+  if (draft.challengeFail) {
+    patch.challengeFail = true;
+    patch.challengeNote = draft.challengeNote || '';
+  } else if (draft.challengeFail === false) {
+    patch.challengeFail = false;
+    patch.challengeNote = '';
+  }
+  if (typeof Baron !== 'undefined' && Baron.isoDay && !S.editingTradeId) patch.dateKey = Baron.isoDay(new Date());
   if (S.editingTradeId) {
     const t = S.trades.find(x => tradeId(x.id) === tradeId(S.editingTradeId));
     if (t) {
@@ -3753,12 +4234,18 @@ function saveLogFromSizer(type) {
     return;
   }
   draft.stopOk = true;
-  draft.sizeOk = draft.withinRules !== false;
+  const blocked = !!(lastChallengeVerdict && lastChallengeVerdict.blocked);
+  draft.sizeOk = draft.withinRules !== false && !blocked;
   draft.incomplete = !draft.stopOk || !draft.sizeOk;
+  if (challengeEnabled()) draft.book = 'challenge';
+  draft.challengeFail = blocked;
+  draft.challengeNote = blocked ? (lastChallengeVerdict.note || '') : '';
   if (!commitLog(draft)) return;
-  const msg = draft.incomplete
-    ? 'Logged — size flagged for review in Journal'
-    : 'Logged ✓ — sized & stopped like a pro';
+  const msg = blocked
+    ? 'Logged near-miss — would have failed the eval'
+    : (draft.incomplete
+      ? 'Logged — size flagged for review in Journal'
+      : 'Logged ✓ — sized & stopped like a pro');
   showToast(draft.instr, msg);
 }
 
@@ -3775,7 +4262,8 @@ function fillLogFromSizer(type) {
   document.getElementById('log-size').value = draft.size;
   document.getElementById('log-dir').value = draft.dir || 'long';
   setFlag('stop', 'yes');
-  setFlag('size', draft.withinRules !== false ? 'yes' : 'no');
+  const blocked = !!(lastChallengeVerdict && lastChallengeVerdict.blocked);
+  setFlag('size', draft.withinRules !== false && !blocked ? 'yes' : 'no');
 }
 
 function setFlag(type, val) {
@@ -3812,6 +4300,20 @@ function saveLog() {
     type: existing?.type || (pair ? 'cfd' : 'shares'),
     pair,
   };
+  const blocked = !!(lastChallengeVerdict && lastChallengeVerdict.blocked);
+  if (sizeOk) {
+    draft.challengeFail = false;
+    draft.challengeNote = '';
+  } else if (blocked) {
+    draft.challengeFail = true;
+    draft.challengeNote = lastChallengeVerdict.note || '';
+    if (challengeEnabled()) draft.book = 'challenge';
+  } else if (existing?.challengeFail) {
+    draft.challengeFail = true;
+    draft.challengeNote = existing.challengeNote || '';
+    draft.book = existing.book;
+  }
+  if (challengeEnabled() && !existing) draft.book = draft.book || 'challenge';
   if (!draft.instr || !draft.entry) return;
   if (!commitLog(draft)) return;
   closeModal('modal-log');
@@ -5880,9 +6382,10 @@ function calcCrypto() {
   const lev     = parseInt(document.getElementById('cry-lev').value) || 1;
   const type    = document.getElementById('cry-type').value;
 
-  if (!entry || !stop) return;
+  if (!entry || !stop) { applyChallengeFill('crypto', 0, 0); return; }
 
-  const maxRisk    = S.bal * S.risk / 100;
+  const bal = sizerBalance();
+  const maxRisk    = bal * S.risk / 100;
   const stopDist   = Math.abs(entry - stop);
   const stopPct    = (stopDist / entry) * 100;
   const effectiveRisk = maxRisk * lev; // with leverage your risk amplifies
@@ -5935,7 +6438,7 @@ function calcCrypto() {
   document.getElementById('cry-rules').style.display = 'block';
 
   // Rule 1 — effective risk check
-  const effPct = (effectiveRisk / S.bal) * 100;
+  const effPct = bal > 0 ? (effectiveRisk / bal) * 100 : 0;
   const r1ok = effPct <= 5; // allow up to 5% for leveraged (stricter than CFD)
   const r1card = document.getElementById('cry-rule1');
   const r1badge = document.getElementById('cry-r1-badge');
@@ -5968,6 +6471,7 @@ function calcCrypto() {
       document.getElementById('cry-r2-status').textContent = 'Spot — no liquidation risk';
     }
   }
+  applyChallengeFill('crypto', units, units * stopDist);
 }
 
 // ── LIGHT / DARK MODE ────────────────────────────────────────────────────────
@@ -7672,6 +8176,7 @@ function initApp() {
   try { normalizeWatchlist(); } catch (e) {}
   try { ensureWatchFromPositions(); } catch (e) {}
   try { updateHomeStats(); } catch (e) {}
+  try { renderChallengePanel(); } catch (e) {}
   try { renderHomePreviews(); } catch (e) {}
   try { initSyncAuthForm(); } catch (e) {}
   try { initCsvDropZone(); } catch (e) {}
