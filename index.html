@@ -5,7 +5,7 @@
 <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
 <script>
 (function () {
-  var V = "101";
+  var V = "102";
   try {
     if (localStorage.getItem("runnr_app_v") !== V) {
       localStorage.setItem("runnr_app_v", V);
@@ -3066,7 +3066,7 @@ function updateVerifyBanner() {
 async function resendFromVerifyBanner() {
   try {
     const data = await RunnrSync.resendVerification();
-    rememberVerificationSent({ verification_sent: true });
+    rememberVerificationSent({ verification_sent: !!(data && data.verification_sent) });
     showToast('Runnr', data && data.detail ? data.detail : 'Verification email sent');
     updateVerifyBanner();
   } catch (e) {
@@ -8152,6 +8152,7 @@ function initSyncAuthForm() {
       resendVerify.disabled = true;
       try {
         const data = await RunnrSync.resendVerification();
+        rememberVerificationSent({ verification_sent: !!(data && data.verification_sent) });
         showToast('Runnr', data && data.detail ? data.detail : 'Verification email sent');
         if (data && data.verify_url) {
           const copy = document.getElementById('sync-verify-copy');
