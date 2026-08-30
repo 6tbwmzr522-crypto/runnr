@@ -6,7 +6,7 @@ from uuid import uuid4
 from fastapi.testclient import TestClient
 
 from app.auth import create_access_token, hash_password
-from app.db import get_db
+from app.db import get_db, init_db
 from app.main import app
 
 
@@ -15,6 +15,7 @@ def _email() -> str:
 
 
 def _insert_user(email: str, *, verified: bool) -> int:
+    init_db()
     with get_db() as conn:
         cur = conn.execute(
             "INSERT INTO users (email, password_hash, email_verified) VALUES (?, ?, ?)",
