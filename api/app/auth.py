@@ -22,6 +22,8 @@ def hash_password(password: str) -> str:
 
 
 def verify_password(password: str, password_hash: str) -> bool:
+    if not password_hash or str(password_hash).startswith("oauth:"):
+        return False
     return bcrypt.checkpw(password.encode("utf-8"), password_hash.encode("utf-8"))
 
 
@@ -47,6 +49,15 @@ def _user_from_row(row) -> dict:
     first_name = None
     if "first_name" in row.keys():
         first_name = row["first_name"] or None
+    created_at = None
+    if "created_at" in row.keys():
+        created_at = row["created_at"] or None
+    intro_seen = False
+    if "intro_seen" in row.keys():
+        intro_seen = bool(row["intro_seen"])
+    avatar_url = None
+    if "avatar_url" in row.keys():
+        avatar_url = row["avatar_url"] or None
     return {
         "id": row["id"],
         "email": email,
@@ -57,6 +68,9 @@ def _user_from_row(row) -> dict:
         "stripe_customer_id": row["stripe_customer_id"] if "stripe_customer_id" in row.keys() else None,
         "email_verified": True if boss else verified,
         "first_name": first_name,
+        "created_at": created_at,
+        "intro_seen": intro_seen,
+        "avatar_url": avatar_url,
     }
 
 
@@ -75,7 +89,8 @@ def get_current_user(
         try:
             row = conn.execute(
                 """
-                SELECT id, email, stripe_customer_id, subscription_status, plan, email_verified, first_name
+                SELECT id, email, stripe_customer_id, subscription_status, plan, email_verified, first_name,
+                       created_at, intro_seen, avatar_url
                 FROM users WHERE id = ?
                 """,
                 (user_id,),

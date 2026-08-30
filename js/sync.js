@@ -1407,6 +1407,7 @@ const RunnrSync = (() => {
     });
     // Prefer configured scalar settings from whichever side has them.
     if (local?.onboardingComplete) merged.onboardingComplete = true;
+    if (local?.introWalkthroughSeen || remote?.introWalkthroughSeen) merged.introWalkthroughSeen = true;
     if (local?.profileHandle) merged.profileHandle = local.profileHandle;
     if (local?.firstName && !merged.firstName) merged.firstName = local.firstName;
     if (!merged.firstName) merged.firstName = (window.S && window.S.firstName) || "";
@@ -1580,6 +1581,9 @@ const RunnrSync = (() => {
     emailConfigured: false,
     house: false,
     canViewStats: false,
+    introSeen: false,
+    createdAt: "",
+    avatarUrl: "",
   };
 
   function billing() {
@@ -1596,6 +1600,9 @@ const RunnrSync = (() => {
     if (data.plan) billingCache.plan = data.plan;
     if (data.subscription_status) billingCache.status = data.subscription_status;
     if (data.billing_enabled != null) billingCache.enabled = !!data.billing_enabled;
+    if (data.intro_seen != null) billingCache.introSeen = !!data.intro_seen;
+    if (data.created_at) billingCache.createdAt = data.created_at;
+    if (data.avatar_url !== undefined) billingCache.avatarUrl = data.avatar_url || "";
     return billingCache;
   }
 
@@ -1633,6 +1640,9 @@ const RunnrSync = (() => {
         emailConfigured: false,
         house: false,
         canViewStats: false,
+        introSeen: false,
+        createdAt: "",
+        avatarUrl: "",
       };
       try {
         const health = await fetch(apiBase() + "/health").then((r) => r.json()).catch(() => null);
@@ -1646,6 +1656,9 @@ const RunnrSync = (() => {
             emailConfigured: false,
             house: false,
             canViewStats: false,
+            introSeen: false,
+            createdAt: "",
+            avatarUrl: "",
           };
         }
       } catch (e) {}
@@ -1663,7 +1676,11 @@ const RunnrSync = (() => {
         emailConfigured: !!me.email_configured,
         house: !!me.house,
         canViewStats: !!me.can_view_stats,
+        introSeen: !!me.intro_seen,
+        createdAt: me.created_at || "",
+        avatarUrl: me.avatar_url || "",
       };
+      if (me.intro_seen && window.S) window.S.introWalkthroughSeen = true;
       if (!billingCache.canViewStats) {
         try {
           const st = await fetch(apiBase() + "/api/v1/stats", {
@@ -1676,6 +1693,54 @@ const RunnrSync = (() => {
       /* keep cache */
     }
     return billingCache;
+  }
+
+  function introSeen() {
+    if (billingCache.introSeen) return true;
+    try {
+      if (window.S && window.S.introWalkthroughSeen) return true;
+    } catch (e) {}
+    return false;
+  }
+
+  async function markIntroSeen() {
+    if (window.S) window.S.introWalkthroughSeen = true;
+    billingCache.introSeen = true;
+    if (!isLoggedIn()) return null;
+    try {
+      const data = await request("/api/v1/auth/me", {
+        method: "PATCH",
+        body: JSON.stringify({ intro_seen: true }),
+      });
+      applyAuthFlags(data);
+      if (typeof pushProfileStateDebounced === "function") pushProfileStateDebounced();
+      return data;
+    } catch (e) {
+      return null;
+    }
+  }
+
+  function oauthStartUrl(provider, nextPath) {
+    const p = provider === "apple" ? "apple" : "google";
+    const next = nextPath || "/?signedin=1";
+    return apiBase() + "/api/v1/auth/oauth/" + p + "/start?next=" + encodeURIComponent(next);
+  }
+
+  async function consumeOAuthCode(code) {
+    ensureApiUrl();
+    if (!storageOk()) {
+      throw new Error("Safari blocked saving your login — turn off Private Browsing or allow site data for runnr.fyi");
+    }
+    const data = await request(
+      "/api/v1/auth/oauth/exchange",
+      { method: "POST", body: JSON.stringify({ code: String(code || "").trim() }) },
+      15000
+    );
+    setToken(data.access_token, data.email);
+    if (data.email) localStorage.setItem("runnr_remember_email", data.email);
+    if (data.first_name) applyFirstName(data.first_name);
+    applyAuthFlags(data);
+    return data;
   }
 
   async function createCheckout(interval) {
@@ -1770,6 +1835,10 @@ const RunnrSync = (() => {
     billing,
     isPro,
     isEmailVerified,
+    introSeen,
+    markIntroSeen,
+    consumeOAuthCode,
+    oauthStartUrl,
     refreshBilling,
     createCheckout,
     createPortal,

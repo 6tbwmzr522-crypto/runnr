@@ -87,6 +87,14 @@
   .hint a { color: var(--gold); }
   .legal-links { display:flex; flex-wrap:wrap; gap:8px 14px; justify-content:center; margin-top:20px; font-size:12px; }
   .legal-links a { color: var(--gold); }
+  .oauth-row { display:flex; flex-direction:column; gap:8px; margin:0 0 14px; }
+  .oauth-btn {
+    display:block; width:100%; padding:14px; border-radius:8px;
+    border:1px solid var(--border); background:#101620; color:var(--text);
+    font-size:15px; font-weight:600; text-align:center; text-decoration:none;
+  }
+  .oauth-btn.apple { background:#111; color:#fff; border-color:#222; }
+  .oauth-or { font-size:11px; color:var(--text2); text-align:center; margin:-2px 0 14px; letter-spacing:0.08em; text-transform:uppercase; }
 </style>
 </head>
 <body>
@@ -96,6 +104,11 @@
   <p class="sub">Simple sign-in for iPhone. First name is for your terminal — e.g. John’s terminal.</p>
 
   <div class="card">
+    <div class="oauth-row">
+      <a class="oauth-btn" id="oauth-google" href="#">Continue with Google</a>
+      <a class="oauth-btn apple" id="oauth-apple" href="#">Continue with Apple</a>
+    </div>
+    <p class="oauth-or">or email &amp; password</p>
         <form id="signin-form" action="/" method="post" autocomplete="on">
     <label for="email">Email</label>
     <input id="email" name="email" type="email" inputmode="email" autocomplete="username" autocapitalize="none" autocorrect="off" placeholder="you@example.com" enterkeyhint="next">
@@ -148,6 +161,15 @@
   let resetMode = false;
   let pendingToken = "";
   let resetToken = "";
+
+  function oauthStart(provider) {
+    var next = safeNextPath() || "/?signedin=1";
+    return API + "/api/v1/auth/oauth/" + provider + "/start?next=" + encodeURIComponent(next);
+  }
+  var gBtn = document.getElementById("oauth-google");
+  var aBtn = document.getElementById("oauth-apple");
+  if (gBtn) gBtn.href = oauthStart("google");
+  if (aBtn) aBtn.href = oauthStart("apple");
 
   try {
     const remembered = localStorage.getItem("runnr_remember_email");
@@ -421,6 +443,19 @@
     if (urlReset.length >= 10) {
       showResetFields(urlReset, "Choose a new password below.");
       try { history.replaceState(null, "", location.pathname); } catch (e) {}
+    }
+  } catch (e) {}
+
+  try {
+    var oauthCode = (new URLSearchParams(location.search).get("oauth") || "").trim();
+    if (oauthCode.length >= 8) {
+      try { history.replaceState(null, "", location.pathname + (safeNextPath() ? ("?next=" + encodeURIComponent(safeNextPath())) : "")); } catch (e) {}
+      setStatus("Signing in…", "work");
+      apiPost("/api/v1/auth/oauth/exchange", { code: oauthCode }).then(function (data) {
+        return afterAuth(data, { email: data.email, firstName: data.first_name });
+      }).catch(function (err) {
+        setStatus(String(err.message || err), "err");
+      });
     }
   } catch (e) {}
 
