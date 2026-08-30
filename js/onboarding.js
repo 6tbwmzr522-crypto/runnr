@@ -104,9 +104,9 @@ const RunnrGrowth = {
     body.innerHTML = `
       <div class="ob-hook">
         <div class="ob-hero">
-          <div class="ob-kicker">Not a broker · you do not trade here</div>
-          <h2>Trading discipline — size, journal, coach.</h2>
-          <p>Position size with a stop. A journal that flags broken rules. A coach on the one trade that hurt. Terminal is the desk.</p>
+          <div class="ob-kicker">You do not trade here</div>
+          <h2>Trading discipline, not a broker</h2>
+          <p>Sizer, journal, score, streak, and session wave. Not a P&amp;L tracker.</p>
         </div>
         <dl class="ob-hook-pills">
           <div class="ob-hook-pill"><dt>Sizer</dt><dd>Account, risk %, and a stop</dd></div>
@@ -114,10 +114,13 @@ const RunnrGrowth = {
           <div class="ob-hook-pill"><dt>Coach</dt><dd>Report on the one trade that hurt</dd></div>
           <div class="ob-hook-pill"><dt>Terminal</dt><dd>Session clocks, heatmap, chart — look without paying</dd></div>
         </dl>
-        <p class="ob-hook-price">Free to try · 10 journal trades · then €19/month or €190/year</p>
-        <p class="ob-hook-sample">Next screen is a sample journal. Those numbers are not yours.</p>
-        <button type="button" class="btn" id="ob-hook-enter">Open sample journal</button>
-        <a class="ob-hook-secondary" id="ob-hook-report" href="/report/">Score one trade</a>
+        <p class="ob-hook-price">Start free · 10 journal trades · then €19/month or €190/year</p>
+        <p class="ob-hook-sample">Sample journal is labeled SAMPLE. Those numbers are not yours.</p>
+        <div class="ob-hook-actions">
+          <a class="btn" id="ob-hook-start" href="/login.html">Start free</a>
+          <button type="button" class="btn btn-ghost" id="ob-hook-enter">View sample</button>
+          <a class="ob-hook-secondary" id="ob-hook-report" href="/report/">Score one trade</a>
+        </div>
       </div>`;
   },
 

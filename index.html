@@ -5,7 +5,7 @@
 <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
 <script>
 (function () {
-  var V = "102";
+  var V = "103";
   try {
     if (localStorage.getItem("runnr_app_v") !== V) {
       localStorage.setItem("runnr_app_v", V);
@@ -28,10 +28,14 @@
 })();
 (function () {
   try {
+    if (!localStorage.getItem("runnr_api_token")) {
+      document.documentElement.classList.add("runnr-guest");
+    }
     if (localStorage.getItem("runnr_hook_v1") === "done") return;
     if (localStorage.getItem("runnr_api_token")) return;
     document.documentElement.classList.add("runnr-show-hook");
   } catch (e) {
+    document.documentElement.classList.add("runnr-guest");
     document.documentElement.classList.add("runnr-show-hook");
   }
 })();
@@ -720,9 +724,10 @@ body.light #wave-canvas{background:rgba(201,169,110,0.08)}
 .alert-toast .at-close{position:absolute;top:8px;right:10px;background:none;border:none;color:var(--text3);cursor:pointer;font-size:16px}
 
 /* ── ONBOARDING & DISCIPLINE SCORE ── */
-#onboarding-overlay{position:fixed;inset:0;background:var(--bg);z-index:400;display:flex;flex-direction:column;opacity:0;pointer-events:none;transition:opacity 0.25s;max-width:430px;margin:0 auto}
+#onboarding-overlay{position:fixed;inset:0;width:100%;height:100%;background:var(--bg);z-index:500;display:flex;flex-direction:column;opacity:0;pointer-events:none;max-width:none;margin:0}
 #onboarding-overlay.open,html.runnr-show-hook #onboarding-overlay{opacity:1;pointer-events:all}
-html.runnr-show-hook #onboarding-overlay,#onboarding-overlay.hook-mode{max-width:none;margin:0}
+html.runnr-show-hook #app{visibility:hidden;pointer-events:none}
+html.runnr-show-hook #onboarding-overlay,#onboarding-overlay.hook-mode{max-width:none;margin:0;width:100%}
 html.runnr-show-hook .ob-top,html.runnr-show-hook .ob-content,#onboarding-overlay.hook-mode .ob-top,#onboarding-overlay.hook-mode .ob-content{max-width:430px;margin-left:auto;margin-right:auto;width:100%}
 .ob-top{padding:16px 20px;display:flex;align-items:center;justify-content:space-between;border-bottom:1px solid var(--border);flex-shrink:0}
 .ob-skip{background:none;border:none;color:var(--gold);font-family:var(--font-body);font-size:11px;font-weight:500;letter-spacing:0.16em;text-transform:uppercase;cursor:pointer;padding:6px 4px}
@@ -730,9 +735,9 @@ html.runnr-show-hook .ob-top,html.runnr-show-hook .ob-content,#onboarding-overla
 html.runnr-show-hook #onboarding-overlay .ob-progress-wrap,#onboarding-overlay.hook-mode .ob-progress-wrap{display:none}
 .ob-progress{height:100%;background:var(--accent);width:25%;transition:width 0.3s}
 .ob-content{flex:1;overflow-y:auto;padding:24px 20px calc(24px + var(--safe-bottom))}
-.ob-hero h2{font-family:var(--font-head);font-size:28px;font-weight:300;font-style:italic;line-height:1.15;margin-bottom:10px;color:var(--text)}
+.ob-hero h2{font-family:var(--font-head);font-size:28px;font-weight:300;font-style:italic;line-height:1.2;margin:0 0 10px;color:var(--text);display:block;overflow:visible;white-space:normal}
 .ob-hero h2 em{color:var(--accent);font-style:italic}
-.ob-hero p,.ob-kicker{font-size:14px;color:var(--text2);line-height:1.55;margin-bottom:16px}
+.ob-hero p,.ob-kicker{font-size:14px;color:var(--text2);line-height:1.55;margin:0 0 16px;display:block}
 .ob-kicker{font-size:11px;text-transform:uppercase;letter-spacing:1px;color:var(--accent);font-weight:700;margin-bottom:8px}
 .ob-hook-pills{display:flex;flex-direction:column;gap:8px;margin:0 0 16px}
 .ob-hook-pill{display:grid;grid-template-columns:6.4em 1fr;gap:10px;align-items:baseline;background:var(--surface2);border:1px solid var(--border);border-radius:var(--r-sm);padding:10px 12px}
@@ -740,8 +745,27 @@ html.runnr-show-hook #onboarding-overlay .ob-progress-wrap,#onboarding-overlay.h
 .ob-hook-pill dd{font-size:13px;color:var(--text2);line-height:1.4;margin:0}
 .ob-hook-price{font-size:13px;color:var(--text);line-height:1.45;margin:0 0 8px}
 .ob-hook-sample{font-size:12px;color:var(--text3);line-height:1.45;margin:0 0 18px}
-.ob-hook-secondary{display:block;text-align:center;margin-top:14px;color:var(--gold);font-size:13px;text-decoration:none;letter-spacing:0.02em}
+.ob-hook-actions{display:flex;flex-direction:column;gap:10px;margin:4px 0 0}
+a.btn{display:block;text-decoration:none;text-align:center;box-sizing:border-box}
+.ob-hook-secondary{display:block;text-align:center;margin-top:4px;color:var(--gold);font-size:13px;text-decoration:none;letter-spacing:0.02em}
 .ob-hook-secondary:active{color:var(--gold-light)}
+.home-landing-card{display:none}
+html.runnr-guest .home-landing-card{display:block}
+.home-landing-title{font-family:var(--font-head);font-size:26px;font-weight:300;font-style:italic;line-height:1.2;margin:0 0 8px;color:var(--text);display:block}
+.home-landing-card p{font-size:14px;color:var(--text2);line-height:1.5;margin:0 0 12px}
+html.runnr-guest .fg-card,
+html.runnr-guest .home-commodities-card,
+html.runnr-guest .home-markets-card,
+html.runnr-guest .home-brokers-card,
+html.runnr-guest .home-watch-shelf,
+html.runnr-guest .home-progress-card,
+html.runnr-guest #home-coach-banner,
+html.runnr-guest #incomplete-banner,
+html.runnr-guest .home-week-col,
+html.runnr-guest .stat-delta,
+html.runnr-guest #header .header-desk-btn,
+html.runnr-guest .header-bal-settings{display:none !important}
+html.runnr-guest .header-tools{min-width:auto;white-space:nowrap}
 @media (max-height:720px){
   html.runnr-show-hook .ob-content,#onboarding-overlay.hook-mode .ob-content{padding:16px 20px calc(16px + var(--safe-bottom))}
   html.runnr-show-hook .ob-hero h2,#onboarding-overlay.hook-mode .ob-hero h2{font-size:24px;margin-bottom:8px}
@@ -921,6 +945,7 @@ html.runnr-show-hook #onboarding-overlay .ob-progress-wrap,#onboarding-overlay.h
   #page-home .home-frame > .highlight-card{
     background:linear-gradient(145deg,rgba(201,169,110,0.09),var(--surface) 62%);
   }
+  #page-home .home-frame > .home-landing-card,
   #page-home .home-frame > .notif,
   #page-home .home-frame > .incomplete-banner,
   #page-home .home-frame > .stat-grid,
@@ -1174,6 +1199,17 @@ html.runnr-show-hook #onboarding-overlay .ob-progress-wrap,#onboarding-overlay.h
     <div class="page active" id="page-home">
       <div class="home-frame">
 
+      <div class="card home-landing-card" id="home-landing">
+        <div class="ob-kicker">You do not trade here</div>
+        <h2 class="home-landing-title">Trading discipline, not a broker</h2>
+        <p>Sizer, journal, score, streak, and session wave. Not a P&amp;L tracker.</p>
+        <p class="ob-hook-price">Start free · 10 journal trades · then €19/month or €190/year</p>
+        <div class="ob-hook-actions">
+          <a class="btn" id="home-start-free" href="/login.html">Start free</a>
+          <a class="ob-hook-secondary" href="/report/">Score one trade</a>
+        </div>
+      </div>
+
       <div class="notif" id="home-coach-banner" onclick="switchPage('coach')">
         <div class="notif-dot"></div>
         <span data-i18n="home.coachBanner">Analyse your last trade — see what discipline would have saved</span>
@@ -1208,7 +1244,7 @@ html.runnr-show-hook #onboarding-overlay .ob-progress-wrap,#onboarding-overlay.h
             <div id="home-bal-source" style="font-size:10px;color:var(--accent);display:none;margin-top:2px"></div>
             <div id="home-risk-label" style="font-size:12px;color:var(--text3);margin-top:4px">Risk 1% = €100 per trade</div>
           </div>
-          <div style="text-align:right">
+          <div class="home-week-col" style="text-align:right">
             <div style="font-size:10px;color:var(--text3);letter-spacing:0.8px;text-transform:uppercase;margin-bottom:6px" data-i18n="home.thisWeek">This week</div>
             <div id="home-week-pnl" style="font-family:var(--font-num);font-size:20px;font-weight:300;color:var(--accent);letter-spacing:0.02em">—</div>
             <div id="home-week-stop" style="font-size:10px;color:var(--text3);margin-top:2px">Stop discipline: —</div>
@@ -2243,9 +2279,9 @@ html.runnr-show-hook #onboarding-overlay .ob-progress-wrap,#onboarding-overlay.h
   <div class="ob-content" id="ob-body">
     <div class="ob-hook">
       <div class="ob-hero">
-        <div class="ob-kicker">Not a broker · you do not trade here</div>
-        <h2>Trading discipline — size, journal, coach.</h2>
-        <p>Position size with a stop. A journal that flags broken rules. A coach on the one trade that hurt. Terminal is the desk.</p>
+        <div class="ob-kicker">You do not trade here</div>
+        <h2>Trading discipline, not a broker</h2>
+        <p>Sizer, journal, score, streak, and session wave. Not a P&amp;L tracker.</p>
       </div>
       <dl class="ob-hook-pills">
         <div class="ob-hook-pill"><dt>Sizer</dt><dd>Account, risk %, and a stop</dd></div>
@@ -2253,10 +2289,13 @@ html.runnr-show-hook #onboarding-overlay .ob-progress-wrap,#onboarding-overlay.h
         <div class="ob-hook-pill"><dt>Coach</dt><dd>Report on the one trade that hurt</dd></div>
         <div class="ob-hook-pill"><dt>Terminal</dt><dd>Session clocks, heatmap, chart — look without paying</dd></div>
       </dl>
-      <p class="ob-hook-price">Free to try · 10 journal trades · then €19/month or €190/year</p>
-      <p class="ob-hook-sample">Next screen is a sample journal. Those numbers are not yours.</p>
-      <button type="button" class="btn" id="ob-hook-enter">Open sample journal</button>
-      <a class="ob-hook-secondary" id="ob-hook-report" href="/report/">Score one trade</a>
+      <p class="ob-hook-price">Start free · 10 journal trades · then €19/month or €190/year</p>
+      <p class="ob-hook-sample">Sample journal is labeled SAMPLE. Those numbers are not yours.</p>
+      <div class="ob-hook-actions">
+        <a class="btn" id="ob-hook-start" href="/login.html">Start free</a>
+        <button type="button" class="btn btn-ghost" id="ob-hook-enter">View sample</button>
+        <a class="ob-hook-secondary" id="ob-hook-report" href="/report/">Score one trade</a>
+      </div>
     </div>
   </div>
 </div>
@@ -2570,7 +2609,7 @@ html.runnr-show-hook #onboarding-overlay .ob-progress-wrap,#onboarding-overlay.h
 <script src="js/i18n.js?v=14"></script>
 <script src="js/baron.js?v=29"></script>
 <script src="js/coach.js?v=26"></script>
-<script src="js/onboarding.js?v=26"></script>
+<script src="js/onboarding.js?v=27"></script>
 <script src="js/intro.js?v=1"></script>
 <script src="js/csv-presets.js?v=3"></script>
 <script src="js/sync.js?v=62"></script>
@@ -2953,6 +2992,29 @@ function refreshPortfolioIfVisible() {
   }
 }
 
+function isGuestLanding() {
+  if (window.RunnrSync?.isLoggedIn?.()) return false;
+  try { if (localStorage.getItem('runnr_api_token')) return false; } catch (e) {}
+  return true;
+}
+window.isGuestLanding = isGuestLanding;
+
+function applyGuestShell() {
+  const guest = isGuestLanding();
+  try {
+    document.documentElement.classList.toggle('runnr-guest', guest);
+    if (!guest) document.documentElement.classList.remove('runnr-show-hook');
+  } catch (e) {}
+}
+window.applyGuestShell = applyGuestShell;
+
+function startMarketFeedsIfAllowed() {
+  if (isGuestLanding()) return;
+  try { startFeedTimer(); } catch (e) {}
+  fetchFearGreed().catch(() => {});
+  refreshHomeMarkets().catch(() => {});
+}
+
 function switchPage(key) {
   document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
   document.getElementById(pageMap[key] || 'page-home').classList.add('active');
@@ -2970,7 +3032,12 @@ function switchPage(key) {
   if (key === 'coach') { renderCoachPage(); drawEquityCurve(); }
   if (key === 'portfolio') loadPortfolio('all', document.querySelector('.period-tab'));
   if (key === 'shelf') { if (window.RunnrShelf) RunnrShelf.render(); }
-  if (key === 'home') { renderHomePreviews(); updateHomeStats(); renderHomeBrokerPreview(); refreshHomeMarkets(); }
+  if (key === 'home') {
+    renderHomePreviews();
+    updateHomeStats();
+    renderHomeBrokerPreview();
+    if (!isGuestLanding()) refreshHomeMarkets();
+  }
   if (key === 'sync') {
     renderSyncPage();
     if (!RunnrSync.isLoggedIn()) updateSyncAuthVisibility();
@@ -3308,10 +3375,19 @@ function updateHomeStats() {
   };
   setStat('qs-stop', allM.count ? allM.stopPct.toFixed(0) + '%' : '—', allM.stopPct >= 80 ? 'var(--accent)' : 'var(--amber)');
   setStat('qs-size', allM.count ? allM.sizePct.toFixed(0) + '%' : '—', allM.sizePct >= 80 ? 'var(--accent)' : 'var(--amber)');
-  setStat('qs-pf', allM.count ? (allM.profitFactor >= 999 ? '—' : allM.profitFactor.toFixed(1)) : '—', allM.profitFactor >= 1 && allM.profitFactor < 999 ? 'var(--accent)' : 'var(--text3)');
+  const pfEmpty = !allM.count || allM.profitFactor >= 999;
+  setStat('qs-pf', pfEmpty ? '—' : allM.profitFactor.toFixed(1), !pfEmpty && allM.profitFactor >= 1 ? 'var(--accent)' : 'var(--text3)');
   setStat('qs-wr', allM.count ? allM.winRate.toFixed(0) + '%' : '—', allM.winRate >= 50 ? 'var(--accent)' : 'var(--text)');
   const wrMeta = document.getElementById('qs-wr-meta');
   if (wrMeta) wrMeta.textContent = allM.count ? `${allM.count} trades` : '0 trades';
+  const hideEmptyStat = (id, hide) => {
+    const item = document.getElementById(id)?.closest('.stat-item');
+    if (item) item.hidden = !!hide;
+  };
+  hideEmptyStat('qs-stop', !allM.count);
+  hideEmptyStat('qs-size', !allM.count);
+  hideEmptyStat('qs-pf', pfEmpty);
+  hideEmptyStat('qs-wr', !allM.count);
 
   document.querySelectorAll('.risk-pill').forEach(pill => {
     pill.classList.toggle('active', parseFloat(pill.textContent) === S.risk);
@@ -4855,6 +4931,7 @@ function paintHomeMarkets() {
 }
 
 async function refreshHomeMarkets() {
+  if (isGuestLanding()) return;
   if (homeMarketsRefreshing) return;
   homeMarketsRefreshing = true;
   const stamp = document.getElementById('home-markets-updated');
@@ -5820,6 +5897,7 @@ async function refreshAllPrices() {
 }
 
 function startFeedTimer() {
+  if (isGuestLanding()) return;
   refreshAllPrices();
   refreshHomeMarkets().catch(() => {});
   if (feedTimer) clearInterval(feedTimer);
@@ -8172,6 +8250,7 @@ function updateFGDisplay(value, meta = {}) {
 }
 
 async function fetchFearGreed() {
+  if (isGuestLanding()) return;
   try {
     const base = (typeof RunnrSync !== 'undefined' ? RunnrSync.apiBase() : 'https://api.runnr.fyi');
     const res = await fetchWithTimeout(base + '/api/v1/quotes/fear-greed', 6000);
@@ -8319,6 +8398,7 @@ function initApp() {
   if (!document.querySelector('.page.active')) {
     document.getElementById('page-home')?.classList.add('active');
   }
+  try { applyGuestShell(); } catch (e) {}
   try { if (window.RunnrI18n) RunnrI18n.init(S.lang || 'en', S); } catch (e) {}
   try { normalizeWatchlist(); } catch (e) {}
   try { ensureWatchFromPositions(); } catch (e) {}
@@ -8341,6 +8421,7 @@ function initApp() {
       .then((data) => {
         rememberVerificationSent(data);
         renderHeaderSyncPill();
+        applyGuestShell();
         switchPage('home');
         try { updateHomeStats(); renderHomePreviews(); renderHomeBrokerPreview(); } catch (err) {}
         return RunnrSync.syncProfileState()
@@ -8399,6 +8480,7 @@ function initApp() {
   if (/[?&]signedin=1/.test(location.search) && window.RunnrSync?.isLoggedIn?.()) {
     history.replaceState(null, '', location.pathname + location.hash);
     renderHeaderSyncPill();
+    applyGuestShell();
     switchPage('home');
     try { updateHomeStats(); renderHomePreviews(); renderHomeBrokerPreview(); } catch (e) {}
     RunnrSync.syncProfileState()
@@ -8420,10 +8502,9 @@ function initApp() {
     else setTimeout(showIntro, 200);
   }
   setTimeout(() => {
-    try { startFeedTimer(); } catch (e) {}
-    fetchFearGreed().catch(() => {});
-    refreshHomeMarkets().catch(() => {});
+    try { startMarketFeedsIfAllowed(); } catch (e) {}
     if (window.RunnrSync?.isLoggedIn?.()) {
+      applyGuestShell();
       RunnrSync.refreshStatus().catch(() => {});
       RunnrSync.refreshBilling?.()
         .then(() => {
