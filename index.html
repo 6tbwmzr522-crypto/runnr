@@ -5,7 +5,7 @@
 <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
 <script>
 (function () {
-  var V = "103";
+  var V = "104";
   try {
     if (localStorage.getItem("runnr_app_v") !== V) {
       localStorage.setItem("runnr_app_v", V);
@@ -766,6 +766,8 @@ html.runnr-guest .stat-delta,
 html.runnr-guest #header .header-desk-btn,
 html.runnr-guest .header-bal-settings{display:none !important}
 html.runnr-guest .header-tools{min-width:auto;white-space:nowrap}
+html.runnr-guest #page-home .stat-grid{grid-template-columns:repeat(3,minmax(0,1fr))}
+.stat-item[hidden]{display:none !important}
 @media (max-height:720px){
   html.runnr-show-hook .ob-content,#onboarding-overlay.hook-mode .ob-content{padding:16px 20px calc(16px + var(--safe-bottom))}
   html.runnr-show-hook .ob-hero h2,#onboarding-overlay.hook-mode .ob-hero h2{font-size:24px;margin-bottom:8px}
