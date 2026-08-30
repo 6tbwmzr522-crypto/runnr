@@ -17,6 +17,7 @@ class Settings(BaseSettings):
     database_path: str = os.environ.get("DATABASE_PATH", "/data/runnr.db")
     cors_origins: str = (
         "http://localhost:8080,"
+        "http://127.0.0.1:8080,"
         "https://6tbwmzr522-crypto.github.io,"
         "https://runnr.fyi,"
         "https://www.runnr.fyi"

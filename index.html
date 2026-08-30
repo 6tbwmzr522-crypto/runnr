@@ -6693,7 +6693,9 @@ function profileInitial() {
 
 function formatMemberSince(raw) {
   if (!raw) return 'Member';
-  const d = new Date(String(raw).replace(' ', 'T') + (String(raw).includes('T') ? '' : 'Z'));
+  const s = String(raw).trim();
+  const iso = s.includes('T') ? s : s.replace(' ', 'T');
+  const d = new Date(/Z$|[+-]\d\d:\d\d$/.test(iso) ? iso : iso + 'Z');
   if (isNaN(d.getTime())) return 'Member';
   try {
     return 'Member since ' + d.toLocaleString('en-GB', { month: 'long', year: 'numeric' });
