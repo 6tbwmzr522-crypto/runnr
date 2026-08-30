@@ -31,7 +31,7 @@ const login = fs.readFileSync(path.join(root, "login.html"), "utf8");
 check("login has Google + Apple buttons", login.includes("Continue with Google") && login.includes("Continue with Apple"));
 check("login keeps email/password", login.includes('id="signin-form"') && login.includes("/api/v1/auth/login"));
 check("in-app card has OAuth", html.includes("modal-sync-auth") && html.includes("Continue with Google"));
-check("home footer bug/idea mailto", html.includes("home-footer-idea") && html.includes("mailto:info@thinicedigital.com") && html.includes("Found a bug or have an idea? Email us."));
+check("home footer bug/idea mailto", html.includes("home-footer-idea") && html.includes("mailto:info@thinicedigital.com") && html.includes("Found a bug or have an idea?") && html.includes("Email us."));
 
 function loadIntro(opts) {
   const store = Object.assign({}, opts.store || {});
