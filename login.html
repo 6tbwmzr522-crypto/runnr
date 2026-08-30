@@ -394,6 +394,9 @@
       try { data = await res.json(); } catch (err) {}
       if (!res.ok) throw new Error(data.detail || "Could not resend");
       setStatus(data.detail || "Verification email sent.", "ok");
+      if (data.verify_url) {
+        showVerify((emailEl && emailEl.value) || "", Object.assign({ access_token: pendingToken }, data));
+      }
     } catch (err) {
       setStatus(String(err.message || err), "err");
     }

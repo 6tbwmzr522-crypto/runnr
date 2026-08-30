@@ -72,8 +72,10 @@ def _issue_verification(user_id: int, email: str) -> tuple[bool, str | None]:
     raw = issue_token(user_id, "verify", hours=24)
     url = _verify_link(raw)
     sent = send_verify_email(email, url)
-    # Expose link only when outbound email isn't configured (dev / bootstrap).
-    return sent, (None if email_configured() else url)
+    # Keep real sends when they work. If outbound mail fails (no key, Resend
+    # 403, timeout), expose the same tap-to-verify link register/login already
+    # surface so testers can confirm without a 502.
+    return sent, (None if sent else url)
 
 
 @router.post("/register", response_model=TokenResponse)
@@ -166,19 +168,27 @@ def verify_email(body: VerifyEmailRequest):
 
 @router.post("/resend-verification", response_model=MessageResponse)
 def resend_verification(user: dict = Depends(get_current_user)):
+    configured = email_configured()
     if user.get("email_verified"):
-        return MessageResponse(ok=True, detail="Email already verified")
+        return MessageResponse(
+            ok=True,
+            detail="Email already verified",
+            verification_sent=False,
+            email_configured=configured,
+        )
     sent, verify_url = _issue_verification(user["id"], user["email"])
     if sent:
-        return MessageResponse(ok=True, detail="Verification email sent")
-    if email_configured():
-        raise HTTPException(
-            status_code=502,
-            detail="Could not send the confirmation email. Check Resend, then tap resend.",
+        return MessageResponse(
+            ok=True,
+            detail="Verification email sent",
+            verification_sent=True,
+            email_configured=configured,
         )
     return MessageResponse(
         ok=True,
-        detail="Email provider not configured — use this link to verify",
+        detail="Could not send the confirmation email — use this link to verify",
+        verification_sent=False,
+        email_configured=configured,
         verify_url=verify_url,
     )
 

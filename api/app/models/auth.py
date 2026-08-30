@@ -18,7 +18,7 @@ class TokenResponse(BaseModel):
     email: EmailStr
     email_verified: bool = True
     verification_sent: bool = False
-    verify_url: str | None = None  # only when email provider not configured
+    verify_url: str | None = None  # when outbound verify mail did not send
     email_configured: bool = False
     first_name: str | None = None
     house: bool = False
@@ -65,4 +65,6 @@ class VerifyEmailRequest(BaseModel):
 class MessageResponse(BaseModel):
     ok: bool = True
     detail: str = ""
+    verification_sent: bool = False
+    email_configured: bool = False
     verify_url: str | None = None
