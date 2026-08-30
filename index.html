@@ -5,7 +5,7 @@
 <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
 <script>
 (function () {
-  var V = "101";
+  var V = "102";
   try {
     if (localStorage.getItem("runnr_app_v") !== V) {
       localStorage.setItem("runnr_app_v", V);
@@ -783,8 +783,35 @@ html.runnr-show-hook #onboarding-overlay .ob-progress-wrap,#onboarding-overlay.h
 #coach-institutional-card.inst-locked .stat-delta{color:var(--text3)!important}
 #traffic-banner{display:none;align-items:center;justify-content:space-between;gap:10px;margin:0 16px 10px;padding:10px 12px;background:rgba(255,181,71,0.1);border:1px solid rgba(255,181,71,0.35);border-radius:var(--r-sm);font-size:12px;color:var(--text2)}
 #traffic-banner .traffic-banner-text{flex:1;line-height:1.4}
-#header-sync-pill{font-size:11px;padding:4px 8px;border-radius:999px;border:1px solid var(--border);color:var(--text3);cursor:pointer;white-space:nowrap;touch-action:manipulation;-webkit-tap-highlight-color:transparent;user-select:none;flex-shrink:0;text-decoration:none;display:inline-block}
+#header-sync-pill{font-size:11px;padding:4px 8px;border-radius:999px;border:1px solid var(--border);color:var(--text3);cursor:pointer;white-space:nowrap;touch-action:manipulation;-webkit-tap-highlight-color:transparent;user-select:none;flex-shrink:0;text-decoration:none;display:inline-flex;align-items:center;justify-content:center;gap:0}
 #header-sync-pill.on{border-color:var(--accent);color:var(--accent);background:var(--accent-dim);min-width:28px;padding:4px 7px;text-align:center}
+#header-sync-pill.profile-chip{width:32px;height:32px;min-width:32px;padding:0;border-radius:50%;position:relative;overflow:visible;background:var(--accent-dim)}
+.profile-chip-face{width:28px;height:28px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-family:var(--font-body);font-size:12px;font-weight:600;color:var(--accent);overflow:hidden;line-height:1}
+.profile-chip-face img{width:100%;height:100%;object-fit:cover;display:block}
+.profile-chip-check{position:absolute;right:-3px;bottom:-3px;width:13px;height:13px;border-radius:50%;background:var(--accent);color:#080c12;font-size:8px;line-height:13px;text-align:center;border:1.5px solid var(--bg);font-weight:700}
+.profile-chip-check.off{background:var(--text3);color:var(--bg)}
+#intro-overlay{position:fixed;inset:0;z-index:360;display:none;align-items:center;justify-content:center;padding:20px 16px;background:rgba(8,12,18,0.72);backdrop-filter:blur(8px)}
+#intro-overlay.open{display:flex}
+.intro-card{width:min(520px,100%);background:var(--surface);border:1px solid var(--border-strong);border-radius:var(--r);padding:14px 14px 16px;box-shadow:0 18px 50px rgba(0,0,0,0.35)}
+.intro-top{display:flex;align-items:center;justify-content:space-between;gap:12px;margin-bottom:10px}
+.intro-kicker{font-size:10px;letter-spacing:0.16em;text-transform:uppercase;color:var(--gold);font-weight:600}
+#intro-skip{background:none;border:1px solid var(--border);color:var(--text2);border-radius:999px;padding:6px 12px;font-size:12px;cursor:pointer;font-family:inherit}
+#intro-video{width:100%;border-radius:8px;background:#000;max-height:min(56vh,360px);display:block}
+#intro-unmute{margin-top:10px;width:100%;background:var(--accent);color:#080c12;border:none;border-radius:8px;padding:12px;font-weight:600;cursor:pointer;font-family:inherit}
+#intro-missing{margin-top:10px;font-size:12px;color:var(--text3);line-height:1.45}
+.oauth-row{display:flex;flex-direction:column;gap:8px;margin:0 0 14px}
+.oauth-btn{display:block;width:100%;padding:13px 14px;border-radius:8px;border:1px solid var(--border);background:var(--surface2);color:var(--text);font-size:14px;font-weight:600;text-align:center;text-decoration:none;cursor:pointer;font-family:inherit}
+.oauth-btn.apple{background:#111;color:#fff;border-color:#222}
+.oauth-or{font-size:11px;color:var(--text3);text-align:center;margin:-4px 0 12px;letter-spacing:0.08em;text-transform:uppercase}
+.account-hero{background:linear-gradient(145deg,rgba(0,229,160,0.12),rgba(201,169,110,0.06));border:1px solid var(--border);border-radius:var(--r);padding:16px;margin-bottom:14px}
+.account-hero .kicker{font-size:10px;letter-spacing:0.18em;text-transform:uppercase;color:var(--gold);margin-bottom:4px}
+.account-hero h2{font-family:var(--font-head);font-size:28px;font-weight:400;font-style:italic}
+.account-profile{display:flex;align-items:center;gap:12px;flex-wrap:wrap}
+.account-avatar{width:56px;height:56px;border-radius:50%;border:2px solid var(--accent);display:flex;align-items:center;justify-content:center;font-size:22px;font-weight:600;color:var(--accent);overflow:hidden;flex-shrink:0;background:var(--accent-dim)}
+.account-avatar img{width:100%;height:100%;object-fit:cover}
+.account-meta{flex:1;min-width:0}
+.account-email{font-size:14px;word-break:break-word}
+.account-since{font-size:12px;color:var(--text3);margin-top:4px}
 #sync-auth-error{font-size:12px;color:var(--red);min-height:16px;margin:8px 0 4px}
 .sync-auth-error{font-size:12px;color:var(--red);min-height:16px;margin:8px 0 4px}
 #sync-reset-error{font-size:13px;color:var(--red);min-height:18px;margin:10px 0 6px;line-height:1.4;font-weight:500}
@@ -1719,6 +1746,11 @@ html.runnr-show-hook #onboarding-overlay .ob-progress-wrap,#onboarding-overlay.h
       <div id="sync-login-gate" class="card" style="margin-bottom:12px;border-color:var(--accent2)">
         <div class="card-title" data-i18n="sync.signIn">Sign in</div>
         <div style="font-size:13px;color:var(--text2);margin-bottom:14px;line-height:1.45" data-i18n="sync.signInDesc">Sync journal &amp; watchlist from your Mac. Use the sign-in page — it works reliably on iPhone.</div>
+        <div class="oauth-row" id="sync-oauth-row">
+          <a class="oauth-btn" id="sync-oauth-google" href="https://api.runnr.fyi/api/v1/auth/oauth/google/start?next=/?signedin=1">Continue with Google</a>
+          <a class="oauth-btn apple" id="sync-oauth-apple" href="https://api.runnr.fyi/api/v1/auth/oauth/apple/start?next=/?signedin=1">Continue with Apple</a>
+        </div>
+        <p class="oauth-or">or email &amp; password</p>
         <a class="btn" href="login.html" style="display:block;text-align:center;text-decoration:none;padding:16px;line-height:1.3" data-i18n="sync.openSignIn">Open sign-in page</a>
       </div>
       <div id="sync-auth-banner" style="margin-bottom:12px"></div>
@@ -2225,6 +2257,38 @@ html.runnr-show-hook #onboarding-overlay .ob-progress-wrap,#onboarding-overlay.h
     </div>
   </div>
 </div>
+
+<div id="intro-overlay" aria-hidden="true" role="dialog" aria-modal="true" aria-label="How Runnr works">
+  <div class="intro-card">
+    <div class="intro-top">
+      <div class="intro-kicker">How Runnr works</div>
+      <button type="button" id="intro-skip">Skip</button>
+    </div>
+    <video id="intro-video" src="/media/runnr-how-it-works.mp4" muted playsinline webkit-playsinline preload="metadata" controlslist="nodownload"></video>
+    <button type="button" id="intro-unmute">Tap to unmute</button>
+    <p id="intro-missing" hidden>Walkthrough file is not on this branch yet — skip to the desk. Parent: drop <code>runnr-how-it-works-vo.mp4</code> onto <code>media/runnr-how-it-works.mp4</code>.</p>
+  </div>
+</div>
+
+<div class="modal-overlay" id="modal-account" onclick="closeModalOutside(event,'modal-account')">
+  <div class="modal" onclick="event.stopPropagation()">
+    <div class="modal-title">Account <button class="modal-close" onclick="closeModal('modal-account')">✕</button></div>
+    <div class="account-hero">
+      <div class="kicker">Your account</div>
+      <h2>Account</h2>
+    </div>
+    <div class="card-title">Profile</div>
+    <div class="card-sm account-profile" style="margin-bottom:14px">
+      <div class="account-avatar" id="account-avatar">R</div>
+      <div class="account-meta">
+        <div class="account-email" id="account-email">—</div>
+        <div class="account-since" id="account-since">Member</div>
+      </div>
+      <button type="button" class="btn btn-sm btn-ghost" onclick="manageAccountFromSheet()">Manage account</button>
+    </div>
+    <button type="button" class="btn btn-ghost" onclick="signOutRunnr()">Log out on this device</button>
+  </div>
+</div>
 <script>
 (function () {
   function dismissFast(ev) {
@@ -2296,6 +2360,11 @@ html.runnr-show-hook #onboarding-overlay .ob-progress-wrap,#onboarding-overlay.h
   <div class="modal" onclick="event.stopPropagation()">
     <div class="modal-title">Runnr account <button class="modal-close" onclick="closeModal('modal-sync-auth')">✕</button></div>
     <div style="font-size:12px;color:var(--text2);margin-bottom:14px">One sign-in syncs journal & watchlist across devices.</div>
+    <div class="oauth-row">
+      <a class="oauth-btn" href="https://api.runnr.fyi/api/v1/auth/oauth/google/start?next=/?signedin=1">Continue with Google</a>
+      <a class="oauth-btn apple" href="https://api.runnr.fyi/api/v1/auth/oauth/apple/start?next=/?signedin=1">Continue with Apple</a>
+    </div>
+    <p class="oauth-or">or email &amp; password</p>
     <form id="sync-auth-form" action="/" method="post" autocomplete="on">
       <div class="field"><label for="sync-email">Email</label><input id="sync-email" name="email" type="email" placeholder="you@example.com" autocomplete="username" required inputmode="email" autocapitalize="none" autocorrect="off" enterkeyhint="go"></div>
       <div class="field"><label for="sync-first-name">First name</label><input id="sync-first-name" name="given-name" type="text" placeholder="John" autocomplete="off" autocapitalize="words" enterkeyhint="go"></div>
@@ -2498,9 +2567,10 @@ html.runnr-show-hook #onboarding-overlay .ob-progress-wrap,#onboarding-overlay.h
 <script src="js/i18n.js?v=12"></script>
 <script src="js/baron.js?v=29"></script>
 <script src="js/coach.js?v=26"></script>
-<script src="js/onboarding.js?v=25"></script>
+<script src="js/onboarding.js?v=26"></script>
+<script src="js/intro.js?v=1"></script>
 <script src="js/csv-presets.js?v=3"></script>
-<script src="js/sync.js?v=61"></script>
+<script src="js/sync.js?v=62"></script>
 <script src="js/desk-sessions.js?v=2"></script>
 <script src="js/desk.js?v=12"></script>
 <script src="js/wave.js?v=1"></script>
@@ -2949,6 +3019,7 @@ async function refreshBillingUI() {
   const b = window.RunnrSync?.billing?.() || { pro: false, plan: 'free', status: 'free', enabled: false };
   const isPro = !!window.RunnrSync?.isLoggedIn?.() && (typeof RunnrSync.isPro === 'function' ? !!RunnrSync.isPro() : !!b.pro);
   updateProBadge(isPro);
+  try { renderHeaderSyncPill(); } catch (e) {}
 
   if (line) {
     if (!b.enabled) line.textContent = 'Billing not configured on server yet';
@@ -6613,6 +6684,24 @@ function renderStatsFooterLinks() {
   });
 }
 
+function profileInitial() {
+  const name = (window.S && S.firstName) || '';
+  if (name) return name.charAt(0).toUpperCase();
+  const email = (typeof RunnrSync !== 'undefined' && RunnrSync.sessionEmail?.()) || '';
+  return (email.charAt(0) || 'R').toUpperCase();
+}
+
+function formatMemberSince(raw) {
+  if (!raw) return 'Member';
+  const d = new Date(String(raw).replace(' ', 'T') + (String(raw).includes('T') ? '' : 'Z'));
+  if (isNaN(d.getTime())) return 'Member';
+  try {
+    return 'Member since ' + d.toLocaleString('en-GB', { month: 'long', year: 'numeric' });
+  } catch (e) {
+    return 'Member since ' + d.getFullYear();
+  }
+}
+
 function renderHeaderSyncPill() {
   try { renderStatsFooterLinks(); } catch (e) {}
   const el = document.getElementById('header-sync-pill');
@@ -6621,25 +6710,65 @@ function renderHeaderSyncPill() {
     || (function () { try { return !!localStorage.getItem('runnr_api_token'); } catch (e) { return false; } })();
   if (inSession) {
     const who = ((typeof RunnrSync !== 'undefined' && RunnrSync.sessionEmail?.()) || 'Signed in').split('@')[0];
-    el.textContent = '✓';
-    el.classList.add('on');
-    el.title = who + ' — tap for Sync';
+    const verified = !!(window.RunnrSync?.isEmailVerified?.());
+    const avatar = window.RunnrSync?.billing?.()?.avatarUrl || '';
+    const initial = profileInitial();
+    const face = avatar
+      ? '<img alt="" src="' + String(avatar).replace(/"/g, '') + '">'
+      : initial;
+    el.innerHTML = '<span class="profile-chip-face">' + face + '</span><span class="profile-chip-check' + (verified ? '' : ' off') + '" aria-hidden="true">✓</span>';
+    el.classList.add('on', 'profile-chip');
+    el.title = who + ' — tap for account';
+    el.setAttribute('aria-label', 'Account');
     if (el.tagName === 'A') el.setAttribute('href', '#');
     hideSessionBanner();
   } else {
     el.textContent = (typeof t === 'function' ? t('common.signIn') : 'Sign in');
-    el.classList.remove('on');
+    el.classList.remove('on', 'profile-chip');
     el.title = (typeof t === 'function' ? t('common.signInTitle') : 'Sign in');
+    el.setAttribute('aria-label', el.title);
     if (el.tagName === 'A') el.setAttribute('href', '/login.html');
   }
 }
+
+function fillAccountSheet() {
+  const email = (window.RunnrSync?.sessionEmail?.() || '').replace(/</g, '') || 'Signed in';
+  const emailEl = document.getElementById('account-email');
+  const sinceEl = document.getElementById('account-since');
+  const av = document.getElementById('account-avatar');
+  if (emailEl) emailEl.textContent = email;
+  if (sinceEl) sinceEl.textContent = formatMemberSince(window.RunnrSync?.billing?.()?.createdAt);
+  if (av) {
+    const src = window.RunnrSync?.billing?.()?.avatarUrl || '';
+    av.innerHTML = src ? '<img alt="" src="' + String(src).replace(/"/g, '') + '">' : profileInitial();
+  }
+}
+
+function openAccountSheet() {
+  fillAccountSheet();
+  openModal('modal-account');
+  if (window.RunnrSync?.refreshBilling) {
+    RunnrSync.refreshBilling().then(() => {
+      fillAccountSheet();
+      renderHeaderSyncPill();
+    }).catch(() => {});
+  }
+}
+
+function manageAccountFromSheet() {
+  closeModal('modal-account');
+  openSettingsModal();
+}
+window.openAccountSheet = openAccountSheet;
+window.manageAccountFromSheet = manageAccountFromSheet;
+window.renderHeaderSyncPill = renderHeaderSyncPill;
 
 function headerSyncTap(e) {
   const inSession = !!(typeof RunnrSync !== 'undefined' && RunnrSync.isLoggedIn?.())
     || (function () { try { return !!localStorage.getItem('runnr_api_token'); } catch (err) { return false; } })();
   if (inSession) {
     if (e && typeof e.preventDefault === 'function') e.preventDefault();
-    switchPage('sync');
+    openAccountSheet();
     return false;
   }
   return true;
@@ -8196,7 +8325,37 @@ function initApp() {
   try { renderHeaderSyncPill(); } catch (e) {}
   try { refreshBillingUI(); } catch (e) {}
   try { maybePullWatchlistFromCloud(); } catch (e) {}
+  try { window.RunnrIntro?.bind?.(); } catch (e) {}
   const params = new URLSearchParams(location.search);
+  if (params.get('oauth')) {
+    const code = params.get('oauth');
+    history.replaceState(null, '', location.pathname + location.hash);
+    window._runnrAuthPending = true;
+    RunnrSync.consumeOAuthCode(code)
+      .then((data) => {
+        rememberVerificationSent(data);
+        renderHeaderSyncPill();
+        switchPage('home');
+        try { updateHomeStats(); renderHomePreviews(); renderHomeBrokerPreview(); } catch (err) {}
+        return RunnrSync.syncProfileState()
+          .then((profile) => {
+            if (profile && profile.action !== 'none') refreshAfterProfileSync();
+            return postLoginAlpacaFlow({ autoSync: true, toast: true });
+          })
+          .catch(() => showToast('Runnr', 'Signed in'));
+      })
+      .then(() => {
+        window._runnrAuthPending = false;
+        return RunnrSync.refreshBilling?.();
+      })
+      .then(() => {
+        try { window.RunnrIntro?.maybeShow?.(S); } catch (err) {}
+      })
+      .catch((e) => {
+        window._runnrAuthPending = false;
+        showToast('Runnr', String(e.message || e));
+      });
+  }
   if (params.get('verify')) {
     const token = params.get('verify');
     history.replaceState(null, '', location.pathname + location.hash);
@@ -8248,6 +8407,11 @@ function initApp() {
     RunnrGrowth.scheduleDigestCheck(S);
     RunnrGrowth.bootGate(S);
     setTimeout(() => { RunnrGrowth.bootGate(S); }, 600);
+  }
+  if (window.RunnrSync?.isLoggedIn?.() && !params.get('oauth')) {
+    const showIntro = () => { try { window.RunnrIntro?.maybeShow?.(S); } catch (e) {} };
+    if (RunnrSync.refreshBilling) RunnrSync.refreshBilling().catch(() => {}).then(showIntro);
+    else setTimeout(showIntro, 200);
   }
   setTimeout(() => {
     try { startFeedTimer(); } catch (e) {}

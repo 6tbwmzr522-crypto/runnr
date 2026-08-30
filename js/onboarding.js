@@ -154,6 +154,9 @@ const RunnrGrowth = {
       return;
     }
     this.hideHookPaint();
+    if (typeof RunnrIntro !== "undefined" && RunnrIntro.shouldShow?.(state)) {
+      return;
+    }
     if (this.shouldShowOnboarding(state)) this.open(state);
   },
 

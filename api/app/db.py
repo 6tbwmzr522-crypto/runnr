@@ -132,6 +132,7 @@ def init_db() -> None:
         _migrate_checkout_tickets(conn)
         _migrate_site_stats(conn)
         _migrate_meta(conn)
+        _migrate_oauth_identities(conn)
 
 
 def _migrate_users_billing(conn: sqlite3.Connection) -> None:
@@ -143,6 +144,8 @@ def _migrate_users_billing(conn: sqlite3.Connection) -> None:
         ("stripe_subscription_id", "TEXT"),
         ("email_verified", "INTEGER DEFAULT 1"),
         ("first_name", "TEXT"),
+        ("intro_seen", "INTEGER DEFAULT 0"),
+        ("avatar_url", "TEXT"),
     ]
     for col, ddl in migrations:
         if col not in cols:
@@ -206,6 +209,26 @@ def stats_day_count() -> int:
         return int(row["n"] if row else 0)
     except sqlite3.Error:
         return 0
+
+
+def _migrate_oauth_identities(conn: sqlite3.Connection) -> None:
+    conn.execute(
+        """
+        CREATE TABLE IF NOT EXISTS oauth_identities (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            user_id INTEGER NOT NULL,
+            provider TEXT NOT NULL,
+            provider_sub TEXT NOT NULL,
+            email TEXT,
+            created_at TEXT DEFAULT CURRENT_TIMESTAMP,
+            UNIQUE(provider, provider_sub),
+            FOREIGN KEY(user_id) REFERENCES users(id)
+        )
+        """
+    )
+    conn.execute(
+        "CREATE INDEX IF NOT EXISTS idx_oauth_identities_user ON oauth_identities(user_id)"
+    )
 
 
 def _migrate_auth_tokens(conn: sqlite3.Connection) -> None:

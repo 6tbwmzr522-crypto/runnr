@@ -1,4 +1,5 @@
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, Form, HTTPException, Query
+from fastapi.responses import HTMLResponse, RedirectResponse
 
 from app.auth import create_access_token, get_current_user, hash_password, verify_password
 from app.auth_tokens import consume_token, issue_token
@@ -12,6 +13,8 @@ from app.models.auth import (
     LoginRequest,
     MeResponse,
     MessageResponse,
+    OAuthExchangeRequest,
+    OAuthProvidersResponse,
     RegisterRequest,
     ResetPasswordRequest,
     TokenResponse,
@@ -19,6 +22,21 @@ from app.models.auth import (
     VerifyEmailRequest,
 )
 from app.names import normalize_first_name
+from app.oauth import (
+    apple_authorize_url,
+    apple_configured,
+    decode_oauth_state,
+    encode_oauth_state,
+    exchange_apple_code,
+    exchange_google_code,
+    finish_app_redirect,
+    google_authorize_url,
+    google_configured,
+    is_oauth_sentinel,
+    providers_status,
+    safe_next_path,
+    upsert_oauth_user,
+)
 
 router = APIRouter(prefix="/auth", tags=["auth"])
 
@@ -44,6 +62,9 @@ def _me_response(user: dict) -> MeResponse:
         email_verified=bool(user.get("email_verified", True)),
         email_configured=email_configured(),
         first_name=user.get("first_name") or None,
+        created_at=user.get("created_at") or None,
+        intro_seen=bool(user.get("intro_seen")),
+        avatar_url=user.get("avatar_url") or None,
         **_email_flags(user.get("email")),
     )
 
@@ -86,30 +107,37 @@ def register(body: RegisterRequest):
             (email,),
         ).fetchone()
         if existing:
-            if verify_password(body.password, existing["password_hash"]):
-                stored_name = None
-                if "first_name" in existing.keys():
-                    stored_name = existing["first_name"] or None
-                if first_name and not stored_name:
-                    conn.execute(
-                        "UPDATE users SET first_name = ? WHERE id = ?",
-                        (first_name, existing["id"]),
-                    )
-                    stored_name = first_name
-                token = create_access_token(existing["id"], existing["email"])
-                verified = bool(existing["email_verified"]) if "email_verified" in existing.keys() else True
-                sent, verify_url = False, None
-                if email_configured() and not verified:
-                    sent, verify_url = _issue_verification(existing["id"], existing["email"])
-                return _token_response(
-                    access_token=token,
-                    email=existing["email"],
-                    email_verified=verified,
-                    verification_sent=sent,
-                    verify_url=verify_url,
-                    first_name=stored_name,
+            stored_hash = existing["password_hash"]
+            oauth_only = is_oauth_sentinel(stored_hash)
+            if oauth_only:
+                conn.execute(
+                    "UPDATE users SET password_hash = ? WHERE id = ?",
+                    (hash_password(body.password), existing["id"]),
                 )
-            raise HTTPException(status_code=400, detail="Wrong password for this email")
+            elif not verify_password(body.password, stored_hash):
+                raise HTTPException(status_code=400, detail="Wrong password for this email")
+            stored_name = None
+            if "first_name" in existing.keys():
+                stored_name = existing["first_name"] or None
+            if first_name and not stored_name:
+                conn.execute(
+                    "UPDATE users SET first_name = ? WHERE id = ?",
+                    (first_name, existing["id"]),
+                )
+                stored_name = first_name
+            token = create_access_token(existing["id"], existing["email"])
+            verified = bool(existing["email_verified"]) if "email_verified" in existing.keys() else True
+            sent, verify_url = False, None
+            if email_configured() and not verified:
+                sent, verify_url = _issue_verification(existing["id"], existing["email"])
+            return _token_response(
+                access_token=token,
+                email=existing["email"],
+                email_verified=verified,
+                verification_sent=sent,
+                verify_url=verify_url,
+                first_name=stored_name,
+            )
         if not email_configured() and not email_is_boss(email):
             raise HTTPException(
                 status_code=503,
@@ -145,12 +173,24 @@ def me(user: dict = Depends(get_current_user)):
 
 @router.patch("/me", response_model=MeResponse)
 def update_me(body: UpdateMeRequest, user: dict = Depends(get_current_user)):
-    first_name = normalize_first_name(body.first_name)
-    if not first_name:
-        raise HTTPException(status_code=400, detail="Enter a first name")
+    sets: list[str] = []
+    args: list = []
+    first_name = normalize_first_name(body.first_name) if body.first_name is not None else None
+    if body.first_name is not None:
+        if not first_name:
+            raise HTTPException(status_code=400, detail="Enter a first name")
+        sets.append("first_name = ?")
+        args.append(first_name)
+        user["first_name"] = first_name
+    if body.intro_seen is not None:
+        sets.append("intro_seen = ?")
+        args.append(1 if body.intro_seen else 0)
+        user["intro_seen"] = bool(body.intro_seen)
+    if not sets:
+        raise HTTPException(status_code=400, detail="Nothing to update")
+    args.append(user["id"])
     with get_db() as conn:
-        conn.execute("UPDATE users SET first_name = ? WHERE id = ?", (first_name, user["id"]))
-    user["first_name"] = first_name
+        conn.execute(f"UPDATE users SET {', '.join(sets)} WHERE id = ?", args)
     return _me_response(user)
 
 
@@ -248,5 +288,109 @@ def login(body: LoginRequest):
         email_verified=verified,
         verification_sent=sent,
         verify_url=verify_url,
+        first_name=stored_name or None,
+    )
+
+
+def _oauth_error_page(message: str, status_code: int = 503) -> HTMLResponse:
+    body = f"""<!DOCTYPE html>
+<html lang="en"><head><meta charset="utf-8"><title>Runnr sign-in</title>
+<style>body{{font-family:-apple-system,sans-serif;background:#080c12;color:#f5f2ec;padding:32px;max-width:440px;margin:0 auto;line-height:1.5}}
+a{{color:#C9A96E}}</style></head>
+<body><h1>runnr</h1><p>{message}</p>
+<p><a href="https://runnr.fyi/login.html">Back to sign in</a></p></body></html>"""
+    return HTMLResponse(body, status_code=status_code)
+
+
+def _finish_oauth(identity: dict, next_path: str) -> RedirectResponse:
+    user = upsert_oauth_user(**identity)
+    code = issue_token(user["id"], "oauth", hours=0.25)
+    return RedirectResponse(finish_app_redirect(next_path, code), status_code=302)
+
+
+@router.get("/oauth/providers", response_model=OAuthProvidersResponse)
+def oauth_providers():
+    return OAuthProvidersResponse(**providers_status())
+
+
+@router.get("/oauth/google/start")
+def oauth_google_start(next: str = Query(default="/")):
+    if not google_configured():
+        return _oauth_error_page(
+            "Google sign-in is not configured yet. Add GOOGLE_OAUTH_CLIENT_ID and "
+            "GOOGLE_OAUTH_CLIENT_SECRET on the Railway API, then set the redirect URI "
+            "https://api.runnr.fyi/api/v1/auth/oauth/google/callback."
+        )
+    state = encode_oauth_state("google", safe_next_path(next))
+    return RedirectResponse(google_authorize_url(state), status_code=302)
+
+
+@router.get("/oauth/google/callback")
+def oauth_google_callback(code: str = "", state: str = "", error: str = ""):
+    if error:
+        return _oauth_error_page(f"Google sign-in was cancelled ({error}).", 400)
+    if not code or not state:
+        return _oauth_error_page("Google sign-in missing code or state.", 400)
+    try:
+        st = decode_oauth_state(state, "google")
+        identity = exchange_google_code(code)
+        return _finish_oauth(identity, st.get("n") or "/")
+    except Exception as exc:
+        return _oauth_error_page(str(exc) or "Google sign-in failed.", 400)
+
+
+@router.get("/oauth/apple/start")
+def oauth_apple_start(next: str = Query(default="/")):
+    if not apple_configured():
+        return _oauth_error_page(
+            "Apple sign-in needs a paid Apple Developer Program account (Services ID, "
+            "Key ID, Team ID, and a .p8 key). The button and callback are scaffolded — "
+            "set APPLE_OAUTH_CLIENT_ID, APPLE_OAUTH_TEAM_ID, APPLE_OAUTH_KEY_ID, and "
+            "APPLE_OAUTH_PRIVATE_KEY on Railway. Return URL: "
+            "https://api.runnr.fyi/api/v1/auth/oauth/apple/callback"
+        )
+    state = encode_oauth_state("apple", safe_next_path(next))
+    return RedirectResponse(apple_authorize_url(state), status_code=302)
+
+
+@router.post("/oauth/apple/callback")
+def oauth_apple_callback(
+    code: str = Form(default=""),
+    id_token: str = Form(default=""),
+    state: str = Form(default=""),
+    user: str = Form(default=""),
+    error: str = Form(default=""),
+):
+    if error:
+        return _oauth_error_page(f"Apple sign-in was cancelled ({error}).", 400)
+    if not code or not state:
+        return _oauth_error_page("Apple sign-in missing code or state.", 400)
+    try:
+        st = decode_oauth_state(state, "apple")
+        identity = exchange_apple_code(code, id_token=id_token, user_json=user)
+        return _finish_oauth(identity, st.get("n") or "/")
+    except Exception as exc:
+        return _oauth_error_page(str(exc) or "Apple sign-in failed.", 400)
+
+
+@router.post("/oauth/exchange", response_model=TokenResponse)
+def oauth_exchange(body: OAuthExchangeRequest):
+    user_id = consume_token(body.code.strip(), "oauth")
+    if not user_id:
+        raise HTTPException(status_code=400, detail="Invalid or expired sign-in — try Google or Apple again")
+    with get_db() as conn:
+        row = conn.execute(
+            "SELECT id, email, email_verified, first_name FROM users WHERE id = ?",
+            (user_id,),
+        ).fetchone()
+    if not row:
+        raise HTTPException(status_code=404, detail="User not found")
+    verified = bool(row["email_verified"]) if "email_verified" in row.keys() else True
+    token = create_access_token(row["id"], row["email"])
+    stored_name = row["first_name"] if "first_name" in row.keys() else None
+    return _token_response(
+        access_token=token,
+        email=row["email"],
+        email_verified=verified,
         first_name=stored_name or None,
     )

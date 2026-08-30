@@ -32,8 +32,16 @@ class Settings(BaseSettings):
     resend_api_key: str = ""
     resend_from_email: str = ""
     app_public_url: str = "https://runnr.fyi"
+    api_public_url: str = "https://api.runnr.fyi"
     # Comma-separated founder emails that skip Stripe. Empty uses built-in defaults.
     runnr_boss_emails: str = ""
+    # OAuth — leave empty until Janis creates the Cloud / Apple apps. Never invent secrets.
+    google_oauth_client_id: str = ""
+    google_oauth_client_secret: str = ""
+    apple_oauth_client_id: str = ""  # Services ID, e.g. fyi.runnr.signin
+    apple_oauth_team_id: str = ""
+    apple_oauth_key_id: str = ""
+    apple_oauth_private_key: str = ""  # .p8 PEM (literal or \n-escaped)
 
     @property
     def origin_list(self) -> list[str]:

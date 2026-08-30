@@ -37,10 +37,23 @@ class MeResponse(BaseModel):
     first_name: str | None = None
     house: bool = False
     can_view_stats: bool = False
+    created_at: str | None = None
+    intro_seen: bool = False
+    avatar_url: str | None = None
 
 
 class UpdateMeRequest(BaseModel):
-    first_name: str = Field(min_length=1, max_length=40)
+    first_name: str | None = Field(default=None, min_length=1, max_length=40)
+    intro_seen: bool | None = None
+
+
+class OAuthExchangeRequest(BaseModel):
+    code: str = Field(min_length=8, max_length=400)
+
+
+class OAuthProvidersResponse(BaseModel):
+    google: bool = False
+    apple: bool = False
 
 
 class ForgotPasswordRequest(BaseModel):

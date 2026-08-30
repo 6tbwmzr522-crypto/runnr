@@ -69,6 +69,9 @@ Deploy `api/` to Railway (root directory: `api`). Mount a **Volume at `/data`** 
 | `FEAR_GREED_CACHE_TTL` | `900` | Fear & Greed cache (15 min) |
 | `BRIEF_REFRESH_COOLDOWN_S` | `3600` | Min seconds between forced AI brief refreshes per symbol |
 | `RUNNR_BOSS_EMAILS` | founder emails | Comma-separated accounts that skip Stripe (defaults include Thin Ice / Janis) |
+| `GOOGLE_OAUTH_CLIENT_ID` / `GOOGLE_OAUTH_CLIENT_SECRET` | — | Sign in with Google (see `docs/oauth-setup.md`) |
+| `APPLE_OAUTH_CLIENT_ID` / `APPLE_OAUTH_TEAM_ID` / `APPLE_OAUTH_KEY_ID` / `APPLE_OAUTH_PRIVATE_KEY` | — | Sign in with Apple — needs a paid Apple Developer account |
+| `API_PUBLIC_URL` | `https://api.runnr.fyi` | OAuth redirect host |
 
 `GET /health` reports quote cache hit rate — useful during influencer traffic spikes.
 

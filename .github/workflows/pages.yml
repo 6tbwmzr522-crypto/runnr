@@ -27,7 +27,7 @@ jobs:
         run: |
           mkdir -p _site
           cp index.html login.html stats.html sw.js manifest.webmanifest .nojekyll _site/
-          cp -r js icons css report privacy terms refund _site/
+          cp -r js icons css report privacy terms refund media _site/
           echo "runnr.fyi" > _site/CNAME
 
       - uses: actions/configure-pages@v5
