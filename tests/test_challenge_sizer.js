@@ -19,7 +19,7 @@ function check(name, cond) {
 const v = html.match(/var V = "(\d+)"/)[1];
 const cache = sw.match(/CACHE = "runnr-v(\d+)"/)[1];
 check("index.html V matches sw.js CACHE", v === cache);
-check("baron.js cache-busted", html.includes("js/baron.js?v=30"));
+check("baron.js cache-busted", html.includes("js/baron.js?v=31"));
 check("personal book stays the default toggle", html.includes('id="sizer-book-personal"') && html.includes("Personal 1%"));
 check("challenge book toggle exists", html.includes('id="sizer-book-challenge"'));
 check("sizer reuses Trade Blocked gate", html.includes("id=\"cfd-challenge-gate\"") && html.includes("Trade Blocked"));
@@ -135,6 +135,7 @@ const priorGreen = [
 const consRem = Baron.challengeRemaining(consCfg, priorGreen, now);
 check("best day vs total profit", consRem.bestDayPnl === 4000 && consRem.profit === 7500);
 check("consistency share is best/profit", Math.abs(consRem.consistencyShare - 4000 / 7500) < 1e-9);
+check("best day already over the cap warns", Baron.challengeApproaching(consRem).reasons.includes("consistency"));
 const freshCons = Baron.challengeRemaining(consCfg, [], now);
 check("first green day is not auto-blocked", Baron.evaluateChallengeFill(freshCons, 200, 2, 800).blocked === false);
 

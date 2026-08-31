@@ -420,8 +420,9 @@ const Baron = {
     if (tight(rem.ddLeft, rem.ddLimit)) reasons.push("dd");
     if (rem.consistencyOn && rem.profit > 0) {
       const cap = Number(rem.consistencyCapAmt) || 0;
+      const best = Number(rem.bestDayPnl) || 0;
       const room = cap - (Number(rem.todayPnl) || 0);
-      if (cap > 0 && room <= cap * ratio + 1e-9) reasons.push("consistency");
+      if (best > cap + 1e-9 || (cap > 0 && room <= cap * ratio + 1e-9)) reasons.push("consistency");
     }
     return { tight: reasons.length > 0, reasons };
   },
