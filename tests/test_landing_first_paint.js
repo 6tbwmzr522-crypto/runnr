@@ -33,6 +33,7 @@ check("no invented 30-trade free tier", !html.includes("30 journal") && !html.in
 check("js hook matches html CTA", ob.includes('id="ob-hook-start"') && ob.includes("Start free") && ob.includes("View sample"));
 
 check("guest class hides live market widgets", html.includes("html.runnr-guest .fg-card") && html.includes("html.runnr-guest .home-markets-card") && html.includes("html.runnr-guest .home-commodities-card"));
+check("guest class hides challenge remaining card", html.includes("html.runnr-guest #home-challenge-card"));
 check("hook hides the desk", html.includes("html.runnr-show-hook #app{visibility:hidden"));
 check("overlay is full viewport", html.includes("#onboarding-overlay{position:fixed;inset:0;width:100%") && html.includes("max-width:none"));
 check("guest header drops smashed Terminal+balance", html.includes("html.runnr-guest #header .header-desk-btn") && html.includes("html.runnr-guest .header-bal-settings"));

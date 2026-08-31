@@ -5,7 +5,7 @@
 <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
 <script>
 (function () {
-  var V = "104";
+  var V = "106";
   try {
     if (localStorage.getItem("runnr_app_v") !== V) {
       localStorage.setItem("runnr_app_v", V);
@@ -525,7 +525,9 @@ body::before{content:'';position:fixed;inset:0;background:radial-gradient(ellips
 .challenge-bar>span.mint{background:var(--accent)}
 .challenge-bar>span.hot{background:var(--red)}
 .challenge-source{font-size:10px;color:var(--text3);line-height:1.4;margin:-4px 0 10px}
+.challenge-approach{display:none;background:var(--amber-dim);border:1px solid rgba(232,201,122,0.3);border-radius:var(--r-sm);padding:10px 12px;margin:0 0 12px;font-size:12px;color:var(--amber);line-height:1.45}
 .challenge-gate-line{font-size:12px;color:var(--red);margin:8px 0 0;line-height:1.4;display:none}
+.home-challenge-card{margin-bottom:12px}
 .journal-challenge-status{display:none;margin-bottom:12px}
 .journal-challenge-metrics{display:flex;gap:8px}
 .journal-challenge-metrics>div{flex:1;background:rgba(245,242,236,0.02);border:1px solid var(--border);border-radius:var(--r-sm);padding:8px}
@@ -759,6 +761,8 @@ html.runnr-guest .home-markets-card,
 html.runnr-guest .home-brokers-card,
 html.runnr-guest .home-watch-shelf,
 html.runnr-guest .home-progress-card,
+html.runnr-guest #home-challenge-card,
+html.runnr-guest .home-challenge-card,
 html.runnr-guest #home-coach-banner,
 html.runnr-guest #incomplete-banner,
 html.runnr-guest .home-week-col,
@@ -948,6 +952,7 @@ html.runnr-guest #page-home .stat-grid{grid-template-columns:repeat(3,minmax(0,1
     background:linear-gradient(145deg,rgba(201,169,110,0.09),var(--surface) 62%);
   }
   #page-home .home-frame > .home-landing-card,
+  #page-home .home-frame > .home-challenge-card,
   #page-home .home-frame > .notif,
   #page-home .home-frame > .incomplete-banner,
   #page-home .home-frame > .stat-grid,
@@ -1261,6 +1266,45 @@ html.runnr-guest #page-home .stat-grid{grid-template-columns:repeat(3,minmax(0,1
         </div>
       </div>
 
+      <div class="card home-challenge-card" id="home-challenge-card" style="display:none">
+        <div class="section-hdr" style="margin-bottom:12px">
+          <h3>Challenge remaining</h3>
+          <span class="challenge-pill" id="home-ch-pill">CHALLENGE</span>
+        </div>
+        <div class="challenge-limits">
+          <div class="challenge-limit">
+            <div class="challenge-limit-top">
+              <span class="challenge-limit-lbl">Daily loss</span>
+              <span><span class="challenge-limit-val" id="home-ch-daily-used">0 used · 0 left</span> <span class="challenge-limit-cap" id="home-ch-daily-cap">of 0</span></span>
+            </div>
+            <div class="challenge-bar"><span id="home-ch-daily-bar" style="width:0%"></span></div>
+          </div>
+          <div class="challenge-limit">
+            <div class="challenge-limit-top">
+              <span class="challenge-limit-lbl">Trailing DD</span>
+              <span><span class="challenge-limit-val mint" id="home-ch-dd-used">0 used · 0 left</span> <span class="challenge-limit-cap" id="home-ch-dd-cap">of 0</span></span>
+            </div>
+            <div class="challenge-bar"><span class="mint" id="home-ch-dd-bar" style="width:0%"></span></div>
+          </div>
+          <div class="challenge-limit">
+            <div class="challenge-limit-top">
+              <span class="challenge-limit-lbl">Profit</span>
+              <span><span class="challenge-limit-val mint" id="home-ch-profit-val">0 · 0 to target</span> <span class="challenge-limit-cap" id="home-ch-profit-cap">/ 0 target</span></span>
+            </div>
+            <div class="challenge-bar"><span class="mint" id="home-ch-profit-bar" style="width:0%"></span></div>
+          </div>
+          <div class="challenge-limit" id="home-ch-cons-row" style="display:none">
+            <div class="challenge-limit-top">
+              <span class="challenge-limit-lbl">Best day</span>
+              <span><span class="challenge-limit-val" id="home-ch-cons-val">0 · 0% of profit</span> <span class="challenge-limit-cap" id="home-ch-cons-cap">30% cap</span></span>
+            </div>
+            <div class="challenge-bar"><span id="home-ch-cons-bar" style="width:0%"></span></div>
+          </div>
+        </div>
+        <div class="challenge-approach" id="home-ch-approach-warn"></div>
+        <div class="challenge-source" id="home-ch-source">From journal P&amp;L on this book.</div>
+      </div>
+
       <!-- Incomplete trades banner -->
       <div class="incomplete-banner" id="incomplete-banner" onclick="switchPage('journal')" style="display:none">
         ⚠️ <strong>2 trades need discipline flags</strong> — tap to complete
@@ -1401,25 +1445,33 @@ html.runnr-guest #page-home .stat-grid{grid-template-columns:repeat(3,minmax(0,1
           <div class="challenge-limit">
             <div class="challenge-limit-top">
               <span class="challenge-limit-lbl">Daily loss</span>
-              <span><span class="challenge-limit-val" id="ch-daily-used">—</span> <span class="challenge-limit-cap" id="ch-daily-cap">of —</span></span>
+              <span><span class="challenge-limit-val" id="ch-daily-used">0 used · 0 left</span> <span class="challenge-limit-cap" id="ch-daily-cap">of 0</span></span>
             </div>
             <div class="challenge-bar"><span id="ch-daily-bar" style="width:0%"></span></div>
           </div>
           <div class="challenge-limit">
             <div class="challenge-limit-top">
               <span class="challenge-limit-lbl">Trailing DD</span>
-              <span><span class="challenge-limit-val mint" id="ch-dd-used">—</span> <span class="challenge-limit-cap" id="ch-dd-cap">of —</span></span>
+              <span><span class="challenge-limit-val mint" id="ch-dd-used">0 used · 0 left</span> <span class="challenge-limit-cap" id="ch-dd-cap">of 0</span></span>
             </div>
             <div class="challenge-bar"><span class="mint" id="ch-dd-bar" style="width:0%"></span></div>
           </div>
           <div class="challenge-limit">
             <div class="challenge-limit-top">
               <span class="challenge-limit-lbl">Profit</span>
-              <span><span class="challenge-limit-val mint" id="ch-profit-val">—</span> <span class="challenge-limit-cap" id="ch-profit-cap">/ — target</span></span>
+              <span><span class="challenge-limit-val mint" id="ch-profit-val">0 · 0 to target</span> <span class="challenge-limit-cap" id="ch-profit-cap">/ 0 target</span></span>
             </div>
             <div class="challenge-bar"><span class="mint" id="ch-profit-bar" style="width:0%"></span></div>
           </div>
+          <div class="challenge-limit" id="ch-cons-row" style="display:none">
+            <div class="challenge-limit-top">
+              <span class="challenge-limit-lbl">Best day</span>
+              <span><span class="challenge-limit-val" id="ch-cons-val">0 · 0% of profit</span> <span class="challenge-limit-cap" id="ch-cons-cap">30% cap</span></span>
+            </div>
+            <div class="challenge-bar"><span id="ch-cons-bar" style="width:0%"></span></div>
+          </div>
         </div>
+        <div class="challenge-approach" id="ch-approach-warn"></div>
         <div class="challenge-source" id="ch-source">From journal P&amp;L — override in Settings if your eval dashboard differs.</div>
       </div>
       <div class="tabs">
@@ -1620,9 +1672,14 @@ html.runnr-guest #page-home .stat-grid{grid-template-columns:repeat(3,minmax(0,1
           <div class="challenge-pill" id="journal-challenge-pill">CHALLENGE</div>
         </div>
         <div class="journal-challenge-metrics">
-          <div><div class="lbl">Daily</div><div class="val" id="journal-ch-daily">—</div></div>
-          <div><div class="lbl">DD</div><div class="val" id="journal-ch-dd">—</div></div>
-          <div><div class="lbl">Target</div><div class="val" id="journal-ch-target">—</div></div>
+          <div><div class="lbl">Daily</div><div class="val" id="journal-ch-daily">0 left</div></div>
+          <div><div class="lbl">DD</div><div class="val" id="journal-ch-dd">0 left</div></div>
+          <div><div class="lbl">Target</div><div class="val" id="journal-ch-target">0%</div></div>
+        </div>
+        <div class="journal-challenge-metrics" id="journal-ch-cons-row" style="display:none;margin-top:8px">
+          <div><div class="lbl">Best day</div><div class="val" id="journal-ch-best">0</div></div>
+          <div><div class="lbl">Of profit</div><div class="val" id="journal-ch-share">0%</div></div>
+          <div><div class="lbl">Cap</div><div class="val" id="journal-ch-cons">off</div></div>
         </div>
       </div>
       <div id="journal-challenge-banner" class="journal-challenge-banner"></div>
@@ -1887,10 +1944,11 @@ html.runnr-guest #page-home .stat-grid{grid-template-columns:repeat(3,minmax(0,1
       <div style="font-size:12px;color:var(--text3);margin-bottom:14px">Spot · Margin · Perpetuals · Futures</div>
       <div id="crypto-challenge-status" class="journal-challenge-status">
         <div class="journal-challenge-metrics">
-          <div><div class="lbl">Daily left</div><div class="val" id="crypto-ch-daily">—</div></div>
-          <div><div class="lbl">DD left</div><div class="val" id="crypto-ch-dd">—</div></div>
-          <div><div class="lbl">Target</div><div class="val" id="crypto-ch-target">—</div></div>
+          <div><div class="lbl">Daily left</div><div class="val" id="crypto-ch-daily">0 left</div></div>
+          <div><div class="lbl">DD left</div><div class="val" id="crypto-ch-dd">0 left</div></div>
+          <div><div class="lbl">Target</div><div class="val" id="crypto-ch-target">0%</div></div>
         </div>
+        <div class="challenge-approach" id="crypto-ch-approach-warn"></div>
       </div>
 
       <!-- Quick select pills -->
@@ -2533,6 +2591,8 @@ html.runnr-guest #page-home .stat-grid{grid-template-columns:repeat(3,minmax(0,1
     <div class="field"><label>Max daily loss</label><input id="set-ch-daily" type="number" placeholder="2000" oninput="markChallengeCustom()"></div>
     <div class="field"><label>Max trailing drawdown</label><input id="set-ch-dd" type="number" placeholder="5000" oninput="markChallengeCustom()"></div>
     <div class="field"><label>Profit target</label><input id="set-ch-target" type="number" placeholder="10000" oninput="markChallengeCustom()"></div>
+    <div class="field"><label>Best-day cap (% of profit)</label><input id="set-ch-consistency" type="number" min="0" max="100" step="1" placeholder="0 = off" oninput="markChallengeCustom()"></div>
+    <div style="font-size:11px;color:var(--text3);margin:-6px 0 10px;line-height:1.45">0 is off. 30 means the best day cannot be more than 30% of total profit — a setting, not one firm’s rulebook.</div>
     <div style="font-size:11px;color:var(--text3);margin:4px 0 8px;line-height:1.45">Remaining is journal P&amp;L on this book. Override if the eval screen is ahead of the journal.</div>
     <div class="field"><label>Override — daily loss used</label><input id="set-ch-over-daily" type="number" placeholder="Leave blank to use journal"></div>
     <div class="field"><label>Override — trailing DD used</label><input id="set-ch-over-dd" type="number" placeholder="Leave blank to use journal"></div>
@@ -2609,7 +2669,7 @@ html.runnr-guest #page-home .stat-grid{grid-template-columns:repeat(3,minmax(0,1
 </div>
 
 <script src="js/i18n.js?v=14"></script>
-<script src="js/baron.js?v=29"></script>
+<script src="js/baron.js?v=31"></script>
 <script src="js/coach.js?v=26"></script>
 <script src="js/onboarding.js?v=27"></script>
 <script src="js/intro.js?v=1"></script>
@@ -3400,6 +3460,7 @@ function updateHomeStats() {
     RunnrGrowth.renderHomeBanner(S);
   }
   updateDemoBanner();
+  try { renderChallengePanel(); } catch (e) {}
 }
 
 // ── SIZER TABS ─────────────────────────────────────────────────────────────
@@ -3518,12 +3579,14 @@ function applyChallengePresetFromSettings(presetId) {
   const daily = document.getElementById('set-ch-daily');
   const dd = document.getElementById('set-ch-dd');
   const target = document.getElementById('set-ch-target');
+  const cons = document.getElementById('set-ch-consistency');
   const sel = document.getElementById('set-ch-preset');
   if (firm) firm.value = next.firm;
   if (size) size.value = next.accountSize;
   if (daily) daily.value = next.maxDailyLoss;
   if (dd) dd.value = next.maxTrailingDd;
   if (target) target.value = next.profitTarget;
+  if (cons) cons.value = next.consistencyPct != null ? next.consistencyPct : 0;
   if (sel) sel.value = presetId === 'custom' ? 'custom' : (next.preset || presetId);
 }
 window.applyChallengePresetFromSettings = applyChallengePresetFromSettings;
@@ -3547,6 +3610,7 @@ function fillChallengeSettingsForm() {
   const daily = document.getElementById('set-ch-daily');
   const dd = document.getElementById('set-ch-dd');
   const target = document.getElementById('set-ch-target');
+  const cons = document.getElementById('set-ch-consistency');
   if (en) en.checked = !!c.enabled;
   if (preset) preset.value = c.preset || 'custom';
   if (firm) firm.value = c.firm || '';
@@ -3554,6 +3618,7 @@ function fillChallengeSettingsForm() {
   if (daily) daily.value = c.maxDailyLoss || '';
   if (dd) dd.value = c.maxTrailingDd || '';
   if (target) target.value = c.profitTarget || '';
+  if (cons) cons.value = c.consistencyPct != null ? c.consistencyPct : 0;
   const od = document.getElementById('set-ch-over-daily');
   const odd = document.getElementById('set-ch-over-dd');
   const op = document.getElementById('set-ch-over-profit');
@@ -3572,10 +3637,123 @@ function readChallengeSettingsForm() {
     maxDailyLoss: document.getElementById('set-ch-daily')?.value,
     maxTrailingDd: document.getElementById('set-ch-dd')?.value,
     profitTarget: document.getElementById('set-ch-target')?.value,
+    consistencyPct: document.getElementById('set-ch-consistency')?.value,
     overrideDailyUsed: parseOverrideInput('set-ch-over-daily'),
     overrideDdUsed: parseOverrideInput('set-ch-over-dd'),
     overrideProfit: parseOverrideInput('set-ch-over-profit'),
   });
+}
+
+function challengeBookLabel(rem) {
+  if (!rem) return 'CHALLENGE';
+  return 'CHALLENGE · ' + (rem.firm || 'Eval') + (rem.accountSize >= 1000 ? ' ' + Math.round(rem.accountSize / 1000) + 'k' : '');
+}
+
+function paintChallengeMeter(prefix, rem) {
+  const dailyPct = rem.dailyLimit > 0 ? Math.min(100, (rem.dailyUsed / rem.dailyLimit) * 100) : 0;
+  const ddPct = rem.ddLimit > 0 ? Math.min(100, (rem.ddUsed / rem.ddLimit) * 100) : 0;
+  const profitPct = rem.profitTarget > 0 ? Math.min(100, Math.max(0, rem.profit / rem.profitTarget) * 100) : 0;
+  const dailyVal = document.getElementById(prefix + '-daily-used');
+  const dailyCap = document.getElementById(prefix + '-daily-cap');
+  const dailyBar = document.getElementById(prefix + '-daily-bar');
+  const ddVal = document.getElementById(prefix + '-dd-used');
+  const ddCap = document.getElementById(prefix + '-dd-cap');
+  const ddBar = document.getElementById(prefix + '-dd-bar');
+  const pVal = document.getElementById(prefix + '-profit-val');
+  const pCap = document.getElementById(prefix + '-profit-cap');
+  const pBar = document.getElementById(prefix + '-profit-bar');
+  if (dailyVal) {
+    dailyVal.textContent = moneyAmt(rem.dailyUsed) + ' used · ' + moneyAmt(rem.dailyLeft) + ' left';
+    dailyVal.classList.toggle('hot', rem.dailyLeft <= 0);
+  }
+  if (dailyCap) dailyCap.textContent = 'of ' + moneyAmt(rem.dailyLimit);
+  if (dailyBar) {
+    dailyBar.style.width = dailyPct + '%';
+    dailyBar.className = rem.dailyLeft <= 0 ? 'hot' : '';
+  }
+  if (ddVal) {
+    ddVal.textContent = moneyAmt(rem.ddUsed) + ' used · ' + moneyAmt(rem.ddLeft) + ' left';
+    ddVal.classList.toggle('mint', rem.ddLeft > 0);
+    ddVal.classList.toggle('hot', rem.ddLeft <= 0);
+  }
+  if (ddCap) ddCap.textContent = 'of ' + moneyAmt(rem.ddLimit);
+  if (ddBar) {
+    ddBar.style.width = ddPct + '%';
+    ddBar.className = rem.ddLeft <= 0 ? 'hot' : 'mint';
+  }
+  if (pVal) pVal.textContent = (rem.profit < 0 ? '−' : '') + moneyAmt(rem.profit) + ' · ' + moneyAmt(rem.profitLeft) + ' to target';
+  if (pCap) pCap.textContent = '/ ' + moneyAmt(rem.profitTarget) + ' target';
+  if (pBar) {
+    pBar.style.width = profitPct + '%';
+    pBar.className = 'mint';
+  }
+  const consRow = document.getElementById(prefix + '-cons-row');
+  const consVal = document.getElementById(prefix + '-cons-val');
+  const consCap = document.getElementById(prefix + '-cons-cap');
+  const consBar = document.getElementById(prefix + '-cons-bar');
+  if (consRow) consRow.style.display = rem.consistencyOn ? 'block' : 'none';
+  if (rem.consistencyOn) {
+    const sharePct = Math.round((rem.consistencyShare || 0) * 100);
+    if (consVal) {
+      consVal.textContent = moneyAmt(rem.bestDayPnl) + ' · ' + sharePct + '% of profit';
+      consVal.classList.toggle('hot', rem.profit > 0 && rem.bestDayPnl > rem.consistencyCapAmt);
+      consVal.classList.toggle('mint', !(rem.profit > 0 && rem.bestDayPnl > rem.consistencyCapAmt));
+    }
+    if (consCap) consCap.textContent = rem.consistencyPct + '% cap';
+    if (consBar) {
+      const capPct = rem.consistencyPct > 0 ? Math.min(100, (sharePct / rem.consistencyPct) * 100) : 0;
+      consBar.style.width = capPct + '%';
+      consBar.className = rem.profit > 0 && rem.bestDayPnl > rem.consistencyCapAmt ? 'hot' : '';
+    }
+  }
+}
+
+function challengeApproachCopy(rem) {
+  if (!rem || typeof Baron === 'undefined' || !Baron.challengeApproaching) return '';
+  const a = Baron.challengeApproaching(rem);
+  if (!a.tight) return '';
+  const bits = [];
+  if (a.reasons.includes('daily')) bits.push('Daily loss is tight — ' + moneyAmt(rem.dailyLeft) + ' left of ' + moneyAmt(rem.dailyLimit) + '.');
+  if (a.reasons.includes('dd')) bits.push('Trailing DD is tight — ' + moneyAmt(rem.ddLeft) + ' left of ' + moneyAmt(rem.ddLimit) + '.');
+  if (a.reasons.includes('consistency')) {
+    const sharePct = Math.round((rem.consistencyShare || 0) * 100);
+    bits.push('Best day is ' + sharePct + '% of profit — cap is ' + rem.consistencyPct + '%.');
+  }
+  return bits.join(' ');
+}
+
+function paintChallengeApproach(id, rem) {
+  const el = document.getElementById(id);
+  if (!el) return;
+  const copy = challengeApproachCopy(rem);
+  if (copy) {
+    el.style.display = 'block';
+    el.textContent = copy;
+  } else {
+    el.style.display = 'none';
+    el.textContent = '';
+  }
+}
+
+function renderHomeChallengeCard(rem) {
+  const card = document.getElementById('home-challenge-card');
+  if (!card) return;
+  const on = challengeEnabled() && !!rem;
+  card.style.display = on ? 'block' : 'none';
+  if (!on) {
+    paintChallengeApproach('home-ch-approach-warn', null);
+    return;
+  }
+  const pill = document.getElementById('home-ch-pill');
+  if (pill) pill.textContent = challengeBookLabel(rem);
+  paintChallengeMeter('home-ch', rem);
+  paintChallengeApproach('home-ch-approach-warn', rem);
+  const src = document.getElementById('home-ch-source');
+  if (src) {
+    src.textContent = (!rem.dailyFromJournal || !rem.ddFromJournal || !rem.profitFromJournal)
+      ? 'Using manual override — change it in Settings if the eval screen differs.'
+      : 'From journal P&L on this book.';
+  }
 }
 
 function renderChallengePanel() {
@@ -3585,11 +3763,12 @@ function renderChallengePanel() {
   const pill = document.getElementById('sizer-challenge-pill');
   if (panel) panel.style.display = on ? 'block' : 'none';
   const rem = on ? getChallengeRemaining() : null;
-  const label = rem ? ('CHALLENGE · ' + (rem.firm || 'Eval') + (rem.accountSize >= 1000 ? ' ' + Math.round(rem.accountSize / 1000) + 'k' : '')) : 'CHALLENGE';
+  const label = challengeBookLabel(rem);
   if (pill) {
     pill.style.display = on ? 'inline-block' : 'none';
     pill.textContent = label;
   }
+  renderHomeChallengeCard(rem);
   if (!on || !rem) {
     lastChallengeVerdict = null;
     hideAllChallengeGates();
@@ -3599,46 +3778,13 @@ function renderChallengePanel() {
     });
     const cryStatus = document.getElementById('crypto-challenge-status');
     if (cryStatus) cryStatus.style.display = 'none';
+    paintChallengeApproach('ch-approach-warn', null);
+    paintChallengeApproach('crypto-ch-approach-warn', null);
     resetSizerLogButtons();
     return rem;
   }
-  const dailyPct = rem.dailyLimit > 0 ? Math.min(100, (rem.dailyUsed / rem.dailyLimit) * 100) : 0;
-  const ddPct = rem.ddLimit > 0 ? Math.min(100, (rem.ddUsed / rem.ddLimit) * 100) : 0;
-  const profitPct = rem.profitTarget > 0 ? Math.min(100, Math.max(0, rem.profit / rem.profitTarget) * 100) : 0;
-  const dailyVal = document.getElementById('ch-daily-used');
-  const dailyCap = document.getElementById('ch-daily-cap');
-  const dailyBar = document.getElementById('ch-daily-bar');
-  const ddVal = document.getElementById('ch-dd-used');
-  const ddCap = document.getElementById('ch-dd-cap');
-  const ddBar = document.getElementById('ch-dd-bar');
-  const pVal = document.getElementById('ch-profit-val');
-  const pCap = document.getElementById('ch-profit-cap');
-  const pBar = document.getElementById('ch-profit-bar');
-  if (dailyVal) {
-    dailyVal.textContent = moneyAmt(rem.dailyUsed) + ' used';
-    dailyVal.classList.toggle('hot', rem.dailyLeft <= 0);
-  }
-  if (dailyCap) dailyCap.textContent = 'of ' + moneyAmt(rem.dailyLimit);
-  if (dailyBar) {
-    dailyBar.style.width = dailyPct + '%';
-    dailyBar.className = rem.dailyLeft <= 0 ? 'hot' : '';
-  }
-  if (ddVal) {
-    ddVal.textContent = moneyAmt(rem.ddUsed) + ' used';
-    ddVal.classList.toggle('mint', rem.ddLeft > 0);
-    ddVal.classList.toggle('hot', rem.ddLeft <= 0);
-  }
-  if (ddCap) ddCap.textContent = 'of ' + moneyAmt(rem.ddLimit);
-  if (ddBar) {
-    ddBar.style.width = ddPct + '%';
-    ddBar.className = rem.ddLeft <= 0 ? 'hot' : 'mint';
-  }
-  if (pVal) pVal.textContent = (rem.profit < 0 ? '−' : '') + moneyAmt(rem.profit);
-  if (pCap) pCap.textContent = '/ ' + moneyAmt(rem.profitTarget) + ' target';
-  if (pBar) {
-    pBar.style.width = profitPct + '%';
-    pBar.className = 'mint';
-  }
+  paintChallengeMeter('ch', rem);
+  paintChallengeApproach('ch-approach-warn', rem);
   const src = document.getElementById('ch-source');
   if (src) {
     const bits = [];
@@ -3653,12 +3799,13 @@ function renderChallengePanel() {
     const d = document.getElementById('crypto-ch-daily');
     const dd = document.getElementById('crypto-ch-dd');
     const tgt = document.getElementById('crypto-ch-target');
-    if (d) d.textContent = moneyAmt(rem.dailyLeft);
-    if (dd) dd.textContent = moneyAmt(rem.ddLeft);
+    if (d) d.textContent = moneyAmt(rem.dailyLeft) + ' left';
+    if (dd) dd.textContent = moneyAmt(rem.ddLeft) + ' left';
     if (tgt) {
       const pct = rem.profitTarget > 0 ? Math.max(0, Math.round((rem.profit / rem.profitTarget) * 100)) : 0;
       tgt.textContent = pct + '%';
     }
+    paintChallengeApproach('crypto-ch-approach-warn', rem);
   }
   return rem;
 }
@@ -3687,7 +3834,7 @@ function resetSizerLogButtons() {
   });
 }
 
-function applyChallengeFill(type, size, cashRisk) {
+function applyChallengeFill(type, size, cashRisk, proposedProfit) {
   const rem = renderChallengePanel();
   const lineId = type === 'shares' ? 'sh-challenge-line' : (type === 'crypto' ? 'cry-challenge-line' : (type === 'options' ? null : 'cfd-challenge-line'));
   const line = lineId ? document.getElementById(lineId) : null;
@@ -3709,16 +3856,22 @@ function applyChallengeFill(type, size, cashRisk) {
     if (btn) { btn.textContent = 'Log This Trade'; }
     return lastChallengeVerdict;
   }
-  const verdict = Baron.evaluateChallengeFill(rem, cashRisk, size);
+  const add = Number(proposedProfit) || 0;
+  const verdict = Baron.evaluateChallengeFill(rem, cashRisk, size, add);
   const unitLabel = challengeUnitLabel(type);
   verdict.unitLabel = unitLabel;
   verdict.note = verdict.blocked ? Baron.challengeNearMissNote(verdict, unitLabel) : '';
   lastChallengeVerdict = verdict;
   if (verdict.blocked) {
-    const why = verdict.reason === 'dd' ? 'trailing DD left ' + moneyAmt(verdict.ddLeft) : 'daily loss left ' + moneyAmt(verdict.dailyLeft);
+    let why;
+    if (verdict.reason === 'consistency') why = 'consistency cap (best day ≤ ' + rem.consistencyPct + '% of profit)';
+    else if (verdict.reason === 'dd') why = 'trailing DD left ' + moneyAmt(verdict.ddLeft);
+    else why = 'daily loss left ' + moneyAmt(verdict.dailyLeft);
     if (line) {
       line.style.display = 'block';
-      line.textContent = `${Number.isInteger(size) ? size : size} ${unitLabel} would risk ${moneyAmt(cashRisk)} — ${why}`;
+      line.textContent = verdict.reason === 'consistency'
+        ? `${Number.isInteger(size) ? size : size} ${unitLabel} would add ${moneyAmt(add)} today — ${why}`
+        : `${Number.isInteger(size) ? size : size} ${unitLabel} would risk ${moneyAmt(cashRisk)} — ${why}`;
     }
     if (gate) {
       gate.style.display = 'block';
@@ -3754,6 +3907,19 @@ function renderJournalChallengeChrome() {
       const pct = rem.profitTarget > 0 ? Math.max(0, Math.round((rem.profit / rem.profitTarget) * 100)) : 0;
       tgt.textContent = pct + '%';
     }
+    const consRow = document.getElementById('journal-ch-cons-row');
+    if (consRow) consRow.style.display = rem.consistencyOn ? 'flex' : 'none';
+    if (rem.consistencyOn) {
+      const best = document.getElementById('journal-ch-best');
+      const share = document.getElementById('journal-ch-share');
+      const cap = document.getElementById('journal-ch-cons');
+      if (best) best.textContent = moneyAmt(rem.bestDayPnl);
+      if (share) share.textContent = Math.round((rem.consistencyShare || 0) * 100) + '%';
+      if (cap) cap.textContent = rem.consistencyPct + '%';
+    }
+  } else {
+    const consRow = document.getElementById('journal-ch-cons-row');
+    if (consRow) consRow.style.display = 'none';
   }
   const misses = (S.trades || []).filter(t => t && t.challengeFail);
   if (banner) {
@@ -3837,7 +4003,7 @@ function calcCFD() {
     } else hint.style.display = 'none';
   }
   showVerdict('cfd-verdict', rr);
-  applyChallengeFill('cfd', units, riskAmt);
+  applyChallengeFill('cfd', units, riskAmt, reward);
 }
 
 function calcShares() {
@@ -3872,7 +4038,7 @@ function calcShares() {
   if (shRiskLbl) shRiskLbl.textContent = 'RISK';
   if (shRewLbl) shRewLbl.textContent = 'REWARD';
   showVerdict('sh-verdict', rr);
-  applyChallengeFill('shares', shares, riskAmt);
+  applyChallengeFill('shares', shares, riskAmt, reward);
 }
 
 function calcOptions() {
@@ -4014,7 +4180,8 @@ function calcOptions() {
   }
 
   if (challengeEnabled()) {
-    applyChallengeFill('options', Math.max(1, contracts), totalCost);
+    const optReward = target ? Math.max(0, ((isCall ? Math.max(0, target - strike) : Math.max(0, strike - target)) - prem) * Math.max(1, contracts) * 100) : 0;
+    applyChallengeFill('options', Math.max(1, contracts), totalCost, optReward);
     if (failures.length > 0) {
       logBtn.style.opacity = '0.4';
       logBtn.style.pointerEvents = 'none';
@@ -6637,7 +6804,7 @@ function calcCrypto() {
       document.getElementById('cry-r2-status').textContent = 'Spot — no liquidation risk';
     }
   }
-  applyChallengeFill('crypto', units, units * stopDist);
+  applyChallengeFill('crypto', units, units * stopDist, reward);
 }
 
 // ── LIGHT / DARK MODE ────────────────────────────────────────────────────────
