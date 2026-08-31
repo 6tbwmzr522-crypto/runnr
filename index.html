@@ -3738,8 +3738,7 @@ function paintChallengeApproach(id, rem) {
 function renderHomeChallengeCard(rem) {
   const card = document.getElementById('home-challenge-card');
   if (!card) return;
-  const guest = typeof isGuestLanding === 'function' && isGuestLanding();
-  const on = !guest && challengeEnabled() && !!rem;
+  const on = challengeEnabled() && !!rem;
   card.style.display = on ? 'block' : 'none';
   if (!on) {
     paintChallengeApproach('home-ch-approach-warn', null);
