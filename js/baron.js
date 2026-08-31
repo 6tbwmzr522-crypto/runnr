@@ -162,6 +162,7 @@ const Baron = {
       maxDailyLoss: 2000,
       maxTrailingDd: 5000,
       profitTarget: 10000,
+      consistencyPct: 30,
     },
     {
       id: "eval50",
@@ -171,8 +172,12 @@ const Baron = {
       maxDailyLoss: 1000,
       maxTrailingDd: 2500,
       profitTarget: 3000,
+      consistencyPct: 30,
     },
   ],
+
+  /** Warn when remaining daily/DD is at or under this share of the cap. */
+  APPROACHING_REMAINING_RATIO: 0.2,
 
   defaultChallenge() {
     const p = this.CHALLENGE_PRESETS[0];
@@ -184,6 +189,7 @@ const Baron = {
       maxDailyLoss: p.maxDailyLoss,
       maxTrailingDd: p.maxTrailingDd,
       profitTarget: p.profitTarget,
+      consistencyPct: 0,
       overrideDailyUsed: null,
       overrideDdUsed: null,
       overrideProfit: null,
@@ -202,6 +208,7 @@ const Baron = {
       const n = Number(v);
       return Number.isFinite(n) ? n : null;
     };
+    const cons = num(raw.consistencyPct, d.consistencyPct);
     return {
       enabled: !!raw.enabled,
       preset: typeof raw.preset === "string" && raw.preset ? raw.preset : d.preset,
@@ -210,6 +217,7 @@ const Baron = {
       maxDailyLoss: Math.max(0, num(raw.maxDailyLoss, d.maxDailyLoss)),
       maxTrailingDd: Math.max(0, num(raw.maxTrailingDd, d.maxTrailingDd)),
       profitTarget: Math.max(0, num(raw.profitTarget, d.profitTarget)),
+      consistencyPct: Math.max(0, Math.min(100, cons)),
       overrideDailyUsed: opt(raw.overrideDailyUsed),
       overrideDdUsed: opt(raw.overrideDdUsed),
       overrideProfit: opt(raw.overrideProfit),
@@ -229,6 +237,7 @@ const Baron = {
     next.maxDailyLoss = p.maxDailyLoss;
     next.maxTrailingDd = p.maxTrailingDd;
     next.profitTarget = p.profitTarget;
+    next.consistencyPct = p.consistencyPct != null ? p.consistencyPct : 30;
     return next;
   },
 
@@ -296,19 +305,35 @@ const Baron = {
     let cum = 0;
     let hwm = c.accountSize;
     let todayPnl = 0;
+    const byDay = Object.create(null);
     closed.forEach((t) => {
       const pnl = Number(resolvePnl(t));
       const n = Number.isFinite(pnl) ? pnl : 0;
       cum += n;
       const equity = c.accountSize + cum;
       if (equity > hwm) hwm = equity;
-      if (today && this.tradeDayKey(t, now) === today) todayPnl += n;
+      const key = this.tradeDayKey(t, now);
+      if (today && key === today) todayPnl += n;
+      if (key) byDay[key] = (byDay[key] || 0) + n;
+    });
+    let bestDayPnl = 0;
+    let bestDayKey = "";
+    Object.keys(byDay).forEach((k) => {
+      if (byDay[k] > bestDayPnl) {
+        bestDayPnl = byDay[k];
+        bestDayKey = k;
+      }
     });
     const dailyUsed = c.overrideDailyUsed != null ? c.overrideDailyUsed : Math.max(0, -todayPnl);
     const ddUsed = c.overrideDdUsed != null ? c.overrideDdUsed : Math.max(0, hwm - (c.accountSize + cum));
     const profit = c.overrideProfit != null ? c.overrideProfit : cum;
     const dailyLeft = Math.max(0, c.maxDailyLoss - dailyUsed);
     const ddLeft = Math.max(0, c.maxTrailingDd - ddUsed);
+    const profitLeft = Math.max(0, c.profitTarget - profit);
+    const consistencyPct = c.consistencyPct;
+    const consistencyOn = consistencyPct > 0;
+    const consistencyShare = profit > 0 && bestDayPnl > 0 ? bestDayPnl / profit : 0;
+    const consistencyCapAmt = profit > 0 && consistencyOn ? profit * (consistencyPct / 100) : 0;
     return {
       firm: c.firm,
       accountSize: c.accountSize,
@@ -320,27 +345,106 @@ const Baron = {
       ddLeft,
       profit,
       profitTarget: c.profitTarget,
+      profitLeft,
       todayPnl,
+      bestDayPnl,
+      bestDayKey,
+      consistencyPct,
+      consistencyOn,
+      consistencyShare,
+      consistencyCapAmt,
       cum,
       hwm,
+      emptyBook: closed.length === 0,
       dailyFromJournal: c.overrideDailyUsed == null,
       ddFromJournal: c.overrideDdUsed == null,
       profitFromJournal: c.overrideProfit == null,
     };
   },
 
-  evaluateChallengeFill(remaining, cashRisk, size) {
+  usedLeftLabel(used, left) {
+    const fmt = (n) => {
+      const v = Math.round(Number(n) || 0);
+      return String(Math.abs(v));
+    };
+    return fmt(used) + " used · " + fmt(left) + " left";
+  },
+
+  profitToTargetLabel(profit, target) {
+    const fmt = (n) => {
+      const v = Math.round(Number(n) || 0);
+      return (n < 0 ? "−" : "") + String(Math.abs(v));
+    };
+    const left = Math.max(0, (Number(target) || 0) - (Number(profit) || 0));
+    return fmt(profit) + " · " + fmt(left) + " to target";
+  },
+
+  wouldBreachConsistency(remaining, addProfit) {
+    const rem = remaining || {};
+    const r = Number(rem.consistencyPct) / 100;
+    const add = Number(addProfit) || 0;
+    if (!(r > 0) || !(r < 1) || !(add > 0)) return false;
+    const profit = Number(rem.profit) || 0;
+    const today = Number(rem.todayPnl) || 0;
+    if (profit <= 0 && today <= 0) return false;
+    const newToday = today + add;
+    const newProfit = profit + add;
+    if (!(newProfit > 0)) return false;
+    return newToday > r * newProfit + 1e-6;
+  },
+
+  maxSizeForConsistency(remaining, rewardPerUnit, size) {
+    const per = Number(rewardPerUnit) || 0;
+    const qty = Math.max(0, Math.floor(Number(size) || 0));
+    if (!(per > 0) || qty <= 0) return 0;
+    let lo = 0;
+    let hi = qty;
+    while (lo < hi) {
+      const mid = Math.ceil((lo + hi + 1) / 2);
+      if (this.wouldBreachConsistency(remaining, mid * per)) hi = mid - 1;
+      else lo = mid;
+    }
+    return lo;
+  },
+
+  challengeApproaching(remaining) {
+    const rem = remaining || {};
+    const ratio = this.APPROACHING_REMAINING_RATIO;
+    const reasons = [];
+    const tight = (left, limit) => {
+      const l = Number(left);
+      const cap = Number(limit);
+      return cap > 0 && l > 0 && l <= cap * ratio + 1e-9;
+    };
+    if (tight(rem.dailyLeft, rem.dailyLimit)) reasons.push("daily");
+    if (tight(rem.ddLeft, rem.ddLimit)) reasons.push("dd");
+    if (rem.consistencyOn && rem.profit > 0) {
+      const cap = Number(rem.consistencyCapAmt) || 0;
+      const room = cap - (Number(rem.todayPnl) || 0);
+      if (cap > 0 && room <= cap * ratio + 1e-9) reasons.push("consistency");
+    }
+    return { tight: reasons.length > 0, reasons };
+  },
+
+  evaluateChallengeFill(remaining, cashRisk, size, proposedProfit) {
     const rem = remaining || {};
     const risk = Number(cashRisk) || 0;
     const qty = Number(size) || 0;
+    const add = Number(proposedProfit) || 0;
     const dailyLeft = Math.max(0, Number(rem.dailyLeft) || 0);
     const ddLeft = Math.max(0, Number(rem.ddLeft) || 0);
     const headroom = Math.min(dailyLeft, ddLeft);
-    const blocked = risk > 0 && risk > headroom;
+    let blocked = risk > 0 && risk > headroom;
     const riskPerUnit = qty > 0 ? risk / qty : 0;
-    const maxSize = riskPerUnit > 0 ? Math.floor(headroom / riskPerUnit + 1e-9) : 0;
+    let maxSize = riskPerUnit > 0 ? Math.floor(headroom / riskPerUnit + 1e-9) : 0;
     let reason = null;
     if (blocked) reason = dailyLeft <= ddLeft ? "daily" : "dd";
+    if (!blocked && this.wouldBreachConsistency(rem, add)) {
+      blocked = true;
+      reason = "consistency";
+      const rewardPerUnit = qty > 0 && add > 0 ? add / qty : 0;
+      maxSize = this.maxSizeForConsistency(rem, rewardPerUnit, qty);
+    }
     return {
       blocked,
       reason,
@@ -350,6 +454,7 @@ const Baron = {
       dailyLeft,
       ddLeft,
       headroom,
+      proposedProfit: add,
     };
   },
 
@@ -358,7 +463,9 @@ const Baron = {
     const units = unitLabel || "contracts";
     const size = Number.isFinite(Number(v.size)) ? Number(v.size) : 0;
     const maxSize = Number.isFinite(Number(v.maxSize)) ? Number(v.maxSize) : 0;
-    const why = v.reason === "dd" ? "trailing DD left" : "daily loss left";
+    const why = v.reason === "dd"
+      ? "trailing DD left"
+      : (v.reason === "consistency" ? "consistency cap" : "daily loss left");
     const fmt = (n) => {
       if (!Number.isFinite(n)) return "0";
       return Number.isInteger(n) ? String(n) : String(Math.round(n * 100) / 100);
