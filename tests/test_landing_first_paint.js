@@ -18,7 +18,7 @@ function check(name, cond) {
 const v = html.match(/var V = "(\d+)"/)[1];
 const cache = sw.match(/CACHE = "runnr-v(\d+)"/)[1];
 check("index.html V matches sw.js CACHE", v === cache);
-check("onboarding cache-bust", html.includes("js/onboarding.js?v=27"));
+check("onboarding cache-bust", html.includes("js/onboarding.js?v=28"));
 
 const hookStart = html.indexOf('id="onboarding-overlay"');
 const hookEnd = html.indexOf('id="intro-overlay"');

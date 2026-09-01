@@ -370,7 +370,8 @@ const RunnrGrowth = {
     const symbols = d.symbols && d.symbols.length > 1 ? d.symbols : [d.instr || (d.symbols && d.symbols[0]) || "—"];
     if (typeof canAddJournalTrade === "function" && !canAddJournalTrade(symbols.length)) {
       if (typeof openUpgrade === "function") {
-        openUpgrade(`Free plan · ${window.FREE_TRADE_LIMIT || 10} journal trades`);
+        if (typeof openJournalLimitUpgrade === "function") openJournalLimitUpgrade();
+        else openUpgrade(`Free plan · ${window.FREE_TRADE_LIMIT || 10} trades (includes imports)`);
       } else {
         alert("Free plan journal limit reached. Upgrade for unlimited trades.");
       }

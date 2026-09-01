@@ -5,6 +5,13 @@ from fastapi import APIRouter, Depends, HTTPException
 from app.auth import get_current_user
 from app.db import get_db
 from app.models.profile import ProfileStatePut, ProfileStateResponse
+from app.trade_limit import (
+    FREE_LIMIT_DETAIL,
+    count_journal_trades_for_limit,
+    existing_countable_from_state_json,
+    journal_is_unlimited,
+    would_exceed_free_limit,
+)
 
 router = APIRouter(prefix="/profile", tags=["profile"])
 
@@ -32,6 +39,18 @@ def put_state(body: ProfileStatePut, user: dict = Depends(get_current_user)):
     raw = json.dumps(body.state, separators=(",", ":"))
     if len(raw.encode("utf-8")) > MAX_STATE_BYTES:
         raise HTTPException(status_code=413, detail="Profile state too large")
+    if not journal_is_unlimited(user):
+        new_count = count_journal_trades_for_limit(body.state.get("trades"))
+        with get_db() as conn:
+            row = conn.execute(
+                "SELECT state_json FROM user_state WHERE user_id = ?",
+                (user["id"],),
+            ).fetchone()
+        existing_count = existing_countable_from_state_json(
+            row["state_json"] if row else None
+        )
+        if would_exceed_free_limit(new_count, existing_count):
+            raise HTTPException(status_code=403, detail=FREE_LIMIT_DETAIL)
     with get_db() as conn:
         conn.execute(
             """
