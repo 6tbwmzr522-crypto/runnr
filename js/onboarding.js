@@ -499,6 +499,7 @@ const RunnrGrowth = {
   digestKey: "runnr_weekly_digest",
 
   maybeSendWeeklyDigest(state) {
+    if (typeof RunnrSync !== "undefined" && typeof RunnrSync.isPro === "function" && !RunnrSync.isPro()) return;
     if (state.coachDigestEnabled === false) return;
     let meta = {};
     try { meta = JSON.parse(localStorage.getItem(this.digestKey) || "{}"); } catch (e) {}
@@ -535,6 +536,14 @@ const RunnrGrowth = {
   },
 
   previewWeeklyDigest(state) {
+    if (typeof requirePro === "function") {
+      requirePro("Coach").then((ok) => {
+        if (!ok) return;
+        const d = CoachEngine.weeklyDigest(state.trades, state.sym);
+        alert(`${d.pushTitle}\n\n${d.pushBody}\n\nAction: ${d.action}`);
+      });
+      return;
+    }
     const d = CoachEngine.weeklyDigest(state.trades, state.sym);
     alert(`${d.pushTitle}\n\n${d.pushBody}\n\nAction: ${d.action}`);
   },

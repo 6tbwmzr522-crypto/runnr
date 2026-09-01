@@ -6,6 +6,7 @@ from alpaca.trading.enums import QueryOrderStatus
 from fastapi import APIRouter, Depends, HTTPException
 
 from app.auth import get_current_user
+from app.billing_util import PRO_REQUIRED_DETAIL, user_has_pro_access
 from app.crypto_util import decrypt, encrypt
 from app.db import get_db
 from app.ibkr_flex import get_flex_statement, parse_flex_trades, send_flex_request, verify_flex_credentials
@@ -23,6 +24,14 @@ router = APIRouter(prefix="/brokers", tags=["brokers"])
 T212_NOT_CONNECTED_FOR_ACCOUNT = (
     "Trading 212 is not connected for this account. Connect a read-only key on the Sync page."
 )
+PRO_BROKER_DETAIL = "Upgrade to Runnr Pro for broker connect and sync."
+
+
+def _require_pro_broker(user: dict) -> None:
+    """Connect/sync are Pro when Stripe billing is on. Boss and billing-off stay open."""
+    if user_has_pro_access(user):
+        return
+    raise HTTPException(status_code=403, detail=PRO_BROKER_DETAIL or PRO_REQUIRED_DETAIL)
 
 
 def _save_alpaca(user_id: int, body: AlpacaConnectRequest) -> None:
@@ -65,6 +74,7 @@ def _client(user_id: int) -> TradingClient:
 
 @router.post("/alpaca/connect", response_model=BrokerStatusResponse)
 def connect_alpaca(body: AlpacaConnectRequest, user: dict = Depends(get_current_user)):
+    _require_pro_broker(user)
     client = TradingClient(body.api_key, body.api_secret, paper=body.paper)
     try:
         account = client.get_account()
@@ -110,6 +120,7 @@ def alpaca_status(user: dict = Depends(get_current_user)):
 
 @router.get("/alpaca/sync", response_model=SyncResponse)
 def alpaca_sync(user: dict = Depends(get_current_user)):
+    _require_pro_broker(user)
     client = _client(user["id"])
     try:
         account = client.get_account()
@@ -192,6 +203,7 @@ def _load_ibkr(user_id: int) -> tuple[str, str] | None:
 
 @router.post("/ibkr/connect", response_model=BrokerStatusResponse)
 def connect_ibkr(body: IbkrFlexConnectRequest, user: dict = Depends(get_current_user)):
+    _require_pro_broker(user)
     token = body.token.strip()
     query_id = body.query_id.strip()
     verify_flex_credentials(token, query_id)
@@ -209,6 +221,7 @@ def ibkr_status(user: dict = Depends(get_current_user)):
 
 @router.get("/ibkr/sync", response_model=SyncResponse)
 def ibkr_sync(user: dict = Depends(get_current_user)):
+    _require_pro_broker(user)
     creds = _load_ibkr(user["id"])
     if not creds:
         raise HTTPException(status_code=404, detail="IBKR Flex not connected")
@@ -262,6 +275,7 @@ def _load_t212(user_id: int) -> tuple[str, str] | None:
 
 @router.post("/t212/connect", response_model=BrokerStatusResponse)
 def connect_t212(body: T212ConnectRequest, user: dict = Depends(get_current_user)):
+    _require_pro_broker(user)
     key = body.api_key.strip()
     secret = body.api_secret.strip()
     try:
@@ -292,6 +306,7 @@ def t212_status(user: dict = Depends(get_current_user)):
 
 @router.get("/t212/sync", response_model=SyncResponse)
 def t212_sync(user: dict = Depends(get_current_user)):
+    _require_pro_broker(user)
     creds = _load_t212(user["id"])
     if not creds:
         raise HTTPException(status_code=404, detail=T212_NOT_CONNECTED_FOR_ACCOUNT)

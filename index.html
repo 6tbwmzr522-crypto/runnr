@@ -5,7 +5,7 @@
 <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
 <script>
 (function () {
-  var V = "111";
+  var V = "112";
   try {
     if (localStorage.getItem("runnr_app_v") !== V) {
       localStorage.setItem("runnr_app_v", V);
@@ -1698,6 +1698,13 @@ html.runnr-guest #page-home .stat-grid{grid-template-columns:repeat(3,minmax(0,1
         <div id="coach-week-label" style="font-size:12px;color:var(--text3);margin-top:2px">—</div>
       </div>
 
+      <div id="coach-upgrade-cta" class="card" style="display:none;margin-bottom:16px">
+        <div class="card-title">Coach is Runnr Pro</div>
+        <div style="font-size:13px;color:var(--text2);line-height:1.5;margin-bottom:12px">Weekly insights, Ask Coach, and rule-vs-actual equity are included with Pro — not the free 10-trade journal.</div>
+        <button type="button" class="btn" style="width:100%" onclick="requirePro('Coach')">Unlock Coach — €19/mo</button>
+      </div>
+
+      <div id="coach-pro-body">
       <!-- Big 4 numbers -->
       <div class="stat-grid" style="grid-template-columns:1fr 1fr;margin-bottom:16px">
         <div class="stat-item">
@@ -1801,6 +1808,7 @@ html.runnr-guest #page-home .stat-grid{grid-template-columns:repeat(3,minmax(0,1
             <div style="font-size:10px;color:var(--text3)">WITH RUNNR RULES</div>
           </div>
         </div>
+      </div>
       </div>
     </div>
 
@@ -2686,11 +2694,11 @@ html.runnr-guest #page-home .stat-grid{grid-template-columns:repeat(3,minmax(0,1
 <script src="js/i18n.js?v=15"></script>
 <script src="js/baron.js?v=31"></script>
 <script src="js/coach.js?v=26"></script>
-<script src="js/onboarding.js?v=28"></script>
+<script src="js/onboarding.js?v=29"></script>
 <script src="js/intro.js?v=1"></script>
 <script src="js/csv-presets.js?v=4"></script>
-<script src="js/trade-limit.js?v=1"></script>
-<script src="js/sync.js?v=67"></script>
+<script src="js/trade-limit.js?v=2"></script>
+<script src="js/sync.js?v=68"></script>
 <script src="js/desk-sessions.js?v=2"></script>
 <script src="js/desk.js?v=12"></script>
 <script src="js/wave.js?v=1"></script>
@@ -2701,7 +2709,6 @@ html.runnr-guest #page-home .stat-grid{grid-template-columns:repeat(3,minmax(0,1
 const WHOP_URL = 'https://whop.com/runnr'; // legacy; upgrades now go through Stripe
 const INST_MIN_TRADES = 30;
 const FREE_TRADE_LIMIT = window.RunnrTradeLimit.FREE_TRADE_LIMIT;
-const DEMO_TRADE_IDS = window.RunnrTradeLimit.DEMO_TRADE_IDS;
 
 function isImportedJournalTrade(t) {
   return window.RunnrTradeLimit.isImportedJournalTrade(t);
@@ -2735,10 +2742,10 @@ window.journalTradeSlotsRemaining = journalTradeSlotsRemaining;
 const S = {
   bal: 10000, risk: 1, sym: '€',
   trades: [
-    { id:1, instr:'RACE', dir:'long', entry:354, exit:380, size:28, pnl:728, stopOk:true, sizeOk:true, type:'shares', date:'Apr 17' },
-    { id:2, instr:'BE', dir:'long', entry:137, exit:151, size:65, pnl:910, stopOk:true, sizeOk:false, type:'shares', date:'Apr 15' },
-    { id:3, instr:'USDJPY', dir:'short', entry:159.37, exit:157.93, size:0.5, pnl:720, stopOk:true, sizeOk:true, type:'cfd', date:'Apr 12' },
-    { id:4, instr:'AAPL CFD', dir:'long', entry:198, exit:195, size:15, pnl:-45, stopOk:false, sizeOk:true, type:'cfd', date:'Apr 10', incomplete:true },
+    { id:1, isDemo:true, instr:'RACE', dir:'long', entry:354, exit:380, size:28, pnl:728, stopOk:true, sizeOk:true, type:'shares', date:'Apr 17' },
+    { id:2, isDemo:true, instr:'BE', dir:'long', entry:137, exit:151, size:65, pnl:910, stopOk:true, sizeOk:false, type:'shares', date:'Apr 15' },
+    { id:3, isDemo:true, instr:'USDJPY', dir:'short', entry:159.37, exit:157.93, size:0.5, pnl:720, stopOk:true, sizeOk:true, type:'cfd', date:'Apr 12' },
+    { id:4, isDemo:true, instr:'AAPL CFD', dir:'long', entry:198, exit:195, size:15, pnl:-45, stopOk:false, sizeOk:true, type:'cfd', date:'Apr 10', incomplete:true },
   ],
   watchlist: [
     { id:1, sym:'RACE', dir:'long', entry:354, stop:338, target:420, thesis:'Post-selloff recovery, 52-week range support, buyback programme active', rr:3.9, urgent:false },
@@ -3194,6 +3201,13 @@ async function refreshBillingUI() {
   try { renderStatsFooterLinks(); } catch (e) {}
   try { renderSyncAuthBanner(); } catch (e) {}
   try { updateVerifyBanner(); } catch (e) {}
+  try { if (typeof renderCoachPage === 'function') renderCoachPage(); } catch (e) {}
+  try { if (typeof renderNotifSettings === 'function') renderNotifSettings(); } catch (e) {}
+  try {
+    if (typeof drawEquityCurve === 'function' && document.getElementById('page-coach')?.classList.contains('active')) {
+      drawEquityCurve();
+    }
+  } catch (e) {}
 }
 async function startStripeCheckout(interval) {
   if (!RunnrSync.isLoggedIn()) {
@@ -3229,8 +3243,16 @@ async function requirePro(featureLabel, opts) {
   try { await RunnrSync.refreshBilling?.(); } catch (e) {}
   const mailerOn = !!RunnrSync.billing?.().emailConfigured;
   if (!opts.skipEmail && mailerOn && !(await requireVerifiedEmail())) return false;
-  if (RunnrSync.isPro?.()) return true;
+  if (hasProAccess()) return true;
   openUpgrade(featureLabel || 'This feature');
+  return false;
+}
+function hasProAccess() {
+  try {
+    if (typeof RunnrSync !== 'undefined' && typeof RunnrSync.isPro === 'function') {
+      return !!RunnrSync.isPro();
+    }
+  } catch (e) {}
   return false;
 }
 async function requireVerifiedEmail() {
@@ -3323,6 +3345,7 @@ window.openUpgrade = openUpgrade;
 window.startStripeCheckout = startStripeCheckout;
 window.openStripePortal = openStripePortal;
 window.requirePro = requirePro;
+window.hasProAccess = hasProAccess;
 window.refreshBillingUI = refreshBillingUI;
 window.updateProBadge = updateProBadge;
 window.dismissDemoBanner = dismissDemoBanner;
@@ -5827,6 +5850,7 @@ function persistAlerts() {
 }
 
 async function requestNotifPermission() {
+  if (!(await requirePro('Alerts'))) return;
   if (!('Notification' in window)) {
     showPermArea(
       '<div style="font-size:11px;color:var(--text2)">' + t('alerts.inAppOnly') + '</div>'
@@ -5859,7 +5883,17 @@ function showPermArea(html) {
   if (el) el.innerHTML = html;
 }
 
-function toggleNotifications(checked) {
+async function toggleNotifications(checked) {
+  if (checked) {
+    if (!(await requirePro('Alerts'))) {
+      const toggle = document.getElementById('notif-master-toggle');
+      if (toggle) toggle.checked = false;
+      alertState.enabled = false;
+      persistAlerts();
+      renderNotifSettings();
+      return;
+    }
+  }
   alertState.enabled = checked;
   persistAlerts();
   if (checked && typeof Notification !== 'undefined' && alertState.permission !== 'granted') {
@@ -5875,17 +5909,18 @@ function renderNotifSettings() {
   const riskLbl   = document.getElementById('notif-risk-label');
   if (!permArea) return;
 
-  if (toggle) toggle.checked = !!alertState.enabled;
+  const alertsOn = !!alertState.enabled && hasProAccess();
+  if (toggle) toggle.checked = alertsOn;
   if (riskLbl) riskLbl.textContent = S.risk + '%';
 
-  if (!alertState.enabled && alertState.permission === 'default') {
+  if (!alertsOn && alertState.permission === 'default') {
     permArea.innerHTML =
       '<div class="notif-perm-banner">'
       + '<div class="nb-icon">🔔</div>'
       + '<div class="nb-text">' + t('alerts.enableBanner') + '</div>'
       + '<button class="nb-btn" onclick="document.getElementById(\'notif-master-toggle\').checked=true;toggleNotifications(true)">' + t('common.enable') + '</button>'
       + '</div>';
-  } else if (alertState.enabled && alertState.permission !== 'granted') {
+  } else if (alertsOn && alertState.permission !== 'granted') {
     permArea.innerHTML =
       '<div style="font-size:11px;color:var(--text2);line-height:1.45;margin-bottom:6px">'
       + t('alerts.inAppActive') + ' '
@@ -5897,7 +5932,7 @@ function renderNotifSettings() {
     permArea.innerHTML = '';
   }
 
-  if (!alertState.enabled || !S.watchlist.length) {
+  if (!alertsOn || !S.watchlist.length) {
     if (alertList) alertList.style.display = 'none';
     return;
   }
@@ -5912,6 +5947,7 @@ function renderNotifSettings() {
 
 function checkPriceAlerts() {
   if (!alertState.enabled) return;
+  if (!hasProAccess()) return;
   S.watchlist.forEach(w => {
     const lp = liveprices[w.sym];
     if (!lp || !lp.price || lp.stale) return;
@@ -8279,6 +8315,18 @@ const coachAnswers = {}; // legacy — CoachEngine used instead
 function renderCoachPage() {
   const label = document.getElementById('coach-week-label');
   if (label) label.textContent = 'Week of ' + new Date().toLocaleDateString('en-GB', { month: 'short', day: 'numeric', year: 'numeric' });
+  const unlocked = hasProAccess();
+  const cta = document.getElementById('coach-upgrade-cta');
+  const body = document.getElementById('coach-pro-body');
+  if (cta) cta.style.display = unlocked ? 'none' : 'block';
+  if (body) body.style.display = unlocked ? '' : 'none';
+  if (!unlocked) {
+    const list = document.getElementById('coach-insights-list');
+    if (list) list.innerHTML = '';
+    const ansEl = document.getElementById('coach-answer');
+    if (ansEl) { ansEl.style.display = 'none'; ansEl.textContent = ''; }
+    return;
+  }
   const weekTrades = CoachEngine.withinDays(S.trades, 7);
   const priorTrades = CoachEngine.completed(S.trades).filter(t => {
     const d = CoachEngine.tradeDate(t);
@@ -8396,7 +8444,8 @@ function renderCoachPage() {
   }
 }
 
-function askCoach(el) {
+async function askCoach(el) {
+  if (!(await requirePro('Coach'))) return;
   const q = el.textContent;
   const ans = CoachEngine.answerQuestion(S.trades, q, S.sym, S.bal, S.risk);
   const ansEl = document.getElementById('coach-answer');
@@ -8404,7 +8453,8 @@ function askCoach(el) {
   ansEl.style.display = 'block';
   ansEl.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
 }
-function askCoachFree() {
+async function askCoachFree() {
+  if (!(await requirePro('Coach'))) return;
   const input = document.getElementById('coach-free-ask');
   const q = (input?.value || '').trim();
   if (!q) return;
@@ -8420,6 +8470,7 @@ window.askCoachFree = askCoachFree;
 function drawEquityCurve() {
   const canvas = document.getElementById('equity-canvas');
   if (!canvas) return;
+  if (!hasProAccess()) return;
   const cmp = CoachEngine.equityComparison(S.trades, S.bal);
   const actual = cmp.actual.length > 1 ? cmp.actual : [0, cmp.actualEnd];
   const ideal = cmp.ideal.length > 1 ? cmp.ideal : [0, cmp.idealEnd];

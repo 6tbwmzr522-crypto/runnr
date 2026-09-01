@@ -8,12 +8,26 @@ from app.trade_limit import (
 
 def test_demo_trades_do_not_count():
     demo = [
+        {"id": 1, "isDemo": True, "instr": "RACE"},
+        {"id": 2, "isDemo": True, "instr": "BE"},
+        {"id": 3, "isDemo": True, "instr": "USDJPY"},
+        {"id": 4, "isDemo": True, "instr": "AAPL CFD"},
+    ]
+    assert count_journal_trades_for_limit(demo) == 0
+
+
+def test_crafted_ids_without_flag_count():
+    crafted = [
         {"id": 1, "instr": "RACE"},
         {"id": 2, "instr": "BE"},
         {"id": 3, "instr": "USDJPY"},
         {"id": 4, "instr": "AAPL CFD"},
     ]
-    assert count_journal_trades_for_limit(demo) == 0
+    assert count_journal_trades_for_limit(crafted) == 4
+
+
+def test_seed_true_excluded():
+    assert count_journal_trades_for_limit([{"id": 9, "seed": True}]) == 0
 
 
 def test_imported_fills_count():
@@ -40,8 +54,8 @@ def test_merged_away_excluded():
 
 def test_demo_plus_imports():
     trades = [
-        {"id": 1, "instr": "RACE"},
-        {"id": 2, "instr": "BE"},
+        {"id": 1, "isDemo": True, "instr": "RACE"},
+        {"id": 2, "isDemo": True, "instr": "BE"},
         {"id": 100, "source": "csv"},
     ]
     assert count_journal_trades_for_limit(trades) == 1
