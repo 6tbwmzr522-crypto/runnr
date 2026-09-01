@@ -94,6 +94,9 @@ def health():
         "stripe_configured": settings.stripe_enabled,
         "stripe_webhook_configured": bool((settings.stripe_webhook_secret or "").strip()),
         "email_configured": email_configured(),
+        "t212_configured": bool(
+            (settings.t212_api_key or "").strip() and (settings.t212_api_secret or "").strip()
+        ),
         "quote_cache_ttl_s": settings.quote_cache_ttl,
         "caches": {
             "quotes": quote_cache.stats(),

@@ -1,0 +1,88 @@
+{
+  "items": [
+    {
+      "fill": {
+        "id": 9001,
+        "filledAt": "2026-03-12T14:32:01.000Z",
+        "price": 190.5,
+        "quantity": 10,
+        "type": "TRADE",
+        "tradingMethod": "TOTV",
+        "walletImpact": {
+          "currency": "EUR",
+          "fxRate": 1.08,
+          "netValue": -2057.4,
+          "realisedProfitLoss": 0
+        }
+      },
+      "order": {
+        "id": 8001,
+        "createdAt": "2026-03-12T14:31:50.000Z",
+        "ticker": "AAPL_US_EQ",
+        "side": "BUY",
+        "status": "FILLED",
+        "quantity": 10,
+        "filledQuantity": 10,
+        "instrument": {
+          "ticker": "AAPL_US_EQ",
+          "name": "Apple Inc.",
+          "isin": "US0378331005",
+          "currency": "USD"
+        }
+      }
+    },
+    {
+      "fill": {
+        "id": 9002,
+        "filledAt": "2026-03-18T15:01:00.000Z",
+        "price": 198.25,
+        "quantity": 10,
+        "type": "TRADE",
+        "walletImpact": {
+          "currency": "EUR",
+          "realisedProfitLoss": 77.5
+        }
+      },
+      "order": {
+        "id": 8002,
+        "createdAt": "2026-03-18T15:00:40.000Z",
+        "ticker": "AAPL_US_EQ",
+        "side": "SELL",
+        "status": "FILLED",
+        "filledQuantity": 10
+      }
+    },
+    {
+      "fill": {
+        "id": 9003,
+        "filledAt": "2026-03-18T16:00:00.000Z",
+        "price": 0,
+        "quantity": 4,
+        "type": "STOCK_SPLIT"
+      },
+      "order": {
+        "id": 8003,
+        "ticker": "NVDA_US_EQ",
+        "side": "BUY",
+        "status": "FILLED"
+      }
+    },
+    {
+      "fill": {
+        "id": 9004,
+        "filledAt": "2026-02-01T10:00:00.000Z",
+        "price": 12.4,
+        "quantity": 25,
+        "type": "TRADE"
+      },
+      "order": {
+        "id": 8004,
+        "ticker": "VUAG_EQ",
+        "side": "BUY",
+        "status": "FILLED",
+        "filledQuantity": 25
+      }
+    }
+  ],
+  "nextPagePath": "/api/v0/equity/history/orders?limit=50&cursor=1760346100000"
+}

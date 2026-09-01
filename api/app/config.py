@@ -43,6 +43,9 @@ class Settings(BaseSettings):
     apple_oauth_team_id: str = ""
     apple_oauth_key_id: str = ""
     apple_oauth_private_key: str = ""  # .p8 PEM (literal or \n-escaped)
+    # Trading 212 public API (read-only). HTTP Basic key:secret.
+    t212_api_key: str = ""
+    t212_api_secret: str = ""
 
     @property
     def origin_list(self) -> list[str]:

@@ -5,7 +5,7 @@
 <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
 <script>
 (function () {
-  var V = "106";
+  var V = "108";
   try {
     if (localStorage.getItem("runnr_app_v") !== V) {
       localStorage.setItem("runnr_app_v", V);
@@ -1665,7 +1665,10 @@ html.runnr-guest #page-home .stat-grid{grid-template-columns:repeat(3,minmax(0,1
     <div class="page" id="page-journal">
       <div class="section-hdr" style="margin-bottom:12px">
         <h3 style="font-size:15px">Trade Journal</h3>
-        <button class="btn btn-sm" onclick="saveLogFromSizer('cfd')" style="background:var(--accent);color:#070d0b;font-family:var(--font-head);font-size:12px;font-weight:700;border:none;cursor:pointer;padding:7px 14px;border-radius:20px">+ Log Trade</button>
+        <div style="display:flex;gap:8px;align-items:center">
+          <button class="btn btn-sm btn-ghost" id="journal-t212-btn" type="button" onclick="importT212Fills()" style="display:none">Import T212</button>
+          <button class="btn btn-sm" onclick="saveLogFromSizer('cfd')" style="background:var(--accent);color:#070d0b;font-family:var(--font-head);font-size:12px;font-weight:700;border:none;cursor:pointer;padding:7px 14px;border-radius:20px">+ Log Trade</button>
+        </div>
       </div>
       <div id="journal-challenge-status" class="journal-challenge-status">
         <div class="sizer-book-row" style="margin-bottom:8px">
@@ -2640,7 +2643,7 @@ html.runnr-guest #page-home .stat-grid{grid-template-columns:repeat(3,minmax(0,1
       <p style="margin:0 0 12px"><strong style="color:var(--text)">Built by</strong> Janis Berzins · Thin Ice Digital Ltd · Oxford, UK.<br>15+ years automotive engineering (Tesla, BMW, Rolls-Royce). Full-stack founder — product, cloud, and discipline engine shipped in-house.</p>
       <p style="margin:0 0 12px"><strong style="color:var(--text)">Contact</strong><br>
         <a href="mailto:info@thinicedigital.com" style="color:var(--accent)">info@thinicedigital.com</a></p>
-      <p style="margin:0;font-size:12px;color:var(--text3)">Alpaca &amp; IBKR Flex sync are <strong>read-only</strong> — Runnr cannot place trades. API keys / Flex tokens are encrypted server-side (Fernet). CSV presets cover Trading 212, eToro, Degiro, Schwab and more.</p>
+      <p style="margin:0;font-size:12px;color:var(--text3)">Alpaca, IBKR Flex, and Trading 212 sync are <strong>read-only</strong> — Runnr cannot place trades. T212 uses server env keys; Alpaca / Flex tokens are encrypted per account. CSV presets cover eToro, Degiro, Schwab and more.</p>
       <p style="margin:12px 0 0;font-size:12px;line-height:1.55"><a href="/terms/" style="color:var(--gold)">Terms</a> · <a href="/refund/" style="color:var(--gold)">Refund Policy</a> · <a href="/privacy/" style="color:var(--gold)">Privacy</a><span class="js-stats-link" hidden> · <a href="/stats.html" style="color:var(--gold)">Stats</a></span></p>
     </div>
   </div>
@@ -2674,7 +2677,7 @@ html.runnr-guest #page-home .stat-grid{grid-template-columns:repeat(3,minmax(0,1
 <script src="js/onboarding.js?v=27"></script>
 <script src="js/intro.js?v=1"></script>
 <script src="js/csv-presets.js?v=3"></script>
-<script src="js/sync.js?v=62"></script>
+<script src="js/sync.js?v=64"></script>
 <script src="js/desk-sessions.js?v=2"></script>
 <script src="js/desk.js?v=12"></script>
 <script src="js/wave.js?v=1"></script>
@@ -2688,7 +2691,10 @@ const FREE_TRADE_LIMIT = 10;
 const DEMO_TRADE_IDS = new Set([1, 2, 3, 4]);
 
 function isImportedJournalTrade(t) {
-  return t && (t.source === 'alpaca' || t.source === 'csv' || t.source === 'ibkr');
+  return t && (t.source === 'alpaca' || t.source === 'csv' || t.source === 'ibkr' || t.source === 't212');
+}
+function isBrokerFillTrade(t) {
+  return t && (t.source === 'alpaca' || t.source === 'ibkr' || t.source === 't212');
 }
 function isDemoJournalTrade(t) {
   return t && !t.source && DEMO_TRADE_IDS.has(t.id);
@@ -4243,12 +4249,12 @@ function renderJournal() {
   renderJournalChallengeChrome();
   const list = document.getElementById('journal-list');
   const hint = document.getElementById('journal-hint');
-  const alpacaPending = S.trades.filter(t => t.source === 'alpaca' && t.incomplete);
+  const alpacaPending = S.trades.filter(t => isBrokerFillTrade(t) && t.incomplete);
   if (hint) {
     if (alpacaPending.length) {
       hint.style.display = 'block';
       hint.innerHTML = `<div style="display:flex;justify-content:space-between;align-items:flex-start;gap:10px;flex-wrap:wrap">
-        <span><strong>${alpacaPending.length} Alpaca fill${alpacaPending.length > 1 ? 's' : ''}</strong> need discipline flags — closed round-trips already count toward Portfolio P&amp;L. Tap each trade, or confirm stop &amp; size for all.</span>
+        <span><strong>${alpacaPending.length} broker fill${alpacaPending.length > 1 ? 's' : ''}</strong> need discipline flags — closed round-trips already count toward Portfolio P&amp;L. Tap each trade, or confirm stop &amp; size for all.</span>
         <button class="btn btn-sm" style="white-space:nowrap;flex-shrink:0" onclick="applyDisciplineDefaultsToAll(event)">Confirm stop &amp; size</button>
       </div>`;
     } else if (!RunnrSync.isPro?.() && RunnrSync.billing?.()?.enabled !== false) {
@@ -4264,14 +4270,15 @@ function renderJournal() {
       hint.style.display = 'none';
     }
   }
+  renderT212JournalButton();
   if (!S.trades.length) {
-    list.innerHTML = '<div class="empty-state"><div class="es-icon">📋</div>No trades yet. Connect Alpaca on Sync or log a trade.</div>';
+    list.innerHTML = '<div class="empty-state"><div class="es-icon">📋</div>No trades yet. Import T212 / Alpaca on Sync or log a trade.</div>';
     return;
   }
   list.innerHTML = S.trades.map(t => {
     try {
-    const isAlpaca = t.source === 'alpaca';
-    const pnlStr = formatTradePnl(t, isAlpaca);
+    const isFill = isBrokerFillTrade(t);
+    const pnlStr = formatTradePnl(t, isFill);
     const pnlCls = Baron.isOpenTrade?.(t) ? '' : (resolveTradePnl(t) >= 0 ? 'pos' : 'neg');
     const stopFlag = t.incomplete && !t.challengeFail ? '<span class="flag flag-incomplete">Stop ?</span>' :
       (t.stopOk ? '<span class="flag flag-ok">✓ Stop</span>' : '<span class="flag flag-no">✗ Stop</span>');
@@ -4280,8 +4287,8 @@ function renderJournal() {
       (t.sizeOk ? '<span class="flag flag-ok">✓ Size</span>' : '<span class="flag flag-no">✗ Size</span>'));
     const fill = Number(t.fillPrice || t.entry || t.exit || 0);
     const priceLabel = fill > 0 ? `$${fill.toFixed(2)}` : 'price pending';
-    const metaLine = isAlpaca
-      ? `<span>${t.date}</span><span>${t.dir === 'long' ? 'BUY' : 'SELL'} ${t.size} @ ${priceLabel}</span><span>Alpaca</span>`
+    const metaLine = isFill
+      ? `<span>${t.date}</span><span>${t.dir === 'long' ? 'BUY' : 'SELL'} ${t.size} @ ${priceLabel}</span><span>${t.source === 't212' ? 'T212' : (t.source === 'ibkr' ? 'IBKR' : 'Alpaca')}</span>`
       : `<span>${t.date}</span><span>${t.entry} → ${t.exit ?? 'open'}</span><span>${t.size} units</span>`;
     const editable = isTradeEditable(t);
     const editLabel = Baron.isOpenTrade?.(t) ? 'Close' : 'Edit';
@@ -4292,7 +4299,7 @@ function renderJournal() {
           <span style="font-size:11px;color:var(--text3)">${t.dir.toUpperCase()}</span>
         </div>
         <div style="display:flex;align-items:center;gap:6px;flex-shrink:0">
-          <span class="te-pnl ${pnlCls}" style="${t.incomplete && isAlpaca ? 'color:var(--accent);font-size:12px' : ''}">${pnlStr}</span>
+          <span class="te-pnl ${pnlCls}" style="${t.incomplete && isFill ? 'color:var(--accent);font-size:12px' : ''}">${pnlStr}</span>
           ${editable ? `<button type="button" class="te-edit" onclick="event.stopPropagation();event.preventDefault();openTradeEditor('${t.id}')">${editLabel}</button>` : ''}
           <button type="button" class="te-del" onclick="deleteTrade('${t.id}', event)" title="Delete entry">✕</button>
         </div>
@@ -4387,13 +4394,13 @@ function reviewTrade(id) {
 
 function applyDisciplineDefaultsToAll(e) {
   if (e) e.stopPropagation();
-  const pending = S.trades.filter(t => t.source === 'alpaca' && t.incomplete);
+  const pending = S.trades.filter(t => isBrokerFillTrade(t) && t.incomplete);
   if (!pending.length) return;
   const risk = window.Baron?.STRATEGY || window.RunnrRisk?.STRATEGY;
   const note = risk
     ? ` (${risk.risk_pct}% risk · ${risk.atr_stop_mult}× ATR stop · ${risk.max_position_pct}% max size)`
     : '';
-  if (!confirm(`Confirm stop & size for all ${pending.length} Alpaca fills${note}?\n\nStop confirmed ✓ · Size within rules ✓`)) return;
+  if (!confirm(`Confirm stop & size for all ${pending.length} broker fills${note}?\n\nStop confirmed ✓ · Size within rules ✓`)) return;
   pending.forEach(t => {
     const fill = Number(t.fillPrice || t.entry || t.exit || 0);
     if (t.dir === 'long') {
@@ -6180,7 +6187,7 @@ function isPortfolioPnlTrade(t) {
   if (Baron.isOpenTrade?.(t)) return false;
   if (resolveTradePnl(t) == null) return false;
   if (!t.incomplete) return true;
-  return t.source === 'alpaca' && (t.alpacaPaired || (Number(t.entry) > 0 && Number(t.exit) > 0));
+  return isBrokerFillTrade(t) && (t.alpacaPaired || (Number(t.entry) > 0 && Number(t.exit) > 0));
 }
 
 function filterTrades(period) {
@@ -6833,7 +6840,7 @@ try {
 const brokers = [
   { code: 'Alpaca', bg: '#f5d542', color: '#000', live: true },
   { code: 'IBKR', bg: '#cc0000', color: '#fff', live: true, kind: 'flex' },
-  { code: 'Trading 212', bg: '#00a7e1', color: '#fff', csv: true },
+  { code: 'Trading 212', bg: '#00a7e1', color: '#fff', live: true, csv: true },
   { code: 'eToro', bg: '#6FCF97', color: '#000', csv: true },
   { code: 'Degiro', bg: '#e30613', color: '#fff', csv: true },
   { code: 'Schwab', bg: '#00a0df', color: '#fff', csv: true },
@@ -6867,6 +6874,7 @@ function renderAvailableBrokers() {
     RunnrSync.ensureBrokerState();
     const alpacaLinked = !!(S.brokerSync && S.brokerSync.alpaca && S.brokerSync.alpaca.connected);
     const ibkrLinked = !!(S.brokerSync && S.brokerSync.ibkr && S.brokerSync.ibkr.connected);
+    const t212Linked = !!(S.brokerSync && S.brokerSync.t212 && S.brokerSync.t212.connected);
     const hasLocal = typeof RunnrSync.hasLocalAlpaca === 'function' && RunnrSync.hasLocalAlpaca();
     const loggedIn = typeof RunnrSync.isLoggedIn === 'function' && RunnrSync.isLoggedIn();
     el.innerHTML = brokers.map(b => {
@@ -6888,6 +6896,15 @@ function renderAvailableBrokers() {
           status = 'Flex Web Service · read-only';
         } else {
           status = 'Flex token · read-only';
+        }
+      } else if (b.code === 'Trading 212') {
+        if (t212Linked) {
+          badge = '● Connected';
+          badgeCls = 'bk-synced';
+          status = 'Read-only history import';
+        } else {
+          badge = b.csv ? 'CSV / API' : '+ Connect';
+          status = 'Read-only sync when T212 env is set · CSV fallback';
         }
       } else if (b.csv) {
         badge = 'CSV';
@@ -7169,6 +7186,7 @@ function renderConnectedBrokers() {
   if (!el) return;
   const a = S.brokerSync.alpaca || {};
   const ib = S.brokerSync.ibkr || {};
+  const t212 = S.brokerSync.t212 || {};
   const cards = [];
 
   if (a.connected) {
@@ -7201,12 +7219,24 @@ function renderConnectedBrokers() {
     </div>`);
   }
 
+  if (t212.connected) {
+    const ago = RunnrSync.formatAgo(t212.lastSync);
+    cards.push(`<div class="broker-card" style="cursor:default;margin-bottom:8px">
+      <div class="bk-logo" style="background:#00a7e1;color:#fff">T212</div>
+      <div class="bk-info">
+        <div class="bk-name">Trading 212</div>
+        <div class="bk-status">${t212.imported || 0} fills imported · Last sync ${ago}</div>
+      </div>
+      <div class="bk-badge bk-synced">● Live</div>
+    </div>`);
+  }
+
   if (cards.length) {
     el.innerHTML = cards.join('');
     return;
   }
   if (RunnrSync.isLoggedIn()) {
-    el.innerHTML = `<div style="font-size:12px;color:var(--text3)">No broker linked yet — connect Alpaca or IBKR Flex below, or import CSV.</div>`;
+    el.innerHTML = `<div style="font-size:12px;color:var(--text3)">No broker linked yet — connect Alpaca, IBKR Flex, or Trading 212 below, or import CSV.</div>`;
   } else {
     el.innerHTML = `<div style="font-size:12px;color:var(--text3)">Log in first, then connect a broker below.</div>`;
   }
@@ -7233,12 +7263,21 @@ function renderHomeBrokerPreview() {
   <div style="font-size:11px;color:var(--text3);margin-top:4px"><span style="color:var(--accent);cursor:pointer" onclick="runBrokerSync()">Refresh now</span></div>`;
 }
 
+function renderT212JournalButton() {
+  const btn = document.getElementById('journal-t212-btn');
+  if (!btn) return;
+  const loggedIn = typeof RunnrSync !== 'undefined' && RunnrSync.isLoggedIn?.();
+  btn.style.display = loggedIn ? 'inline-flex' : 'none';
+}
+window.renderT212JournalButton = renderT212JournalButton;
+
 function renderSyncPage() {
   renderHeaderSyncPill();
   renderSyncAuthBanner();
   renderConnectedBrokers();
   renderAvailableBrokers();
   renderCsvPresetChips();
+  renderT212JournalButton();
 }
 
 let _alpacaRestorePending = false;
@@ -7632,8 +7671,34 @@ async function connectBroker(name) {
     openIbkrModal();
     return;
   }
+  if (name === 'Trading 212') {
+    if (!RunnrSync.isLoggedIn()) {
+      openSyncAuthModal();
+      return;
+    }
+    if (!(await requirePro('Trading 212 import'))) return;
+    const ok = await RunnrSync.ensureT212Connected();
+    renderSyncPage();
+    if (ok) {
+      showToast('Runnr', 'Trading 212 linked — importing fills');
+      try {
+        await RunnrSync.runSync();
+        renderJournal();
+        updateHomeStats();
+      } catch (e) {
+        const msg = String(e.message || e);
+        alert('T212 import failed: ' + msg);
+      }
+      return;
+    }
+    setCsvPreset('t212');
+    switchPage('sync');
+    const zone = document.getElementById('csv-drop-zone');
+    if (zone) zone.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    showToast('Runnr', 'T212 API not configured — CSV export still works');
+    return;
+  }
   const csvMap = {
-    'Trading 212': 't212',
     eToro: 'etoro',
     Degiro: 'degiro',
     Schwab: 'schwab',
@@ -7823,7 +7888,7 @@ function importClosedCsvTrades(trades) {
   });
 
   if (added > 0) {
-    S.trades = S.trades.filter((t) => t.source === 'csv' || t.source === 'alpaca' || t.source === 'ibkr' || !demoIds.has(t.id));
+    S.trades = S.trades.filter((t) => t.source === 'csv' || t.source === 'alpaca' || t.source === 'ibkr' || t.source === 't212' || !demoIds.has(t.id));
     persist();
   }
   return { added, skipped };
@@ -7928,6 +7993,59 @@ window.triggerCsvImport = triggerCsvImport;
 window.handleCsvImportFile = handleCsvImportFile;
 window.initCsvDropZone = initCsvDropZone;
 
+async function importT212Fills() {
+  if (!RunnrSync.isLoggedIn()) {
+    openSyncAuthModal();
+    return;
+  }
+  if (!(await requirePro('Trading 212 import'))) return;
+  try {
+    const ok = await RunnrSync.ensureT212Connected();
+    renderT212JournalButton();
+    if (!ok) {
+      const err = (window.S && S.brokerSync && S.brokerSync.t212 && S.brokerSync.t212.error)
+        || 'Trading 212 is not configured. Set T212_API_KEY and T212_API_SECRET on the API service.';
+      alert(err);
+      switchPage('sync');
+      return;
+    }
+    const data = await RunnrSync.syncT212();
+    const { added, repaired, paired } = RunnrSync.importOrders(
+      data.recent_orders || [],
+      data.positions || [],
+      { source: 't212' }
+    );
+    if (window.S.brokerSync && window.S.brokerSync.t212) {
+      window.S.brokerSync.t212.lastSync = data.as_of || new Date().toISOString();
+      window.S.brokerSync.t212.connected = true;
+      window.S.brokerSync.t212.imported = (window.S.trades || []).filter(
+        (t) => t.source === 't212' && !t.mergedAway
+      ).length;
+    }
+    if (typeof persist === 'function') persist();
+    renderJournal();
+    updateHomeStats();
+    renderSyncPage();
+    refreshPortfolioIfVisible();
+    if (typeof renderCoachPage === 'function') renderCoachPage();
+    const parts = [];
+    if (added) parts.push(`${added} new`);
+    if (repaired) parts.push(`${repaired} updated`);
+    if (paired) parts.push(`${paired} closed round-trip${paired === 1 ? '' : 's'}`);
+    alert(parts.length ? `T212 import — ${parts.join(', ')}.` : 'T212 import — journal is up to date.');
+  } catch (e) {
+    const msg = String(e.message || e);
+    if (RunnrSync.isAuthError?.(msg)) {
+      RunnrSync.logout();
+      handleRunnrAuthExpired(msg);
+      openSyncAuthModal();
+      return;
+    }
+    alert('T212 import failed: ' + msg);
+  }
+}
+window.importT212Fills = importT212Fills;
+
 async function runBrokerSync() {
   if (!RunnrSync.isLoggedIn()) {
     openSyncAuthModal();
@@ -7940,10 +8058,12 @@ async function runBrokerSync() {
       if (profile && profile.action !== 'none') refreshAfterProfileSync();
     } catch (e) {}
     const connected = await ensureAlpacaLinked();
+    const ibkrOk = typeof RunnrSync.ensureIbkrConnected === 'function' && await RunnrSync.ensureIbkrConnected();
+    const t212Ok = typeof RunnrSync.ensureT212Connected === 'function' && await RunnrSync.ensureT212Connected();
     renderSyncPage();
-    if (!connected) {
+    if (!connected && !ibkrOk && !t212Ok) {
       openAlpacaModal();
-      showToast('Runnr', 'Paste Alpaca keys once — saved to your account');
+      showToast('Runnr', 'Paste Alpaca keys, connect IBKR, or set T212 env — then Sync');
       return;
     }
     const { added, repaired, paired } = await RunnrSync.runSync();
@@ -8006,6 +8126,11 @@ function bootRunnrSync() {
           return RunnrSync.pushLocalAlpacaToAccount();
         }
         return ok;
+      }).then((ok) => {
+        const extra = [];
+        if (typeof RunnrSync.ensureIbkrConnected === 'function') extra.push(RunnrSync.ensureIbkrConnected());
+        if (typeof RunnrSync.ensureT212Connected === 'function') extra.push(RunnrSync.ensureT212Connected());
+        return Promise.all(extra).then(() => ok);
       });
     })
     .then((result) => {

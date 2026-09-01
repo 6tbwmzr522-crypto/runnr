@@ -1,0 +1,18 @@
+[
+  {
+    "ticker": "AAPL_US_EQ",
+    "quantity": 10,
+    "averagePrice": 190.5,
+    "currentPrice": 195.0,
+    "ppl": 45.0,
+    "fxPpl": 0,
+    "initialFillDate": "2026-03-12T14:32:01.000Z"
+  },
+  {
+    "ticker": "VUAG_EQ",
+    "quantity": 25,
+    "averagePrice": 12.4,
+    "currentPrice": 12.8,
+    "ppl": 10.0
+  }
+]
