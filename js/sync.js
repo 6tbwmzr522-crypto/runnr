@@ -589,8 +589,29 @@ const RunnrSync = (() => {
     }
   }
 
+  function failClosedBilling(extra) {
+    return Object.assign(
+      {
+        pro: false,
+        plan: "free",
+        status: "free",
+        enabled: true,
+        emailVerified: false,
+        emailConfigured: false,
+        house: false,
+        canViewStats: false,
+        introSeen: false,
+        createdAt: "",
+        avatarUrl: "",
+      },
+      extra || {}
+    );
+  }
+
   function logout() {
     setToken("");
+    billingKnown = false;
+    billingCache = failClosedBilling();
   }
 
   function wipeAlpacaLocalSecrets() {
@@ -1680,19 +1701,10 @@ const RunnrSync = (() => {
     return { action: "empty" };
   }
 
-  let billingCache = {
-    pro: true,
-    plan: "free",
-    status: "free",
-    enabled: false,
-    emailVerified: true,
-    emailConfigured: false,
-    house: false,
-    canViewStats: false,
-    introSeen: false,
-    createdAt: "",
-    avatarUrl: "",
-  };
+  // Fail closed until /auth/me (or health, when logged out) succeeds.
+  // Logged-in users are free + billing-on so isPro() is false and the journal cap applies.
+  let billingKnown = false;
+  let billingCache = failClosedBilling();
 
   function billing() {
     return billingCache;
@@ -1711,6 +1723,7 @@ const RunnrSync = (() => {
     if (data.intro_seen != null) billingCache.introSeen = !!data.intro_seen;
     if (data.created_at) billingCache.createdAt = data.created_at;
     if (data.avatar_url !== undefined) billingCache.avatarUrl = data.avatar_url || "";
+    if (data.pro != null || data.billing_enabled != null) billingKnown = true;
     return billingCache;
   }
 
@@ -1739,35 +1752,17 @@ const RunnrSync = (() => {
 
   async function refreshBilling() {
     if (!isLoggedIn()) {
-      billingCache = {
-        pro: false,
-        plan: "free",
-        status: "free",
-        enabled: true,
-        emailVerified: false,
-        emailConfigured: false,
-        house: false,
-        canViewStats: false,
-        introSeen: false,
-        createdAt: "",
-        avatarUrl: "",
-      };
+      billingKnown = false;
+      billingCache = failClosedBilling();
       try {
         const health = await fetch(apiBase() + "/health").then((r) => r.json()).catch(() => null);
         if (health && health.stripe_configured === false) {
-          billingCache = {
+          billingKnown = true;
+          billingCache = failClosedBilling({
             pro: true,
-            plan: "free",
-            status: "free",
             enabled: false,
             emailVerified: true,
-            emailConfigured: false,
-            house: false,
-            canViewStats: false,
-            introSeen: false,
-            createdAt: "",
-            avatarUrl: "",
-          };
+          });
         }
       } catch (e) {}
       return billingCache;
@@ -1775,7 +1770,8 @@ const RunnrSync = (() => {
     try {
       const me = await request("/api/v1/auth/me");
       applyFirstNameFromMe(me);
-      billingCache = {
+      billingKnown = true;
+      billingCache = failClosedBilling({
         pro: !!me.pro,
         plan: me.plan || "free",
         status: me.subscription_status || "free",
@@ -1787,7 +1783,7 @@ const RunnrSync = (() => {
         introSeen: !!me.intro_seen,
         createdAt: me.created_at || "",
         avatarUrl: me.avatar_url || "",
-      };
+      });
       if (me.intro_seen && window.S) window.S.introWalkthroughSeen = true;
       if (!billingCache.canViewStats) {
         try {
@@ -1798,7 +1794,8 @@ const RunnrSync = (() => {
         } catch (e) {}
       }
     } catch (e) {
-      /* keep cache */
+      // Keep a successful /me (boss/Pro). Never fail open if we never learned status.
+      if (!billingKnown) billingCache = failClosedBilling();
     }
     return billingCache;
   }

@@ -1,7 +1,8 @@
 """Free-plan journal cap — matches js/trade-limit.js.
 
 Manual journal rows and imported fills (csv / t212 / ibkr / alpaca) share
-FREE_TRADE_LIMIT. Demo seed trades and merged-away pair legs do not count.
+FREE_TRADE_LIMIT. Explicit demo seed rows (isDemo/seed) and merged-away pair
+legs do not count. Bare ids 1–4 without that flag do count.
 """
 
 from __future__ import annotations
@@ -9,8 +10,9 @@ from __future__ import annotations
 import json
 from typing import Any
 
+from app.billing_util import user_has_pro_access
+
 FREE_TRADE_LIMIT = 10
-DEMO_TRADE_IDS = frozenset({1, 2, 3, 4})
 IMPORT_SOURCES = frozenset({"alpaca", "csv", "ibkr", "t212"})
 FREE_LIMIT_DETAIL = (
     "Free plan allows 10 trades (manual and imported). Upgrade for unlimited."
@@ -20,12 +22,7 @@ FREE_LIMIT_DETAIL = (
 def is_demo_journal_trade(trade: Any) -> bool:
     if not isinstance(trade, dict):
         return False
-    if trade.get("source"):
-        return False
-    try:
-        return int(trade.get("id")) in DEMO_TRADE_IDS
-    except (TypeError, ValueError):
-        return False
+    return trade.get("isDemo") is True or trade.get("seed") is True
 
 
 def is_countable_journal_trade(trade: Any) -> bool:
@@ -45,13 +42,7 @@ def count_journal_trades_for_limit(trades: Any) -> int:
 
 
 def journal_is_unlimited(user: dict | None) -> bool:
-    if not user:
-        return False
-    if user.get("pro"):
-        return True
-    if user.get("billing_enabled") is False:
-        return True
-    return False
+    return user_has_pro_access(user)
 
 
 def existing_countable_from_state_json(state_json: str | None) -> int:

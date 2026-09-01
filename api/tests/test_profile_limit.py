@@ -61,14 +61,27 @@ def test_free_user_cannot_put_11_imported_trades(monkeypatch):
         assert len(stay.json()["state"]["trades"]) == FREE_TRADE_LIMIT
 
 
+def test_crafted_ids_without_flag_hit_the_cap(monkeypatch):
+    _enable_billing(monkeypatch)
+    crafted = {
+        "trades": [{"id": i, "instr": "X"} for i in range(1, 12)],
+        "bal": 10000,
+    }
+    with TestClient(app) as client:
+        headers = _auth("free.crafted@example.com")
+        blocked = client.put("/api/v1/profile/state", json={"state": crafted}, headers=headers)
+        assert blocked.status_code == 403
+        assert blocked.json()["detail"] == FREE_LIMIT_DETAIL
+
+
 def test_free_user_demo_only_can_put_10(monkeypatch):
     _enable_billing(monkeypatch)
     demo_plus = {
         "trades": [
-            {"id": 1, "instr": "RACE"},
-            {"id": 2, "instr": "BE"},
-            {"id": 3, "instr": "USDJPY"},
-            {"id": 4, "instr": "AAPL CFD"},
+            {"id": 1, "isDemo": True, "instr": "RACE"},
+            {"id": 2, "isDemo": True, "instr": "BE"},
+            {"id": 3, "isDemo": True, "instr": "USDJPY"},
+            {"id": 4, "isDemo": True, "instr": "AAPL CFD"},
         ]
         + [
             {"id": 500 + i, "instr": "MSFT", "source": "csv", "externalId": f"csv:{i}"}

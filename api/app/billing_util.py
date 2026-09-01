@@ -23,17 +23,33 @@ def email_is_boss(email: str | None) -> bool:
 
 
 def subscription_is_pro(status: str | None, plan: str | None = None, email: str | None = None) -> bool:
-    """True when the user has an active Runnr subscription or is a boss account."""
+    """True when the user has an active Runnr subscription or is a boss account.
+
+    ``subscription_status`` is authoritative. A leftover plan of monthly/yearly/pro
+    does not grant Pro when status is canceled, past_due, unpaid, or free.
+    ``plan`` is kept on the signature for callers; it is not a substitute for status.
+    """
     if email_is_boss(email):
         return True
     if not settings.stripe_enabled:
         # Billing not configured — keep app usable (dev / pre-Stripe).
         return True
     st = (status or "free").lower()
-    if st in PRO_STATUSES:
+    return st in PRO_STATUSES
+
+
+def user_has_pro_access(user: dict | None) -> bool:
+    """Boss/Pro, or billing disabled (dev). Used by journal cap and broker mutations."""
+    if not user:
+        return False
+    if user.get("pro"):
         return True
-    pl = (plan or "free").lower()
-    return pl in {"pro", "runnr_pro", "monthly", "yearly", "boss"}
+    if user.get("billing_enabled") is False:
+        return True
+    return False
+
+
+PRO_REQUIRED_DETAIL = "Upgrade to Runnr Pro to use this feature."
 
 
 def plan_from_price_id(price_id: str | None) -> str:

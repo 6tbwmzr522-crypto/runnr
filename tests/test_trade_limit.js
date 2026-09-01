@@ -23,8 +23,8 @@ function check(name, cond) {
 const v = html.match(/var V = "(\d+)"/)[1];
 const cache = sw.match(/CACHE = "runnr-v(\d+)"/)[1];
 check("index.html V matches sw.js CACHE", v === cache);
-check("trade-limit.js is loaded", html.includes("js/trade-limit.js?v=1"));
-check("sync.js cache-busted", html.includes("js/sync.js?v=67"));
+check("trade-limit.js is loaded", html.includes("js/trade-limit.js?v=2"));
+check("sync.js cache-busted", html.includes("js/sync.js?v=68"));
 check("count no longer excludes imported fills", !/!isImportedJournalTrade/.test(html));
 check("hint copy says manual + imports", html.includes("trades logged (manual + imports)"));
 check("limit-reached copy mentions imports", html.includes("including imports"));
@@ -57,16 +57,25 @@ const proSync = { isPro: () => true, billing: () => ({ enabled: true }) };
 const billingOff = { isPro: () => false, billing: () => ({ enabled: false }) };
 
 const demo = [
-  { id: 1, instr: "RACE", dir: "long", entry: 354, exit: 380, size: 28, pnl: 728 },
-  { id: 2, instr: "BE", dir: "long", entry: 137, exit: 151, size: 65, pnl: 910 },
-  { id: 3, instr: "USDJPY", dir: "short", entry: 159.37, exit: 157.93, size: 0.5, pnl: 720 },
-  { id: 4, instr: "AAPL CFD", dir: "long", entry: 198, exit: 195, size: 15, pnl: -45, incomplete: true },
+  { id: 1, isDemo: true, instr: "RACE", dir: "long", entry: 354, exit: 380, size: 28, pnl: 728 },
+  { id: 2, isDemo: true, instr: "BE", dir: "long", entry: 137, exit: 151, size: 65, pnl: 910 },
+  { id: 3, isDemo: true, instr: "USDJPY", dir: "short", entry: 159.37, exit: 157.93, size: 0.5, pnl: 720 },
+  { id: 4, isDemo: true, instr: "AAPL CFD", dir: "long", entry: 198, exit: 195, size: 15, pnl: -45, incomplete: true },
 ];
 
 check("demo-only count is 0", TL.countJournalTradesForLimit(demo) === 0);
 check("demo-only user can add 10", TL.canAddJournalTrade(10, demo, freeSync) === true);
 check("demo-only user cannot add 11", TL.canAddJournalTrade(11, demo, freeSync) === false);
 check("10 slots remaining with only demos", TL.journalTradeSlotsRemaining(demo, freeSync) === 10);
+
+const craftedIds = [
+  { id: 1, instr: "RACE" },
+  { id: 2, instr: "BE" },
+  { id: 3, instr: "USDJPY" },
+  { id: 4, instr: "AAPL CFD" },
+];
+check("crafted ids 1–4 without isDemo count", TL.countJournalTradesForLimit(craftedIds) === 4);
+check("seed:true also excluded", TL.countJournalTradesForLimit([{ id: 9, seed: true }]) === 0);
 
 const t212Ten = [];
 for (let i = 0; i < 10; i++) {
@@ -138,7 +147,10 @@ function loadSync(opts) {
   };
   vm.runInNewContext(limitSrc, ctx);
   vm.runInNewContext(syncSrc, ctx);
-  if (opts.free) {
+  if (opts.pro) {
+    ctx.window.RunnrSync.isPro = () => true;
+    ctx.window.RunnrSync.billing = () => ({ enabled: true, pro: true });
+  } else if (opts.free) {
     ctx.window.RunnrSync.isPro = () => false;
     ctx.window.RunnrSync.billing = () => ({ enabled: true });
   }
@@ -208,7 +220,7 @@ check(
 );
 
 const unlimited = loadSync({
-  free: false,
+  pro: true,
   trades: t212Ten,
 });
 const proImport = unlimited.window.RunnrSync.importOrders(
@@ -218,4 +230,100 @@ const proImport = unlimited.window.RunnrSync.importOrders(
 );
 check("Pro import is not capped", proImport.added === 1 && !proImport.limited);
 
-console.log("ok", n);
+const failClosed = loadSync({ trades: t212Ten });
+check("default billing cache is not Pro", failClosed.window.RunnrSync.isPro() === false);
+check("default billing.enabled is on (fail closed)", failClosed.window.RunnrSync.billing().enabled === true);
+check("default billing.pro is false", failClosed.window.RunnrSync.billing().pro === false);
+const failClosedImport = failClosed.window.RunnrSync.importOrders(
+  [fill("t212:fill:fail-closed", "2026-07-01T00:00:00.000Z")],
+  [],
+  { source: "t212" }
+);
+check("fail-closed default caps import", failClosedImport.added === 0 && failClosedImport.limited === true);
+
+function loadSyncBilling(opts) {
+  const store = Object.assign({}, opts && opts.store);
+  let meCalls = 0;
+  const ctx = {
+    localStorage: {
+      getItem: (k) => (Object.prototype.hasOwnProperty.call(store, k) ? store[k] : null),
+      setItem: (k, v) => { store[k] = String(v); },
+      removeItem: (k) => { delete store[k]; },
+      get length() { return Object.keys(store).length; },
+      key: (i) => Object.keys(store)[i] || null,
+    },
+    location: { hostname: "localhost" },
+    window: {},
+    console,
+    Date,
+    Math,
+    JSON,
+    Set,
+    Map,
+    Number,
+    String,
+    Object,
+    Array,
+    parseInt,
+    isNaN: Number.isNaN,
+    Infinity,
+    atob: (s) => Buffer.from(s, "base64").toString("binary"),
+    setTimeout: () => 0,
+    clearTimeout: () => {},
+    AbortController: class {
+      constructor() { this.signal = {}; }
+      abort() {}
+    },
+    fetch: async (url) => {
+      const u = String(url);
+      if (opts && opts.me && u.includes("/auth/me") && meCalls++ === 0) {
+        return {
+          ok: true,
+          statusText: "OK",
+          json: async () => opts.me,
+        };
+      }
+      throw new Error("network");
+    },
+  };
+  ctx.window = ctx;
+  ctx.globalThis = ctx;
+  ctx.window.S = { trades: [], bal: 10000 };
+  vm.runInNewContext(limitSrc, ctx);
+  vm.runInNewContext(syncSrc, ctx);
+  return ctx;
+}
+
+const loggedFail = loadSyncBilling({ store: { runnr_api_token: "tok" } });
+check("logged-in isPro false before /me", loggedFail.window.RunnrSync.isPro() === false);
+
+(async () => {
+  const afterFail = await loggedFail.window.RunnrSync.refreshBilling();
+  check("refresh failure does not grant Pro", afterFail.pro === false);
+  check("refresh failure keeps billing on", afterFail.enabled === true);
+  check("isPro still false after failed refresh", loggedFail.window.RunnrSync.isPro() === false);
+
+  const boss = loadSyncBilling({
+    store: { runnr_api_token: "tok" },
+    me: {
+      pro: true,
+      billing_enabled: true,
+      plan: "boss",
+      subscription_status: "active",
+      house: true,
+      email_verified: true,
+    },
+  });
+  const firstMe = await boss.window.RunnrSync.refreshBilling();
+  check("successful /me boss is Pro", firstMe.pro === true && boss.window.RunnrSync.isPro() === true);
+  const kept = await boss.window.RunnrSync.refreshBilling();
+  check("failed refresh preserves known Pro", kept.pro === true && boss.window.RunnrSync.isPro() === true);
+
+  check("shipped seed trades have isDemo", /id:\s*1,\s*isDemo:\s*true/.test(html));
+  check("limit helper no longer uses DEMO_TRADE_IDS", !/DEMO_TRADE_IDS/.test(limitSrc));
+
+  console.log("ok", n);
+})().catch((err) => {
+  console.error(err);
+  process.exit(1);
+});

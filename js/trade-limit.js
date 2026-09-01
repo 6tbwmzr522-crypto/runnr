@@ -1,12 +1,12 @@
 /**
  * Free-plan journal cap — manual entries and imported fills share one bucket.
- * Demo seed rows and merged-away pair legs do not count.
+ * Explicit demo seed rows (isDemo / seed) and merged-away pair legs do not count.
+ * Bare ids 1–4 without that flag do count.
  */
 (function (global) {
   "use strict";
 
   const FREE_TRADE_LIMIT = 10;
-  const DEMO_TRADE_IDS = new Set([1, 2, 3, 4]);
   const IMPORT_SOURCES = new Set(["alpaca", "csv", "ibkr", "t212"]);
 
   function isImportedJournalTrade(t) {
@@ -14,7 +14,7 @@
   }
 
   function isDemoJournalTrade(t) {
-    return !!(t && !t.source && DEMO_TRADE_IDS.has(t.id));
+    return !!(t && (t.isDemo === true || t.seed === true));
   }
 
   function isCountableJournalTrade(t) {
@@ -51,7 +51,6 @@
 
   const api = {
     FREE_TRADE_LIMIT,
-    DEMO_TRADE_IDS,
     IMPORT_SOURCES,
     isImportedJournalTrade,
     isDemoJournalTrade,
