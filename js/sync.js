@@ -18,7 +18,14 @@ const RunnrSync = (() => {
 
   function ensureApiUrl() {
     try {
+      const host = String(location.hostname || "");
       const current = localStorage.getItem(URL_KEY);
+      if (host === "localhost" || host === "127.0.0.1") {
+        if (!current || /railway\.app/i.test(current) || /api\.runnr\.fyi/i.test(current)) {
+          localStorage.setItem(URL_KEY, "http://localhost:8090");
+        }
+        return;
+      }
       if (!current || /railway\.app/i.test(current)) {
         localStorage.setItem(URL_KEY, "https://api.runnr.fyi");
       }

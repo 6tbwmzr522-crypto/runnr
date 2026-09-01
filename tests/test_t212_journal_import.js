@@ -21,7 +21,7 @@ function check(name, cond) {
 const v = html.match(/var V = "(\d+)"/)[1];
 const cache = sw.match(/CACHE = "runnr-v(\d+)"/)[1];
 check("index.html V matches sw.js CACHE", v === cache);
-check("sync.js cache-busted", html.includes("js/sync.js?v=63"));
+check("sync.js cache-busted", html.includes("js/sync.js?v=64"));
 check("journal has T212 import control", html.includes('id="journal-t212-btn"') && html.includes("importT212Fills"));
 check("Trading 212 is a live broker card", /code:\s*'Trading 212'[\s\S]{0,80}live:\s*true/.test(html));
 check("T212 sync route exists", brokersPy.includes('/t212/sync') && brokersPy.includes('/t212/status'));
