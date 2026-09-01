@@ -1029,6 +1029,14 @@ const RunnrSync = (() => {
     const seen = new Set(window.S.brokerSync.importedOrderIds || []);
     let added = 0;
     let repaired = 0;
+    let limited = false;
+    let remaining = Infinity;
+    const TL = typeof window !== "undefined" ? window.RunnrTradeLimit : null;
+    if (TL && typeof TL.journalTradeSlotsRemaining === "function") {
+      remaining = TL.journalTradeSlotsRemaining();
+    } else if (typeof window !== "undefined" && typeof window.journalTradeSlotsRemaining === "function") {
+      remaining = window.journalTradeSlotsRemaining();
+    }
     const maxId = window.S.trades.reduce((m, t) => Math.max(m, t.id || 0), 0);
     const demoIds = new Set([1, 2, 3, 4]);
 
@@ -1058,6 +1066,10 @@ const RunnrSync = (() => {
       const qty = o.filled_qty || o.qty || 1;
       const sym = o.symbol || "?";
       if (isOptionSymbol(sym)) return;
+      if (remaining <= 0) {
+        limited = true;
+        return;
+      }
       const filledAt = o.filled_at || o.submitted_at;
       const date = filledAt
         ? new Date(filledAt).toLocaleDateString("en-GB", { month: "short", day: "numeric" })
@@ -1086,6 +1098,7 @@ const RunnrSync = (() => {
       });
       seen.add(o.id);
       added++;
+      if (Number.isFinite(remaining)) remaining -= 1;
     });
 
     if (added > 0) {
@@ -1107,7 +1120,7 @@ const RunnrSync = (() => {
       ).length;
     }
     if (typeof persist === "function") persist();
-    return { added, repaired, paired };
+    return { added, repaired, paired, limited };
   }
 
   async function refreshStatus() {
@@ -1187,6 +1200,7 @@ const RunnrSync = (() => {
     let added = 0;
     let repaired = 0;
     let paired = 0;
+    let limited = false;
     let any = false;
     let lastData = null;
 
@@ -1204,6 +1218,7 @@ const RunnrSync = (() => {
       added += r.added;
       repaired += r.repaired;
       paired += r.paired;
+      if (r.limited) limited = true;
       window.S.brokerSync.alpaca.lastSync = data.as_of || new Date().toISOString();
       window.S.brokerSync.alpaca.connected = true;
     }
@@ -1217,6 +1232,7 @@ const RunnrSync = (() => {
       added += r.added;
       repaired += r.repaired;
       paired += r.paired;
+      if (r.limited) limited = true;
       window.S.brokerSync.ibkr.lastSync = data.as_of || new Date().toISOString();
       window.S.brokerSync.ibkr.connected = true;
       window.S.brokerSync.ibkr.imported = window.S.trades.filter(
@@ -1233,6 +1249,7 @@ const RunnrSync = (() => {
       added += r.added;
       repaired += r.repaired;
       paired += r.paired;
+      if (r.limited) limited = true;
       window.S.brokerSync.t212.lastSync = data.as_of || new Date().toISOString();
       window.S.brokerSync.t212.connected = true;
       window.S.brokerSync.t212.imported = window.S.trades.filter(
@@ -1252,7 +1269,7 @@ const RunnrSync = (() => {
     else if (typeof loadPortfolio === "function" && document.getElementById("page-portfolio")?.classList.contains("active")) {
       loadPortfolio(typeof portPeriod !== "undefined" ? portPeriod : "all", document.querySelector(".period-tab.active"));
     }
-    return { added, repaired, paired, data: lastData };
+    return { added, repaired, paired, limited, data: lastData };
   }
 
   async function connectIbkr(token, queryId) {
