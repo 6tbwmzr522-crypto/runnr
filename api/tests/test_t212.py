@@ -115,13 +115,118 @@ def test_positions_keep_broker_qty_not_invented_fills():
     assert by_sym["VUAG"]["qty"] == 25
 
 
+BOSS_EMAIL = "t212.operator@example.com"
+RETAIL_EMAIL = "t212.retail@example.com"
+
+
+def _set_boss_emails(monkeypatch, emails: str = BOSS_EMAIL) -> None:
+    monkeypatch.setattr("app.config.settings.runnr_boss_emails", emails)
+
+
+def _assert_no_secret_leak(payload) -> None:
+    dumped = json.dumps(payload).lower()
+    assert "t212_api_key" not in dumped
+    assert "t212_api_secret" not in dumped
+    assert "basic " not in dumped
+    assert "traceback" not in dumped
+    assert "test-key" not in dumped
+    assert "test-secret" not in dumped
+    assert "recent_orders" not in dumped
+    assert "filled_avg_price" not in dumped
+
+
+def test_t212_unauthenticated_is_401():
+    with TestClient(app) as client:
+        st = client.get("/api/v1/brokers/t212/status")
+        assert st.status_code == 401
+        sync = client.get("/api/v1/brokers/t212/sync")
+        assert sync.status_code == 401
+        for body in (st.json(), sync.json()):
+            _assert_no_secret_leak(body)
+            assert body.get("recent_orders") is None
+
+
+def test_t212_non_boss_is_403_without_leaking_global_key(monkeypatch):
+    _set_boss_emails(monkeypatch)
+    monkeypatch.setattr("app.config.settings.t212_api_key", "test-key-xxxx")
+    monkeypatch.setattr("app.config.settings.t212_api_secret", "test-secret-yyyy")
+    monkeypatch.setattr("app.routers.brokers.t212_configured", lambda: True)
+
+    called = {"positions": 0, "orders": 0}
+
+    def boom_positions(**_kwargs):
+        called["positions"] += 1
+        raise AssertionError("non-boss must not fetch T212 positions")
+
+    def boom_orders(**_kwargs):
+        called["orders"] += 1
+        raise AssertionError("non-boss must not fetch T212 fills")
+
+    monkeypatch.setattr("app.routers.brokers.fetch_positions", boom_positions)
+    monkeypatch.setattr("app.routers.brokers.fetch_history_orders", boom_orders)
+
+    with TestClient(app) as client:
+        headers = {"Authorization": f"Bearer {token_for(RETAIL_EMAIL)}"}
+        st = client.get("/api/v1/brokers/t212/status", headers=headers)
+        assert st.status_code == 403
+        sync = client.get("/api/v1/brokers/t212/sync", headers=headers)
+        assert sync.status_code == 403
+        for res in (st, sync):
+            detail = res.json()["detail"]
+            assert "not connected for this account" in detail.lower()
+            _assert_no_secret_leak(res.json())
+            assert res.json().get("recent_orders") is None
+        assert called == {"positions": 0, "orders": 0}
+
+
+def test_t212_boss_can_sync(monkeypatch):
+    _set_boss_emails(monkeypatch)
+    monkeypatch.setattr("app.config.settings.t212_api_key", "test-key-xxxx")
+    monkeypatch.setattr("app.config.settings.t212_api_secret", "test-secret-yyyy")
+    monkeypatch.setattr("app.routers.brokers.t212_configured", lambda: True)
+    monkeypatch.setattr("app.routers.brokers.require_t212_configured", lambda: ("test-key-xxxx", "test-secret-yyyy"))
+
+    fills = [
+        {
+            "id": "t212:fill:9001",
+            "symbol": "AAPL",
+            "side": "buy",
+            "qty": 10,
+            "filled_qty": 10,
+            "filled_avg_price": 190.5,
+            "status": "filled",
+            "filled_at": "2026-03-12T14:32:01.000Z",
+        }
+    ]
+    positions = [{"symbol": "AAPL", "qty": 10, "avg_entry_price": 190.5}]
+    monkeypatch.setattr("app.routers.brokers.fetch_positions", lambda **_kw: positions)
+    monkeypatch.setattr("app.routers.brokers.fetch_history_orders", lambda **_kw: fills)
+
+    with TestClient(app) as client:
+        headers = {"Authorization": f"Bearer {token_for(BOSS_EMAIL)}"}
+        st = client.get("/api/v1/brokers/t212/status", headers=headers)
+        assert st.status_code == 200
+        assert st.json()["connected"] is True
+        assert st.json()["broker"] == "t212"
+        sync = client.get("/api/v1/brokers/t212/sync", headers=headers)
+        assert sync.status_code == 200
+        body = sync.json()
+        assert body["broker"] == "t212"
+        assert body["recent_orders"][0]["id"] == "t212:fill:9001"
+        assert body["positions"][0]["symbol"] == "AAPL"
+        blob = json.dumps(body)
+        assert "test-key-xxxx" not in blob
+        assert "test-secret-yyyy" not in blob
+
+
 def test_missing_env_status_and_sync(monkeypatch):
+    _set_boss_emails(monkeypatch)
     monkeypatch.setattr("app.routers.brokers.t212_configured", lambda: False)
     monkeypatch.setattr("app.t212.t212_configured", lambda: False)
     monkeypatch.setattr("app.config.settings.t212_api_key", "")
     monkeypatch.setattr("app.config.settings.t212_api_secret", "")
     with TestClient(app) as client:
-        headers = {"Authorization": f"Bearer {token_for()}"}
+        headers = {"Authorization": f"Bearer {token_for(BOSS_EMAIL)}"}
         st = client.get("/api/v1/brokers/t212/status", headers=headers)
         assert st.status_code == 200
         body = st.json()

@@ -1127,10 +1127,15 @@ const RunnrSync = (() => {
       const st = await ibkrStatus();
       applyIbkrStatus(st);
     } catch (e) {}
-    try {
-      const st = await t212Status();
-      applyT212Status(st);
-    } catch (e) {}
+    if (canUseT212Api()) {
+      try {
+        const st = await t212Status();
+        applyT212Status(st);
+      } catch (e) {}
+    } else {
+      window.S.brokerSync.t212.connected = false;
+      delete window.S.brokerSync.t212.error;
+    }
     return window.S.brokerSync.alpaca;
   }
 
@@ -1217,7 +1222,7 @@ const RunnrSync = (() => {
       ).length;
     }
 
-    const t212Ok = await ensureT212Connected();
+    const t212Ok = canUseT212Api() && await ensureT212Connected();
     if (t212Ok) {
       any = true;
       const data = await syncT212();
@@ -1290,6 +1295,11 @@ const RunnrSync = (() => {
     return false;
   }
 
+  function canUseT212Api() {
+    // T212 env keys are operator-wide. Same house flag as Stripe skip (email_is_boss).
+    return isHouse();
+  }
+
   async function t212Status() {
     return request("/api/v1/brokers/t212/status");
   }
@@ -1308,7 +1318,7 @@ const RunnrSync = (() => {
   }
 
   async function ensureT212Connected() {
-    if (!isLoggedIn()) return false;
+    if (!isLoggedIn() || !canUseT212Api()) return false;
     ensureBrokerState();
     try {
       const st = await t212Status();
@@ -1868,6 +1878,7 @@ const RunnrSync = (() => {
     syncT212,
     ensureT212Connected,
     applyT212Status,
+    canUseT212Api,
     refreshStatus,
     runSync,
     repairJournalIfNeeded,

@@ -6,7 +6,7 @@ Status legend: **done** · **csv** · **api-planned** · **oauth-blocked** · **
 |---|----------|----------------|----------------|--------|
 | 1 | **Alpaca** | Official REST API, keys | Connect / status / sync + FIFO pairing | **done** |
 | 2 | **Interactive Brokers** | Client Portal Web API, Flex queries, OAuth for some apps | Flex Web Service + CSV preset | **done** (Flex) / csv |
-| 3 | **Trading 212** | Public API (Invest / Stocks ISA) + CSV export | Live read-only history import + CSV preset | **done** (API + csv) |
+| 3 | **Trading 212** | Public API (Invest / Stocks ISA) + CSV export | CSV preset for all; operator env-key import is house-only (`email_is_boss`) | **done** (API house-only + csv) |
 | 4 | **eToro** | No general retail trading API; CSV/history export | CSV preset only | **csv** done |
 | 5 | **Robinhood** | No official public trading API for third parties | CSV if user export exists; do not scrape | **oauth-blocked** / csv |
 | 6 | **Charles Schwab** | Trader API (OAuth) after TD merge — partner approval | CSV preset; OAuth later | **csv** done |

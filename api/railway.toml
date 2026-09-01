@@ -22,7 +22,8 @@ drainingSeconds = 20
 #   RESEND_API_KEY=re_...
 #   RESEND_FROM_EMAIL=Runnr <noreply@runnr.fyi>
 # Verify the domain in Resend, then health.email_configured should be true.
-# Trading 212 read-only journal import (Invest / Stocks ISA):
+# Trading 212 read-only journal import (Invest / Stocks ISA) — house/boss only:
 #   T212_API_KEY=...
 #   T212_API_SECRET=...
 # HTTP Basic against https://live.trading212.com — never used to place orders.
+# Status/sync are gated by RUNNR_BOSS_EMAILS (same list as Stripe skip).

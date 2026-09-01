@@ -14,17 +14,24 @@ const sw = fs.readFileSync(path.join(root, "sw.js"), "utf8");
 const t212Py = fs.readFileSync(path.join(root, "api/app/t212.py"), "utf8");
 const brokersPy = fs.readFileSync(path.join(root, "api/app/routers/brokers.py"), "utf8");
 
+let n = 0;
 function check(name, cond) {
   assert(cond, name);
+  n += 1;
 }
 
 const v = html.match(/var V = "(\d+)"/)[1];
 const cache = sw.match(/CACHE = "runnr-v(\d+)"/)[1];
 check("index.html V matches sw.js CACHE", v === cache);
-check("sync.js cache-busted", html.includes("js/sync.js?v=64"));
+check("sync.js cache-busted", html.includes("js/sync.js?v=65"));
 check("journal has T212 import control", html.includes('id="journal-t212-btn"') && html.includes("importT212Fills"));
+check("Import T212 is house-gated", html.includes("canUseT212Api") && html.includes("renderT212JournalButton"));
+check("T212 card keeps CSV fallback", html.includes("setCsvPreset('t212')") && /id:\s*"t212"/.test(fs.readFileSync(path.join(root, "js/csv-presets.js"), "utf8")));
 check("Trading 212 is a live broker card", /code:\s*'Trading 212'[\s\S]{0,80}live:\s*true/.test(html));
 check("T212 sync route exists", brokersPy.includes('/t212/sync') && brokersPy.includes('/t212/status'));
+check("T212 status/sync reuse email_is_boss", brokersPy.includes("email_is_boss") && brokersPy.includes("require_t212_house"));
+const notConnected = brokersPy.match(/T212_NOT_CONNECTED_FOR_ACCOUNT = \([\s\S]*?\)/)[0];
+check("T212 non-boss 403 does not mention env keys", !/T212_API_KEY|T212_API_SECRET/.test(notConnected));
 check("T212 client is GET-only", t212Py.includes("method=\"GET\"") || t212Py.includes("method='GET'"));
 check("T212 refuses order-write paths", t212Py.includes("order-write"));
 check("T212 never posts market/limit orders", !/orders\/market/.test(t212Py.split("order-write")[0]) || t212Py.includes("Refusing Trading 212 order-write path"));
@@ -74,6 +81,8 @@ const ctx = loadSync();
 const RS = ctx.window.RunnrSync;
 check("RunnrSync.importOrders exported", typeof RS.importOrders === "function");
 check("RunnrSync.syncT212 exported", typeof RS.syncT212 === "function");
+check("RunnrSync.canUseT212Api is house-only", typeof RS.canUseT212Api === "function" && RS.canUseT212Api() === false);
+check("ensureT212Connected gates on canUseT212Api", syncSrc.includes("!isLoggedIn() || !canUseT212Api()"));
 
 const fills = [
   {
@@ -115,4 +124,4 @@ check("re-import adds zero trades", second.added === 0);
 const after = (ctx.window.S.trades || []).filter((t) => t.source === "t212" && !t.mergedAway);
 check("re-import does not duplicate", after.length === t212Trades.filter((t) => !t.mergedAway).length);
 
-console.log("ok", 16);
+console.log("ok", n);

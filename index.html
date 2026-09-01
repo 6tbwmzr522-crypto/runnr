@@ -5,7 +5,7 @@
 <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
 <script>
 (function () {
-  var V = "108";
+  var V = "109";
   try {
     if (localStorage.getItem("runnr_app_v") !== V) {
       localStorage.setItem("runnr_app_v", V);
@@ -2643,7 +2643,7 @@ html.runnr-guest #page-home .stat-grid{grid-template-columns:repeat(3,minmax(0,1
       <p style="margin:0 0 12px"><strong style="color:var(--text)">Built by</strong> Janis Berzins · Thin Ice Digital Ltd · Oxford, UK.<br>15+ years automotive engineering (Tesla, BMW, Rolls-Royce). Full-stack founder — product, cloud, and discipline engine shipped in-house.</p>
       <p style="margin:0 0 12px"><strong style="color:var(--text)">Contact</strong><br>
         <a href="mailto:info@thinicedigital.com" style="color:var(--accent)">info@thinicedigital.com</a></p>
-      <p style="margin:0;font-size:12px;color:var(--text3)">Alpaca, IBKR Flex, and Trading 212 sync are <strong>read-only</strong> — Runnr cannot place trades. T212 uses server env keys; Alpaca / Flex tokens are encrypted per account. CSV presets cover eToro, Degiro, Schwab and more.</p>
+      <p style="margin:0;font-size:12px;color:var(--text3)">Alpaca, IBKR Flex, and Trading 212 imports are <strong>read-only</strong> — Runnr cannot place trades. Alpaca / Flex tokens are encrypted per account. CSV presets cover Trading 212, eToro, Degiro, Schwab and more.</p>
       <p style="margin:12px 0 0;font-size:12px;line-height:1.55"><a href="/terms/" style="color:var(--gold)">Terms</a> · <a href="/refund/" style="color:var(--gold)">Refund Policy</a> · <a href="/privacy/" style="color:var(--gold)">Privacy</a><span class="js-stats-link" hidden> · <a href="/stats.html" style="color:var(--gold)">Stats</a></span></p>
     </div>
   </div>
@@ -2677,7 +2677,7 @@ html.runnr-guest #page-home .stat-grid{grid-template-columns:repeat(3,minmax(0,1
 <script src="js/onboarding.js?v=27"></script>
 <script src="js/intro.js?v=1"></script>
 <script src="js/csv-presets.js?v=3"></script>
-<script src="js/sync.js?v=64"></script>
+<script src="js/sync.js?v=65"></script>
 <script src="js/desk-sessions.js?v=2"></script>
 <script src="js/desk.js?v=12"></script>
 <script src="js/wave.js?v=1"></script>
@@ -6898,13 +6898,20 @@ function renderAvailableBrokers() {
           status = 'Flex token · read-only';
         }
       } else if (b.code === 'Trading 212') {
-        if (t212Linked) {
+        const house = typeof RunnrSync.canUseT212Api === 'function'
+          ? RunnrSync.canUseT212Api()
+          : (typeof RunnrSync.isHouse === 'function' && RunnrSync.isHouse());
+        if (house && t212Linked) {
           badge = '● Connected';
           badgeCls = 'bk-synced';
           status = 'Read-only history import';
-        } else {
+        } else if (house) {
           badge = b.csv ? 'CSV / API' : '+ Connect';
           status = 'Read-only sync when T212 env is set · CSV fallback';
+        } else {
+          badge = 'CSV';
+          badgeCls = 'bk-available';
+          status = 'CSV import on the Sync page';
         }
       } else if (b.csv) {
         badge = 'CSV';
@@ -7219,7 +7226,7 @@ function renderConnectedBrokers() {
     </div>`);
   }
 
-  if (t212.connected) {
+  if (t212.connected && (typeof RunnrSync.canUseT212Api === 'function' ? RunnrSync.canUseT212Api() : RunnrSync.isHouse?.())) {
     const ago = RunnrSync.formatAgo(t212.lastSync);
     cards.push(`<div class="broker-card" style="cursor:default;margin-bottom:8px">
       <div class="bk-logo" style="background:#00a7e1;color:#fff">T212</div>
@@ -7266,8 +7273,12 @@ function renderHomeBrokerPreview() {
 function renderT212JournalButton() {
   const btn = document.getElementById('journal-t212-btn');
   if (!btn) return;
-  const loggedIn = typeof RunnrSync !== 'undefined' && RunnrSync.isLoggedIn?.();
-  btn.style.display = loggedIn ? 'inline-flex' : 'none';
+  const house = typeof RunnrSync !== 'undefined' && (
+    typeof RunnrSync.canUseT212Api === 'function'
+      ? RunnrSync.canUseT212Api()
+      : (RunnrSync.isLoggedIn?.() && RunnrSync.isHouse?.())
+  );
+  btn.style.display = house ? 'inline-flex' : 'none';
 }
 window.renderT212JournalButton = renderT212JournalButton;
 
@@ -7677,25 +7688,30 @@ async function connectBroker(name) {
       return;
     }
     if (!(await requirePro('Trading 212 import'))) return;
-    const ok = await RunnrSync.ensureT212Connected();
-    renderSyncPage();
-    if (ok) {
-      showToast('Runnr', 'Trading 212 linked — importing fills');
-      try {
-        await RunnrSync.runSync();
-        renderJournal();
-        updateHomeStats();
-      } catch (e) {
-        const msg = String(e.message || e);
-        alert('T212 import failed: ' + msg);
+    const house = typeof RunnrSync.canUseT212Api === 'function'
+      ? RunnrSync.canUseT212Api()
+      : (typeof RunnrSync.isHouse === 'function' && RunnrSync.isHouse());
+    if (house) {
+      const ok = await RunnrSync.ensureT212Connected();
+      renderSyncPage();
+      if (ok) {
+        showToast('Runnr', 'Trading 212 linked — importing fills');
+        try {
+          await RunnrSync.runSync();
+          renderJournal();
+          updateHomeStats();
+        } catch (e) {
+          const msg = String(e.message || e);
+          alert('T212 import failed: ' + msg);
+        }
+        return;
       }
-      return;
     }
     setCsvPreset('t212');
     switchPage('sync');
     const zone = document.getElementById('csv-drop-zone');
     if (zone) zone.scrollIntoView({ behavior: 'smooth', block: 'center' });
-    showToast('Runnr', 'T212 API not configured — CSV export still works');
+    showToast('Runnr', 'Trading 212 — pick CSV preset, then upload export');
     return;
   }
   const csvMap = {
@@ -7998,6 +8014,17 @@ async function importT212Fills() {
     openSyncAuthModal();
     return;
   }
+  const house = typeof RunnrSync.canUseT212Api === 'function'
+    ? RunnrSync.canUseT212Api()
+    : (typeof RunnrSync.isHouse === 'function' && RunnrSync.isHouse());
+  if (!house) {
+    setCsvPreset('t212');
+    switchPage('sync');
+    const zone = document.getElementById('csv-drop-zone');
+    if (zone) zone.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    showToast('Runnr', 'Trading 212 is not connected for this account — CSV export still works');
+    return;
+  }
   if (!(await requirePro('Trading 212 import'))) return;
   try {
     const ok = await RunnrSync.ensureT212Connected();
@@ -8059,11 +8086,14 @@ async function runBrokerSync() {
     } catch (e) {}
     const connected = await ensureAlpacaLinked();
     const ibkrOk = typeof RunnrSync.ensureIbkrConnected === 'function' && await RunnrSync.ensureIbkrConnected();
-    const t212Ok = typeof RunnrSync.ensureT212Connected === 'function' && await RunnrSync.ensureT212Connected();
+    const t212Ok = typeof RunnrSync.canUseT212Api === 'function'
+      && RunnrSync.canUseT212Api()
+      && typeof RunnrSync.ensureT212Connected === 'function'
+      && await RunnrSync.ensureT212Connected();
     renderSyncPage();
     if (!connected && !ibkrOk && !t212Ok) {
       openAlpacaModal();
-      showToast('Runnr', 'Paste Alpaca keys, connect IBKR, or set T212 env — then Sync');
+      showToast('Runnr', 'Paste Alpaca keys, connect IBKR, or import CSV — then Sync');
       return;
     }
     const { added, repaired, paired } = await RunnrSync.runSync();
@@ -8129,7 +8159,10 @@ function bootRunnrSync() {
       }).then((ok) => {
         const extra = [];
         if (typeof RunnrSync.ensureIbkrConnected === 'function') extra.push(RunnrSync.ensureIbkrConnected());
-        if (typeof RunnrSync.ensureT212Connected === 'function') extra.push(RunnrSync.ensureT212Connected());
+        if (typeof RunnrSync.canUseT212Api === 'function' && RunnrSync.canUseT212Api()
+            && typeof RunnrSync.ensureT212Connected === 'function') {
+          extra.push(RunnrSync.ensureT212Connected());
+        }
         return Promise.all(extra).then(() => ok);
       });
     })
