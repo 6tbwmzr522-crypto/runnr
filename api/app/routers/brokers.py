@@ -6,6 +6,7 @@ from alpaca.trading.enums import QueryOrderStatus
 from fastapi import APIRouter, Depends, HTTPException
 
 from app.auth import get_current_user
+from app.billing_util import email_is_boss
 from app.crypto_util import decrypt, encrypt
 from app.db import get_db
 from app.ibkr_flex import get_flex_statement, parse_flex_trades, send_flex_request, verify_flex_credentials
@@ -18,6 +19,18 @@ from app.models.brokers import (
 )
 
 router = APIRouter(prefix="/brokers", tags=["brokers"])
+
+# Global T212_API_KEY/SECRET is the operator desk — not a per-user connection.
+# Same RUNNR_BOSS_EMAILS / email_is_boss helper as Stripe skip. Do not invent a second list.
+T212_NOT_CONNECTED_FOR_ACCOUNT = (
+    "Trading 212 is not connected for this account. Import a CSV export on the Sync page."
+)
+
+
+def require_t212_house(user: dict = Depends(get_current_user)) -> dict:
+    if not email_is_boss(user.get("email")):
+        raise HTTPException(status_code=403, detail=T212_NOT_CONNECTED_FOR_ACCOUNT)
+    return user
 
 
 def _save_alpaca(user_id: int, body: AlpacaConnectRequest) -> None:
@@ -226,7 +239,7 @@ def ibkr_sync(user: dict = Depends(get_current_user)):
 
 
 @router.get("/t212/status", response_model=BrokerStatusResponse)
-def t212_status(user: dict = Depends(get_current_user)):
+def t212_status(user: dict = Depends(require_t212_house)):
     _ = user
     if not t212_configured():
         return BrokerStatusResponse(
@@ -238,7 +251,7 @@ def t212_status(user: dict = Depends(get_current_user)):
 
 
 @router.get("/t212/sync", response_model=SyncResponse)
-def t212_sync(user: dict = Depends(get_current_user)):
+def t212_sync(user: dict = Depends(require_t212_house)):
     _ = user
     key, secret = require_t212_configured()
     try:
