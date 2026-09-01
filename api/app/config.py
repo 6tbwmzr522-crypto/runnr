@@ -43,7 +43,8 @@ class Settings(BaseSettings):
     apple_oauth_team_id: str = ""
     apple_oauth_key_id: str = ""
     apple_oauth_private_key: str = ""  # .p8 PEM (literal or \n-escaped)
-    # Trading 212 public API (read-only). HTTP Basic key:secret.
+    # Unused by product traffic. Per-user T212 keys live in broker_connections.
+    # Kept so leftover Railway vars are ignored rather than treated as a house key.
     t212_api_key: str = ""
     t212_api_secret: str = ""
 

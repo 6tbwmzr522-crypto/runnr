@@ -47,7 +47,7 @@ Ship order:
 1. Harden **Alpaca** (done — pairing + equity).
 2. Expand **CSV presets** for IBKR, T212, eToro, Degiro, Schwab exports (fastest retail win).
 3. **IBKR Client Portal / Flex** if Web API keys available.
-4. **Trading 212** — public API if/when stable; else CSV.
+4. **Trading 212** — public API (Invest / Stocks ISA, per-user keys) + CSV.
 5. Remaining brokers: OAuth/partner only → document + CSV until access exists.
 
 ## Workflow when asked to add a broker

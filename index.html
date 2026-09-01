@@ -5,7 +5,7 @@
 <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
 <script>
 (function () {
-  var V = "109";
+  var V = "110";
   try {
     if (localStorage.getItem("runnr_app_v") !== V) {
       localStorage.setItem("runnr_app_v", V);
@@ -2459,6 +2459,18 @@ html.runnr-guest #page-home .stat-grid{grid-template-columns:repeat(3,minmax(0,1
     <button class="btn" onclick="submitIbkrConnect()">Connect &amp; verify</button>
   </div>
 </div>
+<!-- Trading 212 Connect Modal -->
+<div class="modal-overlay" id="modal-t212" onclick="closeModalOutside(event,'modal-t212')">
+  <div class="modal">
+    <div class="modal-title">Connect Trading 212 <button class="modal-close" onclick="closeModal('modal-t212')">✕</button></div>
+    <div style="font-size:12px;color:var(--text2);margin-bottom:14px;line-height:1.5">
+      Read-only. In Trading 212 go to <strong>Settings → API (Beta)</strong> and generate a key. Enable <strong>account</strong>, <strong>history</strong>, and <strong>portfolio</strong>. Leave <strong>orders</strong> off. Invest / Stocks ISA only — SIPP is not supported. Keys are encrypted on your Runnr account. We never place trades.
+    </div>
+    <div class="field"><label>API Key</label><input id="t212-key" placeholder="Trading 212 API Key" autocomplete="off" autocapitalize="none" autocorrect="off" spellcheck="false"></div>
+    <div class="field"><label>API Secret</label><input id="t212-secret" type="password" placeholder="••••••••" autocomplete="off"></div>
+    <button class="btn" onclick="submitT212Connect()">Connect &amp; verify</button>
+  </div>
+</div>
 
 <!-- Runnr account modal -->
 <div class="modal-overlay" id="modal-sync-auth" onclick="closeModalOutside(event,'modal-sync-auth')">
@@ -2643,7 +2655,7 @@ html.runnr-guest #page-home .stat-grid{grid-template-columns:repeat(3,minmax(0,1
       <p style="margin:0 0 12px"><strong style="color:var(--text)">Built by</strong> Janis Berzins · Thin Ice Digital Ltd · Oxford, UK.<br>15+ years automotive engineering (Tesla, BMW, Rolls-Royce). Full-stack founder — product, cloud, and discipline engine shipped in-house.</p>
       <p style="margin:0 0 12px"><strong style="color:var(--text)">Contact</strong><br>
         <a href="mailto:info@thinicedigital.com" style="color:var(--accent)">info@thinicedigital.com</a></p>
-      <p style="margin:0;font-size:12px;color:var(--text3)">Alpaca, IBKR Flex, and Trading 212 imports are <strong>read-only</strong> — Runnr cannot place trades. Alpaca / Flex tokens are encrypted per account. CSV presets cover Trading 212, eToro, Degiro, Schwab and more.</p>
+      <p style="margin:0;font-size:12px;color:var(--text3)">Alpaca, IBKR Flex, and Trading 212 sync are <strong>read-only</strong> — Runnr cannot place trades. API keys and Flex tokens are encrypted per account. CSV presets cover Trading 212, eToro, Degiro, Schwab and more. T212’s public API covers Invest / Stocks ISA only — not SIPP.</p>
       <p style="margin:12px 0 0;font-size:12px;line-height:1.55"><a href="/terms/" style="color:var(--gold)">Terms</a> · <a href="/refund/" style="color:var(--gold)">Refund Policy</a> · <a href="/privacy/" style="color:var(--gold)">Privacy</a><span class="js-stats-link" hidden> · <a href="/stats.html" style="color:var(--gold)">Stats</a></span></p>
     </div>
   </div>
@@ -2676,8 +2688,8 @@ html.runnr-guest #page-home .stat-grid{grid-template-columns:repeat(3,minmax(0,1
 <script src="js/coach.js?v=26"></script>
 <script src="js/onboarding.js?v=27"></script>
 <script src="js/intro.js?v=1"></script>
-<script src="js/csv-presets.js?v=3"></script>
-<script src="js/sync.js?v=65"></script>
+<script src="js/csv-presets.js?v=4"></script>
+<script src="js/sync.js?v=66"></script>
 <script src="js/desk-sessions.js?v=2"></script>
 <script src="js/desk.js?v=12"></script>
 <script src="js/wave.js?v=1"></script>
@@ -6898,20 +6910,13 @@ function renderAvailableBrokers() {
           status = 'Flex token · read-only';
         }
       } else if (b.code === 'Trading 212') {
-        const house = typeof RunnrSync.canUseT212Api === 'function'
-          ? RunnrSync.canUseT212Api()
-          : (typeof RunnrSync.isHouse === 'function' && RunnrSync.isHouse());
-        if (house && t212Linked) {
+        if (t212Linked) {
           badge = '● Connected';
           badgeCls = 'bk-synced';
-          status = 'Read-only history import';
-        } else if (house) {
-          badge = b.csv ? 'CSV / API' : '+ Connect';
-          status = 'Read-only sync when T212 env is set · CSV fallback';
+          status = 'Read-only · Invest / Stocks ISA';
         } else {
-          badge = 'CSV';
-          badgeCls = 'bk-available';
-          status = 'CSV import on the Sync page';
+          badge = '+ Connect';
+          status = 'Paste API key + secret · Invest / Stocks ISA (not SIPP)';
         }
       } else if (b.csv) {
         badge = 'CSV';
@@ -7226,7 +7231,7 @@ function renderConnectedBrokers() {
     </div>`);
   }
 
-  if (t212.connected && (typeof RunnrSync.canUseT212Api === 'function' ? RunnrSync.canUseT212Api() : RunnrSync.isHouse?.())) {
+  if (t212.connected) {
     const ago = RunnrSync.formatAgo(t212.lastSync);
     cards.push(`<div class="broker-card" style="cursor:default;margin-bottom:8px">
       <div class="bk-logo" style="background:#00a7e1;color:#fff">T212</div>
@@ -7273,12 +7278,8 @@ function renderHomeBrokerPreview() {
 function renderT212JournalButton() {
   const btn = document.getElementById('journal-t212-btn');
   if (!btn) return;
-  const house = typeof RunnrSync !== 'undefined' && (
-    typeof RunnrSync.canUseT212Api === 'function'
-      ? RunnrSync.canUseT212Api()
-      : (RunnrSync.isLoggedIn?.() && RunnrSync.isHouse?.())
-  );
-  btn.style.display = house ? 'inline-flex' : 'none';
+  const loggedIn = typeof RunnrSync !== 'undefined' && RunnrSync.isLoggedIn?.();
+  btn.style.display = loggedIn ? 'inline-flex' : 'none';
 }
 window.renderT212JournalButton = renderT212JournalButton;
 
@@ -7688,30 +7689,21 @@ async function connectBroker(name) {
       return;
     }
     if (!(await requirePro('Trading 212 import'))) return;
-    const house = typeof RunnrSync.canUseT212Api === 'function'
-      ? RunnrSync.canUseT212Api()
-      : (typeof RunnrSync.isHouse === 'function' && RunnrSync.isHouse());
-    if (house) {
-      const ok = await RunnrSync.ensureT212Connected();
-      renderSyncPage();
-      if (ok) {
-        showToast('Runnr', 'Trading 212 linked — importing fills');
-        try {
-          await RunnrSync.runSync();
-          renderJournal();
-          updateHomeStats();
-        } catch (e) {
-          const msg = String(e.message || e);
-          alert('T212 import failed: ' + msg);
-        }
-        return;
+    const ok = await RunnrSync.ensureT212Connected();
+    renderSyncPage();
+    if (ok) {
+      showToast('Runnr', 'Trading 212 linked — importing fills');
+      try {
+        await RunnrSync.runSync();
+        renderJournal();
+        updateHomeStats();
+      } catch (e) {
+        const msg = String(e.message || e);
+        alert('T212 import failed: ' + msg);
       }
+      return;
     }
-    setCsvPreset('t212');
-    switchPage('sync');
-    const zone = document.getElementById('csv-drop-zone');
-    if (zone) zone.scrollIntoView({ behavior: 'smooth', block: 'center' });
-    showToast('Runnr', 'Trading 212 — pick CSV preset, then upload export');
+    openT212Modal();
     return;
   }
   const csvMap = {
@@ -7773,6 +7765,53 @@ async function submitIbkrConnect() {
 }
 window.openIbkrModal = openIbkrModal;
 window.submitIbkrConnect = submitIbkrConnect;
+
+async function openT212Modal() {
+  if (!RunnrSync.isLoggedIn()) {
+    openSyncAuthModal();
+    showToast('Runnr', 'Sign in to connect Trading 212');
+    return;
+  }
+  if (!(await requirePro('Trading 212 connection'))) return;
+  openModal('modal-t212');
+}
+
+async function submitT212Connect() {
+  const apiKey = document.getElementById('t212-key').value.trim();
+  const apiSecret = document.getElementById('t212-secret').value.trim();
+  if (!apiKey || !apiSecret) return alert('Paste both API key and API secret.');
+  try {
+    const st = await RunnrSync.connectT212(apiKey, apiSecret);
+    RunnrSync.ensureBrokerState();
+    S.brokerSync.t212.connected = true;
+    if (st && st.position_count != null) S.brokerSync.t212.positionCount = st.position_count;
+    persist();
+    closeModal('modal-t212');
+    document.getElementById('t212-key').value = '';
+    document.getElementById('t212-secret').value = '';
+    renderSyncPage();
+    alert('Trading 212 connected — key encrypted on your Runnr account. Importing fills…');
+    try {
+      await RunnrSync.runSync();
+      renderJournal();
+      updateHomeStats();
+      renderSyncPage();
+    } catch (e) {
+      showToast('Runnr', 'Connected — tap Sync now to pull fills');
+    }
+  } catch (e) {
+    const msg = String(e.message || e);
+    if (RunnrSync.isAuthError?.(msg)) {
+      RunnrSync.logout();
+      handleRunnrAuthExpired(msg);
+      openSyncAuthModal();
+      return;
+    }
+    alert('Connect failed: ' + msg);
+  }
+}
+window.openT212Modal = openT212Modal;
+window.submitT212Connect = submitT212Connect;
 
 async function openAlpacaModal() {
   if (!RunnrSync.isLoggedIn()) {
@@ -8014,26 +8053,14 @@ async function importT212Fills() {
     openSyncAuthModal();
     return;
   }
-  const house = typeof RunnrSync.canUseT212Api === 'function'
-    ? RunnrSync.canUseT212Api()
-    : (typeof RunnrSync.isHouse === 'function' && RunnrSync.isHouse());
-  if (!house) {
-    setCsvPreset('t212');
-    switchPage('sync');
-    const zone = document.getElementById('csv-drop-zone');
-    if (zone) zone.scrollIntoView({ behavior: 'smooth', block: 'center' });
-    showToast('Runnr', 'Trading 212 is not connected for this account — CSV export still works');
-    return;
-  }
   if (!(await requirePro('Trading 212 import'))) return;
   try {
     const ok = await RunnrSync.ensureT212Connected();
     renderT212JournalButton();
     if (!ok) {
-      const err = (window.S && S.brokerSync && S.brokerSync.t212 && S.brokerSync.t212.error)
-        || 'Trading 212 is not configured. Set T212_API_KEY and T212_API_SECRET on the API service.';
-      alert(err);
       switchPage('sync');
+      openT212Modal();
+      showToast('Runnr', 'Connect Trading 212 with your API key + secret');
       return;
     }
     const data = await RunnrSync.syncT212();
@@ -8086,14 +8113,11 @@ async function runBrokerSync() {
     } catch (e) {}
     const connected = await ensureAlpacaLinked();
     const ibkrOk = typeof RunnrSync.ensureIbkrConnected === 'function' && await RunnrSync.ensureIbkrConnected();
-    const t212Ok = typeof RunnrSync.canUseT212Api === 'function'
-      && RunnrSync.canUseT212Api()
-      && typeof RunnrSync.ensureT212Connected === 'function'
-      && await RunnrSync.ensureT212Connected();
+    const t212Ok = typeof RunnrSync.ensureT212Connected === 'function' && await RunnrSync.ensureT212Connected();
     renderSyncPage();
     if (!connected && !ibkrOk && !t212Ok) {
       openAlpacaModal();
-      showToast('Runnr', 'Paste Alpaca keys, connect IBKR, or import CSV — then Sync');
+      showToast('Runnr', 'Paste Alpaca, IBKR Flex, or Trading 212 keys — then Sync');
       return;
     }
     const { added, repaired, paired } = await RunnrSync.runSync();
@@ -8159,10 +8183,7 @@ function bootRunnrSync() {
       }).then((ok) => {
         const extra = [];
         if (typeof RunnrSync.ensureIbkrConnected === 'function') extra.push(RunnrSync.ensureIbkrConnected());
-        if (typeof RunnrSync.canUseT212Api === 'function' && RunnrSync.canUseT212Api()
-            && typeof RunnrSync.ensureT212Connected === 'function') {
-          extra.push(RunnrSync.ensureT212Connected());
-        }
+        if (typeof RunnrSync.ensureT212Connected === 'function') extra.push(RunnrSync.ensureT212Connected());
         return Promise.all(extra).then(() => ok);
       });
     })

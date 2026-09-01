@@ -47,7 +47,7 @@ const RunnrCsvPresets = (() => {
       id: "t212",
       label: "Trading 212",
       mode: "fills",
-      tip: "History export — Action, Time, Ticker, No. of shares, Price / share.",
+      tip: "History export — Action, Time, Ticker, No. of shares, Price / share. Or connect a read-only API key on Sync (Invest / Stocks ISA, not SIPP).",
       detect: (h) =>
         h.includes("action") &&
         (h.includes("ticker") || h.includes("isin")) &&

@@ -6,31 +6,23 @@ from alpaca.trading.enums import QueryOrderStatus
 from fastapi import APIRouter, Depends, HTTPException
 
 from app.auth import get_current_user
-from app.billing_util import email_is_boss
 from app.crypto_util import decrypt, encrypt
 from app.db import get_db
 from app.ibkr_flex import get_flex_statement, parse_flex_trades, send_flex_request, verify_flex_credentials
-from app.t212 import fetch_history_orders, fetch_positions, require_t212_configured, t212_configured
+from app.t212 import fetch_history_orders, fetch_positions
 from app.models.brokers import (
     AlpacaConnectRequest,
     BrokerStatusResponse,
     IbkrFlexConnectRequest,
     SyncResponse,
+    T212ConnectRequest,
 )
 
 router = APIRouter(prefix="/brokers", tags=["brokers"])
 
-# Global T212_API_KEY/SECRET is the operator desk — not a per-user connection.
-# Same RUNNR_BOSS_EMAILS / email_is_boss helper as Stripe skip. Do not invent a second list.
 T212_NOT_CONNECTED_FOR_ACCOUNT = (
-    "Trading 212 is not connected for this account. Import a CSV export on the Sync page."
+    "Trading 212 is not connected for this account. Connect a read-only key on the Sync page."
 )
-
-
-def require_t212_house(user: dict = Depends(get_current_user)) -> dict:
-    if not email_is_boss(user.get("email")):
-        raise HTTPException(status_code=403, detail=T212_NOT_CONNECTED_FOR_ACCOUNT)
-    return user
 
 
 def _save_alpaca(user_id: int, body: AlpacaConnectRequest) -> None:
@@ -238,22 +230,72 @@ def ibkr_sync(user: dict = Depends(get_current_user)):
     )
 
 
-@router.get("/t212/status", response_model=BrokerStatusResponse)
-def t212_status(user: dict = Depends(require_t212_house)):
-    _ = user
-    if not t212_configured():
-        return BrokerStatusResponse(
-            broker="t212",
-            connected=False,
-            error="Trading 212 is not configured. Set T212_API_KEY and T212_API_SECRET on the API service.",
+def _save_t212(user_id: int, api_key: str, api_secret: str) -> None:
+    with get_db() as conn:
+        conn.execute(
+            """
+            INSERT INTO broker_connections (user_id, broker, api_key_enc, api_secret_enc, paper)
+            VALUES (?, 't212', ?, ?, 0)
+            ON CONFLICT(user_id, broker) DO UPDATE SET
+                api_key_enc = excluded.api_key_enc,
+                api_secret_enc = excluded.api_secret_enc,
+                paper = 0
+            """,
+            (user_id, encrypt(api_key), encrypt(api_secret)),
         )
+
+
+def _load_t212(user_id: int) -> tuple[str, str] | None:
+    with get_db() as conn:
+        row = conn.execute(
+            """
+            SELECT api_key_enc, api_secret_enc
+            FROM broker_connections
+            WHERE user_id = ? AND broker = 't212'
+            """,
+            (user_id,),
+        ).fetchone()
+    if not row:
+        return None
+    return decrypt(row["api_key_enc"]), decrypt(row["api_secret_enc"])
+
+
+@router.post("/t212/connect", response_model=BrokerStatusResponse)
+def connect_t212(body: T212ConnectRequest, user: dict = Depends(get_current_user)):
+    key = body.api_key.strip()
+    secret = body.api_secret.strip()
+    try:
+        positions = fetch_positions(key=key, secret=secret)
+    except HTTPException:
+        raise
+    except Exception:
+        raise HTTPException(
+            status_code=400,
+            detail="Trading 212 rejected the API credentials. Use a read-only key (account, history, portfolio).",
+        ) from None
+
+    _save_t212(user["id"], key, secret)
+    return BrokerStatusResponse(
+        broker="t212",
+        connected=True,
+        position_count=len(positions),
+    )
+
+
+@router.get("/t212/status", response_model=BrokerStatusResponse)
+def t212_status(user: dict = Depends(get_current_user)):
+    creds = _load_t212(user["id"])
+    if not creds:
+        raise HTTPException(status_code=404, detail=T212_NOT_CONNECTED_FOR_ACCOUNT)
     return BrokerStatusResponse(broker="t212", connected=True)
 
 
 @router.get("/t212/sync", response_model=SyncResponse)
-def t212_sync(user: dict = Depends(require_t212_house)):
-    _ = user
-    key, secret = require_t212_configured()
+def t212_sync(user: dict = Depends(get_current_user)):
+    creds = _load_t212(user["id"])
+    if not creds:
+        raise HTTPException(status_code=404, detail=T212_NOT_CONNECTED_FOR_ACCOUNT)
+    key, secret = creds
     try:
         positions = fetch_positions(key=key, secret=secret)
         orders = fetch_history_orders(key=key, secret=secret)

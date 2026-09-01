@@ -1127,14 +1127,16 @@ const RunnrSync = (() => {
       const st = await ibkrStatus();
       applyIbkrStatus(st);
     } catch (e) {}
-    if (canUseT212Api()) {
-      try {
-        const st = await t212Status();
-        applyT212Status(st);
-      } catch (e) {}
-    } else {
-      window.S.brokerSync.t212.connected = false;
-      delete window.S.brokerSync.t212.error;
+    try {
+      const st = await t212Status();
+      applyT212Status(st);
+    } catch (e) {
+      const msg = String(e.message || e);
+      if (/user not found|session expired|invalid token|missing bearer/i.test(msg)) {
+        setToken("");
+      } else {
+        applyT212Status({ connected: false });
+      }
     }
     return window.S.brokerSync.alpaca;
   }
@@ -1222,7 +1224,7 @@ const RunnrSync = (() => {
       ).length;
     }
 
-    const t212Ok = canUseT212Api() && await ensureT212Connected();
+    const t212Ok = await ensureT212Connected();
     if (t212Ok) {
       any = true;
       const data = await syncT212();
@@ -1295,9 +1297,15 @@ const RunnrSync = (() => {
     return false;
   }
 
+  async function connectT212(apiKey, apiSecret) {
+    return request("/api/v1/brokers/t212/connect", {
+      method: "POST",
+      body: JSON.stringify({ api_key: apiKey, api_secret: apiSecret }),
+    });
+  }
+
   function canUseT212Api() {
-    // T212 env keys are operator-wide. Same house flag as Stripe skip (email_is_boss).
-    return isHouse();
+    return isLoggedIn();
   }
 
   async function t212Status() {
@@ -1312,13 +1320,14 @@ const RunnrSync = (() => {
     ensureBrokerState();
     if (!window.S || !st) return;
     window.S.brokerSync.t212.connected = !!st.connected;
+    if (st.position_count != null) window.S.brokerSync.t212.positionCount = st.position_count;
     if (st.error) window.S.brokerSync.t212.error = st.error;
     else delete window.S.brokerSync.t212.error;
     if (typeof persist === "function") persist();
   }
 
   async function ensureT212Connected() {
-    if (!isLoggedIn() || !canUseT212Api()) return false;
+    if (!isLoggedIn()) return false;
     ensureBrokerState();
     try {
       const st = await t212Status();
@@ -1330,8 +1339,9 @@ const RunnrSync = (() => {
         setToken("");
         return false;
       }
+      applyT212Status({ connected: false });
+      return false;
     }
-    return false;
   }
 
   async function repairJournalIfNeeded() {
@@ -1876,6 +1886,7 @@ const RunnrSync = (() => {
     applyIbkrStatus,
     t212Status,
     syncT212,
+    connectT212,
     ensureT212Connected,
     applyT212Status,
     canUseT212Api,

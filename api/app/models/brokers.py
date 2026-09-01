@@ -12,6 +12,11 @@ class IbkrFlexConnectRequest(BaseModel):
     query_id: str = Field(min_length=4, description="Flex Query ID")
 
 
+class T212ConnectRequest(BaseModel):
+    api_key: str = Field(min_length=8, description="Trading 212 API Key")
+    api_secret: str = Field(min_length=8, description="Trading 212 API Secret")
+
+
 class BrokerStatusResponse(BaseModel):
     broker: str
     connected: bool
