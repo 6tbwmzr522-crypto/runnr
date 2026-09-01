@@ -121,7 +121,7 @@ const RunnrSync = (() => {
   function stateLooksReal(s) {
     if (!s) return false;
     const trades = s.trades || [];
-    if (trades.some((t) => t && (String(t.source || "").toLowerCase() === "alpaca" || (t.id != null && !DEMO_TRADE_IDS.has(t.id))))) {
+    if (trades.some((t) => t && (isBrokerOrCsvSource(t.source) || (t.id != null && !DEMO_TRADE_IDS.has(t.id))))) {
       return true;
     }
     const wl = s.watchlist || [];
@@ -220,7 +220,7 @@ const RunnrSync = (() => {
   function tradeWatchSym(t) {
     if (!t || t.mergedAway) return "";
     const src = String(t.source || "").toLowerCase();
-    if (DEMO_TRADE_IDS.has(t.id) && src !== "alpaca" && src !== "ibkr" && src !== "csv") return "";
+    if (DEMO_TRADE_IDS.has(t.id) && src !== "alpaca" && src !== "ibkr" && src !== "t212" && src !== "csv") return "";
     const raw = String(t.instr || t.symbol || "").replace(/\s+CFD$/i, "").trim().toUpperCase();
     if (!raw || raw.includes("/") || raw.includes("=")) return "";
     if (/^[A-Z]{6}$/.test(raw)) return "";
@@ -233,7 +233,7 @@ const RunnrSync = (() => {
     if ((window.S.watchlist || []).some((w) => w && !isThinWatch(w))) return false;
     const trades = window.S.trades || [];
     const open = trades.filter((t) => t && tradeWatchSym(t) && !(Number(t.exit) > 0));
-    const pool = open.length ? open : trades.filter((t) => t && String(t.source || "").toLowerCase() === "alpaca");
+    const pool = open.length ? open : trades.filter((t) => t && isBrokerOrCsvSource(t.source));
     const seen = new Set();
     const seeded = [];
     pool.forEach((t) => {
@@ -709,6 +709,7 @@ const RunnrSync = (() => {
       window.S.brokerSync = {
         alpaca: { connected: false, lastSync: null, imported: 0, equity: null },
         ibkr: { connected: false, lastSync: null, imported: 0 },
+        t212: { connected: false, lastSync: null, imported: 0 },
         importedOrderIds: [],
       };
     }
@@ -717,6 +718,9 @@ const RunnrSync = (() => {
     }
     if (!window.S.brokerSync.ibkr) {
       window.S.brokerSync.ibkr = { connected: false, lastSync: null, imported: 0 };
+    }
+    if (!window.S.brokerSync.t212) {
+      window.S.brokerSync.t212 = { connected: false, lastSync: null, imported: 0 };
     }
     if (!window.S.brokerSync.importedOrderIds) window.S.brokerSync.importedOrderIds = [];
     if (!window.S.trades) window.S.trades = [];
@@ -790,8 +794,13 @@ const RunnrSync = (() => {
     return Math.round(raw);
   }
 
+  function isBrokerOrCsvSource(src) {
+    const s = String(src || "").toLowerCase();
+    return s === "alpaca" || s === "ibkr" || s === "t212" || s === "csv";
+  }
+
   function isFillSource(t) {
-    return t && (t.source === "alpaca" || t.source === "csv" || t.source === "ibkr");
+    return t && isBrokerOrCsvSource(t.source);
   }
 
   /**
@@ -926,7 +935,7 @@ const RunnrSync = (() => {
             type: buy.type || "shares",
             date: buy.date,
             incomplete: true,
-            source: "alpaca",
+            source: buy.source || "alpaca",
             externalId: buy.externalId + ":rem:" + remainder,
             fillPrice: buy.entry,
             alpacaSide: "buy",
@@ -1100,6 +1109,7 @@ const RunnrSync = (() => {
     if (!isLoggedIn()) {
       window.S.brokerSync.alpaca.connected = false;
       window.S.brokerSync.ibkr.connected = false;
+      window.S.brokerSync.t212.connected = false;
       return null;
     }
     try {
@@ -1109,6 +1119,10 @@ const RunnrSync = (() => {
     try {
       const st = await ibkrStatus();
       applyIbkrStatus(st);
+    } catch (e) {}
+    try {
+      const st = await t212Status();
+      applyT212Status(st);
     } catch (e) {}
     return window.S.brokerSync.alpaca;
   }
@@ -1196,8 +1210,24 @@ const RunnrSync = (() => {
       ).length;
     }
 
+    const t212Ok = await ensureT212Connected();
+    if (t212Ok) {
+      any = true;
+      const data = await syncT212();
+      lastData = data || lastData;
+      const r = importOrders(data.recent_orders || [], data.positions || [], { source: "t212" });
+      added += r.added;
+      repaired += r.repaired;
+      paired += r.paired;
+      window.S.brokerSync.t212.lastSync = data.as_of || new Date().toISOString();
+      window.S.brokerSync.t212.connected = true;
+      window.S.brokerSync.t212.imported = window.S.trades.filter(
+        (t) => t.source === "t212" && !t.mergedAway
+      ).length;
+    }
+
     if (!any) {
-      throw new Error("No broker connected — tap Connect Alpaca or IBKR Flex on the Sync page");
+      throw new Error("No broker connected — tap Alpaca, IBKR Flex, or Trading 212 on the Sync page");
     }
 
     if (typeof persist === "function") persist();
@@ -1253,6 +1283,40 @@ const RunnrSync = (() => {
     return false;
   }
 
+  async function t212Status() {
+    return request("/api/v1/brokers/t212/status");
+  }
+
+  async function syncT212() {
+    return request("/api/v1/brokers/t212/sync", {}, 90000);
+  }
+
+  function applyT212Status(st) {
+    ensureBrokerState();
+    if (!window.S || !st) return;
+    window.S.brokerSync.t212.connected = !!st.connected;
+    if (st.error) window.S.brokerSync.t212.error = st.error;
+    else delete window.S.brokerSync.t212.error;
+    if (typeof persist === "function") persist();
+  }
+
+  async function ensureT212Connected() {
+    if (!isLoggedIn()) return false;
+    ensureBrokerState();
+    try {
+      const st = await t212Status();
+      applyT212Status(st);
+      return !!st?.connected;
+    } catch (e) {
+      const msg = String(e.message || e);
+      if (/user not found|session expired|invalid token|missing bearer/i.test(msg)) {
+        setToken("");
+        return false;
+      }
+    }
+    return false;
+  }
+
   async function repairJournalIfNeeded() {
     if (!isLoggedIn() || !window.S) return false;
     if (!window.S.brokerSync?.alpaca?.connected) {
@@ -1277,7 +1341,7 @@ const RunnrSync = (() => {
     if (!s) return true;
     if (s.balFromAlpaca || s.brokerSync?.alpaca?.connected) return false;
     const trades = s.trades || [];
-    if (trades.some((t) => t.source === "alpaca" || !DEMO_TRADE_IDS.has(t.id))) return false;
+    if (trades.some((t) => isBrokerOrCsvSource(t.source) || !DEMO_TRADE_IDS.has(t.id))) return false;
     const wl = s.watchlist || [];
     if (wl.some((w) => w && !isDemoWatch(w))) return false;
     return true;
@@ -1374,11 +1438,11 @@ const RunnrSync = (() => {
     (localTrades || []).forEach(add);
     let merged = [...byKey.values()];
     const remoteHasOwn = (remoteTrades || []).some(
-      (t) => t && (String(t.source || "").toLowerCase() === "alpaca" || !DEMO_TRADE_IDS.has(Number(t.id)))
+      (t) => t && (isBrokerOrCsvSource(t.source) || !DEMO_TRADE_IDS.has(Number(t.id)))
     );
     if (remoteHasOwn) {
       merged = merged.filter(
-        (t) => t && (String(t.source || "").toLowerCase() === "alpaca" || !DEMO_TRADE_IDS.has(Number(t.id)))
+        (t) => t && (isBrokerOrCsvSource(t.source) || !DEMO_TRADE_IDS.has(Number(t.id)))
       );
     }
     return merged;
@@ -1793,6 +1857,10 @@ const RunnrSync = (() => {
     syncIbkr,
     ensureIbkrConnected,
     applyIbkrStatus,
+    t212Status,
+    syncT212,
+    ensureT212Connected,
+    applyT212Status,
     refreshStatus,
     runSync,
     repairJournalIfNeeded,

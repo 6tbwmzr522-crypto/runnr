@@ -9,6 +9,7 @@ from app.auth import get_current_user
 from app.crypto_util import decrypt, encrypt
 from app.db import get_db
 from app.ibkr_flex import get_flex_statement, parse_flex_trades, send_flex_request, verify_flex_credentials
+from app.t212 import fetch_history_orders, fetch_positions, require_t212_configured, t212_configured
 from app.models.brokers import (
     AlpacaConnectRequest,
     BrokerStatusResponse,
@@ -219,6 +220,38 @@ def ibkr_sync(user: dict = Depends(get_current_user)):
     return SyncResponse(
         broker="ibkr",
         positions=[],
+        recent_orders=orders,
+        as_of=datetime.now(timezone.utc).isoformat(),
+    )
+
+
+@router.get("/t212/status", response_model=BrokerStatusResponse)
+def t212_status(user: dict = Depends(get_current_user)):
+    _ = user
+    if not t212_configured():
+        return BrokerStatusResponse(
+            broker="t212",
+            connected=False,
+            error="Trading 212 is not configured. Set T212_API_KEY and T212_API_SECRET on the API service.",
+        )
+    return BrokerStatusResponse(broker="t212", connected=True)
+
+
+@router.get("/t212/sync", response_model=SyncResponse)
+def t212_sync(user: dict = Depends(get_current_user)):
+    _ = user
+    key, secret = require_t212_configured()
+    try:
+        positions = fetch_positions(key=key, secret=secret)
+        orders = fetch_history_orders(key=key, secret=secret)
+    except HTTPException:
+        raise
+    except Exception:
+        raise HTTPException(status_code=502, detail="Trading 212 sync failed.") from None
+
+    return SyncResponse(
+        broker="t212",
+        positions=positions,
         recent_orders=orders,
         as_of=datetime.now(timezone.utc).isoformat(),
     )

@@ -1,0 +1,34 @@
+{
+  "items": [
+    {
+      "id": 987654321,
+      "ticker": "MSFT_US_EQ",
+      "type": "MARKET",
+      "status": "FILLED",
+      "quantity": 3,
+      "fillPrice": 415.2,
+      "filledQuantity": 3,
+      "dateCreated": "2026-01-09T16:00:00Z",
+      "dateExecuted": "2026-01-09T16:00:02Z"
+    },
+    {
+      "id": 987654320,
+      "ticker": "MSFT_US_EQ",
+      "type": "LIMIT",
+      "status": "FILLED",
+      "quantity": -3,
+      "fillPrice": 420.1,
+      "filledQuantity": -3,
+      "dateCreated": "2026-01-20T15:12:00Z",
+      "dateExecuted": "2026-01-20T15:12:08Z"
+    },
+    {
+      "id": 111,
+      "ticker": "AAPL_US_EQ",
+      "status": "CANCELLED",
+      "quantity": 1,
+      "fillPrice": 180
+    }
+  ],
+  "nextPagePath": null
+}
