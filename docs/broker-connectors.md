@@ -16,7 +16,7 @@ Plan for read-only broker sync beyond Alpaca. Implementation agent: Cursor skill
 |----------|------|
 | Alpaca | **Live** — API sync |
 | Interactive Brokers | **Live** — Flex Web Service + CSV preset |
-| Trading 212 | **CSV preset** for all accounts; **operator API** (`T212_API_KEY` / `T212_API_SECRET`) is house-only (`RUNNR_BOSS_EMAILS` / `email_is_boss`) |
+| Trading 212 | **Live** — per-user public API connect (encrypted `broker_connections`) + CSV preset. Invest / Stocks ISA only (not SIPP). |
 | eToro | **CSV preset** |
 | Robinhood | No official API — CSV if exportable; no scraping |
 | Charles Schwab | **CSV preset** → OAuth Trader API later |

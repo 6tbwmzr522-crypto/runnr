@@ -48,7 +48,7 @@ Annual subscribers who cancel within 14 days of their initial purchase and have 
 
 ## 6. Broker Integrations
 
-Runnr connects to third-party broker accounts (currently Alpaca and IBKR Flex) in **read-only** mode. Runnr cannot place, modify, or cancel orders on your behalf. API keys and Flex tokens are encrypted at rest. You connect these integrations at your own discretion.
+Runnr connects to third-party broker accounts (currently Alpaca, IBKR Flex, and Trading 212) in **read-only** mode. Runnr cannot place, modify, or cancel orders on your behalf. API keys and Flex tokens are encrypted at rest. You connect these integrations at your own discretion. Trading 212’s public API covers Invest / Stocks ISA accounts only (not SIPP).
 
 ---
 

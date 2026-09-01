@@ -1,8 +1,10 @@
 """Trading 212 public API — read-only history and positions for journal import.
 
 Never place, amend, or cancel orders. GET only.
-Auth: HTTP Basic from T212_API_KEY / T212_API_SECRET (key:secret).
+Auth: HTTP Basic from the per-user key/secret stored in broker_connections.
+Do not fall back to T212_API_KEY / T212_API_SECRET env for product traffic.
 Live host: https://live.trading212.com
+Invest / Stocks ISA only — SIPP is not supported by T212's public API.
 """
 
 from __future__ import annotations
@@ -17,8 +19,6 @@ from urllib.error import HTTPError, URLError
 from urllib.request import Request, urlopen
 
 from fastapi import HTTPException
-
-from app.config import settings
 
 LIVE_BASE = "https://live.trading212.com"
 HISTORY_PATH = "/api/v0/equity/history/orders"
@@ -49,23 +49,6 @@ SKIP_FILL_TYPES = {
 HttpGet = Callable[[str, dict, float], tuple[int, bytes, dict]]
 
 
-class T212ConfigError(HTTPException):
-    def __init__(self, detail: str = "Trading 212 is not configured. Set T212_API_KEY and T212_API_SECRET on the API service."):
-        super().__init__(status_code=503, detail=detail)
-
-
-def t212_configured() -> bool:
-    return bool((settings.t212_api_key or "").strip() and (settings.t212_api_secret or "").strip())
-
-
-def require_t212_configured() -> tuple[str, str]:
-    key = (settings.t212_api_key or "").strip()
-    secret = (settings.t212_api_secret or "").strip()
-    if not key or not secret:
-        raise T212ConfigError()
-    return key, secret
-
-
 def _basic_header(key: str, secret: str) -> str:
     raw = f"{key}:{secret}".encode("utf-8")
     return "Basic " + base64.b64encode(raw).decode("ascii")
@@ -87,7 +70,7 @@ def _public_http_error(status: int, body: str, key: str, secret: str) -> HTTPExc
     if status in (401, 403):
         return HTTPException(
             status_code=400,
-            detail="Trading 212 rejected the API credentials. Check T212_API_KEY / T212_API_SECRET (read-only).",
+            detail="Trading 212 rejected the API credentials. Use a read-only key (account, history, portfolio).",
         )
     if status == 429:
         return HTTPException(status_code=429, detail="Trading 212 rate limit reached. Try again in a minute.")
