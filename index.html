@@ -5,7 +5,7 @@
 <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
 <script>
 (function () {
-  var V = "113";
+  var V = "114";
   try {
     if (localStorage.getItem("runnr_app_v") !== V) {
       localStorage.setItem("runnr_app_v", V);
@@ -231,6 +231,11 @@ body::before{content:'';position:fixed;inset:0;background:radial-gradient(ellips
 .replay-takeaway{font-size:13px;color:var(--gold-light);line-height:1.4;padding:10px 12px;background:var(--gold-dim);border:1px solid var(--border);border-radius:var(--r-sm);margin-bottom:12px}
 .replay-cta{font-size:13px;color:var(--amber);margin:0 0 12px;line-height:1.45}
 .replay-disc{font-size:11px;color:var(--text3);line-height:1.4;margin:8px 0 0}
+.replay-empty{background:rgba(245,242,236,0.02);border:1px solid var(--border);border-radius:var(--r-sm);padding:12px;margin-bottom:12px}
+.replay-empty p{font-size:13px;color:var(--text2);line-height:1.5;margin:0 0 10px}
+.replay-empty p:last-child{margin-bottom:0}
+.replay-empty strong{color:var(--text);font-weight:600}
+.replay-recorded{margin-bottom:12px}
 
 /* ── WATCHLIST ── */
 .watch-item{background:rgba(245,242,236,0.02);border-left:2px solid var(--gold);border-radius:0 var(--r-sm) var(--r-sm) 0;padding:14px;margin-bottom:8px;border-top:1px solid var(--border);border-right:1px solid var(--border);border-bottom:1px solid var(--border)}
@@ -2716,7 +2721,7 @@ html.runnr-guest #page-home .stat-grid{grid-template-columns:repeat(3,minmax(0,1
 
 <script src="js/i18n.js?v=15"></script>
 <script src="js/baron.js?v=31"></script>
-<script src="js/discipline-replay.js?v=1"></script>
+<script src="js/discipline-replay.js?v=2"></script>
 <script src="js/coach.js?v=26"></script>
 <script src="js/onboarding.js?v=29"></script>
 <script src="js/intro.js?v=1"></script>
@@ -4319,8 +4324,11 @@ function renderJournal() {
     if (alpacaPending.length) {
       hint.style.display = 'block';
       hint.innerHTML = `<div style="display:flex;justify-content:space-between;align-items:flex-start;gap:10px;flex-wrap:wrap">
-        <span><strong>${alpacaPending.length} broker fill${alpacaPending.length > 1 ? 's' : ''}</strong> need discipline flags — closed round-trips already count toward Portfolio P&amp;L. Tap each trade, or confirm stop &amp; size for all.</span>
-        <button class="btn btn-sm" style="white-space:nowrap;flex-shrink:0" onclick="applyDisciplineDefaultsToAll(event)">Confirm stop &amp; size</button>
+        <span><strong>${alpacaPending.length} broker fill${alpacaPending.length > 1 ? 's' : ''}</strong> need Stop and Size answers — closed round-trips already count toward Portfolio P&amp;L. Review each fill. Replay only appears when Stop or Size is flagged No.</span>
+        <div style="display:flex;flex-direction:column;gap:8px;align-items:stretch;flex-shrink:0">
+          <button type="button" class="btn btn-sm" style="white-space:nowrap" onclick="reviewNextIncompleteFill(event)">Review next incomplete</button>
+          <button type="button" class="btn btn-sm btn-ghost" style="white-space:nowrap" onclick="applyDisciplineDefaultsToAll(event)">Mark all as compliant (Stop ✓ Size ✓)</button>
+        </div>
       </div>`;
     } else if (!RunnrSync.isPro?.() && RunnrSync.billing?.()?.enabled !== false) {
       const used = countJournalTradesForLimit();
@@ -4380,15 +4388,38 @@ function renderJournal() {
 
 let disciplineReplayTradeId = null;
 
+function replayReasonHtml(text) {
+  return escapeTeText(text || '').replace(/\bcurrent\b/g, '<strong>current</strong>');
+}
+
 function renderDisciplineReplayView(view, trade) {
   const instr = escapeTeText(view.instr || '—');
+  const settings = `<p class="replay-settings">${escapeTeText(view.settingsNote)} · ${instr}</p>
+    <p class="replay-note">${escapeTeText(view.fillsNote)}</p>`;
+  const disc = view.stopDisclaimer ? `<div class="replay-disc">${escapeTeText(view.stopDisclaimer)}</div>` : '';
+  const takeaway = `<div class="replay-takeaway">${escapeTeText(view.takeaway)}</div>`;
+  const recorded = `<div class="replay-col replay-recorded">
+        <h4>Recorded</h4>
+        <div class="replay-row"><span class="k">Size</span><span class="v">${escapeTeText(view.happened.sizeLabel)}</span></div>
+        <div class="replay-row"><span class="k">Stop</span><span class="v">${escapeTeText(view.happened.stopLabel)}</span></div>
+        <div class="replay-row"><span class="k">P&amp;L</span><span class="v">${escapeTeText(view.happened.pnlLabel)}</span></div>
+      </div>`;
+  if (view.unchanged) {
+    const reasons = (view.emptyReasons || []).map(r => {
+      const text = typeof r === 'string' ? r : (r && r.text);
+      return `<p>${replayReasonHtml(text)}</p>`;
+    }).join('') || `<p>${replayReasonHtml(view.ruleNote || 'No size or stop price change to replay.')}</p>`;
+    return `${settings}
+    <div class="replay-empty">${reasons}</div>
+    ${recorded}
+    ${takeaway}
+    ${disc}`;
+  }
   const cta = view.needsStop
     ? `<div class="replay-cta">${escapeTeText(view.cta || 'Add a stop on this trade to replay')}</div>
        <button type="button" class="btn btn-sm" style="margin-bottom:12px" onclick="editTradeFromReplay()">Edit trade</button>`
     : '';
-  const disc = view.stopDisclaimer ? `<div class="replay-disc">${escapeTeText(view.stopDisclaimer)}</div>` : '';
-  return `<p class="replay-settings">${escapeTeText(view.settingsNote)} · ${escapeTeText(instr)}</p>
-    <p class="replay-note">${escapeTeText(view.fillsNote)}</p>
+  return `${settings}
     <div class="replay-grid">
       <div class="replay-col">
         <h4>What happened</h4>
@@ -4405,7 +4436,7 @@ function renderDisciplineReplayView(view, trade) {
     </div>
     <p class="replay-note">${escapeTeText(view.ruleNote)}</p>
     ${cta}
-    <div class="replay-takeaway">${escapeTeText(view.takeaway)}</div>
+    ${takeaway}
     ${disc}`;
 }
 
@@ -4511,15 +4542,43 @@ function reviewTrade(id) {
   openTradeEditor(id);
 }
 
+let reviewingIncompleteQueue = false;
+let advancingIncompleteReview = false;
+
+function incompleteBrokerFillList() {
+  if (typeof DisciplineReplay !== 'undefined' && DisciplineReplay.incompleteBrokerFills) {
+    return DisciplineReplay.incompleteBrokerFills(S.trades);
+  }
+  return S.trades.filter(t => isBrokerFillTrade(t) && t.incomplete);
+}
+
+function setIncompleteReviewTitle(count) {
+  const title = document.querySelector('#modal-log .modal-title');
+  if (!title) return;
+  const left = count > 0 ? ' · ' + count + ' left' : '';
+  title.innerHTML = 'Review fill' + left + ' <button class="modal-close" onclick="closeModal(\'modal-log\')">✕</button>';
+}
+
+function reviewNextIncompleteFill(e) {
+  if (e) e.stopPropagation();
+  const pending = incompleteBrokerFillList();
+  if (!pending.length) return;
+  reviewingIncompleteQueue = true;
+  const first = (typeof DisciplineReplay !== 'undefined' && DisciplineReplay.firstIncompleteBrokerFill)
+    ? DisciplineReplay.firstIncompleteBrokerFill(S.trades)
+    : pending[0];
+  if (!first) return;
+  openTradeEditor(first.id);
+  setIncompleteReviewTitle(pending.length);
+}
+window.reviewNextIncompleteFill = reviewNextIncompleteFill;
+
 function applyDisciplineDefaultsToAll(e) {
   if (e) e.stopPropagation();
-  const pending = S.trades.filter(t => isBrokerFillTrade(t) && t.incomplete);
+  const pending = incompleteBrokerFillList();
   if (!pending.length) return;
-  const risk = window.Baron?.STRATEGY || window.RunnrRisk?.STRATEGY;
-  const note = risk
-    ? ` (${risk.risk_pct}% risk · ${risk.atr_stop_mult}× ATR stop · ${risk.max_position_pct}% max size)`
-    : '';
-  if (!confirm(`Confirm stop & size for all ${pending.length} broker fills${note}?\n\nStop confirmed ✓ · Size within rules ✓`)) return;
+  const msg = `Mark ALL ${pending.length} broker fills as compliant (Stop ✓ Size ✓)?\n\nThis rubber-stamps them as within the rules without reviewing Stop/Size on each trade. Disciplined Replay will NOT apply to these fills — Replay only appears when Stop or Size is flagged No.\n\nThis cannot be undone except by editing trades one by one.`;
+  if (!confirm(msg)) return;
   pending.forEach(t => {
     const fill = Number(t.fillPrice || t.entry || t.exit || 0);
     if (t.dir === 'long') {
@@ -4540,7 +4599,7 @@ function applyDisciplineDefaultsToAll(e) {
   renderJournal();
   updateHomeStats();
   if (typeof renderCoachPage === 'function') renderCoachPage();
-  alert(`${pending.length} trades marked disciplined. Check Coach for your score.`);
+  alert(`${pending.length} trades marked compliant. Replay will not apply to these. Check Coach for your score.`);
 }
 window.applyBaronRulesToAll = applyDisciplineDefaultsToAll;
 
@@ -4780,11 +4839,27 @@ function saveLog() {
   }
   if (challengeEnabled() && !existing) draft.book = draft.book || 'challenge';
   if (!draft.instr || !draft.entry) return;
+  const keepReviewing = reviewingIncompleteQueue;
+  const savedId = S.editingTradeId;
   if (!commitLog(draft)) return;
+  advancingIncompleteReview = true;
   closeModal('modal-log');
+  advancingIncompleteReview = false;
   const title = document.querySelector('#modal-log .modal-title');
   if (title) title.innerHTML = 'Log Trade <button class="modal-close" onclick="closeModal(\'modal-log\')">✕</button>';
-  showToast(draft.instr, draft.exit != null ? 'Trade updated ✓' : 'Trade saved ✓');
+  const savedMsg = draft.exit != null ? 'Trade updated ✓' : 'Trade saved ✓';
+  if (keepReviewing) {
+    const remaining = incompleteBrokerFillList().filter(t => tradeId(t.id) !== tradeId(savedId));
+    if (remaining.length) {
+      reviewingIncompleteQueue = true;
+      openTradeEditor(remaining[0].id);
+      setIncompleteReviewTitle(remaining.length);
+      showToast(draft.instr, savedMsg + ' · ' + remaining.length + ' remaining');
+      return;
+    }
+    reviewingIncompleteQueue = false;
+  }
+  showToast(draft.instr, savedMsg);
 }
 
 // ── WATCHLIST ──────────────────────────────────────────────────────────────
@@ -8612,6 +8687,7 @@ function openModal(id) {
 function closeModal(id) {
   document.getElementById(id)?.classList.remove('open');
   if (!document.querySelector('.modal-overlay.open')) document.body.style.overflow = '';
+  if (id === 'modal-log' && !advancingIncompleteReview) reviewingIncompleteQueue = false;
 }
 function closeModalOutside(e, id) { if (e.target.id === id) closeModal(id); }
 
