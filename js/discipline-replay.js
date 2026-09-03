@@ -9,6 +9,39 @@ const DisciplineReplay = {
     return trade.sizeOk === false || trade.stopOk === false;
   },
 
+  /**
+   * Journal CTA: only when Replay has a real action.
+   * 1) Missing-stop CTA — stopOk false and no recorded stop.
+   * 2) Numeric size cut — compliant size is strictly smaller than actual.
+   * Empty-Δ (process stop with stored stop, and/or size already fits) stays off the button.
+   */
+  canReplay(trade, settings, baron) {
+    if (!this.isEligible(trade)) return false;
+    if (this.needsStopToCalc(trade)) return true;
+    return this.hasNumericSizeCut(trade, settings, baron);
+  },
+
+  shouldShowButton(trade, settings, baron) {
+    return this.canReplay(trade, settings, baron);
+  },
+
+  hasNumericSizeCut(trade, settings, baron) {
+    if (!this.isEligible(trade)) return false;
+    const B = baron || (typeof Baron !== "undefined" ? Baron : null);
+    const S = settings || {};
+    const actual = this.num(trade && trade.size);
+    if (actual == null || !(actual > 0)) return false;
+    const discStop = this.disciplinedStop(trade);
+    if (discStop == null) return false;
+    const bal = this.balanceOf(S, trade, B);
+    const risk = Number(S.risk);
+    const riskPct = Number.isFinite(risk) ? risk : 1;
+    const sized = this.compliantSize(trade, { bal, risk: riskPct }, B, discStop);
+    const computed = this.num(sized && sized.size);
+    if (computed == null) return false;
+    return computed < actual && !this.sameQty(computed, actual);
+  },
+
   isBrokerFill(trade) {
     const src = trade && trade.source;
     return src === "alpaca" || src === "ibkr" || src === "t212";
