@@ -23,9 +23,12 @@ function check(name, cond) {
 const v = html.match(/var V = "(\d+)"/)[1];
 const cache = sw.match(/CACHE = "runnr-v(\d+)"/)[1];
 check("index.html V matches sw.js CACHE", v === cache);
-check("discipline-replay.js is loaded", html.includes("js/discipline-replay.js?v=2"));
+check("discipline-replay.js is loaded", html.includes("js/discipline-replay.js?v=3"));
 check("replay modal exists", html.includes('id="modal-discipline-replay"'));
 check("journal button copy", html.includes("Replay Disciplined"));
+check("journal button gated on canReplay", html.includes("DisciplineReplay.canReplay(t, S"));
+check("journal render does not offer button via isEligible", !/DisciplineReplay\.isEligible\(t\) \?/.test(html));
+check("openDisciplineReplay keeps isEligible safety net", /function openDisciplineReplay[\s\S]{0,400}isEligible\(t\)/.test(html));
 check("no new nav tab", !html.includes("switchPage('replay')") && !html.includes("page-replay"));
 check("no candle UI in replay helper", !/candlestick|ohlc|replay-chart/i.test(replaySrc) && !html.includes('id="replay-chart"'));
 check("copy never claims market would have", !/what the market would have done/i.test(replaySrc) && !/what the market would have done/i.test(html));
@@ -82,9 +85,13 @@ const demo = [
 ];
 
 check("demo id 1 does not show replay", DR.isEligible(demo[0]) === false);
-check("demo id 2 shows replay", DR.isEligible(demo[1]) === true);
+check("clean trade canReplay false", DR.canReplay(demo[0], { bal: 10000, risk: 1 }, Baron) === false);
+check("clean trade shouldShowButton false", DR.shouldShowButton(demo[0], { bal: 10000, risk: 1 }, Baron) === false);
+check("demo id 2 is eligible", DR.isEligible(demo[1]) === true);
 check("demo id 3 clean does not show replay", DR.isEligible(demo[2]) === false);
+check("demo id 3 canReplay false", DR.canReplay(demo[2], { bal: 10000, risk: 1 }, Baron) === false);
 check("demo id 4 incomplete does not show replay", DR.isEligible(demo[3]) === false);
+check("demo id 4 canReplay false", DR.canReplay(demo[3], { bal: 10000, risk: 1 }, Baron) === false);
 check("incomplete broker fill waiting for flags is hidden", DR.isEligible({
   id: 9, incomplete: true, stopOk: null, sizeOk: null, instr: "AAPL",
 }) === false);
@@ -122,6 +129,9 @@ check("demo 2 fills note", view.fillsNote === "same fills, corrected size/stop."
 check("demo 2 does not need CTA", view.needsStop === false && view.cta == null);
 check("demo 2 is a real Δ not empty-state", view.unchanged === false && view.disciplined.size !== 65 && view.delta !== 0);
 check("demo 2 keeps side-by-side fills note", view.fillsNote === "same fills, corrected size/stop.");
+check("demo BE oversized canReplay true", DR.canReplay(be, settings, Baron) === true);
+check("demo BE oversized shouldShowButton true", DR.shouldShowButton(be, settings, Baron) === true);
+check("demo BE hasNumericSizeCut true", DR.hasNumericSizeCut(be, settings, Baron) === true);
 
 const alreadySmall = {
   id: 20, instr: "BE", dir: "long", entry: 137, exit: 151, size: 2, pnl: 28,
@@ -133,6 +143,7 @@ check("already-smaller actual is capped, not inflated", smallBaron.shares > 2 &&
 check("already-smaller size flag uses empty-Δ", smallView.unchanged === true);
 check("already-smaller sizeFits copy", smallView.emptyReasons.some((r) => r.id === "sizeFits" && /already fit/.test(r.text) && /Process flag/.test(r.text)));
 check("already-smaller takeaway is Δ 0", smallView.delta === 0 && /no size or stop price to change/.test(smallView.takeaway));
+check("already-smaller canReplay false", DR.canReplay(alreadySmall, settings, Baron) === false);
 
 const withStop = {
   id: 21, instr: "BE", dir: "long", entry: 137, exit: 151, size: 65, pnl: 910,
@@ -153,6 +164,8 @@ check("missing stop + stopOk false does not invent ATR", miss.needsStop === true
 check("missing stop CTA", miss.cta === "Add a stop on this trade to replay");
 check("missing stop does not fabricate size", miss.disciplined.size == null);
 check("stop-fail disclaimer does not claim market path", miss.stopDisclaimer && !/would have done/i.test(miss.stopDisclaimer));
+check("missing stop canReplay true (CTA path)", DR.canReplay(missingStop, settings, Baron) === true);
+check("missing stop shouldShowButton true", DR.shouldShowButton(missingStop, settings, Baron) === true);
 
 const fx = {
   id: 23, instr: "EURUSD", dir: "long", entry: 1.08, exit: 1.09, size: 50000, pnl: null,
@@ -169,6 +182,8 @@ check("missing stored P&L is recomputed", fxView.happened.pnl === Math.round(Bar
 const before = JSON.stringify(demo);
 DR.buildView(demo[1], settings, Baron);
 DR.isEligible(demo[3]);
+DR.canReplay(demo[1], settings, Baron);
+DR.canReplay(demo[3], settings, Baron);
 check("replay does not mutate journal trades", JSON.stringify(demo) === before);
 
 const limitCtx = { window: {}, globalThis: {} };
@@ -212,5 +227,17 @@ check("AMZN takeaway is Δ $0", amznView.delta === 0 && amznView.takeaway.includ
 check("AMZN keeps current risk % / balance note", amznView.settingsNote === "using your current risk % / balance");
 check("AMZN empty-Δ does not claim a correction", amznView.fillsNote.includes("no size or stop price change"));
 check("AMZN does not use ATR for the stop", Math.abs(248 - (252 - Baron.estimateAtr(252) * Baron.STRATEGY.atr_stop_mult)) > 1);
+check("AMZN canReplay false (empty-Δ, no button)", DR.canReplay(amzn, amznSettings, Baron) === false);
+check("AMZN shouldShowButton false", DR.shouldShowButton(amzn, amznSettings, Baron) === false);
+check("AMZN hasNumericSizeCut false", DR.hasNumericSizeCut(amzn, amznSettings, Baron) === false);
+check("AMZN remains eligible so empty-Δ panel still works if opened", amznView.eligible === true && amznView.unchanged === true);
+
+const processStopOnly = {
+  id: 31, instr: "MSFT", dir: "long", entry: 400, exit: 410, size: 10, pnl: 100,
+  stopOk: false, sizeOk: true, type: "shares", stop: 390, incomplete: false,
+};
+const processSettings = { bal: 100000, risk: 1, sym: "$" };
+check("process-stop with stored stop canReplay false", DR.canReplay(processStopOnly, processSettings, Baron) === false);
+check("process-stop stays eligible (✗ flag, Coach still sees it)", DR.isEligible(processStopOnly) === true);
 
 console.log("ok " + n);

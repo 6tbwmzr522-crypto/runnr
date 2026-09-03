@@ -5,7 +5,7 @@
 <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
 <script>
 (function () {
-  var V = "114";
+  var V = "115";
   try {
     if (localStorage.getItem("runnr_app_v") !== V) {
       localStorage.setItem("runnr_app_v", V);
@@ -2721,7 +2721,7 @@ html.runnr-guest #page-home .stat-grid{grid-template-columns:repeat(3,minmax(0,1
 
 <script src="js/i18n.js?v=15"></script>
 <script src="js/baron.js?v=31"></script>
-<script src="js/discipline-replay.js?v=2"></script>
+<script src="js/discipline-replay.js?v=3"></script>
 <script src="js/coach.js?v=26"></script>
 <script src="js/onboarding.js?v=29"></script>
 <script src="js/intro.js?v=1"></script>
@@ -4324,7 +4324,7 @@ function renderJournal() {
     if (alpacaPending.length) {
       hint.style.display = 'block';
       hint.innerHTML = `<div style="display:flex;justify-content:space-between;align-items:flex-start;gap:10px;flex-wrap:wrap">
-        <span><strong>${alpacaPending.length} broker fill${alpacaPending.length > 1 ? 's' : ''}</strong> need Stop and Size answers — closed round-trips already count toward Portfolio P&amp;L. Review each fill. Replay only appears when Stop or Size is flagged No.</span>
+        <span><strong>${alpacaPending.length} broker fill${alpacaPending.length > 1 ? 's' : ''}</strong> need Stop and Size answers — closed round-trips already count toward Portfolio P&amp;L. Review each fill. Replay appears only when size can be cut, or a flagged trade is missing a stop.</span>
         <div style="display:flex;flex-direction:column;gap:8px;align-items:stretch;flex-shrink:0">
           <button type="button" class="btn btn-sm" style="white-space:nowrap" onclick="reviewNextIncompleteFill(event)">Review next incomplete</button>
           <button type="button" class="btn btn-sm btn-ghost" style="white-space:nowrap" onclick="applyDisciplineDefaultsToAll(event)">Mark all as compliant (Stop ✓ Size ✓)</button>
@@ -4379,7 +4379,7 @@ function renderJournal() {
       </div>
       <div class="te-meta">${metaLine}</div>
       <div class="flags">${stopFlag}${sizeFlag}${t.challengeFail ? '' : (t.incomplete?'<span class="flag flag-miss">Incomplete</span>':'')}</div>
-      ${typeof DisciplineReplay !== 'undefined' && DisciplineReplay.isEligible(t) ? `<button type="button" class="te-replay" onclick="openDisciplineReplay('${t.id}', event)">Replay Disciplined</button>` : ''}
+      ${typeof DisciplineReplay !== 'undefined' && DisciplineReplay.canReplay(t, S, typeof Baron !== 'undefined' ? Baron : null) ? `<button type="button" class="te-replay" onclick="openDisciplineReplay('${t.id}', event)">Replay Disciplined</button>` : ''}
       ${t.challengeNote ? `<div class="te-note">${escapeTeText(t.challengeNote)}</div>` : ''}
     </div>`;
     } catch (e) { console.warn('skip bad trade', t && t.id, e); return ''; }
