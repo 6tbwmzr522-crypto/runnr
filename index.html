@@ -5,7 +5,7 @@
 <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
 <script>
 (function () {
-  var V = "112";
+  var V = "113";
   try {
     if (localStorage.getItem("runnr_app_v") !== V) {
       localStorage.setItem("runnr_app_v", V);
@@ -218,6 +218,19 @@ body::before{content:'';position:fixed;inset:0;background:radial-gradient(ellips
 .flag-no{background:var(--red-dim);color:var(--red)}
 .flag-miss{background:var(--amber-dim);color:var(--amber)}
 .flag-incomplete{background:var(--surface3);color:var(--text3);border:1px dashed var(--border)}
+.te-replay{background:none;border:none;color:var(--gold);font-size:11px;font-weight:500;padding:8px 0 0;margin:0;cursor:pointer;letter-spacing:0.04em;font-family:var(--font-body);text-decoration:underline;text-underline-offset:3px;display:inline-block}
+.te-replay:hover{color:var(--gold-light)}
+.replay-grid{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:12px}
+.replay-col{background:rgba(245,242,236,0.02);border:1px solid var(--border);border-radius:var(--r-sm);padding:12px}
+.replay-col h4{font-size:9px;letter-spacing:0.16em;text-transform:uppercase;color:var(--text3);margin:0 0 10px;font-weight:500}
+.replay-row{display:flex;justify-content:space-between;gap:8px;font-size:13px;margin-bottom:6px}
+.replay-row .k{color:var(--text3)}
+.replay-row .v{font-family:var(--font-mono);color:var(--text);text-align:right}
+.replay-note{font-size:12px;color:var(--text2);line-height:1.45;margin:0 0 10px}
+.replay-settings{font-size:11px;color:var(--text3);font-style:italic;margin:0 0 12px}
+.replay-takeaway{font-size:13px;color:var(--gold-light);line-height:1.4;padding:10px 12px;background:var(--gold-dim);border:1px solid var(--border);border-radius:var(--r-sm);margin-bottom:12px}
+.replay-cta{font-size:13px;color:var(--amber);margin:0 0 12px;line-height:1.45}
+.replay-disc{font-size:11px;color:var(--text3);line-height:1.4;margin:8px 0 0}
 
 /* ── WATCHLIST ── */
 .watch-item{background:rgba(245,242,236,0.02);border-left:2px solid var(--gold);border-radius:0 var(--r-sm) var(--r-sm) 0;padding:14px;margin-bottom:8px;border-top:1px solid var(--border);border-right:1px solid var(--border);border-bottom:1px solid var(--border)}
@@ -2515,6 +2528,7 @@ html.runnr-guest #page-home .stat-grid{grid-template-columns:repeat(3,minmax(0,1
       <div class="field"><label>Size / Units</label><input id="log-size" type="number" placeholder="0"></div>
       <div class="field"><label>Direction</label><select id="log-dir"><option value="long">Long</option><option value="short">Short</option></select></div>
     </div>
+    <div class="field"><label>Stop (optional)</label><input id="log-stop" type="number" placeholder="0.00"></div>
     <div class="divider"></div>
     <div style="font-size:13px;font-weight:600;color:var(--text2);margin-bottom:12px">Discipline Flags</div>
     <div class="card-sm" style="margin-bottom:10px">
@@ -2532,6 +2546,15 @@ html.runnr-guest #page-home .stat-grid{grid-template-columns:repeat(3,minmax(0,1
       </div>
     </div>
     <button class="btn" onclick="saveLog()">Save Trade</button>
+  </div>
+</div>
+
+<!-- Disciplined Replay -->
+<div class="modal-overlay" id="modal-discipline-replay" onclick="closeModalOutside(event,'modal-discipline-replay')">
+  <div class="modal" onclick="event.stopPropagation()">
+    <div class="modal-title">Replay Disciplined <button class="modal-close" onclick="closeModal('modal-discipline-replay')">✕</button></div>
+    <div id="discipline-replay-body"></div>
+    <button class="btn" type="button" onclick="closeModal('modal-discipline-replay')">Close</button>
   </div>
 </div>
 
@@ -2693,6 +2716,7 @@ html.runnr-guest #page-home .stat-grid{grid-template-columns:repeat(3,minmax(0,1
 
 <script src="js/i18n.js?v=15"></script>
 <script src="js/baron.js?v=31"></script>
+<script src="js/discipline-replay.js?v=1"></script>
 <script src="js/coach.js?v=26"></script>
 <script src="js/onboarding.js?v=29"></script>
 <script src="js/intro.js?v=1"></script>
@@ -4278,7 +4302,7 @@ function bindJournalClicks() {
   if (!list || journalClickBound) return;
   journalClickBound = true;
   list.addEventListener('click', (e) => {
-    if (e.target.closest('.te-del') || e.target.closest('.te-sym')) return;
+    if (e.target.closest('.te-del') || e.target.closest('.te-sym') || e.target.closest('.te-replay') || e.target.closest('.te-edit')) return;
     const row = e.target.closest('.trade-entry[data-trade-id]');
     if (!row || row.dataset.editable !== '1') return;
     openTradeEditor(row.dataset.tradeId);
@@ -4347,11 +4371,63 @@ function renderJournal() {
       </div>
       <div class="te-meta">${metaLine}</div>
       <div class="flags">${stopFlag}${sizeFlag}${t.challengeFail ? '' : (t.incomplete?'<span class="flag flag-miss">Incomplete</span>':'')}</div>
+      ${typeof DisciplineReplay !== 'undefined' && DisciplineReplay.isEligible(t) ? `<button type="button" class="te-replay" onclick="openDisciplineReplay('${t.id}', event)">Replay Disciplined</button>` : ''}
       ${t.challengeNote ? `<div class="te-note">${escapeTeText(t.challengeNote)}</div>` : ''}
     </div>`;
     } catch (e) { console.warn('skip bad trade', t && t.id, e); return ''; }
   }).join('');
 }
+
+let disciplineReplayTradeId = null;
+
+function renderDisciplineReplayView(view, trade) {
+  const instr = escapeTeText(view.instr || '—');
+  const cta = view.needsStop
+    ? `<div class="replay-cta">${escapeTeText(view.cta || 'Add a stop on this trade to replay')}</div>
+       <button type="button" class="btn btn-sm" style="margin-bottom:12px" onclick="editTradeFromReplay()">Edit trade</button>`
+    : '';
+  const disc = view.stopDisclaimer ? `<div class="replay-disc">${escapeTeText(view.stopDisclaimer)}</div>` : '';
+  return `<p class="replay-settings">${escapeTeText(view.settingsNote)} · ${escapeTeText(instr)}</p>
+    <p class="replay-note">${escapeTeText(view.fillsNote)}</p>
+    <div class="replay-grid">
+      <div class="replay-col">
+        <h4>What happened</h4>
+        <div class="replay-row"><span class="k">Size</span><span class="v">${escapeTeText(view.happened.sizeLabel)}</span></div>
+        <div class="replay-row"><span class="k">Stop</span><span class="v">${escapeTeText(view.happened.stopLabel)}</span></div>
+        <div class="replay-row"><span class="k">P&amp;L</span><span class="v">${escapeTeText(view.happened.pnlLabel)}</span></div>
+      </div>
+      <div class="replay-col">
+        <h4>Disciplined version</h4>
+        <div class="replay-row"><span class="k">Size</span><span class="v">${escapeTeText(view.disciplined.sizeLabel)}</span></div>
+        <div class="replay-row"><span class="k">Stop</span><span class="v">${escapeTeText(view.disciplined.stopLabel)}</span></div>
+        <div class="replay-row"><span class="k">P&amp;L</span><span class="v">${escapeTeText(view.disciplined.pnlLabel)}</span></div>
+      </div>
+    </div>
+    <p class="replay-note">${escapeTeText(view.ruleNote)}</p>
+    ${cta}
+    <div class="replay-takeaway">${escapeTeText(view.takeaway)}</div>
+    ${disc}`;
+}
+
+function openDisciplineReplay(id, e) {
+  if (e) { e.stopPropagation(); e.preventDefault(); }
+  id = tradeId(id);
+  const t = S.trades.find(x => tradeId(x.id) === id);
+  if (!t || typeof DisciplineReplay === 'undefined' || !DisciplineReplay.isEligible(t)) return;
+  disciplineReplayTradeId = id;
+  const view = DisciplineReplay.buildView(t, S, typeof Baron !== 'undefined' ? Baron : null);
+  const root = document.getElementById('discipline-replay-body');
+  if (root) root.innerHTML = renderDisciplineReplayView(view, t);
+  openModal('modal-discipline-replay');
+}
+
+function editTradeFromReplay() {
+  const id = disciplineReplayTradeId;
+  closeModal('modal-discipline-replay');
+  if (id) openTradeEditor(id);
+}
+window.openDisciplineReplay = openDisciplineReplay;
+window.editTradeFromReplay = editTradeFromReplay;
 
 function formatTradePnl(t, isAlpaca) {
   if (t.disciplineOnly) {
@@ -4415,6 +4491,8 @@ function openTradeEditor(id) {
   document.getElementById('log-exit').value = Baron.isOpenTrade?.(t) ? '' : (t.exit ?? '');
   document.getElementById('log-size').value = t.size ?? '';
   document.getElementById('log-dir').value = t.dir || 'long';
+  const stopEl = document.getElementById('log-stop');
+  if (stopEl) stopEl.value = t.stop ?? '';
   ['stop-yes','stop-no','size-yes','size-no'].forEach(fid => {
     const el = document.getElementById(fid);
     if (!el) return;
@@ -4603,6 +4681,8 @@ function openLogModal(type) {
     document.getElementById(id).style.color = '';
     document.getElementById(id).style.borderColor = '';
   });
+  const stopEl = document.getElementById('log-stop');
+  if (stopEl && !S.editingTradeId) stopEl.value = '';
   openModal('modal-log');
 }
 
@@ -4615,14 +4695,14 @@ function saveLogFromSizer(type) {
   draft.stopOk = true;
   const blocked = !!(lastChallengeVerdict && lastChallengeVerdict.blocked);
   draft.sizeOk = draft.withinRules !== false && !blocked;
-  draft.incomplete = !draft.stopOk || !draft.sizeOk;
+  draft.incomplete = false;
   if (challengeEnabled()) draft.book = 'challenge';
   draft.challengeFail = blocked;
   draft.challengeNote = blocked ? (lastChallengeVerdict.note || '') : '';
   if (!commitLog(draft)) return;
   const msg = blocked
     ? 'Logged near-miss — would have failed the eval'
-    : (draft.incomplete
+    : (!draft.sizeOk
       ? 'Logged — size flagged for review in Journal'
       : 'Logged ✓ — sized & stopped like a pro');
   showToast(draft.instr, msg);
@@ -4640,6 +4720,8 @@ function fillLogFromSizer(type) {
   document.getElementById('log-exit').value = draft.exit || '';
   document.getElementById('log-size').value = draft.size;
   document.getElementById('log-dir').value = draft.dir || 'long';
+  const stopEl = document.getElementById('log-stop');
+  if (stopEl) stopEl.value = draft.stop ?? '';
   setFlag('stop', 'yes');
   const blocked = !!(lastChallengeVerdict && lastChallengeVerdict.blocked);
   setFlag('size', draft.withinRules !== false && !blocked ? 'yes' : 'no');
@@ -4663,19 +4745,23 @@ function saveLog() {
   const exitRaw = document.getElementById('log-exit').value;
   const exit = exitRaw !== '' && exitRaw != null ? parseFloat(exitRaw) : null;
   const pair = window.Baron?.parseForexPair?.(instr) || existing?.pair || null;
-  const stopOk = S.flags.stop === 'yes' || (S.flags.stop == null && existing?.stopOk);
-  const sizeOk = S.flags.size === 'yes' || (S.flags.size == null && existing?.sizeOk);
+  const stopAnswered = S.flags.stop === 'yes' || S.flags.stop === 'no';
+  const sizeAnswered = S.flags.size === 'yes' || S.flags.size === 'no';
+  const stopOk = S.flags.stop === 'yes' || (!stopAnswered && existing?.stopOk);
+  const sizeOk = S.flags.size === 'yes' || (!sizeAnswered && existing?.sizeOk);
+  const stopRaw = document.getElementById('log-stop')?.value;
+  const stopNum = parseFloat(stopRaw);
   const draft = {
     instr,
     entry: parseFloat(document.getElementById('log-entry').value),
     exit: Number.isFinite(exit) ? exit : null,
     size: parseFloat(document.getElementById('log-size').value),
     dir: document.getElementById('log-dir').value,
-    stop: existing?.stop ?? null,
+    stop: (stopRaw !== '' && Number.isFinite(stopNum)) ? stopNum : (existing?.stop ?? null),
     target: existing?.target ?? null,
     stopOk: !!stopOk,
     sizeOk: !!sizeOk,
-    incomplete: !stopOk || !sizeOk,
+    incomplete: !(stopAnswered && sizeAnswered),
     type: existing?.type || (pair ? 'cfd' : 'shares'),
     pair,
   };
