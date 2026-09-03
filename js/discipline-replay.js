@@ -9,9 +9,32 @@ const DisciplineReplay = {
     return trade.sizeOk === false || trade.stopOk === false;
   },
 
+  isBrokerFill(trade) {
+    const src = trade && trade.source;
+    return src === "alpaca" || src === "ibkr" || src === "t212";
+  },
+
+  incompleteBrokerFills(trades) {
+    if (!Array.isArray(trades)) return [];
+    return trades.filter((t) => this.isBrokerFill(t) && t.incomplete);
+  },
+
+  firstIncompleteBrokerFill(trades) {
+    const list = this.incompleteBrokerFills(trades);
+    return list.length ? list[0] : null;
+  },
+
   num(v) {
     const n = parseFloat(v);
     return Number.isFinite(n) ? n : null;
+  },
+
+  sameQty(a, b) {
+    if (a == null && b == null) return true;
+    const x = this.num(a);
+    const y = this.num(b);
+    if (x == null || y == null) return false;
+    return Math.abs(x - y) < 1e-8;
   },
 
   recordedStop(trade) {
@@ -154,6 +177,31 @@ const DisciplineReplay = {
     return h + " happened · " + d + " disciplined · Δ " + this.formatPnl(delta, sym);
   },
 
+  takeawayUnchanged(happened, sym) {
+    return this.formatPnl(happened, sym) + " happened · Δ " + this.formatPnl(0, sym) + " — no size or stop price to change";
+  },
+
+  emptyDeltaReasons(trade, sized) {
+    const reasons = [];
+    const actualSize = this.num(trade && trade.size);
+    const kind = (sized && sized.kind) || this.kindOf(trade);
+    if (trade && trade.sizeOk === false && sized && this.sameQty(sized.size, actualSize)) {
+      reasons.push({
+        id: "sizeFits",
+        text: "You marked size outside rules, but at your current balance & risk % with this stop, "
+          + this.formatSize(actualSize, kind)
+          + " already fit. No size change to replay. (Process flag ≠ math.)",
+      });
+    }
+    if (trade && trade.stopOk === false && this.recordedStop(trade) != null) {
+      reasons.push({
+        id: "stopProcess",
+        text: "Stop flag means you didn't confirm before entry — it's a process miss. Replay can't invent a different stop price. Same fills, same stop.",
+      });
+    }
+    return reasons;
+  },
+
   ruleNote(trade, sized, usedFallbackStop) {
     const bits = [];
     if (trade && trade.challengeFail) bits.push("This fill was flagged against eval size rules.");
@@ -215,6 +263,8 @@ const DisciplineReplay = {
       deltaLabel: "—",
       takeaway: this.takeawayLine(happenedPnl, null, sym),
       ruleNote: "",
+      unchanged: false,
+      emptyReasons: [],
       kind,
       bal,
       riskPct,
@@ -251,8 +301,22 @@ const DisciplineReplay = {
     };
     view.delta = delta;
     view.deltaLabel = this.formatPnl(delta, sym);
-    view.takeaway = this.takeawayLine(happenedPnl, discPnl, sym);
-    view.ruleNote = this.ruleNote(trade, sized, usedFallbackStop);
+    const sizeSame = this.sameQty(sized.size, actualSize);
+    const stopSame = this.sameQty(discStop, actualStop);
+    const unchanged = sizeSame && stopSame;
+    view.unchanged = unchanged;
+    view.emptyReasons = unchanged ? this.emptyDeltaReasons(trade, sized) : [];
+    if (unchanged) {
+      view.fillsNote = "same fills — no size or stop price change.";
+      view.takeaway = this.takeawayUnchanged(happenedPnl, sym);
+      view.ruleNote = view.emptyReasons.map((r) => r.text).join(" ");
+      if (!view.ruleNote) {
+        view.ruleNote = "No size or stop price change to replay.";
+      }
+    } else {
+      view.takeaway = this.takeawayLine(happenedPnl, discPnl, sym);
+      view.ruleNote = this.ruleNote(trade, sized, usedFallbackStop);
+    }
     if (trade.stopOk === false) {
       view.stopDisclaimer = "Exit is the recorded fill, not a simulated stop-out.";
     }

@@ -23,7 +23,7 @@ function check(name, cond) {
 const v = html.match(/var V = "(\d+)"/)[1];
 const cache = sw.match(/CACHE = "runnr-v(\d+)"/)[1];
 check("index.html V matches sw.js CACHE", v === cache);
-check("discipline-replay.js is loaded", html.includes("js/discipline-replay.js?v=1"));
+check("discipline-replay.js is loaded", html.includes("js/discipline-replay.js?v=2"));
 check("replay modal exists", html.includes('id="modal-discipline-replay"'));
 check("journal button copy", html.includes("Replay Disciplined"));
 check("no new nav tab", !html.includes("switchPage('replay')") && !html.includes("page-replay"));
@@ -31,8 +31,36 @@ check("no candle UI in replay helper", !/candlestick|ohlc|replay-chart/i.test(re
 check("copy never claims market would have", !/what the market would have done/i.test(replaySrc) && !/what the market would have done/i.test(html));
 check("settings note copy", replaySrc.includes("using your current risk % / balance"));
 check("fills copy", replaySrc.includes("same fills, corrected size/stop."));
+check("empty-Δ copy stays in helper", replaySrc.includes("Process flag ≠ math.") && replaySrc.includes("process miss"));
 check("missing-stop CTA", replaySrc.includes("Add a stop on this trade to replay"));
 check("replay does not write journal rows", !/commitLog|canAddJournalTrade|S\.trades\.(unshift|push)/.test(replaySrc));
+check("empty-Δ renderer exists", html.includes("replay-empty") && html.includes("Recorded") && html.includes("replayReasonHtml"));
+check("journal banner dropped Confirm stop & size", !/Confirm stop &amp; size/i.test(html) && !/Confirm stop & size/i.test(html));
+
+function extractTopFn(src, name) {
+  const start = src.indexOf("function " + name + "(");
+  if (start < 0) return "";
+  let i = src.indexOf("{", start);
+  let depth = 0;
+  for (; i < src.length; i++) {
+    if (src[i] === "{") depth += 1;
+    else if (src[i] === "}") {
+      depth -= 1;
+      if (depth === 0) return src.slice(start, i + 1);
+    }
+  }
+  return "";
+}
+const hintTpl = (html.match(/alpacaPending\.length[\s\S]*?hint\.innerHTML = `([\s\S]*?)`;/) || [])[1] || "";
+const primaryBtn = (hintTpl.match(/<button type="button" class="btn btn-sm"(?! btn-ghost)[\s\S]*?<\/button>/) || [])[0] || "";
+check("journal banner primary is Review next incomplete", primaryBtn.includes("reviewNextIncompleteFill") && primaryBtn.includes("Review next incomplete"));
+check("journal banner primary is not stamp-all", !primaryBtn.includes("applyDisciplineDefaultsToAll") && !/stopOk/.test(primaryBtn));
+check("journal banner stamp-all is ghost secondary", hintTpl.includes("btn-ghost") && hintTpl.includes("Mark all as compliant (Stop ✓ Size ✓)") && hintTpl.includes("applyDisciplineDefaultsToAll"));
+const reviewFn = extractTopFn(html, "reviewNextIncompleteFill");
+check("reviewNextIncompleteFill opens one trade", /openTradeEditor/.test(reviewFn));
+check("batch primary path does not set all stopOk/sizeOk true", reviewFn.length > 0 && !/stopOk\s*=/.test(reviewFn) && !/sizeOk\s*=/.test(reviewFn));
+const stampFn = extractTopFn(html, "applyDisciplineDefaultsToAll");
+check("stamp-all confirm says Replay will not apply", /Replay will NOT apply/i.test(stampFn));
 check("sizer log clears incomplete once flags are known", /function saveLogFromSizer[\s\S]{0,900}draft\.incomplete = false/.test(html));
 check("demo 1 is a clean seed", html.includes("id:1, isDemo:true, instr:'RACE'") && /id:1, isDemo:true[\s\S]*?sizeOk:true/.test(html));
 check("demo 2 is a size fail", html.includes("id:2, isDemo:true, instr:'BE'") && html.includes("sizeOk:false"));
@@ -92,6 +120,8 @@ check("demo 2 takeaway uses €", view.takeaway.includes("€") && view.takeaway
 check("demo 2 settings note", view.settingsNote === "using your current risk % / balance");
 check("demo 2 fills note", view.fillsNote === "same fills, corrected size/stop.");
 check("demo 2 does not need CTA", view.needsStop === false && view.cta == null);
+check("demo 2 is a real Δ not empty-state", view.unchanged === false && view.disciplined.size !== 65 && view.delta !== 0);
+check("demo 2 keeps side-by-side fills note", view.fillsNote === "same fills, corrected size/stop.");
 
 const alreadySmall = {
   id: 20, instr: "BE", dir: "long", entry: 137, exit: 151, size: 2, pnl: 28,
@@ -100,6 +130,9 @@ const alreadySmall = {
 const smallView = DR.buildView(alreadySmall, settings, Baron);
 const smallBaron = Baron.sizeShares(10000, 1, 137, 130);
 check("already-smaller actual is capped, not inflated", smallBaron.shares > 2 && smallView.disciplined.size === 2);
+check("already-smaller size flag uses empty-Δ", smallView.unchanged === true);
+check("already-smaller sizeFits copy", smallView.emptyReasons.some((r) => r.id === "sizeFits" && /already fit/.test(r.text) && /Process flag/.test(r.text)));
+check("already-smaller takeaway is Δ 0", smallView.delta === 0 && /no size or stop price to change/.test(smallView.takeaway));
 
 const withStop = {
   id: 21, instr: "BE", dir: "long", entry: 137, exit: 151, size: 65, pnl: 910,
@@ -148,5 +181,36 @@ check("demo seeds still do not burn the cap", TL.countJournalTradesForLimit(demo
 check("replay helper is not a countable trade source", TL.countJournalTradesForLimit(demo.concat([{
   id: 99, instr: "BE", sizeOk: false, stopOk: true, isDemo: true,
 }])) === 0);
+
+const pendingFills = [
+  { id: 101, source: "alpaca", incomplete: true, stopOk: null, sizeOk: null, instr: "AAPL" },
+  { id: 102, source: "alpaca", incomplete: true, stopOk: null, sizeOk: null, instr: "MSFT" },
+  { id: 103, source: "manual", incomplete: true, stopOk: null, sizeOk: null, instr: "NVDA" },
+];
+const firstFill = DR.firstIncompleteBrokerFill(pendingFills);
+const snapshot = JSON.stringify(pendingFills);
+DR.firstIncompleteBrokerFill(pendingFills);
+DR.incompleteBrokerFills(pendingFills);
+check("primary path picks first incomplete broker fill", firstFill && firstFill.id === 101);
+check("primary path skips non-broker incomplete", DR.incompleteBrokerFills(pendingFills).every((t) => t.source !== "manual"));
+check("batch primary path does not set all stopOk/sizeOk true (runtime)", JSON.stringify(pendingFills) === snapshot
+  && pendingFills.every((t) => t.stopOk == null && t.sizeOk == null && t.incomplete === true));
+
+const amzn = {
+  id: 30, instr: "AMZN", dir: "long", entry: 252, exit: 258, size: 34, pnl: 204,
+  stopOk: false, sizeOk: false, type: "shares", stop: 248, incomplete: false,
+};
+const amznSettings = { bal: 100000, risk: 1, sym: "$" };
+const amznSized = Baron.sizeShares(100000, 1, 252, 248);
+const amznView = DR.buildView(amzn, amznSettings, Baron);
+check("AMZN size already fits current risk", amznSized.shares >= 34 && amznView.disciplined.size === 34);
+check("AMZN empty-Δ when size already compliant + stop process flag", amznView.unchanged === true && amznView.eligible === true);
+check("AMZN sizeFits copy names current risk", amznView.emptyReasons.some((r) => r.id === "sizeFits" && r.text.includes("current") && r.text.includes("34 shares") && r.text.includes("Process flag ≠ math.")));
+check("AMZN stop process copy", amznView.emptyReasons.some((r) => r.id === "stopProcess" && /process miss/.test(r.text) && /can't invent a different stop price/.test(r.text)));
+check("AMZN recorded stop is reused, not invented", amznView.happened.stop === 248 && amznView.disciplined.stop === 248);
+check("AMZN takeaway is Δ $0", amznView.delta === 0 && amznView.takeaway.includes("$204") && amznView.takeaway.includes("Δ $0"));
+check("AMZN keeps current risk % / balance note", amznView.settingsNote === "using your current risk % / balance");
+check("AMZN empty-Δ does not claim a correction", amznView.fillsNote.includes("no size or stop price change"));
+check("AMZN does not use ATR for the stop", Math.abs(248 - (252 - Baron.estimateAtr(252) * Baron.STRATEGY.atr_stop_mult)) > 1);
 
 console.log("ok " + n);
