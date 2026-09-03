@@ -949,7 +949,7 @@ const RunnrSync = (() => {
           buy.remainingQty = 0;
           paired++;
           const remainder = buyLeft - matchQty;
-          window.S.trades.unshift({
+          const remRow = {
             id: Date.now() + Math.floor(Math.random() * 1000),
             instr: buy.instr,
             dir: "long",
@@ -969,7 +969,12 @@ const RunnrSync = (() => {
             alpacaSide: "buy",
             filledAt: buy.filledAt,
             parentExternalId: buy.externalId,
-          });
+          };
+          if (buy.riskSnapshot) remRow.riskSnapshot = Object.assign({}, buy.riskSnapshot);
+          else if (typeof window.DisciplineReplay !== "undefined" && window.DisciplineReplay.stampTrade) {
+            window.DisciplineReplay.stampTrade(remRow, window.S, window.Baron);
+          }
+          window.S.trades.unshift(remRow);
           buys.push(window.S.trades[0]);
           buys.sort((a, b) => fillTimeMs(a) - fillTimeMs(b));
         }
@@ -1097,7 +1102,7 @@ const RunnrSync = (() => {
         : new Date().toLocaleDateString("en-GB", { month: "short", day: "numeric" });
 
       const isBuy = alpacaSide === "buy";
-      window.S.trades.unshift({
+      const imported = {
         id: maxId + i + 1 + Date.now(),
         instr: sym,
         dir: isBuy ? "long" : "long", // sell legs pair into long closes; short opens adjusted in pair step
@@ -1116,7 +1121,11 @@ const RunnrSync = (() => {
         fillPrice,
         alpacaSide,
         filledAt: filledAt || null,
-      });
+      };
+      if (typeof window.DisciplineReplay !== "undefined" && window.DisciplineReplay.stampTrade) {
+        window.DisciplineReplay.stampTrade(imported, window.S, window.Baron);
+      }
+      window.S.trades.unshift(imported);
       seen.add(o.id);
       added++;
       if (Number.isFinite(remaining)) remaining -= 1;
@@ -1487,6 +1496,7 @@ const RunnrSync = (() => {
     if (!t.incomplete) score += 2;
     if (t.stopOk != null || t.sizeOk != null) score += 1;
     if (t.pnl) score += 1;
+    if (t.riskSnapshot && Number(t.riskSnapshot.bal) > 0) score += 1;
     return score;
   }
 
@@ -1549,6 +1559,11 @@ const RunnrSync = (() => {
     }
     merged.trades = mergeTrades(local?.trades, remote?.trades);
     merged.watchlist = mergeWatchlist(local?.watchlist, remote?.watchlist);
+    if (typeof window.DisciplineReplay !== "undefined" && window.DisciplineReplay.mergeHistory) {
+      merged.riskHistory = window.DisciplineReplay.mergeHistory(local?.riskHistory, remote?.riskHistory);
+    } else {
+      merged.riskHistory = local?.riskHistory || remote?.riskHistory || [];
+    }
     if (local?.balFromAlpaca) {
       merged.bal = local.bal;
       merged.balFromAlpaca = true;

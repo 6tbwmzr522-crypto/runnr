@@ -23,7 +23,7 @@ function check(name, cond) {
 const v = html.match(/var V = "(\d+)"/)[1];
 const cache = sw.match(/CACHE = "runnr-v(\d+)"/)[1];
 check("index.html V matches sw.js CACHE", v === cache);
-check("discipline-replay.js is loaded", html.includes("js/discipline-replay.js?v=3"));
+check("discipline-replay.js is loaded", html.includes("js/discipline-replay.js?v=4"));
 check("replay modal exists", html.includes('id="modal-discipline-replay"'));
 check("journal button copy", html.includes("Replay Disciplined"));
 check("journal button gated on canReplay", html.includes("DisciplineReplay.canReplay(t, S"));
@@ -32,8 +32,10 @@ check("openDisciplineReplay keeps isEligible safety net", /function openDiscipli
 check("no new nav tab", !html.includes("switchPage('replay')") && !html.includes("page-replay"));
 check("no candle UI in replay helper", !/candlestick|ohlc|replay-chart/i.test(replaySrc) && !html.includes('id="replay-chart"'));
 check("copy never claims market would have", !/what the market would have done/i.test(replaySrc) && !/what the market would have done/i.test(html));
-check("settings note copy", replaySrc.includes("using your current risk % / balance"));
+check("settings note copy", replaySrc.includes("rules at time of trade") && !replaySrc.includes("using your current risk % / balance"));
 check("fills copy", replaySrc.includes("same fills, corrected size/stop."));
+check("missing snapshot copy", replaySrc.includes("no risk snapshot for this trade"));
+check("identical stop does not claim stop was the problem", !/Stop was flagged/.test(replaySrc));
 check("empty-Δ copy stays in helper", replaySrc.includes("Process flag ≠ math.") && replaySrc.includes("process miss"));
 check("missing-stop CTA", replaySrc.includes("Add a stop on this trade to replay"));
 check("replay does not write journal rows", !/commitLog|canAddJournalTrade|S\.trades\.(unshift|push)/.test(replaySrc));
@@ -77,11 +79,20 @@ vm.runInNewContext(replaySrc, ctx);
 const Baron = ctx.Baron;
 const DR = ctx.DisciplineReplay;
 
+function withSnap(trade, bal, risk, extra) {
+  return Object.assign({}, trade, {
+    riskSnapshot: Object.assign(
+      { risk: risk == null ? 1 : risk, bal: bal == null ? 10000 : bal, at: "2026-04-15T00:00:00.000Z", sym: "€" },
+      extra || {}
+    ),
+  });
+}
+
 const demo = [
-  { id: 1, isDemo: true, instr: "RACE", dir: "long", entry: 354, exit: 380, size: 28, pnl: 728, stopOk: true, sizeOk: true, type: "shares", date: "Apr 17" },
-  { id: 2, isDemo: true, instr: "BE", dir: "long", entry: 137, exit: 151, size: 65, pnl: 910, stopOk: true, sizeOk: false, type: "shares", date: "Apr 15" },
-  { id: 3, isDemo: true, instr: "USDJPY", dir: "short", entry: 159.37, exit: 157.93, size: 0.5, pnl: 720, stopOk: true, sizeOk: true, type: "cfd", date: "Apr 12" },
-  { id: 4, isDemo: true, instr: "AAPL CFD", dir: "long", entry: 198, exit: 195, size: 15, pnl: -45, stopOk: false, sizeOk: true, type: "cfd", date: "Apr 10", incomplete: true },
+  withSnap({ id: 1, isDemo: true, instr: "RACE", dir: "long", entry: 354, exit: 380, size: 28, pnl: 728, stopOk: true, sizeOk: true, type: "shares", date: "Apr 17" }),
+  withSnap({ id: 2, isDemo: true, instr: "BE", dir: "long", entry: 137, exit: 151, size: 65, pnl: 910, stopOk: true, sizeOk: false, type: "shares", date: "Apr 15" }),
+  withSnap({ id: 3, isDemo: true, instr: "USDJPY", dir: "short", entry: 159.37, exit: 157.93, size: 0.5, pnl: 720, stopOk: true, sizeOk: true, type: "cfd", date: "Apr 12" }),
+  withSnap({ id: 4, isDemo: true, instr: "AAPL CFD", dir: "long", entry: 198, exit: 195, size: 15, pnl: -45, stopOk: false, sizeOk: true, type: "cfd", date: "Apr 10", incomplete: true }),
 ];
 
 check("demo id 1 does not show replay", DR.isEligible(demo[0]) === false);
@@ -124,7 +135,7 @@ check("demo 2 P&L matches Baron.tradePnl", view.disciplined.pnl === expectedPnl)
 check("demo 2 prefers stored happened P&L", view.happened.pnl === 910);
 check("demo 2 caps at actual if smaller is N/A here (oversized)", expectedSize < 65 && view.disciplined.size === expectedSize);
 check("demo 2 takeaway uses €", view.takeaway.includes("€") && view.takeaway.includes("happened") && view.takeaway.includes("disciplined"));
-check("demo 2 settings note", view.settingsNote === "using your current risk % / balance");
+check("demo 2 settings note", view.settingsNote.startsWith("rules at time of trade") && view.settingsNote.includes("1%") && /€10[,.]?000/.test(view.settingsNote));
 check("demo 2 fills note", view.fillsNote === "same fills, corrected size/stop.");
 check("demo 2 does not need CTA", view.needsStop === false && view.cta == null);
 check("demo 2 is a real Δ not empty-state", view.unchanged === false && view.disciplined.size !== 65 && view.delta !== 0);
@@ -133,10 +144,10 @@ check("demo BE oversized canReplay true", DR.canReplay(be, settings, Baron) === 
 check("demo BE oversized shouldShowButton true", DR.shouldShowButton(be, settings, Baron) === true);
 check("demo BE hasNumericSizeCut true", DR.hasNumericSizeCut(be, settings, Baron) === true);
 
-const alreadySmall = {
+const alreadySmall = withSnap({
   id: 20, instr: "BE", dir: "long", entry: 137, exit: 151, size: 2, pnl: 28,
   stopOk: true, sizeOk: false, type: "shares", stop: 130,
-};
+});
 const smallView = DR.buildView(alreadySmall, settings, Baron);
 const smallBaron = Baron.sizeShares(10000, 1, 137, 130);
 check("already-smaller actual is capped, not inflated", smallBaron.shares > 2 && smallView.disciplined.size === 2);
@@ -145,20 +156,20 @@ check("already-smaller sizeFits copy", smallView.emptyReasons.some((r) => r.id =
 check("already-smaller takeaway is Δ 0", smallView.delta === 0 && /no size or stop price to change/.test(smallView.takeaway));
 check("already-smaller canReplay false", DR.canReplay(alreadySmall, settings, Baron) === false);
 
-const withStop = {
+const withStop = withSnap({
   id: 21, instr: "BE", dir: "long", entry: 137, exit: 151, size: 65, pnl: 910,
   stopOk: true, sizeOk: false, type: "shares", stop: 130,
-};
+});
 const stopView = DR.buildView(withStop, settings, Baron);
 const stopBaron = Baron.sizeShares(10000, 1, 137, 130);
 check("recorded stop is used when present", stopView.disciplined.stop === 130);
 check("recorded-stop size matches Baron", stopView.disciplined.size === Math.min(stopBaron.shares, 65));
 check("recorded-stop P&L matches Baron", stopView.disciplined.pnl === Math.round(Baron.tradePnl(null, 137, 151, stopView.disciplined.size, "long")));
 
-const missingStop = {
+const missingStop = withSnap({
   id: 22, instr: "AAPL CFD", dir: "long", entry: 198, exit: 195, size: 15, pnl: -45,
   stopOk: false, sizeOk: true, type: "cfd",
-};
+});
 const miss = DR.buildView(missingStop, settings, Baron);
 check("missing stop + stopOk false does not invent ATR", miss.needsStop === true);
 check("missing stop CTA", miss.cta === "Add a stop on this trade to replay");
@@ -167,10 +178,10 @@ check("stop-fail disclaimer does not claim market path", miss.stopDisclaimer && 
 check("missing stop canReplay true (CTA path)", DR.canReplay(missingStop, settings, Baron) === true);
 check("missing stop shouldShowButton true", DR.shouldShowButton(missingStop, settings, Baron) === true);
 
-const fx = {
+const fx = withSnap({
   id: 23, instr: "EURUSD", dir: "long", entry: 1.08, exit: 1.09, size: 50000, pnl: null,
   stopOk: true, sizeOk: false, type: "cfd", stop: 1.07, pair: Baron.parseForexPair("EURUSD"),
-};
+});
 const fxView = DR.buildView(fx, settings, Baron);
 const fxSized = Baron.sizeForex(10000, 1, 1.08, 1.07, "EURUSD");
 const fxSize = Math.min(fxSized.units, 50000);
@@ -211,20 +222,20 @@ check("primary path skips non-broker incomplete", DR.incompleteBrokerFills(pendi
 check("batch primary path does not set all stopOk/sizeOk true (runtime)", JSON.stringify(pendingFills) === snapshot
   && pendingFills.every((t) => t.stopOk == null && t.sizeOk == null && t.incomplete === true));
 
-const amzn = {
+const amzn = withSnap({
   id: 30, instr: "AMZN", dir: "long", entry: 252, exit: 258, size: 34, pnl: 204,
   stopOk: false, sizeOk: false, type: "shares", stop: 248, incomplete: false,
-};
+}, 100000, 1, { sym: "$" });
 const amznSettings = { bal: 100000, risk: 1, sym: "$" };
 const amznSized = Baron.sizeShares(100000, 1, 252, 248);
 const amznView = DR.buildView(amzn, amznSettings, Baron);
-check("AMZN size already fits current risk", amznSized.shares >= 34 && amznView.disciplined.size === 34);
+check("AMZN size already fits recorded risk", amznSized.shares >= 34 && amznView.disciplined.size === 34);
 check("AMZN empty-Δ when size already compliant + stop process flag", amznView.unchanged === true && amznView.eligible === true);
-check("AMZN sizeFits copy names current risk", amznView.emptyReasons.some((r) => r.id === "sizeFits" && r.text.includes("current") && r.text.includes("34 shares") && r.text.includes("Process flag ≠ math.")));
+check("AMZN sizeFits copy names recorded risk", amznView.emptyReasons.some((r) => r.id === "sizeFits" && r.text.includes("recorded") && !r.text.includes("current") && r.text.includes("34 shares") && r.text.includes("Process flag ≠ math.")));
 check("AMZN stop process copy", amznView.emptyReasons.some((r) => r.id === "stopProcess" && /process miss/.test(r.text) && /can't invent a different stop price/.test(r.text)));
 check("AMZN recorded stop is reused, not invented", amznView.happened.stop === 248 && amznView.disciplined.stop === 248);
 check("AMZN takeaway is Δ $0", amznView.delta === 0 && amznView.takeaway.includes("$204") && amznView.takeaway.includes("Δ $0"));
-check("AMZN keeps current risk % / balance note", amznView.settingsNote === "using your current risk % / balance");
+check("AMZN keeps rules-at-trade note", amznView.settingsNote.startsWith("rules at time of trade") && !/current risk/.test(amznView.settingsNote));
 check("AMZN empty-Δ does not claim a correction", amznView.fillsNote.includes("no size or stop price change"));
 check("AMZN does not use ATR for the stop", Math.abs(248 - (252 - Baron.estimateAtr(252) * Baron.STRATEGY.atr_stop_mult)) > 1);
 check("AMZN canReplay false (empty-Δ, no button)", DR.canReplay(amzn, amznSettings, Baron) === false);
@@ -232,12 +243,105 @@ check("AMZN shouldShowButton false", DR.shouldShowButton(amzn, amznSettings, Bar
 check("AMZN hasNumericSizeCut false", DR.hasNumericSizeCut(amzn, amznSettings, Baron) === false);
 check("AMZN remains eligible so empty-Δ panel still works if opened", amznView.eligible === true && amznView.unchanged === true);
 
-const processStopOnly = {
+const processStopOnly = withSnap({
   id: 31, instr: "MSFT", dir: "long", entry: 400, exit: 410, size: 10, pnl: 100,
   stopOk: false, sizeOk: true, type: "shares", stop: 390, incomplete: false,
-};
+}, 100000, 1, { sym: "$" });
 const processSettings = { bal: 100000, risk: 1, sym: "$" };
 check("process-stop with stored stop canReplay false", DR.canReplay(processStopOnly, processSettings, Baron) === false);
 check("process-stop stays eligible (✗ flag, Coach still sees it)", DR.isEligible(processStopOnly) === true);
+
+const liveTiny = { bal: 200, risk: 0.25, sym: "$" };
+const smsiOversize = withSnap({
+  id: 40, instr: "SMSI", dir: "long", entry: 87, exit: 86.758, size: 1508.7, pnl: -365,
+  stopOk: false, sizeOk: false, type: "shares", stop: 81, incomplete: false,
+}, 10000, 1, { sym: "€" });
+const smsiLive = DR.buildView(smsiOversize, liveTiny, Baron);
+const smsiExpected = Baron.sizeShares(10000, 1, 87, 81);
+check("genuine 100x oversize keeps snapshot size, not live tiny settings", smsiViewMatches(smsiLive, smsiExpected));
+function smsiViewMatches(view, expected) {
+  return view.disciplined.size === expected.shares
+    && view.disciplined.size < 1508.7
+    && (1508.7 / view.disciplined.size) > 80
+    && view.settingsNote.startsWith("rules at time of trade")
+    && !/current risk/.test(view.settingsNote)
+    && view.happened.stop === 81
+    && view.disciplined.stop === 81;
+}
+check("genuine 100x canReplay true", DR.canReplay(smsiOversize, liveTiny, Baron) === true);
+check("identical stop copy mentions size only", /Size was over your risk budget/.test(smsiLive.ruleNote)
+  && /recorded stop/.test(smsiLive.ruleNote)
+  && !/Stop was flagged/.test(smsiLive.ruleNote)
+  && !/Stop price was corrected/.test(smsiLive.ruleNote));
+check("identical stop numbers stay equal", smsiLive.happened.stop === smsiLive.disciplined.stop);
+
+const inBudgetSize = Baron.sizeShares(10000, 1, 137, 130).shares;
+const inBudget = withSnap({
+  id: 41, instr: "BE", dir: "long", entry: 137, exit: 151, size: inBudgetSize, pnl: 14 * inBudgetSize,
+  stopOk: true, sizeOk: false, type: "shares", stop: 130, incomplete: false,
+});
+const inBudgetView = DR.buildView(inBudget, liveTiny, Baron);
+check("1% risk trade stays ~1x against snapshot, not live tiny settings", inBudgetView.disciplined.size === inBudgetSize
+  && inBudgetView.unchanged === true
+  && DR.canReplay(inBudget, liveTiny, Baron) === false
+  && DR.hasNumericSizeCut(inBudget, liveTiny, Baron) === false);
+check("1x in-budget ignores live settings that would fake a cut", Baron.sizeShares(200, 0.25, 137, 130).shares < inBudgetSize);
+
+const orphan = {
+  id: 42, instr: "SMSI", dir: "long", entry: 87, exit: 86.76, size: 1508.7, pnl: -365,
+  stopOk: true, sizeOk: false, type: "shares", stop: 81, incomplete: false,
+};
+const orphanLive = { bal: 10000, risk: 1, sym: "€", riskHistory: [] };
+const orphanView = DR.buildView(orphan, orphanLive, Baron);
+check("missing snapshot does not silently use live settings", orphanView.missingSnapshot === true
+  && orphanView.disciplined.size == null
+  && orphanView.settingsNote === "no risk snapshot for this trade"
+  && /will not invent a disciplined size/.test(orphanView.ruleNote)
+  && DR.canReplay(orphan, orphanLive, Baron) === false
+  && DR.hasNumericSizeCut(orphan, orphanLive, Baron) === false);
+
+const histTrade = {
+  id: 43, instr: "AMZN", dir: "long", entry: 252, exit: 258, size: 34, pnl: 204,
+  stopOk: false, sizeOk: false, type: "shares", stop: 248, incomplete: false,
+  filledAt: "2025-06-01T12:00:00.000Z",
+};
+const histSettings = {
+  bal: 500, risk: 0.2, sym: "$",
+  riskHistory: [
+    { at: "2025-01-01T00:00:00.000Z", risk: 1, bal: 100000, sym: "$" },
+    { at: "2025-07-01T00:00:00.000Z", risk: 0.2, bal: 500, sym: "$" },
+  ],
+};
+const histView = DR.buildView(histTrade, histSettings, Baron);
+const histSized = Baron.sizeShares(100000, 1, 252, 248);
+check("dated history reconstructs trade-time rules, not live", histView.basisSource === "history"
+  && histView.bal === 100000
+  && histView.riskPct === 1
+  && histView.disciplined.size === Math.min(histSized.shares, 34)
+  && /nearest saved rules/.test(histView.settingsNote)
+  && !/current risk/.test(histView.settingsNote));
+
+const stamped = { id: 44, instr: "MSFT", type: "shares" };
+DR.stampTrade(stamped, { bal: 8000, risk: 2, sym: "€" }, Baron);
+const firstSnap = JSON.stringify(stamped.riskSnapshot);
+DR.stampTrade(stamped, { bal: 999, risk: 0.1, sym: "$" }, Baron);
+check("stampTrade captures risk % and balance once", stamped.riskSnapshot
+  && stamped.riskSnapshot.bal === 8000
+  && stamped.riskSnapshot.risk === 2
+  && JSON.stringify(stamped.riskSnapshot) === firstSnap);
+
+const histState = { bal: 10000, risk: 1, riskHistory: [] };
+DR.stampHistory(histState);
+DR.stampHistory(histState);
+check("stampHistory records a change once", histState.riskHistory.length === 1
+  && histState.riskHistory[0].bal === 10000
+  && histState.riskHistory[0].risk === 1);
+histState.risk = 2;
+DR.stampHistory(histState);
+check("stampHistory appends when risk changes", histState.riskHistory.length === 2 && histState.riskHistory[1].risk === 2);
+
+check("commitLog stamps new trades", /DisciplineReplay\.stampTrade\(row, S/.test(html));
+check("persist records risk history", /DisciplineReplay\.stampHistory\(S\)/.test(html));
+check("demo seeds carry riskSnapshot", /id:2, isDemo:true[\s\S]*?riskSnapshot:\{ risk:1, bal:10000/.test(html));
 
 console.log("ok " + n);

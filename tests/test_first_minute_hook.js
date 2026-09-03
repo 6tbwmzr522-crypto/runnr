@@ -19,7 +19,7 @@ function check(name, cond) {
 const v = html.match(/var V = "(\d+)"/)[1];
 const cache = sw.match(/CACHE = "runnr-v(\d+)"/)[1];
 check("index.html V matches sw.js CACHE", v === cache);
-check("onboarding.js cache-busted", html.includes("js/onboarding.js?v=29"));
+check("onboarding.js cache-busted", html.includes("js/onboarding.js?v=30"));
 check("headline present", html.includes("Trading discipline, not a broker"));
 check("hook names Terminal", html.includes("<dt>Terminal</dt>"));
 check("hook Terminal pill is look-without-paying", html.includes("Session clocks, heatmap, chart — look without paying"));

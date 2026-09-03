@@ -381,7 +381,7 @@ const RunnrGrowth = {
     const dateStr = new Date().toLocaleDateString("en-GB", { month: "short", day: "numeric" });
     symbols.forEach((instr, i) => {
       const pnl = Math.round((d.exit - d.entry) * sign * (d.size || 1));
-      state.trades.unshift({
+      const row = {
         id: Date.now() + i,
         instr,
         dir: d.dir,
@@ -395,7 +395,11 @@ const RunnrGrowth = {
         date: dateStr,
         incomplete: false,
         fromOnboarding: true,
-      });
+      };
+      if (typeof DisciplineReplay !== "undefined" && DisciplineReplay.stampTrade) {
+        DisciplineReplay.stampTrade(row, state, typeof Baron !== "undefined" ? Baron : null);
+      }
+      state.trades.unshift(row);
     });
     this.completeOnboarding(state);
     persist();
