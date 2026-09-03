@@ -5,7 +5,7 @@
 <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
 <script>
 (function () {
-  var V = "115";
+  var V = "116";
   try {
     if (localStorage.getItem("runnr_app_v") !== V) {
       localStorage.setItem("runnr_app_v", V);
@@ -2721,13 +2721,13 @@ html.runnr-guest #page-home .stat-grid{grid-template-columns:repeat(3,minmax(0,1
 
 <script src="js/i18n.js?v=15"></script>
 <script src="js/baron.js?v=31"></script>
-<script src="js/discipline-replay.js?v=3"></script>
+<script src="js/discipline-replay.js?v=4"></script>
 <script src="js/coach.js?v=26"></script>
-<script src="js/onboarding.js?v=29"></script>
+<script src="js/onboarding.js?v=30"></script>
 <script src="js/intro.js?v=1"></script>
 <script src="js/csv-presets.js?v=4"></script>
 <script src="js/trade-limit.js?v=2"></script>
-<script src="js/sync.js?v=68"></script>
+<script src="js/sync.js?v=69"></script>
 <script src="js/desk-sessions.js?v=2"></script>
 <script src="js/desk.js?v=12"></script>
 <script src="js/wave.js?v=1"></script>
@@ -2770,11 +2770,12 @@ window.journalTradeSlotsRemaining = journalTradeSlotsRemaining;
 
 const S = {
   bal: 10000, risk: 1, sym: '€',
+  riskHistory: [],
   trades: [
-    { id:1, isDemo:true, instr:'RACE', dir:'long', entry:354, exit:380, size:28, pnl:728, stopOk:true, sizeOk:true, type:'shares', date:'Apr 17' },
-    { id:2, isDemo:true, instr:'BE', dir:'long', entry:137, exit:151, size:65, pnl:910, stopOk:true, sizeOk:false, type:'shares', date:'Apr 15' },
-    { id:3, isDemo:true, instr:'USDJPY', dir:'short', entry:159.37, exit:157.93, size:0.5, pnl:720, stopOk:true, sizeOk:true, type:'cfd', date:'Apr 12' },
-    { id:4, isDemo:true, instr:'AAPL CFD', dir:'long', entry:198, exit:195, size:15, pnl:-45, stopOk:false, sizeOk:true, type:'cfd', date:'Apr 10', incomplete:true },
+    { id:1, isDemo:true, instr:'RACE', dir:'long', entry:354, exit:380, size:28, pnl:728, stopOk:true, sizeOk:true, type:'shares', date:'Apr 17', riskSnapshot:{ risk:1, bal:10000, at:'2026-04-17T00:00:00.000Z', sym:'€' } },
+    { id:2, isDemo:true, instr:'BE', dir:'long', entry:137, exit:151, size:65, pnl:910, stopOk:true, sizeOk:false, type:'shares', date:'Apr 15', riskSnapshot:{ risk:1, bal:10000, at:'2026-04-15T00:00:00.000Z', sym:'€' } },
+    { id:3, isDemo:true, instr:'USDJPY', dir:'short', entry:159.37, exit:157.93, size:0.5, pnl:720, stopOk:true, sizeOk:true, type:'cfd', date:'Apr 12', riskSnapshot:{ risk:1, bal:10000, at:'2026-04-12T00:00:00.000Z', sym:'€' } },
+    { id:4, isDemo:true, instr:'AAPL CFD', dir:'long', entry:198, exit:195, size:15, pnl:-45, stopOk:false, sizeOk:true, type:'cfd', date:'Apr 10', incomplete:true, riskSnapshot:{ risk:1, bal:10000, at:'2026-04-10T00:00:00.000Z', sym:'€' } },
   ],
   watchlist: [
     { id:1, sym:'RACE', dir:'long', entry:354, stop:338, target:420, thesis:'Post-selloff recovery, 52-week range support, buyback programme active', rr:3.9, urgent:false },
@@ -2942,6 +2943,9 @@ function migratePortfolioBase() {
 try { migratePortfolioBase(); } catch (e) { console.warn('migratePortfolioBase failed', e); }
 
 function persist() {
+  if (typeof DisciplineReplay !== 'undefined' && DisciplineReplay.stampHistory) {
+    DisciplineReplay.stampHistory(S);
+  }
   if (RunnrSync?.isLoggedIn?.()) {
     S.ownerEmail = (RunnrSync.sessionEmail() || '').trim().toLowerCase();
   }
@@ -4389,7 +4393,7 @@ function renderJournal() {
 let disciplineReplayTradeId = null;
 
 function replayReasonHtml(text) {
-  return escapeTeText(text || '').replace(/\bcurrent\b/g, '<strong>current</strong>');
+  return escapeTeText(text || '').replace(/\brecorded\b/g, '<strong>recorded</strong>');
 }
 
 function renderDisciplineReplayView(view, trade) {
@@ -4404,7 +4408,7 @@ function renderDisciplineReplayView(view, trade) {
         <div class="replay-row"><span class="k">Stop</span><span class="v">${escapeTeText(view.happened.stopLabel)}</span></div>
         <div class="replay-row"><span class="k">P&amp;L</span><span class="v">${escapeTeText(view.happened.pnlLabel)}</span></div>
       </div>`;
-  if (view.unchanged) {
+  if (view.unchanged || (view.missingSnapshot && !view.needsStop) || view.sanityFailed) {
     const reasons = (view.emptyReasons || []).map(r => {
       const text = typeof r === 'string' ? r : (r && r.text);
       return `<p>${replayReasonHtml(text)}</p>`;
@@ -4706,6 +4710,7 @@ function commitLog(draft) {
         externalId: t.externalId,
         fillPrice: t.fillPrice,
         date: t.date,
+        riskSnapshot: t.riskSnapshot,
       };
       if (t.disciplineOnly && draft.exit != null) {
         delete next.disciplineOnly;
@@ -4719,11 +4724,15 @@ function commitLog(draft) {
       openJournalLimitUpgrade();
       return false;
     }
-    S.trades.unshift({
+    const row = {
       id: Date.now(),
       date: new Date().toLocaleDateString('en-GB', { month: 'short', day: 'numeric' }),
       ...patch,
-    });
+    };
+    if (typeof DisciplineReplay !== 'undefined' && DisciplineReplay.stampTrade) {
+      DisciplineReplay.stampTrade(row, S, typeof Baron !== 'undefined' ? Baron : null);
+    }
+    S.trades.unshift(row);
   }
   persist();
   renderJournal();
@@ -8142,7 +8151,7 @@ function importClosedCsvTrades(trades) {
     if (seen.has(externalId)) { skipped++; return; }
     if (remaining <= 0) { limited = true; skipped++; return; }
     seen.add(externalId);
-    S.trades.unshift({
+    const csvRow = {
       id: maxId + i + 1 + Date.now(),
       instr: row.instr,
       dir: row.dir,
@@ -8160,7 +8169,11 @@ function importClosedCsvTrades(trades) {
       source: 'csv',
       externalId,
       filledAt: row.filledAt || null,
-    });
+    };
+    if (typeof DisciplineReplay !== 'undefined' && DisciplineReplay.stampTrade) {
+      DisciplineReplay.stampTrade(csvRow, S, typeof Baron !== 'undefined' ? Baron : null);
+    }
+    S.trades.unshift(csvRow);
     added++;
     if (Number.isFinite(remaining)) remaining -= 1;
   });

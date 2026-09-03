@@ -24,7 +24,7 @@ const v = html.match(/var V = "(\d+)"/)[1];
 const cache = sw.match(/CACHE = "runnr-v(\d+)"/)[1];
 check("index.html V matches sw.js CACHE", v === cache);
 check("trade-limit.js is loaded", html.includes("js/trade-limit.js?v=2"));
-check("sync.js cache-busted", html.includes("js/sync.js?v=68"));
+check("sync.js cache-busted", html.includes("js/sync.js?v=69"));
 check("count no longer excludes imported fills", !/!isImportedJournalTrade/.test(html));
 check("hint copy says manual + imports", html.includes("trades logged (manual + imports)"));
 check("limit-reached copy mentions imports", html.includes("including imports"));

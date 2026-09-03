@@ -23,7 +23,7 @@ function check(name, cond) {
 const v = html.match(/var V = "(\d+)"/)[1];
 const cache = sw.match(/CACHE = "runnr-v(\d+)"/)[1];
 check("index.html V matches sw.js CACHE", v === cache);
-check("sync.js cache-busted", html.includes("js/sync.js?v=68"));
+check("sync.js cache-busted", html.includes("js/sync.js?v=69"));
 check("journal has T212 import control", html.includes('id="journal-t212-btn"') && html.includes("importT212Fills"));
 check("Connect T212 form exists", html.includes('id="modal-t212"') && html.includes("submitT212Connect") && html.includes("t212-key") && html.includes("t212-secret"));
 check("T212 copy mentions API (Beta), permissions, SIPP", html.includes("API (Beta)") && html.includes("Leave <strong>orders</strong> off") && html.includes("SIPP is not supported"));
