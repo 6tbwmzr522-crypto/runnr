@@ -23,9 +23,10 @@ function check(name, cond) {
 const v = html.match(/var V = "(\d+)"/)[1];
 const cache = sw.match(/CACHE = "runnr-v(\d+)"/)[1];
 check("index.html V matches sw.js CACHE", v === cache);
-check("discipline-replay.js is loaded", html.includes("js/discipline-replay.js?v=5"));
+check("discipline-replay.js is loaded", html.includes("js/discipline-replay.js?v=6"));
 check("replay modal exists", html.includes('id="modal-discipline-replay"'));
 check("journal button copy", html.includes("Replay Disciplined"));
+check("journal Replay is visually primary", html.includes('class="te-replay te-replay-primary"') && html.includes(".te-replay.te-replay-primary"));
 check("journal button gated on canReplay", html.includes("DisciplineReplay.canReplay(t, S"));
 check("journal render does not offer button via isEligible", !/DisciplineReplay\.isEligible\(t\) \?/.test(html));
 check("openDisciplineReplay keeps isEligible safety net", /function openDisciplineReplay[\s\S]{0,400}isEligible\(t\)/.test(html));
@@ -65,10 +66,12 @@ function extractTopFn(src, name) {
   return "";
 }
 const hintTpl = (html.match(/alpacaPending\.length[\s\S]*?hint\.innerHTML = `([\s\S]*?)`;/) || [])[1] || "";
-const primaryBtn = (hintTpl.match(/<button type="button" class="btn btn-sm"(?! btn-ghost)[\s\S]*?<\/button>/) || [])[0] || "";
+const primaryBtn = (hintTpl.match(/<button type="button" class="btn"(?! btn-ghost)[\s\S]*?<\/button>/) || [])[0] || "";
 check("journal banner primary is Review next incomplete", primaryBtn.includes("reviewNextIncompleteFill") && primaryBtn.includes("Review next incomplete"));
 check("journal banner primary is not stamp-all", !primaryBtn.includes("applyDisciplineDefaultsToAll") && !/stopOk/.test(primaryBtn));
 check("journal banner stamp-all is ghost secondary", hintTpl.includes("btn-ghost") && hintTpl.includes("Mark all as compliant (Stop ✓ Size ✓)") && hintTpl.includes("applyDisciplineDefaultsToAll"));
+check("journal high-count uses calm hero not panic wall", hintTpl.includes("journal-incomplete-hero") && html.includes("journal-hint-calm") && html.includes(" of ") && html.includes(" reviewed"));
+check("saveLog offers Replay after a miss", /function saveLog[\s\S]*offerDisciplineReplay/.test(html) && html.includes("function offerDisciplineReplay"));
 const reviewFn = extractTopFn(html, "reviewNextIncompleteFill");
 check("reviewNextIncompleteFill opens one trade", /openTradeEditor/.test(reviewFn));
 check("batch primary path does not set all stopOk/sizeOk true", reviewFn.length > 0 && !/stopOk\s*=/.test(reviewFn) && !/sizeOk\s*=/.test(reviewFn));
@@ -248,6 +251,12 @@ check("AMZN takeaway is Δ $0", amznView.delta === 0 && amznView.takeaway.includ
 check("AMZN keeps rules-at-trade note", amznView.settingsNote.startsWith("rules at time of trade") && !/current risk/.test(amznView.settingsNote));
 check("AMZN empty-Δ does not claim a correction", amznView.fillsNote.includes("no size or stop price change"));
 check("AMZN does not use ATR for the stop", Math.abs(248 - (252 - Baron.estimateAtr(252) * Baron.STRATEGY.atr_stop_mult)) > 1);
+check("firstReplayableTrade skips incomplete then picks a miss", DR.firstReplayableTrade([
+  { id: 201, incomplete: true, stopOk: false, sizeOk: false, instr: "WAIT" },
+  demo[1],
+  demo[0],
+], settings, Baron) === demo[1]);
+check("firstReplayableTrade empty-Δ is skipped", DR.firstReplayableTrade([amzn], amznSettings, Baron) == null);
 check("AMZN canReplay false (empty-Δ, no button)", DR.canReplay(amzn, amznSettings, Baron) === false);
 check("AMZN shouldShowButton false", DR.shouldShowButton(amzn, amznSettings, Baron) === false);
 check("AMZN hasNumericSizeCut false", DR.hasNumericSizeCut(amzn, amznSettings, Baron) === false);

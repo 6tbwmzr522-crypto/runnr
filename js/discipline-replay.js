@@ -67,6 +67,15 @@ const DisciplineReplay = {
     return list.length ? list[0] : null;
   },
 
+  /** Newest-first journal: first canReplay row is the last miss. */
+  firstReplayableTrade(trades, settings, baron) {
+    if (!Array.isArray(trades)) return null;
+    for (let i = 0; i < trades.length; i++) {
+      if (this.canReplay(trades[i], settings, baron)) return trades[i];
+    }
+    return null;
+  },
+
   num(v) {
     const n = parseFloat(v);
     return Number.isFinite(n) ? n : null;
