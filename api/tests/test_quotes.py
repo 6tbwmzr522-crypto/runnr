@@ -211,3 +211,59 @@ def test_health_reports_quote_cache_and_inflight():
         assert "in_flight" in quotes
         assert "swr_serves" in quotes
         assert quotes["in_flight"] == 0
+        auth_users = data["caches"]["auth_users"]
+        assert auth_users["ttl_s"] <= 5
+        assert "hits" in auth_users
+        assert "misses" in auth_users
+
+
+def test_quote_batch_post_one_upstream_per_symbol(monkeypatch):
+    calls = []
+
+    def fake(symbol, interval, range_):
+        calls.append(symbol)
+        return _chart(10, symbol)
+
+    monkeypatch.setattr(quotes_mod, "_fetch_chart", fake)
+    with TestClient(app) as client:
+        res = client.post(
+            "/api/v1/quotes/batch",
+            json={"symbols": ["AAPL", "MSFT", "aapl"], "interval": "1m", "range": "1d"},
+        )
+    assert res.status_code == 200, res.text
+    data = res.json()
+    assert set(data["quotes"]) == {"AAPL", "MSFT"}
+    assert data["_runnr"]["ok"] == 2
+    assert sorted(calls) == ["AAPL", "MSFT"]
+    assert data["quotes"]["AAPL"]["_runnr"]["cache"] in ("miss", "refresh")
+    assert res.headers.get("x-runnr-cache")
+
+
+def test_quote_batch_get_uses_cache(monkeypatch):
+    calls = {"n": 0}
+
+    def fake(symbol, interval, range_):
+        calls["n"] += 1
+        return _chart(4, symbol)
+
+    monkeypatch.setattr(quotes_mod, "_fetch_chart", fake)
+    with TestClient(app) as client:
+        first = client.get("/api/v1/quotes/batch", params={"symbols": "NVDA,TSLA"})
+        second = client.get("/api/v1/quotes/batch", params={"symbols": "NVDA,TSLA"})
+    assert first.status_code == 200
+    assert second.status_code == 200
+    assert calls["n"] == 2
+    assert second.json()["quotes"]["NVDA"]["_runnr"]["cache"] == "hit"
+
+
+def test_quote_batch_partial_error(monkeypatch):
+    def fake(symbol, interval, range_):
+        if symbol == "FAIL":
+            raise RuntimeError("yahoo down")
+        return _chart(3, symbol)
+
+    monkeypatch.setattr(quotes_mod, "_fetch_chart", fake)
+    quotes, errors, status = quotes_mod.resolve_quote_batch(["OK", "FAIL"], "1m", "1d")
+    assert "OK" in quotes
+    assert errors["FAIL"]["status"] == 502
+    assert status == "mixed"

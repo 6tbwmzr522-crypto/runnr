@@ -54,6 +54,7 @@ def health():
         stats_day_count,
         volume_mount_path,
     )
+    from app.auth import user_cache_stats
     from app.quote_cache import fear_greed_cache, quote_cache
 
     mount = volume_mount_path() or "/data"
@@ -99,5 +100,6 @@ def health():
         "caches": {
             "quotes": quote_cache.stats(),
             "fear_greed": fear_greed_cache.stats(),
+            "auth_users": user_cache_stats(),
         },
     }

@@ -1,4 +1,6 @@
 from datetime import datetime, timedelta, timezone
+import threading
+import time
 
 import sqlite3
 
@@ -15,6 +17,14 @@ bearer = HTTPBearer(auto_error=False)
 
 ALGORITHM = "HS256"
 ACCESS_TOKEN_HOURS = 24 * 365
+# JWT requests are frequent (profile PUT, brokers). A few seconds of staleness
+# is enough so billing/pro flips land quickly without a SQLite hit per call.
+USER_CACHE_TTL_S = 3.0
+_USER_CACHE_MAX = 4000
+_user_cache: dict[int, tuple[float, dict]] = {}
+_user_cache_lock = threading.Lock()
+_user_cache_hits = 0
+_user_cache_misses = 0
 
 
 def hash_password(password: str) -> str:
@@ -74,6 +84,74 @@ def _user_from_row(row) -> dict:
     }
 
 
+def invalidate_user_cache(user_id: int | None = None) -> None:
+    """Drop one user (or all) so the next JWT request re-reads SQLite."""
+    with _user_cache_lock:
+        if user_id is None:
+            _user_cache.clear()
+        else:
+            _user_cache.pop(int(user_id), None)
+
+
+def user_cache_stats() -> dict:
+    with _user_cache_lock:
+        return {
+            "name": "auth_users",
+            "size": len(_user_cache),
+            "hits": _user_cache_hits,
+            "misses": _user_cache_misses,
+            "ttl_s": USER_CACHE_TTL_S,
+        }
+
+
+def _cache_get(user_id: int) -> dict | None:
+    global _user_cache_hits, _user_cache_misses
+    now = time.monotonic()
+    with _user_cache_lock:
+        hit = _user_cache.get(user_id)
+        if not hit:
+            _user_cache_misses += 1
+            return None
+        exp, user = hit
+        if now >= exp:
+            _user_cache.pop(user_id, None)
+            _user_cache_misses += 1
+            return None
+        _user_cache_hits += 1
+        return dict(user)
+
+
+def _cache_put(user: dict) -> None:
+    uid = int(user["id"])
+    exp = time.monotonic() + USER_CACHE_TTL_S
+    with _user_cache_lock:
+        _user_cache[uid] = (exp, dict(user))
+        if len(_user_cache) > _USER_CACHE_MAX:
+            oldest = min(_user_cache, key=lambda k: _user_cache[k][0])
+            _user_cache.pop(oldest, None)
+
+
+def _load_user_row(user_id: int):
+    with get_db() as conn:
+        try:
+            return conn.execute(
+                """
+                SELECT id, email, stripe_customer_id, subscription_status, plan, email_verified, first_name,
+                       created_at, intro_seen, avatar_url
+                FROM users WHERE id = ?
+                """,
+                (user_id,),
+            ).fetchone()
+        except sqlite3.OperationalError:
+            return conn.execute(
+                """
+                SELECT id, email, stripe_customer_id, subscription_status, plan, email_verified
+                FROM users WHERE id = ?
+                """,
+                (user_id,),
+            ).fetchone()
+
+
 def get_current_user(
     creds: HTTPAuthorizationCredentials | None = Depends(bearer),
 ) -> dict:
@@ -85,30 +163,19 @@ def get_current_user(
     except (JWTError, ValueError, KeyError):
         raise HTTPException(status_code=401, detail="Invalid token") from None
 
-    with get_db() as conn:
-        try:
-            row = conn.execute(
-                """
-                SELECT id, email, stripe_customer_id, subscription_status, plan, email_verified, first_name,
-                       created_at, intro_seen, avatar_url
-                FROM users WHERE id = ?
-                """,
-                (user_id,),
-            ).fetchone()
-        except sqlite3.OperationalError:
-            row = conn.execute(
-                """
-                SELECT id, email, stripe_customer_id, subscription_status, plan, email_verified
-                FROM users WHERE id = ?
-                """,
-                (user_id,),
-            ).fetchone()
+    cached = _cache_get(user_id)
+    if cached is not None:
+        return cached
+
+    row = _load_user_row(user_id)
     if not row:
         raise HTTPException(
             status_code=401,
             detail="Session expired — sign in again with the same email",
         )
-    return _user_from_row(row)
+    user = _user_from_row(row)
+    _cache_put(user)
+    return user
 
 
 def get_optional_user(

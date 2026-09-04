@@ -20,6 +20,10 @@ const v = html.match(/var V = "(\d+)"/)[1];
 const cache = sw.match(/CACHE = "runnr-v(\d+)"/)[1];
 check("index.html V matches sw.js CACHE", v === cache);
 check("PWA cache bust is 117+", Number(v) >= 117);
+check("watchlist poll uses quotes/batch", /\/api\/v1\/quotes\/batch/.test(html) && /async function fetchQuotesBatch/.test(html));
+check("refreshAllPrices does not Promise.all per symbol", /async function refreshAllPrices[\s\S]{0,1800}fetchQuotesBatch\(/.test(html));
+check("feed poll backs off on high stale ratio", /FEED_POLL_MAX_MS/.test(html) && /function setFeedPollInterval/.test(html));
+check("journal sync is not tied to FEED_POLL_MS", !/runSync\([\s\S]{0,40}FEED_POLL/.test(html));
 
 check("quote fetch concurrency is 3 or 4", /const QUOTE_FETCH_CONCURRENCY = ([34]);/.test(html));
 check("fetchYahooChart acquires a slot", /async function fetchYahooChart[\s\S]{0,80}acquireQuoteSlot\(/.test(html));

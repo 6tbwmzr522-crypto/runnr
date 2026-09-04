@@ -1,10 +1,12 @@
 import json
 import threading
 import time
+from concurrent.futures import ThreadPoolExecutor
 from urllib.parse import quote as url_quote
 from urllib.request import Request, urlopen
 
 from fastapi import APIRouter, HTTPException, Query, Response
+from pydantic import BaseModel, Field
 
 from app.config import settings
 from app.finnhub import quote_as_yahoo_chart
@@ -15,8 +17,19 @@ router = APIRouter()
 
 _SOURCE_KEY = "_runnr_source"
 _FAIL_COOLDOWN_S = 15.0
+_BATCH_MAX = 40
+_BATCH_WORKERS = 4
 _fail_until: dict[str, float] = {}
 _fail_lock = threading.Lock()
+
+_INTERVAL_OK = {"1m", "5m", "1h", "1d"}
+_RANGE_OK = {"1d", "5d", "1mo", "3mo", "6mo", "1y", "2y", "5y"}
+
+
+class QuoteBatchRequest(BaseModel):
+    symbols: list[str] = Field(..., min_length=1)
+    interval: str = "1m"
+    range: str = "1d"
 
 
 def _mark_fetch_fail(key: str) -> None:
@@ -176,6 +189,74 @@ def resolve_quote(symbol: str, interval: str, range_: str) -> tuple[dict, str, f
     return _attach_meta(stored, cache_status, 0, source), cache_status, 0.0, source
 
 
+def _clean_batch_symbols(raw: list[str] | str) -> list[str]:
+    if isinstance(raw, str):
+        parts = raw.split(",")
+    else:
+        parts = list(raw)
+    out: list[str] = []
+    seen: set[str] = set()
+    for item in parts:
+        sym = str(item or "").strip().upper()[:32]
+        if not sym or sym in seen:
+            continue
+        seen.add(sym)
+        out.append(sym)
+        if len(out) >= _BATCH_MAX:
+            break
+    return out
+
+
+def _safe_resolve(symbol: str, interval: str, range_: str) -> tuple[str, dict | None, str, dict | None]:
+    try:
+        payload, status, _age, _source = resolve_quote(symbol, interval, range_)
+        return symbol, payload, status, None
+    except HTTPException as exc:
+        return symbol, None, "error", {"status": exc.status_code, "detail": str(exc.detail)}
+
+
+def resolve_quote_batch(symbols: list[str], interval: str, range_: str) -> tuple[dict, dict, str]:
+    cleaned = _clean_batch_symbols(symbols)
+    if not cleaned:
+        raise HTTPException(status_code=400, detail="No symbols")
+    if interval not in _INTERVAL_OK or range_ not in _RANGE_OK:
+        raise HTTPException(status_code=400, detail="Invalid interval or range")
+
+    quotes: dict[str, dict] = {}
+    errors: dict[str, dict] = {}
+    statuses: list[str] = []
+    workers = min(_BATCH_WORKERS, len(cleaned))
+    if workers == 1:
+        rows = [_safe_resolve(cleaned[0], interval, range_)]
+    else:
+        with ThreadPoolExecutor(max_workers=workers) as pool:
+            rows = list(pool.map(lambda s: _safe_resolve(s, interval, range_), cleaned))
+    for symbol, payload, status, err in rows:
+        statuses.append(status)
+        if payload is not None:
+            quotes[symbol] = payload
+        elif err is not None:
+            errors[symbol] = err
+
+    unique = set(statuses)
+    cache_status = next(iter(unique)) if len(unique) == 1 else "mixed"
+    return quotes, errors, cache_status
+
+
+def _batch_payload(symbols: list[str], interval: str, range_: str, response: Response) -> dict:
+    quotes, errors, cache_status = resolve_quote_batch(symbols, interval, range_)
+    _cache_headers(response, cache_status, None)
+    return {
+        "quotes": quotes,
+        "errors": errors,
+        "_runnr": {
+            "cache": cache_status,
+            "ok": len(quotes),
+            "failed": len(errors),
+        },
+    }
+
+
 def resolve_fear_greed() -> tuple[dict, str, float | None]:
     cache_key = "fear_greed"
     ttl = float(settings.fear_greed_cache_ttl)
@@ -206,6 +287,22 @@ def fear_greed_index(response: Response):
     data, status, age = resolve_fear_greed()
     _cache_headers(response, status, age)
     return _attach_meta(data, status, age, source=data.get("source", "cnn"))
+
+
+@router.post("/batch")
+def quote_batch(body: QuoteBatchRequest, response: Response):
+    """Watchlist/home poll: one request for many symbols (singleflight per key)."""
+    return _batch_payload(body.symbols, body.interval, body.range, response)
+
+
+@router.get("/batch")
+def quote_batch_get(
+    response: Response,
+    symbols: str = Query(..., min_length=1),
+    interval: str = Query(default="1m", pattern="^(1m|5m|1h|1d)$"),
+    range_: str = Query(default="1d", alias="range", pattern="^(1d|5d|1mo|3mo|6mo|1y|2y|5y)$"),
+):
+    return _batch_payload(symbols.split(","), interval, range_, response)
 
 
 @router.get("/{symbol}/brief")

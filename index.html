@@ -5,7 +5,7 @@
 <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
 <script>
 (function () {
-  var V = "117";
+  var V = "118";
   try {
     if (localStorage.getItem("runnr_app_v") !== V) {
       localStorage.setItem("runnr_app_v", V);
@@ -5324,15 +5324,20 @@ async function refreshHomeMarkets() {
   const stamp = document.getElementById('home-markets-updated');
   const all = [...HOME_MARKETS.indices, ...HOME_MARKETS.commodities];
   paintHomeMarkets();
-  await Promise.allSettled(all.map(async (item) => {
+  const need = all.filter((item) => {
     const cached = homeMarketCache[item.sym];
-    if (cached && Date.now() - cached.ts < STOCK_LIST_CACHE_MS) return;
+    return !(cached && Date.now() - cached.ts < STOCK_LIST_CACHE_MS);
+  });
+  if (need.length) {
     try {
-      const json = await fetchYahooChart(item.sym, '1m', '1d');
-      const q = parseQuickQuote(json);
-      if (q) homeMarketCache[item.sym] = { ...q, ts: Date.now() };
+      const batch = await fetchQuotesBatch(need.map((item) => item.sym), '1m', '1d');
+      need.forEach((item) => {
+        const json = batch[item.sym];
+        const q = json && parseQuickQuote(json);
+        if (q) homeMarketCache[item.sym] = { ...q, ts: Date.now() };
+      });
     } catch (e) { /* keep stale or dash */ }
-  }));
+  }
   paintHomeMarkets();
   if (stamp) {
     const live = all.filter(i => homeMarketCache[i.sym]).length;
@@ -5466,7 +5471,10 @@ const stockCache = {};
 const STOCK_CACHE_MS = 90000;
 const STOCK_LIST_CACHE_MS = 120000;
 const FEED_POLL_MS = 90000;
+const FEED_POLL_MAX_MS = 300000;
+let feedPollMs = FEED_POLL_MS;
 const QUOTE_FETCH_CONCURRENCY = 4;
+const QUOTE_BATCH_MAX = 24;
 let quoteFetchActive = 0;
 const quoteFetchWaiters = [];
 let quoteErrorStreak = 0;
@@ -5631,6 +5639,40 @@ async function fetchYahooChart(sym, interval, range) {
   }
 }
 
+async function fetchQuotesBatch(syms, interval, range) {
+  const unique = [...new Set((syms || []).map((s) => String(s || '').trim()).filter(Boolean))];
+  const out = {};
+  if (!unique.length) return out;
+  const base = (typeof RunnrSync !== 'undefined' ? RunnrSync.apiBase() : 'https://api.runnr.fyi');
+  for (let i = 0; i < unique.length; i += QUOTE_BATCH_MAX) {
+    const chunk = unique.slice(i, i + QUOTE_BATCH_MAX);
+    const res = await fetchWithTimeout(base + '/api/v1/quotes/batch', 20000, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
+      body: JSON.stringify({ symbols: chunk, interval: interval, range: range })
+    });
+    if (res.status === 404 || res.status === 405) {
+      await Promise.all(chunk.map(async (sym) => {
+        try { out[sym] = await fetchYahooChart(sym, interval, range); } catch (err) {}
+      }));
+      continue;
+    }
+    if (!res.ok) throw new Error('fetch failed');
+    const data = await res.json();
+    const quotes = data.quotes || {};
+    Object.keys(quotes).forEach((sym) => {
+      const json = quotes[sym];
+      if (!json) return;
+      const meta = json._runnr || {};
+      json._runnrCache = meta.cache || 'miss';
+      json._runnrSource = meta.source || 'yahoo';
+      trackQuoteCache(json._runnrCache);
+      out[sym] = json;
+    });
+  }
+  return out;
+}
+
 let quoteCacheHits = 0;
 let quoteCacheMisses = 0;
 let quoteStaleCount = 0;
@@ -5663,15 +5705,20 @@ function hideTrafficBanner() {
 }
 
 function updateTrafficBanner(liveCount, total) {
-  if (trafficBannerDismissed || !total) return;
+  if (!total) return;
   const ratio = liveCount / total;
-  if (ratio === 0) {
-    showTrafficBanner('Prices unavailable — high load or market closed. Journal & Alpaca sync still work.');
-  } else if (ratio < 0.5 || quoteStaleCount > quoteCacheHits) {
-    showTrafficBanner('High traffic — live prices may lag. Journal & Alpaca sync still work.');
-  } else {
-    hideTrafficBanner();
+  const degraded = ratio === 0 || ratio < 0.5 || quoteStaleCount > quoteCacheHits;
+  if (!trafficBannerDismissed) {
+    if (ratio === 0) {
+      showTrafficBanner('Prices unavailable — high load or market closed. Journal & Alpaca sync still work.');
+    } else if (degraded) {
+      showTrafficBanner('High traffic — live prices may lag. Journal & Alpaca sync still work.');
+    } else {
+      hideTrafficBanner();
+    }
   }
+  if (degraded) setFeedPollInterval(Math.min(FEED_POLL_MAX_MS, Math.max(feedPollMs * 2, FEED_POLL_MS * 2)));
+  else setFeedPollInterval(FEED_POLL_MS);
 }
 
 async function openStockDetail(sym) {
@@ -6246,10 +6293,26 @@ function setFeedStatus(state, msg) {
 }
 
 // Safe fetch with timeout fallback (AbortSignal.timeout not in all browsers)
-function fetchWithTimeout(url, ms) {
+function fetchWithTimeout(url, ms, opts) {
   const ctrl = new AbortController();
   const timer = setTimeout(() => ctrl.abort(), ms);
-  return fetch(url, { signal: ctrl.signal }).finally(() => clearTimeout(timer));
+  return fetch(url, { ...(opts || {}), signal: ctrl.signal }).finally(() => clearTimeout(timer));
+}
+
+function livePriceFromChart(json, key, sym) {
+  const result = json && json.chart && json.chart.result && json.chart.result[0];
+  if (!result) return null;
+  const meta = result.meta;
+  let price = extractPriceFromMeta(meta);
+  const prev = parseFloat(meta.previousClose || meta.chartPreviousClose || price);
+  if (!price || isNaN(price)) return null;
+  const change = price - prev;
+  const changePct = prev > 0 ? (change / prev) * 100 : 0;
+  const now = new Date();
+  const ts = now.getHours() + ':' + String(now.getMinutes()).padStart(2, '0');
+  const cacheStatus = json._runnrCache || (json._runnr && json._runnr.cache) || 'miss';
+  const staleQuote = cacheStatus === 'stale';
+  return { price, change, changePct, timestamp: ts, stale: staleQuote, fetchedAt: Date.now(), sym: key, quoteSym: sym };
 }
 
 async function fetchLivePrice(displaySym, resolvedSym) {
@@ -6260,20 +6323,9 @@ async function fetchLivePrice(displaySym, resolvedSym) {
   if (w) w.quoteSym = sym;
   try {
     const json = await fetchYahooChart(sym, '1m', '1d');
-    const result = json && json.chart && json.chart.result && json.chart.result[0];
-    if (!result) throw new Error('no result');
-    const meta = result.meta;
-    const session = parseMarketSession(meta);
-    let price = extractPriceFromMeta(meta);
-    const prev  = parseFloat(meta.previousClose || meta.chartPreviousClose || price);
-    if (!price || isNaN(price)) throw new Error('bad price');
-    const change    = price - prev;
-    const changePct = prev > 0 ? (change / prev) * 100 : 0;
-    const now = new Date();
-    const ts  = now.getHours() + ':' + String(now.getMinutes()).padStart(2,'0');
-    const cacheStatus = json._runnrCache || 'miss';
-    const staleQuote = cacheStatus === 'stale';
-    return { price, change, changePct, timestamp: ts, stale: staleQuote, fetchedAt: Date.now(), sym: key, quoteSym: sym };
+    const parsed = livePriceFromChart(json, key, sym);
+    if (!parsed) throw new Error('no result');
+    return parsed;
   } catch(e) {
     const last = liveprices[key];
     if (last && last.price > 0 && !last.estimated) {
@@ -6308,25 +6360,35 @@ async function refreshAllPrices() {
     let liveCount = 0;
     let staleCount = 0;
     let failCount = 0;
-    await Promise.all(syms.map(async sym => {
+    const pending = [];
+    for (const sym of syms) {
       const last = liveprices[sym];
       if (last && last.fetchedAt && !last.stale && !last.estimated && (Date.now() - last.fetchedAt < STOCK_LIST_CACHE_MS)) {
         liveCount++;
-        return;
+        continue;
       }
       const w = S.watchlist.find(item => item.sym === sym);
-      const data = await fetchLivePrice(sym, w?.quoteSym);
-      if (data) {
-        liveprices[sym] = data;
+      const resolved = (w && w.quoteSym) || quoteSymbolCache[sym] || normalizeQuoteSymbol(sym);
+      pending.push({ display: sym, resolved: resolved });
+    }
+    if (pending.length) {
+      const batch = await fetchQuotesBatch(pending.map((p) => p.resolved), '1m', '1d');
+      for (const { display, resolved } of pending) {
+        const json = batch[resolved] || batch[display];
+        let data = json ? livePriceFromChart(json, display, resolved) : null;
+        if (!data) {
+          const last = liveprices[display];
+          if (last && last.price > 0 && !last.estimated) data = { ...last, stale: true };
+        }
+        if (!data) { failCount++; continue; }
+        liveprices[display] = data;
         if (data.estimated) failCount++;
         else if (data.stale) staleCount++;
         else liveCount++;
-        const w = S.watchlist.find(w => w.sym === sym);
+        const w = S.watchlist.find((item) => item.sym === display);
         if (w) w.urgent = isNearEntry(data.price, w.entry, w.dir);
-      } else {
-        failCount++;
       }
-    }));
+    }
     if (failCount * 2 >= syms.length || staleCount > liveCount) {
       quoteErrorStreak++;
       quoteBackoffUntil = Date.now() + Math.min(300000, 15000 * Math.pow(2, Math.min(quoteErrorStreak - 1, 4)));
@@ -6354,10 +6416,7 @@ async function refreshAllPrices() {
   }
 }
 
-function startFeedTimer() {
-  if (isGuestLanding()) return;
-  refreshAllPrices();
-  refreshHomeMarkets().catch(() => {});
+function armFeedTimer() {
   if (feedTimer) clearInterval(feedTimer);
   let fgTick = 0;
   feedTimer = setInterval(() => {
@@ -6365,7 +6424,21 @@ function startFeedTimer() {
     refreshHomeMarkets().catch(() => {});
     if (++fgTick % 10 === 0) fetchFearGreed().catch(() => {});
     if (document.getElementById('page-watchlist')?.classList.contains('active')) refreshWatchBriefs();
-  }, FEED_POLL_MS);
+  }, feedPollMs);
+}
+
+function setFeedPollInterval(next) {
+  next = Math.max(FEED_POLL_MS, Math.min(FEED_POLL_MAX_MS, next));
+  if (next === feedPollMs) return;
+  feedPollMs = next;
+  if (feedTimer) armFeedTimer();
+}
+
+function startFeedTimer() {
+  if (isGuestLanding()) return;
+  refreshAllPrices();
+  refreshHomeMarkets().catch(() => {});
+  armFeedTimer();
 }
 
 function fmtPrice(p) {

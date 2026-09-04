@@ -7,7 +7,7 @@ import stripe
 from fastapi import APIRouter, Depends, HTTPException, Request
 from fastapi.responses import RedirectResponse
 
-from app.auth import get_current_user
+from app.auth import get_current_user, invalidate_user_cache
 from app.billing_util import plan_from_price_id, subscription_is_pro
 from app.config import settings
 from app.db import get_db
@@ -57,6 +57,7 @@ def _save_customer(user_id: int, customer_id: str) -> None:
             "UPDATE users SET stripe_customer_id = ? WHERE id = ?",
             (customer_id, user_id),
         )
+    invalidate_user_cache(user_id)
 
 
 def _set_subscription(
@@ -86,6 +87,14 @@ def _set_subscription(
                 """,
                 (status, plan, subscription_id, customer_id),
             )
+            row = conn.execute(
+                "SELECT id FROM users WHERE stripe_customer_id = ?",
+                (customer_id,),
+            ).fetchone()
+            if row:
+                user_id = int(row["id"])
+    if user_id is not None:
+        invalidate_user_cache(user_id)
 
 
 def _ensure_customer(user: dict) -> str:
