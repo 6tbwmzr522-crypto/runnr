@@ -5,7 +5,7 @@
 <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
 <script>
 (function () {
-  var V = "119";
+  var V = "120";
   try {
     if (localStorage.getItem("runnr_app_v") !== V) {
       localStorage.setItem("runnr_app_v", V);
@@ -220,6 +220,8 @@ body::before{content:'';position:fixed;inset:0;background:radial-gradient(ellips
 .flag-incomplete{background:var(--surface3);color:var(--text3);border:1px dashed var(--border)}
 .te-replay{background:none;border:none;color:var(--gold);font-size:11px;font-weight:500;padding:8px 0 0;margin:0;cursor:pointer;letter-spacing:0.04em;font-family:var(--font-body);text-decoration:underline;text-underline-offset:3px;display:inline-block}
 .te-replay:hover{color:var(--gold-light)}
+.te-replay.te-replay-primary{display:block;width:100%;margin-top:10px;padding:12px 14px;background:var(--accent);color:#080c12;border:none;border-radius:var(--r-sm);font-size:12px;font-weight:600;letter-spacing:0.12em;text-transform:uppercase;text-decoration:none;text-align:center}
+.te-replay.te-replay-primary:hover,.te-replay.te-replay-primary:active{color:#080c12;background:var(--accent2)}
 .replay-grid{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:12px}
 .replay-col{background:rgba(245,242,236,0.02);border:1px solid var(--border);border-radius:var(--r-sm);padding:12px}
 .replay-col h4{font-size:9px;letter-spacing:0.16em;text-transform:uppercase;color:var(--text3);margin:0 0 10px;font-weight:500}
@@ -783,6 +785,7 @@ html.runnr-guest #home-challenge-card,
 html.runnr-guest .home-challenge-card,
 html.runnr-guest #home-coach-banner,
 html.runnr-guest #incomplete-banner,
+html.runnr-guest #home-job-hero,
 html.runnr-guest .home-week-col,
 html.runnr-guest .stat-delta,
 html.runnr-guest #header .header-desk-btn,
@@ -824,6 +827,43 @@ html.runnr-guest #page-home .stat-grid{grid-template-columns:repeat(3,minmax(0,1
 #verify-banner.show{display:flex}
 #verify-banner .verify-banner-text{flex:1;line-height:1.45}
 .demo-badge{display:inline-block;font-size:9px;font-weight:700;letter-spacing:0.12em;color:var(--accent);border:1px solid rgba(0,229,160,0.45);padding:2px 6px;border-radius:4px;margin-left:8px;vertical-align:middle}
+.home-job-hero{display:none;background:linear-gradient(145deg,rgba(0,229,160,0.12),rgba(245,242,236,0.02));border:1px solid rgba(0,229,160,0.28);border-radius:var(--r);padding:18px 16px 16px;margin-bottom:12px}
+html:not(.runnr-guest) .home-job-hero{display:block}
+.home-job-kicker{font-size:10px;letter-spacing:0.22em;text-transform:uppercase;color:var(--gold);font-weight:600;margin-bottom:6px}
+.home-job-title{font-family:var(--font-head);font-size:26px;font-weight:300;font-style:italic;line-height:1.2;margin:0 0 6px;color:var(--text)}
+.home-job-sub{font-size:13px;color:var(--text2);line-height:1.45;margin:0 0 14px}
+.home-job-cta{width:100%;min-height:48px}
+.home-job-links{display:flex;flex-wrap:wrap;justify-content:center;gap:8px 16px;margin-top:12px}
+.home-job-link{background:none;border:none;color:var(--text3);cursor:pointer;padding:0;font-size:12px;font-family:inherit;text-decoration:underline;text-underline-offset:3px}
+.home-job-link:active{color:var(--gold)}
+#journal-hint.journal-hint-calm{background:rgba(245,242,236,0.03);border-color:var(--border);color:var(--text2)}
+.journal-incomplete-hero{display:flex;flex-direction:column;gap:12px}
+.journal-incomplete-copy strong{display:block;font-size:14px;color:var(--text);margin-bottom:4px}
+.journal-incomplete-progress{font-size:12px;color:var(--text3);margin-bottom:4px}
+.journal-incomplete-actions{display:flex;flex-direction:column;gap:8px}
+.journal-incomplete-actions .btn{min-height:44px}
+.journal-show-all{background:none;border:none;color:var(--text3);cursor:pointer;padding:0;font-size:12px;font-family:inherit;text-decoration:underline;text-underline-offset:3px;text-align:left}
+html.runnr-quiet .home-watch-shelf,
+html.runnr-quiet .fg-card,
+html.runnr-quiet .home-progress-card,
+html.runnr-quiet .home-commodities-card,
+html.runnr-quiet .home-markets-card,
+html.runnr-quiet .home-brokers-card,
+html.runnr-quiet #home-coach-banner,
+html.runnr-quiet #incomplete-banner,
+html.runnr-quiet .home-share-btn,
+html.runnr-quiet .home-analyse-btn,
+html.runnr-quiet .header-desk-btn,
+html.runnr-quiet .nav-advanced,
+html.runnr-quiet .port-wave-card,
+html.runnr-quiet .coach-institutional-block,
+html.runnr-quiet .coach-share-card,
+html.runnr-quiet #page-home .card.highlight-card,
+html.runnr-quiet #page-home .stat-grid{display:none !important}
+html.runnr-quiet .nav-btn-more{display:flex}
+.nav-btn-more{display:none}
+html:not(.runnr-guest) #incomplete-banner{display:none !important}
+html:not(.runnr-guest) #home-coach-banner{display:none !important}
 .home-footer-links{display:flex;flex-wrap:wrap;justify-content:center;gap:8px 14px;margin:10px 0 8px;font-size:12px}
 .home-footer-links button,.home-footer-links a{background:none;border:none;color:var(--gold);cursor:pointer;padding:0;font-size:12px;text-decoration:underline;text-underline-offset:3px;font-family:inherit}
 .trust-pricing-row{font-size:12px;color:var(--text2);line-height:1.55;margin-bottom:8px;padding:8px 10px;background:var(--surface2);border-radius:var(--r-sm);border:1px solid var(--border)}
@@ -970,6 +1010,7 @@ html.runnr-guest #page-home .stat-grid{grid-template-columns:repeat(3,minmax(0,1
     background:linear-gradient(145deg,rgba(201,169,110,0.09),var(--surface) 62%);
   }
   #page-home .home-frame > .home-landing-card,
+  #page-home .home-frame > .home-job-hero,
   #page-home .home-frame > .home-challenge-card,
   #page-home .home-frame > .notif,
   #page-home .home-frame > .incomplete-banner,
@@ -980,6 +1021,7 @@ html.runnr-guest #page-home .stat-grid{grid-template-columns:repeat(3,minmax(0,1
   }
   #page-home .home-frame > .notif{background:rgba(201,169,110,0.08)}
   #page-home .home-frame > .incomplete-banner{background:var(--amber-dim)}
+  #page-home .home-frame > .home-job-hero{background:linear-gradient(145deg,rgba(0,229,160,0.12),var(--surface) 62%)}
   #page-home .home-frame > .card,
   #page-home .home-frame > .highlight-card,
   #page-home .home-frame > .fg-card,
@@ -1235,6 +1277,18 @@ html.runnr-guest #page-home .stat-grid{grid-template-columns:repeat(3,minmax(0,1
         </div>
       </div>
 
+      <div class="home-job-hero" id="home-job-hero" hidden>
+        <div class="home-job-kicker">Next</div>
+        <h2 class="home-job-title" id="home-job-title">Size the next trade</h2>
+        <p class="home-job-sub" id="home-job-sub">Pick a stop. The size follows.</p>
+        <button type="button" class="btn home-job-cta" id="home-job-cta">Size the next trade</button>
+        <div class="home-job-links">
+          <button type="button" class="home-job-link" onclick="switchPage('journal')">Journal</button>
+          <button type="button" class="home-job-link" onclick="switchPage('coach')">Coach</button>
+          <button type="button" class="home-job-link" onclick="RunnrDesk.open()">Terminal</button>
+        </div>
+      </div>
+
       <div class="notif" id="home-coach-banner" onclick="switchPage('coach')">
         <div class="notif-dot"></div>
         <span data-i18n="home.coachBanner">Analyse your last trade — see what discipline would have saved</span>
@@ -1244,7 +1298,7 @@ html.runnr-guest #page-home .stat-grid{grid-template-columns:repeat(3,minmax(0,1
       <div class="card highlight-card">
         <div class="section-hdr" style="margin-bottom:12px">
           <h3 data-i18n="home.disciplineScore">Discipline Score</h3>
-          <button class="see-all" onclick="RunnrGrowth.openShareModal(S)" data-i18n="home.share">Share ↗</button>
+          <button class="see-all home-share-btn" onclick="RunnrGrowth.openShareModal(S)" data-i18n="home.share">Share ↗</button>
         </div>
         <div class="discipline-card">
           <div class="disc-ring" id="disc-score-ring">
@@ -1257,7 +1311,7 @@ html.runnr-guest #page-home .stat-grid{grid-template-columns:repeat(3,minmax(0,1
             <div class="disc-meta-row"><span data-i18n="home.logStreak">Log streak</span><strong id="disc-streak-val">0</strong></div>
           </div>
         </div>
-        <button class="btn btn-sm btn-ghost" style="width:100%" onclick="RunnrGrowth.open(S)" data-i18n="home.analyseTrade">↻ Analyse another trade</button>
+        <button class="btn btn-sm btn-ghost home-analyse-btn" style="width:100%" onclick="RunnrGrowth.open(S)" data-i18n="home.analyseTrade">↻ Analyse another trade</button>
       </div>
 
       <!-- Account snapshot -->
@@ -1748,6 +1802,7 @@ html.runnr-guest #page-home .stat-grid{grid-template-columns:repeat(3,minmax(0,1
       </div>
 
       <!-- Institutional-grade metrics (allocators read these) -->
+      <div class="coach-institutional-block">
       <div class="section-hdr" style="margin-bottom:10px;margin-top:4px">
         <h3>Institutional Grade</h3>
         <span style="font-size:10px;color:var(--text3);font-family:var(--font-mono)">SORTINO · RECOVERY · PF</span>
@@ -1772,6 +1827,7 @@ html.runnr-guest #page-home .stat-grid{grid-template-columns:repeat(3,minmax(0,1
         </div>
         <div id="coach-inst-note" style="font-size:11px;color:var(--text3);line-height:1.5;margin-bottom:10px">—</div>
       </div>
+      </div>
 
       <!-- AI Insights -->
       <div class="section-hdr" style="margin-bottom:10px">
@@ -1781,7 +1837,7 @@ html.runnr-guest #page-home .stat-grid{grid-template-columns:repeat(3,minmax(0,1
 
       <div id="coach-insights-list"></div>
 
-      <div class="card" style="margin-top:12px">
+      <div class="card coach-share-card" style="margin-top:12px">
         <div class="card-title">Share your process</div>
         <div style="font-size:12px;color:var(--text2);margin-bottom:12px">Brag about discipline — not P&amp;L. Optional public card for X, Discord, prop-firm apps.</div>
         <div style="display:flex;gap:8px">
@@ -2323,7 +2379,7 @@ html.runnr-guest #page-home .stat-grid{grid-template-columns:repeat(3,minmax(0,1
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="16"/><line x1="8" y1="12" x2="16" y2="12"/></svg>
       <span data-i18n="nav.sizer">Sizer</span>
     </button>
-    <button class="nav-btn" onclick="switchPage('watchlist')" data-nav="watchlist">
+    <button class="nav-btn nav-advanced" onclick="switchPage('watchlist')" data-nav="watchlist">
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>
       <span data-i18n="nav.watch">Watch</span>
     </button>
@@ -2331,21 +2387,25 @@ html.runnr-guest #page-home .stat-grid{grid-template-columns:repeat(3,minmax(0,1
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/></svg>
       <span data-i18n="nav.journal">Journal</span>
     </button>
-    <button class="nav-btn" onclick="switchPage('coach')">
+    <button class="nav-btn nav-advanced" onclick="switchPage('coach')">
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>
       <span data-i18n="nav.coach">Coach</span>
     </button>
-    <button class="nav-btn" onclick="switchPage('portfolio')">
+    <button class="nav-btn nav-advanced" onclick="switchPage('portfolio')">
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg>
       <span data-i18n="nav.portfolio">Portfolio</span>
     </button>
-    <button class="nav-btn nav-desktop-only" type="button" data-nav="desk" onclick="RunnrDesk.open()">
+    <button class="nav-btn nav-desktop-only nav-advanced" type="button" data-nav="desk" onclick="RunnrDesk.open()">
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="4" width="18" height="14" rx="2"/><path d="M7 15V9M12 15V11M17 15V8"/></svg>
       <span data-i18n="header.terminal">Terminal</span>
     </button>
-    <button class="nav-btn" type="button" data-nav="shelf" onclick="switchPage('shelf')">
+    <button class="nav-btn nav-advanced" type="button" data-nav="shelf" onclick="switchPage('shelf')">
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M5 4h3.2v16H5z"/><path d="M10.4 3h3.2v17h-3.2z"/><path d="M15.8 5h3.2v15h-3.2z"/></svg>
       <span data-i18n="nav.shelf">Shelf</span>
+    </button>
+    <button class="nav-btn nav-btn-more" type="button" data-nav="more" onclick="expandDeskMore()">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="5" cy="12" r="1.6"/><circle cx="12" cy="12" r="1.6"/><circle cx="19" cy="12" r="1.6"/></svg>
+      <span>More</span>
     </button>
   </div>
 
@@ -2721,12 +2781,13 @@ html.runnr-guest #page-home .stat-grid{grid-template-columns:repeat(3,minmax(0,1
 
 <script src="js/i18n.js?v=15"></script>
 <script src="js/baron.js?v=31"></script>
-<script src="js/discipline-replay.js?v=5"></script>
+<script src="js/discipline-replay.js?v=6"></script>
 <script src="js/coach.js?v=26"></script>
 <script src="js/onboarding.js?v=30"></script>
 <script src="js/intro.js?v=1"></script>
 <script src="js/csv-presets.js?v=4"></script>
 <script src="js/trade-limit.js?v=2"></script>
+<script src="js/desk-quiet.js?v=1"></script>
 <script src="js/sync.js?v=69"></script>
 <script src="js/desk-sessions.js?v=2"></script>
 <script src="js/desk.js?v=12"></script>
@@ -3131,8 +3192,71 @@ function applyGuestShell() {
     document.documentElement.classList.toggle('runnr-guest', guest);
     if (!guest) document.documentElement.classList.remove('runnr-show-hook');
   } catch (e) {}
+  applyQuietDesk();
 }
 window.applyGuestShell = applyGuestShell;
+
+function applyQuietDesk() {
+  const guest = typeof isGuestLanding === 'function' && isGuestLanding();
+  const quiet = !guest && window.RunnrDeskQuiet && RunnrDeskQuiet.isQuiet(S && S.trades);
+  try { document.documentElement.classList.toggle('runnr-quiet', !!quiet); } catch (e) {}
+  return !!quiet;
+}
+window.applyQuietDesk = applyQuietDesk;
+
+function expandDeskMore() {
+  if (window.RunnrDeskQuiet) RunnrDeskQuiet.expandMore();
+  applyQuietDesk();
+}
+window.expandDeskMore = expandDeskMore;
+
+function renderHomeJob() {
+  const hero = document.getElementById('home-job-hero');
+  if (!hero) return;
+  if (typeof isGuestLanding === 'function' && isGuestLanding()) {
+    hero.hidden = true;
+    return;
+  }
+  const job = window.RunnrDeskQuiet
+    ? RunnrDeskQuiet.primaryJob(S.trades, S, typeof Baron !== 'undefined' ? Baron : null)
+    : { id: 'size', title: 'Size the next trade', sub: 'Pick a stop. The size follows.', cta: 'Size the next trade' };
+  hero.hidden = false;
+  hero.dataset.job = job.id;
+  const title = document.getElementById('home-job-title');
+  const sub = document.getElementById('home-job-sub');
+  const cta = document.getElementById('home-job-cta');
+  if (title) title.textContent = job.title;
+  if (sub) sub.textContent = job.sub;
+  if (cta) {
+    cta.textContent = job.cta;
+    cta.dataset.job = job.id;
+    cta.onclick = function () { runHomeJob(job); };
+  }
+}
+window.renderHomeJob = renderHomeJob;
+
+function runHomeJob(job) {
+  if (!job) return;
+  if (job.id === 'review') {
+    reviewNextIncompleteFill();
+    return;
+  }
+  if (job.id === 'replay' && job.tradeId != null) {
+    openDisciplineReplay(job.tradeId);
+    return;
+  }
+  focusSizerForNextTrade();
+}
+window.runHomeJob = runHomeJob;
+
+function focusSizerForNextTrade() {
+  switchPage('sizer');
+  const page = document.getElementById('page-sizer');
+  if (page && page.scrollIntoView) page.scrollIntoView({ behavior: 'smooth', block: 'start' });
+  const input = document.getElementById('cfd-instr') || document.getElementById('sh-instr');
+  if (input) setTimeout(function () { try { input.focus(); } catch (e) {} }, 50);
+}
+window.focusSizerForNextTrade = focusSizerForNextTrade;
 
 function startMarketFeedsIfAllowed() {
   if (isGuestLanding()) return;
@@ -3539,6 +3663,8 @@ function updateHomeStats() {
     RunnrGrowth.renderDisciplineCard(S);
     RunnrGrowth.renderHomeBanner(S);
   }
+  applyQuietDesk();
+  renderHomeJob();
   updateDemoBanner();
   try { renderChallengePanel(); } catch (e) {}
 }
@@ -4326,15 +4452,32 @@ function renderJournal() {
   const alpacaPending = S.trades.filter(t => isBrokerFillTrade(t) && t.incomplete);
   if (hint) {
     if (alpacaPending.length) {
+      const wallAt = (window.RunnrDeskQuiet && RunnrDeskQuiet.INCOMPLETE_WALL_THRESHOLD) || 5;
+      const high = alpacaPending.length > wallAt;
+      const progress = window.RunnrDeskQuiet
+        ? RunnrDeskQuiet.brokerFillProgress(S.trades)
+        : { total: alpacaPending.length, reviewed: 0, incomplete: alpacaPending.length };
       hint.style.display = 'block';
-      hint.innerHTML = `<div style="display:flex;justify-content:space-between;align-items:flex-start;gap:10px;flex-wrap:wrap">
-        <span><strong>${alpacaPending.length} broker fill${alpacaPending.length > 1 ? 's' : ''}</strong> need Stop and Size answers — closed round-trips already count toward Portfolio P&amp;L. Review each fill. Replay appears when size is flagged or a stop is missing — including older fills with no risk snapshot.</span>
-        <div style="display:flex;flex-direction:column;gap:8px;align-items:stretch;flex-shrink:0">
-          <button type="button" class="btn btn-sm" style="white-space:nowrap" onclick="reviewNextIncompleteFill(event)">Review next incomplete</button>
-          <button type="button" class="btn btn-sm btn-ghost" style="white-space:nowrap" onclick="applyDisciplineDefaultsToAll(event)">Mark all as compliant (Stop ✓ Size ✓)</button>
+      hint.classList.toggle('journal-hint-calm', high);
+      const detail = high
+        ? ''
+        : '<span>Need Stop and Size on each fill. Replay appears when size is flagged or a stop is missing — including older fills with no risk snapshot.</span>';
+      const progressLine = progress.total
+        ? `<div class="journal-incomplete-progress">${progress.reviewed} of ${progress.total} reviewed</div>`
+        : '';
+      hint.innerHTML = `<div class="journal-incomplete-hero">
+        <div class="journal-incomplete-copy">
+          <strong>${alpacaPending.length} fill${alpacaPending.length > 1 ? 's' : ''} to review</strong>
+          ${progressLine}
+          ${detail}
+        </div>
+        <div class="journal-incomplete-actions">
+          <button type="button" class="btn" onclick="reviewNextIncompleteFill(event)">Review next incomplete</button>
+          <button type="button" class="btn btn-ghost" onclick="applyDisciplineDefaultsToAll(event)">Mark all as compliant (Stop ✓ Size ✓)</button>
         </div>
       </div>`;
     } else if (!RunnrSync.isPro?.() && RunnrSync.billing?.()?.enabled !== false) {
+      hint.classList.remove('journal-hint-calm');
       const used = countJournalTradesForLimit();
       const rem = Math.max(0, FREE_TRADE_LIMIT - used);
       hint.style.display = 'block';
@@ -4344,6 +4487,7 @@ function renderJournal() {
         hint.innerHTML = `<span>Free plan: <strong>${used}/${FREE_TRADE_LIMIT}</strong> trades logged (manual + imports) · ${rem} remaining before upgrade</span>`;
       }
     } else {
+      hint.classList.remove('journal-hint-calm');
       hint.style.display = 'none';
     }
   }
@@ -4352,7 +4496,17 @@ function renderJournal() {
     list.innerHTML = '<div class="empty-state"><div class="es-icon">📋</div>No trades yet. Import T212 / Alpaca on Sync or log a trade.</div>';
     return;
   }
-  list.innerHTML = S.trades.map(t => {
+  const wallAt = (window.RunnrDeskQuiet && RunnrDeskQuiet.INCOMPLETE_WALL_THRESHOLD) || 5;
+  const hideIncompleteWall = alpacaPending.length > wallAt && !showAllIncompleteFills;
+  const journalRows = hideIncompleteWall
+    ? S.trades.filter(t => !(isBrokerFillTrade(t) && t.incomplete))
+    : S.trades;
+  const wallToggle = hideIncompleteWall
+    ? `<button type="button" class="journal-show-all" onclick="toggleIncompleteFillWall(true)">Show all ${alpacaPending.length} incomplete fills</button>`
+    : (alpacaPending.length > wallAt && showAllIncompleteFills
+      ? `<button type="button" class="journal-show-all" onclick="toggleIncompleteFillWall(false)">Hide incomplete wall</button>`
+      : '');
+  list.innerHTML = (wallToggle ? wallToggle : '') + journalRows.map(t => {
     try {
     const isFill = isBrokerFillTrade(t);
     const pnlStr = formatTradePnl(t, isFill);
@@ -4383,7 +4537,7 @@ function renderJournal() {
       </div>
       <div class="te-meta">${metaLine}</div>
       <div class="flags">${stopFlag}${sizeFlag}${t.challengeFail ? '' : (t.incomplete?'<span class="flag flag-miss">Incomplete</span>':'')}</div>
-      ${typeof DisciplineReplay !== 'undefined' && DisciplineReplay.canReplay(t, S, typeof Baron !== 'undefined' ? Baron : null) ? `<button type="button" class="te-replay" onclick="openDisciplineReplay('${t.id}', event)">Replay Disciplined</button>` : ''}
+      ${typeof DisciplineReplay !== 'undefined' && DisciplineReplay.canReplay(t, S, typeof Baron !== 'undefined' ? Baron : null) ? `<button type="button" class="te-replay te-replay-primary" onclick="openDisciplineReplay('${t.id}', event)">Replay Disciplined</button>` : ''}
       ${t.challengeNote ? `<div class="te-note">${escapeTeText(t.challengeNote)}</div>` : ''}
     </div>`;
     } catch (e) { console.warn('skip bad trade', t && t.id, e); return ''; }
@@ -4572,6 +4726,13 @@ function reviewTrade(id) {
 
 let reviewingIncompleteQueue = false;
 let advancingIncompleteReview = false;
+let showAllIncompleteFills = false;
+
+function toggleIncompleteFillWall(show) {
+  showAllIncompleteFills = !!show;
+  renderJournal();
+}
+window.toggleIncompleteFillWall = toggleIncompleteFillWall;
 
 function incompleteBrokerFillList() {
   if (typeof DisciplineReplay !== 'undefined' && DisciplineReplay.incompleteBrokerFills) {
@@ -4881,6 +5042,18 @@ function saveLog() {
   const title = document.querySelector('#modal-log .modal-title');
   if (title) title.innerHTML = 'Log Trade <button class="modal-close" onclick="closeModal(\'modal-log\')">✕</button>';
   const savedMsg = draft.exit != null ? 'Trade updated ✓' : 'Trade saved ✓';
+  const saved = (savedId != null ? S.trades.find(x => tradeId(x.id) === tradeId(savedId)) : null)
+    || S.trades[0];
+  const replayReady = saved
+    && !draft.incomplete
+    && typeof DisciplineReplay !== 'undefined'
+    && DisciplineReplay.canReplay(saved, S, typeof Baron !== 'undefined' ? Baron : null);
+  if (replayReady) {
+    reviewingIncompleteQueue = false;
+    showToast(saved.instr || draft.instr, 'Replay this miss — see the disciplined version');
+    offerDisciplineReplay(saved.id);
+    return;
+  }
   if (keepReviewing) {
     const remaining = incompleteBrokerFillList().filter(t => tradeId(t.id) !== tradeId(savedId));
     if (remaining.length) {
@@ -4894,6 +5067,12 @@ function saveLog() {
   }
   showToast(draft.instr, savedMsg);
 }
+
+function offerDisciplineReplay(id) {
+  if (id == null) return;
+  openDisciplineReplay(id);
+}
+window.offerDisciplineReplay = offerDisciplineReplay;
 
 // ── WATCHLIST ──────────────────────────────────────────────────────────────
 function watchRowStatus(w, lp) {
