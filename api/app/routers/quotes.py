@@ -1,5 +1,4 @@
 import json
-import time
 from urllib.parse import quote as url_quote
 from urllib.request import Request, urlopen
 
@@ -12,6 +11,8 @@ from app.quote_cache import fear_greed_cache, quote_cache
 
 router = APIRouter()
 
+_SOURCE_KEY = "_runnr_source"
+
 
 def _cache_headers(response: Response, status: str, age: float | None) -> None:
     response.headers["X-Runnr-Cache"] = status
@@ -20,11 +21,15 @@ def _cache_headers(response: Response, status: str, age: float | None) -> None:
 
 
 def _attach_meta(payload: dict, status: str, age: float | None, source: str = "yahoo") -> dict:
-    out = dict(payload)
+    out = {k: v for k, v in payload.items() if k not in (_SOURCE_KEY, "_runnr")}
+    src = payload.get(_SOURCE_KEY) or source
+    nested = payload.get("_runnr")
+    if isinstance(nested, dict) and nested.get("source"):
+        src = nested.get("source") or src
     out["_runnr"] = {
         "cache": status,
         "age_s": round(age or 0, 1),
-        "source": source,
+        "source": src,
     }
     return out
 
@@ -74,27 +79,107 @@ def _load_fear_greed() -> dict:
     }
 
 
-@router.get("/fear-greed")
-def fear_greed_index(response: Response):
-    """Fear & Greed proxy (browser CORS blocks direct fetch). Cached 15 min."""
-    cache_key = "fear_greed"
-    ttl = float(settings.fear_greed_cache_ttl)
-    cached, status, age = fear_greed_cache.get(cache_key)
+def _load_quote(symbol: str, interval: str, range_: str) -> tuple[dict, str]:
+    """Yahoo first; Finnhub for 1m/5d-or-1d when Yahoo fails."""
+    try:
+        return _fetch_chart(symbol, interval, range_), "yahoo"
+    except Exception as exc:
+        fh_key = (settings.finnhub_api_key or "").strip()
+        if fh_key and interval in ("1m", "5m") and range_ in ("1d", "5d"):
+            fallback = quote_as_yahoo_chart(symbol, fh_key)
+            if fallback:
+                return fallback, "finnhub"
+        raise exc
+
+
+def _fetch_and_cache(cache_key: str, symbol: str, interval: str, range_: str, ttl: float) -> dict:
+    data, source = _load_quote(symbol, interval, range_)
+    stored = dict(data)
+    stored[_SOURCE_KEY] = source
+    quote_cache.set(cache_key, stored, ttl)
+    return stored
+
+
+def resolve_quote(symbol: str, interval: str, range_: str) -> tuple[dict, str, float | None, str]:
+    """Fresh hit, stale-while-revalidate, or singleflight fetch.
+
+    Returns (payload_with__runnr, cache_status, age_s, source).
+    """
+    cache_key = f"{symbol}|{interval}|{range_}"
+    ttl = float(settings.quote_cache_ttl)
+    stale_ttl = float(settings.quote_stale_ttl)
+    cached, status, age = quote_cache.lookup(cache_key)
+
     if status == "hit" and cached:
-        _cache_headers(response, status, age)
-        return _attach_meta(cached, status, age, source=cached.get("source", "cnn"))
+        quote_cache.note_hit()
+        source = str(cached.get(_SOURCE_KEY) or "yahoo")
+        return _attach_meta(cached, "hit", age, source), "hit", age, source
+
+    within_stale = (
+        status == "stale"
+        and cached is not None
+        and age is not None
+        and age < stale_ttl
+    )
+    if within_stale:
+        quote_cache.note_swr()
+        quote_cache.flight.start_background(
+            cache_key,
+            lambda: _fetch_and_cache(cache_key, symbol, interval, range_, ttl),
+        )
+        source = str(cached.get(_SOURCE_KEY) or "yahoo")
+        return _attach_meta(cached, "swr", age, source), "swr", age, source
 
     try:
-        data = _load_fear_greed()
+        stored = quote_cache.flight.do(
+            cache_key,
+            lambda: _fetch_and_cache(cache_key, symbol, interval, range_, ttl),
+        )
     except Exception as exc:
         if cached:
-            _cache_headers(response, "stale", age)
-            return _attach_meta(cached, "stale", age, source=cached.get("source", "cnn"))
+            quote_cache.note_stale()
+            source = str(cached.get(_SOURCE_KEY) or "yahoo")
+            return _attach_meta(cached, "stale", age, source), "stale", age, source
+        quote_cache.note_miss()
+        raise HTTPException(status_code=502, detail=f"Quote fetch failed: {exc}") from exc
+
+    source = str(stored.get(_SOURCE_KEY) or "yahoo")
+    cache_status = "refresh" if status == "stale" else "miss"
+    if cache_status == "miss":
+        quote_cache.note_miss()
+    return _attach_meta(stored, cache_status, 0, source), cache_status, 0.0, source
+
+
+def resolve_fear_greed() -> tuple[dict, str, float | None]:
+    cache_key = "fear_greed"
+    ttl = float(settings.fear_greed_cache_ttl)
+    cached, status, age = fear_greed_cache.lookup(cache_key)
+    if status == "hit" and cached:
+        fear_greed_cache.note_hit()
+        return cached, "hit", age
+
+    try:
+        data = fear_greed_cache.flight.do(cache_key, _load_fear_greed)
+    except Exception as exc:
+        if cached:
+            fear_greed_cache.note_stale()
+            return cached, "stale", age
+        fear_greed_cache.note_miss()
         raise HTTPException(status_code=502, detail=f"Fear & Greed fetch failed: {exc}") from exc
 
     fear_greed_cache.set(cache_key, data, ttl)
-    _cache_headers(response, "miss", 0)
-    return _attach_meta(data, "miss", 0, source=data.get("source", "cnn"))
+    cache_status = "refresh" if status == "stale" else "miss"
+    if cache_status == "miss":
+        fear_greed_cache.note_miss()
+    return data, cache_status, 0.0
+
+
+@router.get("/fear-greed")
+def fear_greed_index(response: Response):
+    """Fear & Greed proxy (browser CORS blocks direct fetch). Cached 15 min."""
+    data, status, age = resolve_fear_greed()
+    _cache_headers(response, status, age)
+    return _attach_meta(data, status, age, source=data.get("source", "cnn"))
 
 
 @router.get("/{symbol}/brief")
@@ -132,35 +217,6 @@ def quote(
     range_: str = Query(default="1d", alias="range", pattern="^(1d|5d|1mo|3mo|6mo|1y|2y|5y)$"),
 ):
     """Yahoo Finance chart proxy for the Runnr PWA (avoids browser CORS)."""
-    cache_key = f"{symbol}|{interval}|{range_}"
-    ttl = float(settings.quote_cache_ttl)
-    cached, status, age = quote_cache.get(cache_key)
-    if status == "hit" and cached:
-        _cache_headers(response, "hit", age)
-        return _attach_meta(cached, "hit", age, source=cached.get("_runnr", {}).get("source", "yahoo"))
-
-    source = "yahoo"
-    try:
-        data = _fetch_chart(symbol, interval, range_)
-    except Exception as exc:
-        fh_key = (settings.finnhub_api_key or "").strip()
-        if fh_key and interval in ("1m", "5m") and range_ in ("1d", "5d"):
-            fallback = quote_as_yahoo_chart(symbol, fh_key)
-            if fallback:
-                data = fallback
-                source = "finnhub"
-            elif cached:
-                _cache_headers(response, "stale", age)
-                return _attach_meta(cached, "stale", age, source="yahoo")
-            else:
-                raise HTTPException(status_code=502, detail=f"Quote fetch failed: {exc}") from exc
-        elif cached:
-            _cache_headers(response, "stale", age)
-            return _attach_meta(cached, "stale", age, source="yahoo")
-        else:
-            raise HTTPException(status_code=502, detail=f"Quote fetch failed: {exc}") from exc
-
-    quote_cache.set(cache_key, data, ttl)
-    cache_status = "refresh" if status == "stale" else "miss"
-    _cache_headers(response, cache_status, 0)
-    return _attach_meta(data, cache_status, 0, source=source)
+    payload, status, age, _source = resolve_quote(symbol, interval, range_)
+    _cache_headers(response, status, age)
+    return payload

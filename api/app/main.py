@@ -95,6 +95,7 @@ def health():
         "stripe_webhook_configured": bool((settings.stripe_webhook_secret or "").strip()),
         "email_configured": email_configured(),
         "quote_cache_ttl_s": settings.quote_cache_ttl,
+        "quote_stale_ttl_s": settings.quote_stale_ttl,
         "caches": {
             "quotes": quote_cache.stats(),
             "fear_greed": fear_greed_cache.stats(),

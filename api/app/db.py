@@ -80,6 +80,9 @@ def _resolve_database_path() -> str:
 
 DB_PATH = _resolve_database_path()
 
+# WAL + one replica: wait on locks instead of failing fast under stats/profile spikes.
+SQLITE_BUSY_TIMEOUT_MS = 20_000
+
 
 def _migrate_checkout_tickets(conn: sqlite3.Connection) -> None:
     conn.execute(
@@ -96,8 +99,19 @@ def _migrate_checkout_tickets(conn: sqlite3.Connection) -> None:
     conn.execute("CREATE INDEX IF NOT EXISTS idx_checkout_tickets_exp ON checkout_tickets(exp)")
 
 
+def _connect(*, durable_pragmas: bool = False) -> sqlite3.Connection:
+    conn = sqlite3.connect(DB_PATH, timeout=SQLITE_BUSY_TIMEOUT_MS / 1000)
+    conn.row_factory = sqlite3.Row
+    conn.execute(f"PRAGMA busy_timeout={SQLITE_BUSY_TIMEOUT_MS}")
+    if durable_pragmas:
+        conn.execute("PRAGMA journal_mode=WAL")
+        conn.execute("PRAGMA synchronous=NORMAL")
+    return conn
+
+
 def init_db() -> None:
-    with get_db() as conn:
+    conn = _connect(durable_pragmas=True)
+    try:
         conn.executescript(
             """
             CREATE TABLE IF NOT EXISTS users (
@@ -133,6 +147,12 @@ def init_db() -> None:
         _migrate_site_stats(conn)
         _migrate_meta(conn)
         _migrate_oauth_identities(conn)
+        conn.commit()
+    except Exception:
+        conn.rollback()
+        raise
+    finally:
+        conn.close()
 
 
 def _migrate_users_billing(conn: sqlite3.Connection) -> None:
@@ -252,14 +272,15 @@ def _migrate_auth_tokens(conn: sqlite3.Connection) -> None:
 
 @contextmanager
 def get_db():
-    conn = sqlite3.connect(DB_PATH, timeout=5)
-    conn.row_factory = sqlite3.Row
-    conn.execute("PRAGMA journal_mode=WAL")
-    conn.execute("PRAGMA synchronous=NORMAL")
-    conn.execute("PRAGMA busy_timeout=5000")
+    """Open a short-lived connection. Commits only when the connection mutated rows."""
+    conn = _connect()
     try:
         yield conn
-        conn.commit()
+        if conn.total_changes:
+            conn.commit()
+    except Exception:
+        conn.rollback()
+        raise
     finally:
         conn.close()
 
@@ -267,7 +288,7 @@ def get_db():
 def checkpoint_db() -> None:
     """Flush WAL into runnr.db so a SIGTERM deploy does not drop recent hits."""
     try:
-        conn = sqlite3.connect(DB_PATH, timeout=5)
+        conn = _connect()
         try:
             conn.execute("PRAGMA wal_checkpoint(TRUNCATE)")
             conn.commit()

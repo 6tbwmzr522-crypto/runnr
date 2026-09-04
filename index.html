@@ -5,7 +5,7 @@
 <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
 <script>
 (function () {
-  var V = "116";
+  var V = "117";
   try {
     if (localStorage.getItem("runnr_app_v") !== V) {
       localStorage.setItem("runnr_app_v", V);
@@ -5326,7 +5326,7 @@ async function refreshHomeMarkets() {
   paintHomeMarkets();
   await Promise.allSettled(all.map(async (item) => {
     const cached = homeMarketCache[item.sym];
-    if (cached && Date.now() - cached.ts < STOCK_CACHE_MS) return;
+    if (cached && Date.now() - cached.ts < STOCK_LIST_CACHE_MS) return;
     try {
       const json = await fetchYahooChart(item.sym, '1m', '1d');
       const q = parseQuickQuote(json);
@@ -5464,7 +5464,13 @@ function sizefromWatch(id) {
 // Cache to avoid re-fetching (short TTL for live quotes)
 const stockCache = {};
 const STOCK_CACHE_MS = 90000;
+const STOCK_LIST_CACHE_MS = 120000;
 const FEED_POLL_MS = 90000;
+const QUOTE_FETCH_CONCURRENCY = 4;
+let quoteFetchActive = 0;
+const quoteFetchWaiters = [];
+let quoteErrorStreak = 0;
+let quoteBackoffUntil = 0;
 
 const CRYPTO_SYMS = ['BTC','ETH','SOL','DOGE','XRP','ADA','AVAX','LINK','BNB','LTC','DOT','MATIC','SHIB'];
 
@@ -5587,17 +5593,42 @@ function sessionDisplayLabel(session, sym) {
   return 'Last Close';
 }
 
+function acquireQuoteSlot() {
+  return new Promise((resolve) => {
+    const tryAcquire = () => {
+      if (quoteFetchActive < QUOTE_FETCH_CONCURRENCY) {
+        quoteFetchActive += 1;
+        resolve();
+      } else {
+        quoteFetchWaiters.push(tryAcquire);
+      }
+    };
+    tryAcquire();
+  });
+}
+
+function releaseQuoteSlot() {
+  quoteFetchActive = Math.max(0, quoteFetchActive - 1);
+  const next = quoteFetchWaiters.shift();
+  if (next) next();
+}
+
 async function fetchYahooChart(sym, interval, range) {
-  const base = (typeof RunnrSync !== 'undefined' ? RunnrSync.apiBase() : 'https://api.runnr.fyi');
-  const url = base + '/api/v1/quotes/' + encodeURIComponent(sym) + '?interval=' + interval + '&range=' + range;
-  const res = await fetchWithTimeout(url, 7000);
-  if (!res.ok) throw new Error('fetch failed');
-  const data = await res.json();
-  const meta = data._runnr || {};
-  data._runnrCache = meta.cache || res.headers.get('X-Runnr-Cache') || 'miss';
-  data._runnrSource = meta.source || 'yahoo';
-  trackQuoteCache(data._runnrCache);
-  return data;
+  await acquireQuoteSlot();
+  try {
+    const base = (typeof RunnrSync !== 'undefined' ? RunnrSync.apiBase() : 'https://api.runnr.fyi');
+    const url = base + '/api/v1/quotes/' + encodeURIComponent(sym) + '?interval=' + interval + '&range=' + range;
+    const res = await fetchWithTimeout(url, 7000);
+    if (!res.ok) throw new Error('fetch failed');
+    const data = await res.json();
+    const meta = data._runnr || {};
+    data._runnrCache = meta.cache || res.headers.get('X-Runnr-Cache') || 'miss';
+    data._runnrSource = meta.source || 'yahoo';
+    trackQuoteCache(data._runnrCache);
+    return data;
+  } finally {
+    releaseQuoteSlot();
+  }
 }
 
 let quoteCacheHits = 0;
@@ -5606,7 +5637,7 @@ let quoteStaleCount = 0;
 let trafficBannerDismissed = false;
 
 function trackQuoteCache(status) {
-  if (status === 'hit') quoteCacheHits++;
+  if (status === 'hit' || status === 'swr' || status === 'refresh') quoteCacheHits++;
   else if (status === 'stale') quoteStaleCount++;
   else quoteCacheMisses++;
 }
@@ -6242,8 +6273,12 @@ async function fetchLivePrice(displaySym, resolvedSym) {
     const ts  = now.getHours() + ':' + String(now.getMinutes()).padStart(2,'0');
     const cacheStatus = json._runnrCache || 'miss';
     const staleQuote = cacheStatus === 'stale';
-    return { price, change, changePct, timestamp: ts, stale: staleQuote, sym: key, quoteSym: sym };
+    return { price, change, changePct, timestamp: ts, stale: staleQuote, fetchedAt: Date.now(), sym: key, quoteSym: sym };
   } catch(e) {
+    const last = liveprices[key];
+    if (last && last.price > 0 && !last.estimated) {
+      return { ...last, stale: true, fetchedAt: last.fetchedAt || Date.now() };
+    }
     const watch = w || S.watchlist.find(item => item.sym === key);
     const seed  = key.split('').reduce((a,c) => a + c.charCodeAt(0), 0);
     const noise = ((seed * (Date.now() % 99991)) % 1000) / 1000 * 0.014 - 0.007;
@@ -6253,12 +6288,17 @@ async function fetchLivePrice(displaySym, resolvedSym) {
     const changePct = anchor > 0 ? parseFloat((change / anchor * 100).toFixed(2)) : 0;
     const now = new Date();
     const ts  = now.getHours() + ':' + String(now.getMinutes()).padStart(2,'0') + ' est';
-    return { price, change, changePct, timestamp: ts, stale: true, sym: key, quoteSym: sym };
+    return { price, change, changePct, timestamp: ts, stale: true, estimated: true, fetchedAt: Date.now(), sym: key, quoteSym: sym };
   }
 }
 
 async function refreshAllPrices() {
   if (feedFetching) return;
+  if (Date.now() < quoteBackoffUntil) {
+    setFeedStatus('error', 'Prices delayed — retrying soon');
+    showTrafficBanner('High traffic — live prices may lag. Journal & Alpaca sync still work.');
+    return;
+  }
   feedFetching = true;
   setFeedStatus('loading', 'Updating prices...');
   try {
@@ -6266,16 +6306,34 @@ async function refreshAllPrices() {
     const syms = [...new Set(S.watchlist.map(w => w.sym))];
     if (!syms.length) { setFeedStatus('error', 'No symbols'); return; }
     let liveCount = 0;
+    let staleCount = 0;
+    let failCount = 0;
     await Promise.all(syms.map(async sym => {
+      const last = liveprices[sym];
+      if (last && last.fetchedAt && !last.stale && !last.estimated && (Date.now() - last.fetchedAt < STOCK_LIST_CACHE_MS)) {
+        liveCount++;
+        return;
+      }
       const w = S.watchlist.find(item => item.sym === sym);
       const data = await fetchLivePrice(sym, w?.quoteSym);
       if (data) {
         liveprices[sym] = data;
-        if (!data.stale) liveCount++;
+        if (data.estimated) failCount++;
+        else if (data.stale) staleCount++;
+        else liveCount++;
         const w = S.watchlist.find(w => w.sym === sym);
         if (w) w.urgent = isNearEntry(data.price, w.entry, w.dir);
+      } else {
+        failCount++;
       }
     }));
+    if (failCount * 2 >= syms.length || staleCount > liveCount) {
+      quoteErrorStreak++;
+      quoteBackoffUntil = Date.now() + Math.min(300000, 15000 * Math.pow(2, Math.min(quoteErrorStreak - 1, 4)));
+    } else {
+      quoteErrorStreak = 0;
+      quoteBackoffUntil = 0;
+    }
     feedLastUpdate = new Date();
     const ts = feedLastUpdate.getHours() + ':' + String(feedLastUpdate.getMinutes()).padStart(2,'0');
     if (liveCount === syms.length) setFeedStatus('live', 'Live · ' + ts);

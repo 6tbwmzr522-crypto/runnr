@@ -4,6 +4,8 @@ from __future__ import annotations
 
 import hashlib
 import hmac
+import threading
+import time
 from datetime import datetime, timedelta, timezone
 
 from fastapi import APIRouter, Depends, HTTPException, Request, Response
@@ -28,6 +30,11 @@ STATS_VIEWER_EMAILS = frozenset(
 _HASH_KEEP_DAYS = 2
 _UA_MAX = 512
 _IP_MAX = 64
+# Old visitor-hash rows are only needed for same-day uniques. Sweep at most
+# once per process every few hours so /stats/hit stays a cheap write.
+_CLEANUP_INTERVAL_S = 6 * 3600
+_last_visitor_cleanup: float | None = None
+_cleanup_lock = threading.Lock()
 
 
 def utc_day(now: datetime | None = None) -> str:
@@ -59,6 +66,26 @@ def visitor_hash(ip: str, day: str, user_agent: str, secret: str) -> str:
     return hmac.new(key, payload, hashlib.sha256).hexdigest()
 
 
+def maybe_cleanup_old_visitors(conn, cutoff: str) -> bool:
+    """DELETE expired visitor hashes at most once per process per interval."""
+    global _last_visitor_cleanup
+    now = time.monotonic()
+    if (
+        _last_visitor_cleanup is not None
+        and now - _last_visitor_cleanup < _CLEANUP_INTERVAL_S
+    ):
+        return False
+    with _cleanup_lock:
+        if (
+            _last_visitor_cleanup is not None
+            and now - _last_visitor_cleanup < _CLEANUP_INTERVAL_S
+        ):
+            return False
+        conn.execute("DELETE FROM site_stats_visitors WHERE day < ?", (cutoff,))
+        _last_visitor_cleanup = time.monotonic()
+        return True
+
+
 def record_hit(ip: str, user_agent: str, secret: str) -> None:
     day = utc_day()
     digest = visitor_hash(ip, day, user_agent, secret)
@@ -85,7 +112,7 @@ def record_hit(ip: str, user_agent: str, secret: str) -> None:
                 "UPDATE site_stats_days SET uniques = uniques + 1 WHERE day = ?",
                 (day,),
             )
-        conn.execute("DELETE FROM site_stats_visitors WHERE day < ?", (cutoff,))
+        maybe_cleanup_old_visitors(conn, cutoff)
 
 
 def email_can_view_stats(email: str | None) -> bool:
