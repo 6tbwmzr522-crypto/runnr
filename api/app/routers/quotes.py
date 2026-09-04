@@ -1,4 +1,6 @@
 import json
+import threading
+import time
 from urllib.parse import quote as url_quote
 from urllib.request import Request, urlopen
 
@@ -12,6 +14,24 @@ from app.quote_cache import fear_greed_cache, quote_cache
 router = APIRouter()
 
 _SOURCE_KEY = "_runnr_source"
+_FAIL_COOLDOWN_S = 15.0
+_fail_until: dict[str, float] = {}
+_fail_lock = threading.Lock()
+
+
+def _mark_fetch_fail(key: str) -> None:
+    with _fail_lock:
+        _fail_until[key] = time.time() + _FAIL_COOLDOWN_S
+
+
+def _mark_fetch_ok(key: str) -> None:
+    with _fail_lock:
+        _fail_until.pop(key, None)
+
+
+def _can_refresh(key: str) -> bool:
+    with _fail_lock:
+        return time.time() >= _fail_until.get(key, 0.0)
 
 
 def _cache_headers(response: Response, status: str, age: float | None) -> None:
@@ -93,10 +113,15 @@ def _load_quote(symbol: str, interval: str, range_: str) -> tuple[dict, str]:
 
 
 def _fetch_and_cache(cache_key: str, symbol: str, interval: str, range_: str, ttl: float) -> dict:
-    data, source = _load_quote(symbol, interval, range_)
+    try:
+        data, source = _load_quote(symbol, interval, range_)
+    except Exception:
+        _mark_fetch_fail(cache_key)
+        raise
     stored = dict(data)
     stored[_SOURCE_KEY] = source
     quote_cache.set(cache_key, stored, ttl)
+    _mark_fetch_ok(cache_key)
     return stored
 
 
@@ -123,10 +148,11 @@ def resolve_quote(symbol: str, interval: str, range_: str) -> tuple[dict, str, f
     )
     if within_stale:
         quote_cache.note_swr()
-        quote_cache.flight.start_background(
-            cache_key,
-            lambda: _fetch_and_cache(cache_key, symbol, interval, range_, ttl),
-        )
+        if _can_refresh(cache_key):
+            quote_cache.flight.start_background(
+                cache_key,
+                lambda: _fetch_and_cache(cache_key, symbol, interval, range_, ttl),
+            )
         source = str(cached.get(_SOURCE_KEY) or "yahoo")
         return _attach_meta(cached, "swr", age, source), "swr", age, source
 

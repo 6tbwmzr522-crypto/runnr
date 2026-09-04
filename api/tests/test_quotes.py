@@ -14,9 +14,11 @@ from app.routers import quotes as quotes_mod
 def _reset_caches():
     quote_cache.clear()
     fear_greed_cache.clear()
+    quotes_mod._fail_until.clear()
     yield
     quote_cache.clear()
     fear_greed_cache.clear()
+    quotes_mod._fail_until.clear()
 
 
 def _chart(price: float, symbol: str = "AAPL") -> dict:
@@ -158,6 +160,29 @@ def test_upstream_failure_without_cache_is_502(monkeypatch):
     with pytest.raises(HTTPException) as ei:
         quotes_mod.resolve_quote("AAPL", "1m", "1d")
     assert ei.value.status_code == 502
+
+
+def test_swr_skips_refresh_during_failure_cooldown(monkeypatch):
+    quote_cache.set("AAPL|1m|1d", _chart(9), ttl=0.01)
+    time.sleep(0.05)
+    calls = {"n": 0}
+
+    def fake(symbol, interval, range_):
+        calls["n"] += 1
+        raise RuntimeError("yahoo down")
+
+    monkeypatch.setattr(quotes_mod, "_fetch_chart", fake)
+    monkeypatch.setattr(quotes_mod.settings, "quote_stale_ttl", 0)
+    payload, status, _age, _source = quotes_mod.resolve_quote("AAPL", "1m", "1d")
+    assert status == "stale"
+    assert calls["n"] == 1
+
+    monkeypatch.setattr(quotes_mod.settings, "quote_stale_ttl", 300)
+    payload, status, _age, _source = quotes_mod.resolve_quote("AAPL", "1m", "1d")
+    assert status == "swr"
+    assert payload["chart"]["result"][0]["meta"]["regularMarketPrice"] == 9
+    time.sleep(0.05)
+    assert calls["n"] == 1
 
 
 def test_fresh_hit_skips_upstream(monkeypatch):
