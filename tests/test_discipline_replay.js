@@ -23,7 +23,7 @@ function check(name, cond) {
 const v = html.match(/var V = "(\d+)"/)[1];
 const cache = sw.match(/CACHE = "runnr-v(\d+)"/)[1];
 check("index.html V matches sw.js CACHE", v === cache);
-check("discipline-replay.js is loaded", html.includes("js/discipline-replay.js?v=4"));
+check("discipline-replay.js is loaded", html.includes("js/discipline-replay.js?v=5"));
 check("replay modal exists", html.includes('id="modal-discipline-replay"'));
 check("journal button copy", html.includes("Replay Disciplined"));
 check("journal button gated on canReplay", html.includes("DisciplineReplay.canReplay(t, S"));
@@ -35,6 +35,14 @@ check("copy never claims market would have", !/what the market would have done/i
 check("settings note copy", replaySrc.includes("rules at time of trade") && !replaySrc.includes("using your current risk % / balance"));
 check("fills copy", replaySrc.includes("same fills, corrected size/stop."));
 check("missing snapshot copy", replaySrc.includes("no risk snapshot for this trade"));
+check("stamp live CTA copy is explicit not silent history", replaySrc.includes("Use current risk % / balance for this trade")
+  && replaySrc.includes("today's settings")
+  && replaySrc.includes("trade-time rules were never saved"));
+check("stamp live CTA is wired in modal", html.includes("stampReplayFromLiveSettings")
+  && html.includes("onclick=\"stampReplayFromLiveSettings()\""));
+check("stamp live CTA persist then rebuild", /function stampReplayFromLiveSettings[\s\S]{0,900}stampTrade[\s\S]{0,400}persist\(\)[\s\S]{0,250}buildView/.test(html));
+check("does not auto-backfill all trades on load", !/trades\.forEach\([^)]*stampTrade/.test(html)
+  && !/for\s*\([^)]*trades[^)]*\)[^;]*stampTrade/.test(html));
 check("identical stop does not claim stop was the problem", !/Stop was flagged/.test(replaySrc));
 check("empty-Δ copy stays in helper", replaySrc.includes("Process flag ≠ math.") && replaySrc.includes("process miss"));
 check("missing-stop CTA", replaySrc.includes("Add a stop on this trade to replay"));
@@ -155,6 +163,8 @@ check("already-smaller size flag uses empty-Δ", smallView.unchanged === true);
 check("already-smaller sizeFits copy", smallView.emptyReasons.some((r) => r.id === "sizeFits" && /already fit/.test(r.text) && /Process flag/.test(r.text)));
 check("already-smaller takeaway is Δ 0", smallView.delta === 0 && /no size or stop price to change/.test(smallView.takeaway));
 check("already-smaller canReplay false", DR.canReplay(alreadySmall, settings, Baron) === false);
+check("(c) sizeOk false + snapshot + size already fits canReplay false", DR.canReplay(alreadySmall, settings, Baron) === false
+  && DR.hasNumericSizeCut(alreadySmall, settings, Baron) === false);
 
 const withStop = withSnap({
   id: 21, instr: "BE", dir: "long", entry: 137, exit: 151, size: 65, pnl: 910,
@@ -250,6 +260,10 @@ const processStopOnly = withSnap({
 const processSettings = { bal: 100000, risk: 1, sym: "$" };
 check("process-stop with stored stop canReplay false", DR.canReplay(processStopOnly, processSettings, Baron) === false);
 check("process-stop stays eligible (✗ flag, Coach still sees it)", DR.isEligible(processStopOnly) === true);
+check("(b) process-stop only + sizeOk true + stored stop canReplay false", DR.canReplay({
+  id: 31, instr: "MSFT", dir: "long", entry: 400, exit: 410, size: 10, pnl: 100,
+  stopOk: false, sizeOk: true, type: "shares", stop: 390, incomplete: false,
+}, { bal: 100000, risk: 1, sym: "$" }, Baron) === false);
 
 const liveTiny = { bal: 200, risk: 0.25, sym: "$" };
 const smsiOversize = withSnap({
@@ -297,8 +311,15 @@ check("missing snapshot does not silently use live settings", orphanView.missing
   && orphanView.disciplined.size == null
   && orphanView.settingsNote === "no risk snapshot for this trade"
   && /will not invent a disciplined size/.test(orphanView.ruleNote)
-  && DR.canReplay(orphan, orphanLive, Baron) === false
   && DR.hasNumericSizeCut(orphan, orphanLive, Baron) === false);
+check("(a) sizeOk false + no snapshot canReplay true", DR.canReplay(orphan, orphanLive, Baron) === true
+  && orphanView.stampCta === "Use current risk % / balance for this trade"
+  && /today's settings/.test(orphanView.stampExplain)
+  && /never saved/.test(orphanView.stampExplain));
+check("LCTX-like T212 row shows Replay without snapshot", DR.canReplay({
+  id: 50, instr: "LCTX", dir: "long", entry: 1.71, exit: 1.65, size: 612.18, pnl: -36.73,
+  stopOk: false, sizeOk: false, type: "shares", stop: 1.60, incomplete: false, source: "t212",
+}, orphanLive, Baron) === true);
 
 const histTrade = {
   id: 43, instr: "AMZN", dir: "long", entry: 252, exit: 258, size: 34, pnl: 204,
@@ -329,6 +350,27 @@ check("stampTrade captures risk % and balance once", stamped.riskSnapshot
   && stamped.riskSnapshot.bal === 8000
   && stamped.riskSnapshot.risk === 2
   && JSON.stringify(stamped.riskSnapshot) === firstSnap);
+
+const stampThenCut = {
+  id: 45, instr: "SMSI", dir: "long", entry: 87, exit: 86.76, size: 1508.7, pnl: -365,
+  stopOk: true, sizeOk: false, type: "shares", stop: 81, incomplete: false,
+};
+const stampThenCutLive = { bal: 10000, risk: 1, sym: "€", riskHistory: [] };
+check("pre-stamp oversized still has no numeric cut without snapshot", DR.hasNumericSizeCut(stampThenCut, stampThenCutLive, Baron) === false
+  && DR.canReplay(stampThenCut, stampThenCutLive, Baron) === true
+  && DR.buildView(stampThenCut, stampThenCutLive, Baron).settingsNote === "no risk snapshot for this trade");
+DR.stampTrade(stampThenCut, stampThenCutLive, Baron);
+const stampedCutView = DR.buildView(stampThenCut, stampThenCutLive, Baron);
+check("(d) CTA stamp then hasNumericSizeCut can become true for an oversized row", stampThenCut.riskSnapshot
+  && stampThenCut.riskSnapshot.bal === 10000
+  && stampThenCut.riskSnapshot.risk === 1
+  && DR.hasNumericSizeCut(stampThenCut, stampThenCutLive, Baron) === true
+  && DR.canReplay(stampThenCut, stampThenCutLive, Baron) === true
+  && stampedCutView.missingSnapshot === false
+  && stampedCutView.settingsNote.startsWith("rules at time of trade")
+  && stampedCutView.stampCta == null
+  && stampedCutView.disciplined.size != null
+  && stampedCutView.disciplined.size < 1508.7);
 
 const histState = { bal: 10000, risk: 1, riskHistory: [] };
 DR.stampHistory(histState);

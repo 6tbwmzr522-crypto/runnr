@@ -15,13 +15,20 @@ const DisciplineReplay = {
   /**
    * Journal CTA: only when Replay has a real action.
    * 1) Missing-stop CTA — stopOk false and no recorded stop.
-   * 2) Numeric size cut — compliant size is strictly smaller than actual.
-   * Empty-Δ (process stop with stored stop, and/or size already fits) stays off the button.
+   * 2) Size flagged with no risk snapshot — open the missing-snapshot panel (do not hide the button).
+   * 3) Numeric size cut — compliant size is strictly smaller than actual.
+   * Empty-Δ (process stop with stored stop, and/or size already fits against a real basis) stays off the button.
    */
   canReplay(trade, settings, baron) {
     if (!this.isEligible(trade)) return false;
     if (this.needsStopToCalc(trade)) return true;
-    return this.hasNumericSizeCut(trade, settings, baron);
+    if (trade.sizeOk === false) {
+      const B = baron || (typeof Baron !== "undefined" ? Baron : null);
+      const basis = this.resolveRiskBasis(trade, settings, B);
+      if (!basis || basis.source === "missing") return true;
+      return this.hasNumericSizeCut(trade, settings, baron);
+    }
+    return false;
   },
 
   shouldShowButton(trade, settings, baron) {
@@ -132,7 +139,10 @@ const DisciplineReplay = {
     return snap;
   },
 
-  /** Attach a trade-time snapshot once. Never overwrite; never backfill live settings onto old rows. */
+  /**
+   * Attach a snapshot once. Never overwrite. Do not auto-backfill old rows on load.
+   * The Replay modal CTA may stamp today's settings onto one fill with explicit consent.
+   */
   stampTrade(trade, settings, baron) {
     if (!trade || typeof trade !== "object") return trade;
     if (this.readSnapshot(trade)) return trade;
@@ -459,6 +469,10 @@ const DisciplineReplay = {
       fillsNote: "same fills, corrected size/stop.",
       stopDisclaimer: null,
       cta: null,
+      stampCta: missingBasis ? "Use current risk % / balance for this trade" : null,
+      stampExplain: missingBasis
+        ? "This stamps today's settings onto this fill because trade-time rules were never saved. It is not a historical claim."
+        : null,
       happened: {
         size: actualSize,
         sizeLabel: this.formatSize(actualSize, kind),

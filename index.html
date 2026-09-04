@@ -5,7 +5,7 @@
 <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
 <script>
 (function () {
-  var V = "118";
+  var V = "119";
   try {
     if (localStorage.getItem("runnr_app_v") !== V) {
       localStorage.setItem("runnr_app_v", V);
@@ -2721,7 +2721,7 @@ html.runnr-guest #page-home .stat-grid{grid-template-columns:repeat(3,minmax(0,1
 
 <script src="js/i18n.js?v=15"></script>
 <script src="js/baron.js?v=31"></script>
-<script src="js/discipline-replay.js?v=4"></script>
+<script src="js/discipline-replay.js?v=5"></script>
 <script src="js/coach.js?v=26"></script>
 <script src="js/onboarding.js?v=30"></script>
 <script src="js/intro.js?v=1"></script>
@@ -4328,7 +4328,7 @@ function renderJournal() {
     if (alpacaPending.length) {
       hint.style.display = 'block';
       hint.innerHTML = `<div style="display:flex;justify-content:space-between;align-items:flex-start;gap:10px;flex-wrap:wrap">
-        <span><strong>${alpacaPending.length} broker fill${alpacaPending.length > 1 ? 's' : ''}</strong> need Stop and Size answers — closed round-trips already count toward Portfolio P&amp;L. Review each fill. Replay appears only when size can be cut, or a flagged trade is missing a stop.</span>
+        <span><strong>${alpacaPending.length} broker fill${alpacaPending.length > 1 ? 's' : ''}</strong> need Stop and Size answers — closed round-trips already count toward Portfolio P&amp;L. Review each fill. Replay appears when size is flagged or a stop is missing — including older fills with no risk snapshot.</span>
         <div style="display:flex;flex-direction:column;gap:8px;align-items:stretch;flex-shrink:0">
           <button type="button" class="btn btn-sm" style="white-space:nowrap" onclick="reviewNextIncompleteFill(event)">Review next incomplete</button>
           <button type="button" class="btn btn-sm btn-ghost" style="white-space:nowrap" onclick="applyDisciplineDefaultsToAll(event)">Mark all as compliant (Stop ✓ Size ✓)</button>
@@ -4396,6 +4396,15 @@ function replayReasonHtml(text) {
   return escapeTeText(text || '').replace(/\brecorded\b/g, '<strong>recorded</strong>');
 }
 
+function replayStampLiveHtml(view) {
+  if (!view || !view.missingSnapshot) return '';
+  const label = view.stampCta || 'Use current risk % / balance for this trade';
+  const explain = view.stampExplain
+    || "This stamps today's settings onto this fill because trade-time rules were never saved. It is not a historical claim.";
+  return `<div class="replay-cta">${escapeTeText(explain)}</div>
+    <button type="button" class="btn" style="margin-bottom:12px" onclick="stampReplayFromLiveSettings()">${escapeTeText(label)}</button>`;
+}
+
 function renderDisciplineReplayView(view, trade) {
   const instr = escapeTeText(view.instr || '—');
   const settings = `<p class="replay-settings">${escapeTeText(view.settingsNote)} · ${instr}</p>
@@ -4415,6 +4424,7 @@ function renderDisciplineReplayView(view, trade) {
     }).join('') || `<p>${replayReasonHtml(view.ruleNote || 'No size or stop price change to replay.')}</p>`;
     return `${settings}
     <div class="replay-empty">${reasons}</div>
+    ${replayStampLiveHtml(view)}
     ${recorded}
     ${takeaway}
     ${disc}`;
@@ -4440,6 +4450,7 @@ function renderDisciplineReplayView(view, trade) {
     </div>
     <p class="replay-note">${escapeTeText(view.ruleNote)}</p>
     ${cta}
+    ${replayStampLiveHtml(view)}
     ${takeaway}
     ${disc}`;
 }
@@ -4461,8 +4472,21 @@ function editTradeFromReplay() {
   closeModal('modal-discipline-replay');
   if (id) openTradeEditor(id);
 }
+
+function stampReplayFromLiveSettings() {
+  const id = disciplineReplayTradeId;
+  const t = id != null ? S.trades.find(x => tradeId(x.id) === id) : null;
+  if (!t || typeof DisciplineReplay === 'undefined' || !DisciplineReplay.stampTrade) return;
+  DisciplineReplay.stampTrade(t, S, typeof Baron !== 'undefined' ? Baron : null);
+  persist();
+  renderJournal();
+  const view = DisciplineReplay.buildView(t, S, typeof Baron !== 'undefined' ? Baron : null);
+  const root = document.getElementById('discipline-replay-body');
+  if (root) root.innerHTML = renderDisciplineReplayView(view, t);
+}
 window.openDisciplineReplay = openDisciplineReplay;
 window.editTradeFromReplay = editTradeFromReplay;
+window.stampReplayFromLiveSettings = stampReplayFromLiveSettings;
 
 function formatTradePnl(t, isAlpaca) {
   if (t.disciplineOnly) {
