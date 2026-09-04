@@ -3,9 +3,10 @@ from pathlib import Path
 from fastapi.testclient import TestClient
 
 from app.auth import create_access_token, hash_password
-from app.db import get_db
+from app.db import get_db, init_db
 from app.main import app
-from app.routers.stats import STATS_VIEWER_EMAILS, email_can_view_stats
+from app.routers import stats as stats_mod
+from app.routers.stats import STATS_VIEWER_EMAILS, email_can_view_stats, record_hit
 
 JANIS_EMAILS = (
     "janis@thinicedigital.com",
@@ -48,6 +49,34 @@ def test_hit_stays_public():
         assert res.status_code == 204
         res = client.post("/api/v1/stats/hit", headers={"Sec-GPC": "1"})
         assert res.status_code == 204
+
+
+def test_visitor_cleanup_not_on_every_hit():
+    init_db()
+    stats_mod._last_visitor_cleanup = None
+    record_hit("1.1.1.1", "ua", "secret")
+    assert stats_mod._last_visitor_cleanup is not None
+    first_cleanup = stats_mod._last_visitor_cleanup
+    with get_db() as conn:
+        conn.execute(
+            "INSERT OR IGNORE INTO site_stats_visitors (day, visitor_hash) VALUES (?, ?)",
+            ("2000-01-01", "old-hash"),
+        )
+    record_hit("2.2.2.2", "ua", "secret")
+    assert stats_mod._last_visitor_cleanup == first_cleanup
+    with get_db() as conn:
+        leftover = conn.execute(
+            "SELECT 1 FROM site_stats_visitors WHERE day = '2000-01-01'"
+        ).fetchone()
+    assert leftover is not None
+
+    stats_mod._last_visitor_cleanup = None
+    record_hit("4.4.4.4", "ua", "secret")
+    with get_db() as conn:
+        leftover = conn.execute(
+            "SELECT 1 FROM site_stats_visitors WHERE day = '2000-01-01'"
+        ).fetchone()
+    assert leftover is None
 
 
 def test_get_stats_requires_auth():

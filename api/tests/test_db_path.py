@@ -50,3 +50,5 @@ def test_railway_toml_requires_volume_and_ignores_frontend():
     assert 'requiredMountPath = "/data"' in text
     assert 'watchPatterns = ["/api/**"]' in text
     assert "overlapSeconds = 0" in text
+    assert "numReplicas = 1" in text
+    assert "Do not scale replicas" in text

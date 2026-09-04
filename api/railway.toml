@@ -8,6 +8,7 @@ watchPatterns = ["/api/**"]
 [deploy]
 restartPolicyType = "ON_FAILURE"
 restartPolicyMaxRetries = 10
+# SQLite + volume: keep a single replica. Do not scale replicas with this DB.
 numReplicas = 1
 healthcheckPath = "/health"
 healthcheckTimeout = 30

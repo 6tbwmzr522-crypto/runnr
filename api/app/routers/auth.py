@@ -1,7 +1,7 @@
 from fastapi import APIRouter, Depends, Form, HTTPException, Query
 from fastapi.responses import HTMLResponse, RedirectResponse
 
-from app.auth import create_access_token, get_current_user, hash_password, verify_password
+from app.auth import create_access_token, get_current_user, hash_password, invalidate_user_cache, verify_password
 from app.auth_tokens import consume_token, issue_token
 from app.billing_util import email_is_boss
 from app.config import settings
@@ -193,6 +193,7 @@ def update_me(body: UpdateMeRequest, user: dict = Depends(get_current_user)):
     args.append(user["id"])
     with get_db() as conn:
         conn.execute(f"UPDATE users SET {', '.join(sets)} WHERE id = ?", args)
+    invalidate_user_cache(user["id"])
     return _me_response(user)
 
 
@@ -203,6 +204,7 @@ def verify_email(body: VerifyEmailRequest):
         raise HTTPException(status_code=400, detail="Invalid or expired verification link")
     with get_db() as conn:
         conn.execute("UPDATE users SET email_verified = 1 WHERE id = ?", (user_id,))
+    invalidate_user_cache(user_id)
     return MessageResponse(ok=True, detail="Email verified — you're good to go")
 
 
