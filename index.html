@@ -5,7 +5,7 @@
 <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
 <script>
 (function () {
-  var V = "120";
+  var V = "121";
   try {
     if (localStorage.getItem("runnr_app_v") !== V) {
       localStorage.setItem("runnr_app_v", V);
@@ -563,6 +563,24 @@ body::before{content:'';position:fixed;inset:0;background:radial-gradient(ellips
 .opt-portfolio-input input:focus{border-color:var(--accent)}
 .opt-portfolio-input .pi-note{font-size:10px;color:var(--text3);margin-top:5px}
 
+/* ── OPTIONS COACH MODES ── */
+.opt-coach{margin-bottom:12px}
+.opt-coach-kicker{font-size:9px;font-weight:500;color:var(--gold);letter-spacing:0.38em;text-transform:uppercase;margin-bottom:8px}
+.opt-mode-pills{display:flex;flex-wrap:wrap;gap:6px;margin-bottom:8px}
+.opt-mode-pill{flex:1 1 calc(50% - 6px);min-width:0;padding:10px 8px;background:var(--surface2);border:1px solid var(--border);border-radius:20px;color:var(--text3);font-family:var(--font-body);font-size:10px;font-weight:500;letter-spacing:0.12em;text-transform:uppercase;cursor:pointer;line-height:1.2}
+.opt-mode-pill.active{background:var(--accent);color:#080c12;border-color:var(--accent)}
+.opt-coach-help{font-size:12px;color:var(--text2);line-height:1.45;margin-bottom:4px}
+.opt-coach-title{font-family:var(--font-head);font-size:16px;font-weight:700;color:var(--text);margin-bottom:4px}
+.field.opt-focus input,.field.opt-focus select{border-color:var(--accent)}
+.field.opt-focus label{color:var(--accent)}
+.opt-review-row{display:flex;justify-content:space-between;align-items:center;gap:10px;padding:10px 0;border-bottom:1px solid var(--border)}
+.opt-review-row:last-child{border-bottom:none}
+.opt-review-meta{font-size:12px;color:var(--text2);line-height:1.4}
+.opt-review-meta strong{color:var(--text);display:block;font-size:13px}
+@media (min-width:480px){
+  .opt-mode-pill{flex:1 1 0}
+}
+
 /* ── LIGHT MODE (Thin Ice cream) ── */
 body.light {
   --bg: #F5F2EC;
@@ -602,9 +620,11 @@ body.light .tabs{background:var(--surface2)}
 body.light .tab.active{background:var(--accent);color:#fff}
 body.light .notif{background:rgba(0,122,85,0.08);border-color:var(--accent2)}
 body.light .incomplete-banner{background:rgba(184,134,11,0.1);color:var(--amber)}
+body.light .opt-mode-pill{background:var(--surface2);color:var(--text3)}
+body.light .opt-mode-pill.active{background:var(--accent);color:#fff;border-color:var(--accent)}
 body.light .opt-portfolio-input,
-body.light .opt-gate,
-body.light .rule-card,
+  body.light .opt-gate,
+  body.light .rule-card,
 body.light .sd-full,
 body.light .sd-stat{background:var(--surface2);border-color:var(--border)}
 body.light .opt-portfolio-input input{background:var(--surface3);color:var(--text)}
@@ -1638,6 +1658,27 @@ html:not(.runnr-guest) #home-coach-banner{display:none !important}
       <!-- Options Tab -->
       <div id="sizer-options" style="display:none">
 
+        <div class="opt-coach" id="opt-coach">
+          <div class="opt-coach-kicker">Options Coach</div>
+          <div class="opt-mode-pills" role="tablist" aria-label="Options Coach mode">
+            <button type="button" class="opt-mode-pill active" id="opt-mode-leaps" data-opt-mode="leaps" onclick="switchOptCoachMode('leaps')">LEAPS</button>
+            <button type="button" class="opt-mode-pill" id="opt-mode-wheel" data-opt-mode="wheel" onclick="switchOptCoachMode('wheel')">Wheel</button>
+            <button type="button" class="opt-mode-pill" id="opt-mode-putcredit" data-opt-mode="putcredit" onclick="switchOptCoachMode('putcredit')">Put credit</button>
+            <button type="button" class="opt-mode-pill" id="opt-mode-review" data-opt-mode="review" onclick="switchOptCoachMode('review')">Review</button>
+          </div>
+          <div class="opt-coach-title" id="opt-coach-title">Size the LEAPS / long option</div>
+          <div class="opt-coach-help" id="opt-coach-help">Paste ticker, strike, premium, DTE, and spot. Coach sizes contracts against Rule 1 (2%), Rule 2 (20%), and Rule 3 (2:1) and shows break-even. No chain — numbers you paste.</div>
+        </div>
+
+        <div id="opt-coach-review" style="display:none">
+          <div class="card" id="opt-review-card">
+            <div class="card-title">Flagged options fills</div>
+            <div id="opt-review-empty" style="font-size:13px;color:var(--text2);line-height:1.45">No options fills flagged. Log a LEAPS, Wheel, or Put-credit trade first — or flag an options row in the journal.</div>
+            <div id="opt-review-list"></div>
+          </div>
+        </div>
+
+        <div id="opt-coach-calc">
         <!-- Portfolio context input -->
         <div class="opt-portfolio-input">
           <label>Total Portfolio Value (for options rules)</label>
@@ -1659,23 +1700,32 @@ html:not(.runnr-guest) #home-coach-banner{display:none !important}
         </div>
 
         <div class="card">
-          <div class="card-title">Options Calculator</div>
-          <div class="tabs" style="margin-bottom:12px">
-            <div class="tab active" onclick="switchOptType('call',this)">Call</div>
-            <div class="tab" onclick="switchOptType('put',this)">Put</div>
+          <div class="card-title" id="opt-calc-title">Options Calculator</div>
+          <div class="tabs" id="opt-type-tabs" style="margin-bottom:12px">
+            <div class="tab active" id="opt-type-call" onclick="switchOptType('call',this)">Call</div>
+            <div class="tab" id="opt-type-put" onclick="switchOptType('put',this)">Put</div>
           </div>
-          <div class="field"><label>Underlying</label><input id="opt-instr" placeholder="AAPL, TSLA..." value="RACE"></div>
+          <div class="tabs" id="opt-wheel-tabs" style="margin-bottom:12px;display:none">
+            <div class="tab active" id="opt-wheel-csp" onclick="switchOptWheelKind('csp',this)">Cash-secured put</div>
+            <div class="tab" id="opt-wheel-cc" onclick="switchOptWheelKind('cc',this)">Covered call</div>
+          </div>
+          <div class="field" id="opt-field-instr"><label>Underlying</label><input id="opt-instr" placeholder="AAPL, TSLA..." value="RACE"></div>
           <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
-            <div class="field"><label>Strike Price</label><input id="opt-strike" type="number" placeholder="0.00" oninput="calcOptions()"></div>
-            <div class="field"><label>Current Price</label><input id="opt-spot" type="number" placeholder="0.00" oninput="calcOptions()"></div>
+            <div class="field" id="opt-field-strike"><label id="opt-strike-lbl">Strike Price</label><input id="opt-strike" type="number" placeholder="0.00" oninput="calcOptions()"></div>
+            <div class="field" id="opt-field-spot"><label id="opt-spot-lbl">Current Price</label><input id="opt-spot" type="number" placeholder="0.00" oninput="calcOptions()"></div>
           </div>
           <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
-            <div class="field"><label>Premium / Contract</label><input id="opt-prem" type="number" placeholder="0.00" oninput="calcOptions()"></div>
-            <div class="field"><label>Days to Expiry</label><input id="opt-dte" type="number" placeholder="30" value="30" oninput="calcOptions()"></div>
+            <div class="field" id="opt-field-prem"><label id="opt-prem-lbl">Premium / Contract</label><input id="opt-prem" type="number" placeholder="0.00" oninput="calcOptions()"></div>
+            <div class="field" id="opt-field-dte"><label>Days to Expiry</label><input id="opt-dte" type="number" placeholder="30" value="30" oninput="calcOptions()"></div>
+          </div>
+          <div class="field" id="opt-field-width" style="display:none">
+            <label id="opt-width-lbl">Spread width (defined risk)</label>
+            <input id="opt-width" type="number" placeholder="5.00" oninput="calcOptions()">
+            <div style="font-size:10px;color:var(--text3);margin-top:4px;line-height:1.35">Width in points. Max loss = (width − credit) × 100. Leave blank to size as cash-secured.</div>
           </div>
           <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
-            <div class="field"><label>Target Price at Expiry</label><input id="opt-target" type="number" placeholder="0.00" oninput="calcOptions()"></div>
-            <div class="field"><label>Current Options Exposure (€)</label><input id="opt-existing" type="number" placeholder="0" value="0" oninput="calcOptions()"></div>
+            <div class="field" id="opt-field-target"><label id="opt-target-lbl">Target Price at Expiry</label><input id="opt-target" type="number" placeholder="0.00" oninput="calcOptions()"></div>
+            <div class="field" id="opt-field-existing"><label>Current Options Exposure (€)</label><input id="opt-existing" type="number" placeholder="0" value="0" oninput="calcOptions()"></div>
           </div>
         </div>
 
@@ -1683,9 +1733,9 @@ html:not(.runnr-guest) #home-coach-banner{display:none !important}
           <div class="result-main" id="opt-contracts">—</div>
           <div class="result-label">MAX CONTRACTS</div>
           <div class="result-sub">
-            <div class="result-sub-item"><div class="val" id="opt-cost">—</div><div class="lbl">TOTAL COST</div></div>
-            <div class="result-sub-item"><div class="val" id="opt-itm">—</div><div class="lbl">STATUS</div></div>
-            <div class="result-sub-item"><div class="val" id="opt-be">—</div><div class="lbl">BREAK-EVEN</div></div>
+            <div class="result-sub-item"><div class="val" id="opt-cost">—</div><div class="lbl" id="opt-cost-lbl">TOTAL COST</div></div>
+            <div class="result-sub-item"><div class="val" id="opt-itm">—</div><div class="lbl" id="opt-itm-lbl">STATUS</div></div>
+            <div class="result-sub-item"><div class="val" id="opt-be">—</div><div class="lbl" id="opt-be-lbl">BREAK-EVEN</div></div>
           </div>
           <div class="rr-verdict" id="opt-verdict" style="display:none"></div>
         </div>
@@ -1728,8 +1778,10 @@ html:not(.runnr-guest) #home-coach-banner{display:none !important}
           <div class="card-title">Outcome Scenarios</div>
           <div id="opt-scenario-table"></div>
         </div>
+        </div><!-- /opt-coach-calc -->
 
-        <button class="btn" id="opt-log-btn" onclick="openLogModal('options')">Log This Trade</button>
+        <button class="btn" id="opt-log-btn" onclick="saveLogFromSizer('options')">Log This Trade</button>
+        <button type="button" class="btn btn-ghost" id="opt-log-edit-btn" style="margin-top:8px;font-size:12px;width:100%" onclick="fillLogFromSizer('options')">Review or edit before saving</button>
       </div>
     </div>
 
@@ -2783,6 +2835,7 @@ html:not(.runnr-guest) #home-coach-banner{display:none !important}
 <script src="js/baron.js?v=31"></script>
 <script src="js/discipline-replay.js?v=6"></script>
 <script src="js/coach.js?v=26"></script>
+<script src="js/options-coach.js?v=1"></script>
 <script src="js/onboarding.js?v=30"></script>
 <script src="js/intro.js?v=1"></script>
 <script src="js/csv-presets.js?v=4"></script>
@@ -2847,6 +2900,8 @@ const S = {
   editingTradeId: null,
   editingWatchId: null,
   optType: 'call',
+  optCoachMode: 'leaps',
+  optWheelKind: 'csp',
   onboardingComplete: false,
   profileHandle: '',
   firstName: '',
@@ -3685,13 +3740,155 @@ function switchSizerTab(tab, el) {
   el.classList.add('active');
   if (tab === 'cfd') try { calcCFD(); } catch (e) {}
   if (tab === 'shares') try { calcShares(); } catch (e) {}
-  if (tab === 'options') try { calcOptions(); } catch (e) {}
+  if (tab === 'options') {
+    try {
+      if (window.OptionsCoach) {
+        OptionsCoach.setMode(S.optCoachMode || 'leaps');
+        if (S.optWheelKind) OptionsCoach.setWheelKind(S.optWheelKind);
+        applyOptCoachMode(S.optCoachMode || 'leaps');
+      }
+      if ((S.optCoachMode || 'leaps') === 'review') renderOptCoachReview();
+      else calcOptions();
+    } catch (e) {}
+  }
 }
 function switchOptType(type, el) {
   S.optType = type;
-  el.parentElement.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
-  el.classList.add('active');
+  const tabs = el ? el.parentElement : document.getElementById('opt-type-tabs');
+  if (tabs) tabs.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+  const btn = el || document.getElementById(type === 'put' ? 'opt-type-put' : 'opt-type-call');
+  if (btn) btn.classList.add('active');
   calcOptions();
+}
+
+function switchOptWheelKind(kind, el) {
+  if (window.OptionsCoach) OptionsCoach.setWheelKind(kind);
+  S.optWheelKind = kind === 'cc' ? 'cc' : 'csp';
+  const tabs = el ? el.parentElement : document.getElementById('opt-wheel-tabs');
+  if (tabs) tabs.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+  const btn = el || document.getElementById(kind === 'cc' ? 'opt-wheel-cc' : 'opt-wheel-csp');
+  if (btn) btn.classList.add('active');
+  S.optType = S.optWheelKind === 'cc' ? 'call' : 'put';
+  const callTab = document.getElementById('opt-type-call');
+  const putTab = document.getElementById('opt-type-put');
+  if (callTab && putTab) {
+    callTab.classList.toggle('active', S.optType === 'call');
+    putTab.classList.toggle('active', S.optType === 'put');
+  }
+  calcOptions();
+}
+
+function switchOptCoachMode(id) {
+  const mode = window.OptionsCoach ? OptionsCoach.setMode(id) : { id: id || 'leaps' };
+  S.optCoachMode = mode.id;
+  applyOptCoachMode(mode.id);
+  if (mode.id === 'review') {
+    renderOptCoachReview();
+    return;
+  }
+  calcOptions();
+}
+
+function applyOptCoachMode(id) {
+  const coach = window.OptionsCoach;
+  const mode = coach ? coach.modeOf(id) : { id: 'leaps', title: 'Size the LEAPS / long option', help: '', focus: [] };
+  document.querySelectorAll('.opt-mode-pill').forEach((btn) => {
+    btn.classList.toggle('active', btn.getAttribute('data-opt-mode') === mode.id);
+  });
+  const title = document.getElementById('opt-coach-title');
+  const help = document.getElementById('opt-coach-help');
+  if (title) title.textContent = mode.title || '';
+  if (help) help.textContent = mode.help || '';
+  const calc = document.getElementById('opt-coach-calc');
+  const review = document.getElementById('opt-coach-review');
+  const logBtn = document.getElementById('opt-log-btn');
+  const editBtn = document.getElementById('opt-log-edit-btn');
+  const isReview = mode.id === 'review';
+  if (calc) calc.style.display = isReview ? 'none' : 'block';
+  if (review) review.style.display = isReview ? 'block' : 'none';
+  if (logBtn) {
+    logBtn.style.display = isReview ? 'none' : '';
+    logBtn.textContent = 'Log This Trade';
+    logBtn.style.opacity = '1';
+    logBtn.style.pointerEvents = 'auto';
+  }
+  if (editBtn) editBtn.style.display = isReview ? 'none' : '';
+  const widthRow = document.getElementById('opt-field-width');
+  if (widthRow) widthRow.style.display = mode.id === 'putcredit' ? 'block' : 'none';
+  const wheelTabs = document.getElementById('opt-wheel-tabs');
+  const typeTabs = document.getElementById('opt-type-tabs');
+  if (wheelTabs) wheelTabs.style.display = mode.id === 'wheel' ? 'flex' : 'none';
+  if (typeTabs) typeTabs.style.display = mode.id === 'leaps' ? 'flex' : 'none';
+  const premLbl = document.getElementById('opt-prem-lbl');
+  if (premLbl) {
+    premLbl.textContent = mode.id === 'leaps' ? 'Premium / Contract' : 'Credit / Contract';
+  }
+  const targetField = document.getElementById('opt-field-target');
+  if (targetField) targetField.style.opacity = mode.id === 'leaps' ? '1' : '0.7';
+  const calcTitle = document.getElementById('opt-calc-title');
+  if (calcTitle) {
+    calcTitle.textContent = mode.id === 'wheel'
+      ? 'Wheel sizer'
+      : (mode.id === 'putcredit' ? 'Put-credit sizer' : 'Options Calculator');
+  }
+  if (mode.id === 'wheel') {
+    const kind = (window.OptionsCoach && OptionsCoach.wheelKind) || S.optWheelKind || 'csp';
+    switchOptWheelKind(kind);
+  } else if (mode.id === 'putcredit') {
+    S.optType = 'put';
+    const callTab = document.getElementById('opt-type-call');
+    const putTab = document.getElementById('opt-type-put');
+    if (callTab && putTab) {
+      callTab.classList.remove('active');
+      putTab.classList.add('active');
+    }
+  }
+  document.querySelectorAll('#opt-coach-calc .field').forEach((f) => f.classList.remove('opt-focus'));
+  (mode.focus || []).forEach((fid) => {
+    const input = document.getElementById(fid);
+    const field = input ? input.closest('.field') : document.getElementById(fid.replace(/^opt-/, 'opt-field-'));
+    if (field) field.classList.add('opt-focus');
+  });
+}
+
+function renderOptCoachReview() {
+  const empty = document.getElementById('opt-review-empty');
+  const list = document.getElementById('opt-review-list');
+  if (!list) return;
+  const coach = window.OptionsCoach;
+  const rows = coach ? coach.flaggedOptionsTrades(S.trades) : [];
+  if (!rows.length) {
+    if (empty) empty.style.display = 'block';
+    list.innerHTML = '';
+    return;
+  }
+  if (empty) empty.style.display = 'none';
+  const DR = typeof DisciplineReplay !== 'undefined' ? DisciplineReplay : null;
+  list.innerHTML = rows.slice(0, 8).map((t) => {
+    const canReplay = DR && DR.canReplay(t, S, typeof Baron !== 'undefined' ? Baron : null);
+    const flag = t.incomplete ? 'Incomplete' : (t.sizeOk === false ? 'Size flagged' : 'Stop flagged');
+    const cta = canReplay ? 'Replay Disciplined' : (t.incomplete ? 'Open fill' : 'Open in journal');
+    const safeId = String(t.id).replace(/[^0-9A-Za-z_-]/g, '');
+    const action = canReplay
+      ? `openDisciplineReplay('${safeId}')`
+      : `openTradeEditor('${safeId}')`;
+    const name = String(t.instr || 'Options fill').replace(/[&<>]/g, '');
+    return `<div class="opt-review-row">
+      <div class="opt-review-meta"><strong>${name}</strong>${flag} · ${t.date || '—'}</div>
+      <button type="button" class="btn btn-sm" onclick="${action}">${cta}</button>
+    </div>`;
+  }).join('');
+}
+
+function openOptionsFillReview(id) {
+  const t = S.trades.find(x => tradeId(x.id) === tradeId(id));
+  if (!t) return;
+  const DR = typeof DisciplineReplay !== 'undefined' ? DisciplineReplay : null;
+  if (DR && DR.canReplay(t, S, typeof Baron !== 'undefined' ? Baron : null)) {
+    openDisciplineReplay(id);
+    return;
+  }
+  openTradeEditor(id);
 }
 
 // ── CALCULATORS ────────────────────────────────────────────────────────────
@@ -4247,69 +4444,103 @@ function calcShares() {
   applyChallengeFill('shares', shares, riskAmt, reward);
 }
 
+function readOptCoachInputs() {
+  return {
+    mode: (window.OptionsCoach && OptionsCoach.currentMode) || S.optCoachMode || 'leaps',
+    wheelKind: (window.OptionsCoach && OptionsCoach.wheelKind) || S.optWheelKind || 'csp',
+    optType: S.optType || 'call',
+    strike: parseFloat(document.getElementById('opt-strike')?.value),
+    spot: parseFloat(document.getElementById('opt-spot')?.value),
+    prem: parseFloat(document.getElementById('opt-prem')?.value),
+    target: parseFloat(document.getElementById('opt-target')?.value),
+    dte: parseInt(document.getElementById('opt-dte')?.value, 10) || 30,
+    portfolio: parseFloat(document.getElementById('opt-portfolio')?.value) || S.bal,
+    existing: parseFloat(document.getElementById('opt-existing')?.value) || 0,
+    width: parseFloat(document.getElementById('opt-width')?.value),
+    sym: S.sym,
+  };
+}
+
 function calcOptions() {
-  const strike   = parseFloat(document.getElementById('opt-strike').value);
-  const spot     = parseFloat(document.getElementById('opt-spot').value);
-  const prem     = parseFloat(document.getElementById('opt-prem').value);
-  const target   = parseFloat(document.getElementById('opt-target').value);
-  const dte      = parseInt(document.getElementById('opt-dte').value) || 30;
-  const portfolio= parseFloat(document.getElementById('opt-portfolio').value) || S.bal;
-  const existing = parseFloat(document.getElementById('opt-existing').value) || 0;
+  const coach = window.OptionsCoach;
+  const input = readOptCoachInputs();
+  const portfolio = input.portfolio;
+  const strike = input.strike;
+  const spot = input.spot;
+  const prem = input.prem;
+  const target = input.target;
+  const existing = input.existing;
 
-  // Update max risk label
   const maxRiskLabel = portfolio * 0.02;
-  document.getElementById('opt-max-risk-label').textContent = S.sym + Math.round(maxRiskLabel).toLocaleString();
+  const maxLbl = document.getElementById('opt-max-risk-label');
+  if (maxLbl) maxLbl.textContent = S.sym + Math.round(maxRiskLabel).toLocaleString();
 
+  if (input.mode === 'review') return;
   if (!strike || !spot || !prem) return;
+  if (!coach || typeof coach.computePlan !== 'function') return;
 
-  // ── Core calculations ──
-  const maxRisk  = portfolio * 0.02;           // Rule 1: 2% of portfolio
-  const maxOptExposure = portfolio * 0.20;     // Rule 2: 20% of portfolio
-  const contracts = Math.floor(maxRisk / (prem * 100));
-  const totalCost = Math.max(1, contracts) * prem * 100;
-  const isCall = S.optType === 'call';
-  const itm = isCall ? (spot > strike) : (spot < strike);
-  const bePrice = isCall ? strike + prem : strike - prem;
+  const plan = coach.computePlan(input);
+  coach.lastPlan = plan;
+  if (!plan || !plan.ready) return;
 
-  document.getElementById('opt-contracts').textContent = Math.max(1, contracts);
-  document.getElementById('opt-cost').textContent = S.sym + totalCost.toLocaleString();
-  document.getElementById('opt-itm').textContent = itm ? 'ITM' : (Math.abs(spot-strike) < prem ? 'ATM' : 'OTM');
-  document.getElementById('opt-be').textContent = bePrice.toFixed(2);
+  const maxRisk = plan.limits.maxRisk;
+  const maxOptExposure = plan.limits.maxExposure;
+  const contracts = plan.contracts;
+  const shown = plan.shown;
+  const totalRisk = plan.totalRisk;
+  const isCall = plan.isCall;
+  const bePrice = plan.bePrice;
+  const rule1Pass = plan.rule1Pass;
+  const rule2Pass = plan.rule2Pass;
+  const exposurePct = plan.exposurePct;
+  const newTotal = plan.newTotal;
 
-  // Show rules panel
+  document.getElementById('opt-contracts').textContent = shown;
+  const costLbl = document.getElementById('opt-cost-lbl');
+  const itmLbl = document.getElementById('opt-itm-lbl');
+  const beLbl = document.getElementById('opt-be-lbl');
+  if (costLbl) costLbl.textContent = plan.labels.cost;
+  if (itmLbl) itmLbl.textContent = plan.labels.mid;
+  if (beLbl) beLbl.textContent = plan.labels.be;
+  document.getElementById('opt-cost').textContent = S.sym + Math.round(plan.totalExposure).toLocaleString();
+  if (plan.midValue === 'credit') {
+    document.getElementById('opt-itm').textContent = S.sym + Math.round(plan.totalCredit).toLocaleString();
+  } else {
+    document.getElementById('opt-itm').textContent = plan.status.label;
+  }
+  if (plan.beValue === 'maxLoss') {
+    document.getElementById('opt-be').textContent = S.sym + Math.round(plan.totalRisk).toLocaleString();
+  } else {
+    document.getElementById('opt-be').textContent = bePrice.toFixed(2);
+  }
+
   document.getElementById('opt-rules').style.display = 'block';
 
-  // ─────────────────────────────────────────────────────
-  // RULE 1 — Max 2% per trade
-  // ─────────────────────────────────────────────────────
-  const rule1Pass = totalCost <= maxRisk;
-  const rule1Warn = totalCost <= maxRisk * 1.5 && !rule1Pass;
   const r1card = document.getElementById('rule1-card');
   const r1badge = document.getElementById('rule1-badge');
   const r1status = document.getElementById('rule1-status');
   const r1detail = document.getElementById('rule1-detail');
-
+  const riskNoun = plan.debit ? 'Cost' : 'Max loss';
   r1card.className = 'rule-card ' + (rule1Pass ? 'rule-ok' : 'rule-fail');
   r1badge.className = 'r-badge ' + (rule1Pass ? 'badge-pass' : 'badge-fail');
   r1badge.textContent = rule1Pass ? '✓ PASS' : '✗ FAIL';
-  r1status.textContent = `Cost: ${S.sym}${Math.round(totalCost).toLocaleString()} / Max: ${S.sym}${Math.round(maxRisk).toLocaleString()} (2% of ${S.sym}${Math.round(portfolio).toLocaleString()})`;
+  r1status.textContent = `${riskNoun}: ${S.sym}${Math.round(totalRisk).toLocaleString()} / Max: ${S.sym}${Math.round(maxRisk).toLocaleString()} (2% of ${S.sym}${Math.round(portfolio).toLocaleString()})`;
   r1status.style.color = rule1Pass ? 'var(--accent)' : 'var(--red)';
-  r1detail.textContent = rule1Pass
-    ? `${Math.max(1,contracts)} contract${contracts!==1?'s':''} at ${S.sym}${prem}/share costs ${S.sym}${Math.round(totalCost).toLocaleString()}. If it goes to zero — it stings, it doesn't bleed.`
-    : `${Math.max(1,contracts)} contract${contracts!==1?'s':''} costs ${S.sym}${Math.round(totalCost).toLocaleString()} — exceeds your 2% limit of ${S.sym}${Math.round(maxRisk).toLocaleString()}. Reduce to ${Math.floor(maxRisk/(prem*100))} contract${Math.floor(maxRisk/(prem*100))!==1?'s':''}.`;
+  if (plan.debit) {
+    r1detail.textContent = rule1Pass
+      ? `${shown} contract${shown!==1?'s':''} at ${S.sym}${prem}/share costs ${S.sym}${Math.round(totalRisk).toLocaleString()}. If it goes to zero — it stings, it doesn't bleed.`
+      : `${shown} contract${shown!==1?'s':''} costs ${S.sym}${Math.round(totalRisk).toLocaleString()} — exceeds your 2% limit of ${S.sym}${Math.round(maxRisk).toLocaleString()}. Reduce to ${Math.floor(maxRisk/(prem*100))} contract${Math.floor(maxRisk/(prem*100))!==1?'s':''}.`;
+  } else {
+    r1detail.textContent = rule1Pass
+      ? `${shown} contract${shown!==1?'s':''}: max loss ${S.sym}${Math.round(totalRisk).toLocaleString()} vs 2% limit. Credit ${S.sym}${Math.round(plan.totalCredit).toLocaleString()} is income only if you keep the size.`
+      : `${shown} contract${shown!==1?'s':''} can lose ${S.sym}${Math.round(totalRisk).toLocaleString()} — over the 2% limit of ${S.sym}${Math.round(maxRisk).toLocaleString()}. Credit does not shrink the gate. Size to ${Math.floor(maxRisk/plan.riskPer) || 0} or skip.`;
+  }
 
-  // ─────────────────────────────────────────────────────
-  // RULE 2 — Max 20% total options exposure
-  // ─────────────────────────────────────────────────────
-  const newTotal = existing + totalCost;
-  const exposurePct = (newTotal / portfolio) * 100;
-  const rule2Pass = newTotal <= maxOptExposure;
   const r2card = document.getElementById('rule2-card');
   const r2badge = document.getElementById('rule2-badge');
   const r2status = document.getElementById('rule2-status');
   const r2detail = document.getElementById('rule2-detail');
   const r2bar = document.getElementById('rule2-bar');
-
   r2card.className = 'rule-card ' + (rule2Pass ? (exposurePct > 15 ? 'rule-warn' : 'rule-ok') : 'rule-fail');
   r2badge.className = 'r-badge ' + (rule2Pass ? (exposurePct > 15 ? 'badge-warn' : 'badge-pass') : 'badge-fail');
   r2badge.textContent = rule2Pass ? (exposurePct > 15 ? '⚠ NEAR LIMIT' : '✓ PASS') : '✗ FAIL';
@@ -4322,22 +4553,39 @@ function calcOptions() {
   r2bar.style.width = barPct + '%';
   r2bar.style.background = rule2Pass ? (exposurePct > 15 ? 'var(--amber)' : 'var(--accent)') : 'var(--red)';
 
-  // ─────────────────────────────────────────────────────
-  // RULE 3 — Min 2:1 R:R
-  // ─────────────────────────────────────────────────────
   const r3card = document.getElementById('rule3-card');
   const r3badge = document.getElementById('rule3-badge');
   const r3status = document.getElementById('rule3-status');
   const r3detail = document.getElementById('rule3-detail');
-  let rule3Pass = null;
+  const r3title = r3card ? r3card.querySelector('.r-title') : null;
+  let rule3Pass = plan.rule3Pass;
 
-  if (target) {
-    const atExpiry = isCall ? Math.max(0, target - strike) : Math.max(0, strike - target);
-    const profit = atExpiry - prem;
-    const rr = profit > 0 ? profit / prem : 0;
-    rule3Pass = rr >= 2;
+  if (!plan.debit) {
+    if (r3title) r3title.textContent = 'Credit vs max loss — not a 2:1 long';
+    const credit = plan.creditPer || 0;
+    const maxL = plan.maxLossPer || 0;
+    const ratio = maxL > 0 ? credit / maxL : 0;
+    r3card.className = 'rule-card rule-neutral';
+    r3badge.className = 'r-badge badge-na';
+    r3badge.textContent = 'INFO';
+    r3status.textContent = `Credit ${S.sym}${credit.toFixed(0)} vs max loss ${S.sym}${Math.round(maxL).toLocaleString()} per contract (${ratio.toFixed(2)}:1)`;
+    r3status.style.color = 'var(--text2)';
+    r3detail.textContent = 'Short premium is not a 2:1 long setup. The gate is 2% / 20% — credit is not a paycheck.';
+    const v = document.getElementById('opt-verdict');
+    if (v) {
+      v.className = 'rr-verdict rr-ok';
+      v.textContent = plan.mode === 'wheel'
+        ? `Break-even ${bePrice.toFixed(2)} · process/sizing, not a yield promise`
+        : `Break-even ${bePrice.toFixed(2)} · defined risk ${plan.definedRisk ? 'spread' : 'cash-secured'}`;
+      v.style.display = 'block';
+    }
+  } else if (target) {
+    if (r3title) r3title.textContent = 'Minimum 2:1 reward-to-risk ratio';
+    const atExpiry = plan.rule3.atExpiry;
+    const profit = plan.rule3.profit;
+    const rr = plan.rule3.rr;
+    rule3Pass = plan.rule3Pass;
     const rrWarn = rr >= 1.5 && rr < 2;
-
     r3card.className = 'rule-card ' + (rule3Pass ? 'rule-ok' : (rrWarn ? 'rule-warn' : 'rule-fail'));
     r3badge.className = 'r-badge ' + (rule3Pass ? 'badge-pass' : (rrWarn ? 'badge-warn' : 'badge-fail'));
     r3badge.textContent = rule3Pass ? '✓ PASS' : (rrWarn ? '⚠ MARGINAL' : '✗ FAIL');
@@ -4350,28 +4598,22 @@ function calcOptions() {
         : atExpiry === 0
           ? `At target ${target} the option expires worthless. Price doesn't reach the strike — this trade has no path to profit.`
           : `R:R of ${rr.toFixed(1)}:1 is too low. You're risking ${S.sym}${prem.toFixed(2)} to make ${S.sym}${profit.toFixed(2)}. If the setup doesn't offer at least 2:1, skip it.`;
-
     showVerdict('opt-verdict', rr >= 2 ? rr + 1 : rr >= 1.5 ? 1.7 : 0.8);
   } else {
+    if (r3title) r3title.textContent = 'Minimum 2:1 reward-to-risk ratio';
     r3card.className = 'rule-card rule-neutral';
     r3badge.className = 'r-badge badge-na';
     r3badge.textContent = '— PENDING';
     r3status.textContent = 'Enter target price to check R:R';
     r3status.style.color = 'var(--text3)';
     r3detail.textContent = '';
+    const v = document.getElementById('opt-verdict');
+    if (v) v.style.display = 'none';
   }
 
-  // ─────────────────────────────────────────────────────
-  // GATE — block log button if any rule fails
-  // ─────────────────────────────────────────────────────
-  const allClear = rule1Pass && rule2Pass && (rule3Pass !== false);
+  const failures = plan.gateFailures || [];
   const gateEl = document.getElementById('opt-gate');
   const logBtn = document.getElementById('opt-log-btn');
-  const failures = [];
-  if (!rule1Pass) failures.push(`Rule 1: cost ${S.sym}${Math.round(totalCost).toLocaleString()} exceeds 2% limit of ${S.sym}${Math.round(maxRisk).toLocaleString()}`);
-  if (!rule2Pass) failures.push(`Rule 2: total exposure ${exposurePct.toFixed(1)}% exceeds 20% limit`);
-  if (rule3Pass === false) failures.push('Rule 3: R:R below 2:1 minimum');
-
   if (failures.length > 0) {
     gateEl.style.display = 'block';
     document.getElementById('opt-gate-msg').innerHTML = failures.map(f => `• ${f}`).join('<br>');
@@ -4386,8 +4628,10 @@ function calcOptions() {
   }
 
   if (challengeEnabled()) {
-    const optReward = target ? Math.max(0, ((isCall ? Math.max(0, target - strike) : Math.max(0, strike - target)) - prem) * Math.max(1, contracts) * 100) : 0;
-    applyChallengeFill('options', Math.max(1, contracts), totalCost, optReward);
+    const optReward = plan.debit
+      ? (target ? Math.max(0, ((isCall ? Math.max(0, target - strike) : Math.max(0, strike - target)) - prem) * shown * 100) : 0)
+      : plan.totalCredit;
+    applyChallengeFill('options', shown, totalRisk, optReward);
     if (failures.length > 0) {
       logBtn.style.opacity = '0.4';
       logBtn.style.pointerEvents = 'none';
@@ -4395,19 +4639,16 @@ function calcOptions() {
     }
   }
 
-  // ─────────────────────────────────────────────────────
-  // Scenario table
-  // ─────────────────────────────────────────────────────
-  if (target) {
+  const scenEl = document.getElementById('opt-scenario-table');
+  const scenWrap = document.getElementById('opt-scenarios');
+  if (plan.debit && target) {
     const atExpiry = isCall ? Math.max(0, target - strike) : Math.max(0, strike - target);
-    const c = Math.max(1, contracts);
     const scenarios = [
-      ['At target', target, (atExpiry - prem) * c * 100],
+      ['At target', target, (atExpiry - prem) * shown * 100],
       ['Break-even', bePrice, 0],
-      ['–50% premium', null, -totalCost * 0.5],
-      ['Expires worthless', null, -totalCost],
+      ['–50% premium', null, -totalRisk * 0.5],
+      ['Expires worthless', null, -totalRisk],
     ];
-    const scenEl = document.getElementById('opt-scenario-table');
     scenEl.innerHTML = scenarios.map(([lbl, price, pnl]) => `
       <div style="display:flex;justify-content:space-between;padding:8px 0;border-bottom:1px solid var(--border);font-size:12px">
         <span style="color:var(--text3)">${lbl}</span>
@@ -4416,7 +4657,22 @@ function calcOptions() {
           ${pnl>=0?'+':''}${S.sym}${Math.round(Math.abs(pnl)).toLocaleString()}
         </span>
       </div>`).join('');
-    document.getElementById('opt-scenarios').style.display = 'block';
+    scenWrap.style.display = 'block';
+  } else if (!plan.debit) {
+    const scenarios = [
+      ['Max credit (kept)', null, plan.totalCredit],
+      ['Break-even', bePrice, 0],
+      ['Max loss', null, -plan.totalRisk],
+    ];
+    scenEl.innerHTML = scenarios.map(([lbl, price, pnl]) => `
+      <div style="display:flex;justify-content:space-between;padding:8px 0;border-bottom:1px solid var(--border);font-size:12px">
+        <span style="color:var(--text3)">${lbl}</span>
+        <span style="font-family:var(--font-mono);color:var(--text2)">${price ? price.toFixed(2) : '—'}</span>
+        <span style="font-family:var(--font-mono);color:${pnl>=0?'var(--accent)':'var(--red)'}">
+          ${pnl>=0?'+':''}${S.sym}${Math.round(Math.abs(pnl)).toLocaleString()}
+        </span>
+      </div>`).join('');
+    scenWrap.style.display = 'block';
   }
 }
 
@@ -4840,6 +5096,31 @@ function getSizerDraft(type) {
       pair: null, leverage, withinRules: riskAmt <= maxRisk * 1.05 && !blocked,
     };
   }
+  if (type === 'options') {
+    const instr = document.getElementById('opt-instr')?.value?.trim() || '';
+    const strike = parseFloat(document.getElementById('opt-strike')?.value);
+    const target = parseFloat(document.getElementById('opt-target')?.value);
+    const coach = window.OptionsCoach;
+    const plan = (coach && coach.lastPlan && coach.lastPlan.ready)
+      ? coach.lastPlan
+      : (coach ? coach.computePlan(readOptCoachInputs()) : null);
+    if (!instr || !strike || !plan || !plan.ready) return null;
+    const optGateUp = document.getElementById('opt-gate')?.style.display === 'block';
+    return {
+      type: 'options',
+      instr,
+      entry: strike,
+      stop: plan.bePrice || null,
+      target: target || null,
+      dir: plan.dir || 'long',
+      size: plan.shown,
+      exit: null,
+      pair: null,
+      optMode: plan.mode,
+      optKind: plan.wheelKind || null,
+      withinRules: plan.allClear === true && !optGateUp && !blocked,
+    };
+  }
   return null;
 }
 
@@ -4873,6 +5154,8 @@ function commitLog(draft) {
   };
   if (pair) patch.pair = pair;
   if (draft.leverage) patch.leverage = draft.leverage;
+  if (draft.optMode) patch.optMode = draft.optMode;
+  if (draft.optKind) patch.optKind = draft.optKind;
   if (draft.book) patch.book = draft.book;
   if (draft.challengeFail) {
     patch.challengeFail = true;
@@ -4943,6 +5226,10 @@ function saveLogFromSizer(type) {
   const draft = getSizerDraft(type);
   if (!draft) {
     showToast('Sizer', 'Add instrument, entry, stop & size first');
+    return;
+  }
+  if (type === 'options' && draft.withinRules === false) {
+    showToast('Options Coach', 'Fix the 2% / 20% gates to log');
     return;
   }
   draft.stopOk = true;
@@ -9362,6 +9649,13 @@ function initApp() {
   try { ensureWatchFromPositions(); } catch (e) {}
   try { updateHomeStats(); } catch (e) {}
   try { renderChallengePanel(); } catch (e) {}
+  try {
+    if (window.OptionsCoach) {
+      OptionsCoach.setMode(S.optCoachMode || 'leaps');
+      OptionsCoach.setWheelKind(S.optWheelKind || 'csp');
+      applyOptCoachMode(S.optCoachMode || 'leaps');
+    }
+  } catch (e) {}
   try { renderHomePreviews(); } catch (e) {}
   try { initSyncAuthForm(); } catch (e) {}
   try { initCsvDropZone(); } catch (e) {}
