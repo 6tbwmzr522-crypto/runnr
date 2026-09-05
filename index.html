@@ -5,7 +5,7 @@
 <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
 <script>
 (function () {
-  var V = "121";
+  var V = "122";
   try {
     if (localStorage.getItem("runnr_app_v") !== V) {
       localStorage.setItem("runnr_app_v", V);
@@ -573,6 +573,13 @@ body::before{content:'';position:fixed;inset:0;background:radial-gradient(ellips
 .opt-coach-title{font-family:var(--font-head);font-size:16px;font-weight:700;color:var(--text);margin-bottom:4px}
 .field.opt-focus input,.field.opt-focus select{border-color:var(--accent)}
 .field.opt-focus label{color:var(--accent)}
+.fvg-strip{margin:0 0 12px;background:var(--surface2);border:1px solid var(--border);border-radius:var(--r-sm);padding:0 12px}
+.fvg-strip>summary{cursor:pointer;padding:12px 0;font-size:13px;font-weight:700;color:var(--text);font-family:var(--font-head)}
+.fvg-strip-hint{font-size:10px;font-weight:500;color:var(--text3);letter-spacing:0.12em;text-transform:uppercase;margin-left:8px}
+.fvg-strip-help{font-size:12px;color:var(--text2);line-height:1.45;margin:0 0 12px}
+.fvg-status{font-size:12px;color:var(--text2);line-height:1.4;margin:0 0 10px;min-height:0}
+.fvg-status.ok{color:var(--accent)}
+.fvg-status.wait{color:var(--amber)}
 .opt-review-row{display:flex;justify-content:space-between;align-items:center;gap:10px;padding:10px 0;border-bottom:1px solid var(--border)}
 .opt-review-row:last-child{border-bottom:none}
 .opt-review-meta{font-size:12px;color:var(--text2);line-height:1.4}
@@ -624,6 +631,7 @@ body.light .opt-mode-pill{background:var(--surface2);color:var(--text3)}
 body.light .opt-mode-pill.active{background:var(--accent);color:#fff;border-color:var(--accent)}
 body.light .opt-portfolio-input,
   body.light .opt-gate,
+  body.light .fvg-strip,
   body.light .rule-card,
 body.light .sd-full,
 body.light .sd-stat{background:var(--surface2);border-color:var(--border)}
@@ -1595,6 +1603,23 @@ html:not(.runnr-guest) #home-coach-banner{display:none !important}
             <div style="font-size:10px;color:var(--text3);margin-top:4px;line-height:1.35">Try broker quantities (e.g. 2,858 on T212) to preview risk &amp; reward.</div>
           </div>
         </div>
+        <details class="fvg-strip" id="cfd-fvg-strip">
+          <summary>FVG retrace <span class="fvg-strip-hint">optional</span></summary>
+          <p class="fvg-strip-help">Wait for price back in the gap, then enter only after a reversal prints in that zone (e.g. hammer / engulfing). Direction is the impulse that made the gap. Size is still your 2% / stop math.</p>
+          <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
+            <div class="field"><label>FVG high</label><input id="cfd-fvg-high" type="number" placeholder="0.00" oninput="calcCFD()"></div>
+            <div class="field"><label>FVG low</label><input id="cfd-fvg-low" type="number" placeholder="0.00" oninput="calcCFD()"></div>
+          </div>
+          <div class="field">
+            <label>Confirmation in the zone?</label>
+            <select id="cfd-fvg-confirm" onchange="calcCFD()">
+              <option value="">—</option>
+              <option value="yes">Yes — reversal printed</option>
+              <option value="no">No — waiting</option>
+            </select>
+          </div>
+          <div class="fvg-status" id="cfd-fvg-status"></div>
+        </details>
         <div class="result-box" id="cfd-result">
           <div class="result-main" id="cfd-units">—</div>
           <div class="result-label" id="cfd-units-lbl">MAX UNITS / CONTRACTS</div>
@@ -1607,6 +1632,10 @@ html:not(.runnr-guest) #home-coach-banner{display:none !important}
           <div id="cfd-forex-hint" style="display:none;font-size:11px;color:var(--text2);margin-top:8px;line-height:1.4"></div>
           <div class="rr-verdict" id="cfd-verdict" style="display:none"></div>
           <div class="challenge-gate-line" id="cfd-challenge-line"></div>
+        </div>
+        <div class="opt-gate" id="cfd-fvg-gate">
+          <div class="opt-gate-title">Not ready</div>
+          <div class="opt-gate-body" id="cfd-fvg-gate-msg">Paste FVG high and low.</div>
         </div>
         <div class="opt-gate" id="cfd-challenge-gate">
           <div class="opt-gate-title">⛔ Trade Blocked</div>
@@ -1636,6 +1665,30 @@ html:not(.runnr-guest) #home-coach-banner{display:none !important}
             <input id="sh-manual-size" type="number" min="0" step="any" placeholder="Leave blank for 1% risk auto-size" oninput="calcShares()">
           </div>
         </div>
+        <details class="fvg-strip" id="sh-fvg-strip">
+          <summary>FVG retrace <span class="fvg-strip-hint">optional</span></summary>
+          <p class="fvg-strip-help">Same filter: wait for the retrace, then a reversal in the zone. Stop belongs beyond the gap.</p>
+          <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
+            <div class="field"><label>FVG high</label><input id="sh-fvg-high" type="number" placeholder="0.00" oninput="calcShares()"></div>
+            <div class="field"><label>FVG low</label><input id="sh-fvg-low" type="number" placeholder="0.00" oninput="calcShares()"></div>
+          </div>
+          <div class="field">
+            <label>Impulse direction</label>
+            <select id="sh-fvg-dir" onchange="calcShares()">
+              <option value="long">Long — bullish FVG</option>
+              <option value="short">Short — bearish FVG</option>
+            </select>
+          </div>
+          <div class="field">
+            <label>Confirmation in the zone?</label>
+            <select id="sh-fvg-confirm" onchange="calcShares()">
+              <option value="">—</option>
+              <option value="yes">Yes — reversal printed</option>
+              <option value="no">No — waiting</option>
+            </select>
+          </div>
+          <div class="fvg-status" id="sh-fvg-status"></div>
+        </details>
         <div class="result-box">
           <div class="result-main" id="sh-units">—</div>
           <div class="result-label" id="sh-units-lbl">MAX SHARES</div>
@@ -1646,6 +1699,10 @@ html:not(.runnr-guest) #home-coach-banner{display:none !important}
           </div>
           <div class="rr-verdict" id="sh-verdict" style="display:none"></div>
           <div class="challenge-gate-line" id="sh-challenge-line"></div>
+        </div>
+        <div class="opt-gate" id="sh-fvg-gate">
+          <div class="opt-gate-title">Not ready</div>
+          <div class="opt-gate-body" id="sh-fvg-gate-msg">Paste FVG high and low.</div>
         </div>
         <div class="opt-gate" id="sh-challenge-gate">
           <div class="opt-gate-title">⛔ Trade Blocked</div>
@@ -2836,6 +2893,7 @@ html:not(.runnr-guest) #home-coach-banner{display:none !important}
 <script src="js/discipline-replay.js?v=6"></script>
 <script src="js/coach.js?v=26"></script>
 <script src="js/options-coach.js?v=1"></script>
+<script src="js/fvg-retrace.js?v=1"></script>
 <script src="js/onboarding.js?v=30"></script>
 <script src="js/intro.js?v=1"></script>
 <script src="js/csv-presets.js?v=4"></script>
@@ -4341,12 +4399,67 @@ function escapeTeText(s) {
   return String(s || '').replace(/[&<>"']/g, (ch) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[ch]));
 }
 
+function readFvgInputs(prefix, dir) {
+  return {
+    high: document.getElementById(prefix + '-fvg-high')?.value,
+    low: document.getElementById(prefix + '-fvg-low')?.value,
+    confirm: document.getElementById(prefix + '-fvg-confirm')?.value,
+    stop: document.getElementById(prefix + '-stop')?.value,
+    dir: dir || 'long',
+  };
+}
+
+function applyFvgStrip(prefix, dir) {
+  const Fvg = window.FvgRetrace;
+  const status = document.getElementById(prefix + '-fvg-status');
+  const gate = document.getElementById(prefix + '-fvg-gate');
+  const msg = document.getElementById(prefix + '-fvg-gate-msg');
+  const title = gate && gate.querySelector('.opt-gate-title');
+  if (!Fvg || typeof Fvg.evaluate !== 'function') {
+    if (gate) gate.style.display = 'none';
+    return { used: false, canLog: true };
+  }
+  const result = Fvg.evaluate(readFvgInputs(prefix, dir));
+  if (status) {
+    status.textContent = result.used ? (result.message || (result.canLog ? 'FVG retrace ready — size as usual.' : '')) : '';
+    status.className = 'fvg-status' + (result.used ? (result.canLog ? ' ok' : ' wait') : '');
+  }
+  if (gate) {
+    if (result.used && !result.canLog) {
+      gate.style.display = 'block';
+      if (msg) msg.textContent = result.message || 'Fix the FVG setup to log.';
+      if (title) title.textContent = result.reason === 'not-ready' ? 'Not ready' : 'Setup blocked';
+    } else {
+      gate.style.display = 'none';
+    }
+  }
+  return result;
+}
+
+function attachFvgToDraft(draft, prefix, dir) {
+  if (!draft || !window.FvgRetrace) return draft;
+  const result = FvgRetrace.evaluate({
+    high: document.getElementById(prefix + '-fvg-high')?.value,
+    low: document.getElementById(prefix + '-fvg-low')?.value,
+    confirm: document.getElementById(prefix + '-fvg-confirm')?.value,
+    stop: draft.stop,
+    dir: dir || draft.dir || 'long',
+  });
+  if (!result.used) return draft;
+  draft.fvgCanLog = result.canLog;
+  draft.fvgMessage = result.message || '';
+  if (result.canLog) draft.setup = 'fvg';
+  else draft.withinRules = false;
+  return draft;
+}
+
 function calcCFD() {
   const instr = document.getElementById('cfd-instr')?.value || '';
   const entry = parseFloat(document.getElementById('cfd-entry').value);
   const stop  = parseFloat(document.getElementById('cfd-stop').value);
   const target= parseFloat(document.getElementById('cfd-target').value);
-  if (!entry || !stop) { applyChallengeFill('cfd', 0, 0); return; }
+  const dir = document.getElementById('cfd-dir')?.value || 'long';
+  if (!entry || !stop) { applyChallengeFill('cfd', 0, 0); applyFvgStrip('cfd', dir); return; }
   const bal = sizerBalance();
   const maxRisk = bal * S.risk / 100;
   const stopDist = Math.abs(entry - stop);
@@ -4407,13 +4520,15 @@ function calcCFD() {
   }
   showVerdict('cfd-verdict', rr);
   applyChallengeFill('cfd', units, riskAmt, reward);
+  applyFvgStrip('cfd', dir);
 }
 
 function calcShares() {
   const entry = parseFloat(document.getElementById('sh-entry').value);
   const stop  = parseFloat(document.getElementById('sh-stop').value);
   const target= parseFloat(document.getElementById('sh-target').value);
-  if (!entry || !stop) { applyChallengeFill('shares', 0, 0); return; }
+  const dir = document.getElementById('sh-fvg-dir')?.value || 'long';
+  if (!entry || !stop) { applyChallengeFill('shares', 0, 0); applyFvgStrip('sh', dir); return; }
   const bal = sizerBalance();
   const maxRisk = bal * S.risk / 100;
   const stopDist = Math.abs(entry - stop);
@@ -4442,6 +4557,7 @@ function calcShares() {
   if (shRewLbl) shRewLbl.textContent = 'REWARD';
   showVerdict('sh-verdict', rr);
   applyChallengeFill('shares', shares, riskAmt, reward);
+  applyFvgStrip('sh', dir);
 }
 
 function readOptCoachInputs() {
@@ -4792,7 +4908,7 @@ function renderJournal() {
         </div>
       </div>
       <div class="te-meta">${metaLine}</div>
-      <div class="flags">${stopFlag}${sizeFlag}${t.challengeFail ? '' : (t.incomplete?'<span class="flag flag-miss">Incomplete</span>':'')}</div>
+      <div class="flags">${stopFlag}${sizeFlag}${t.setup === 'fvg' ? '<span class="flag flag-ok">FVG</span>' : ''}${t.challengeFail ? '' : (t.incomplete?'<span class="flag flag-miss">Incomplete</span>':'')}</div>
       ${typeof DisciplineReplay !== 'undefined' && DisciplineReplay.canReplay(t, S, typeof Baron !== 'undefined' ? Baron : null) ? `<button type="button" class="te-replay te-replay-primary" onclick="openDisciplineReplay('${t.id}', event)">Replay Disciplined</button>` : ''}
       ${t.challengeNote ? `<div class="te-note">${escapeTeText(t.challengeNote)}</div>` : ''}
     </div>`;
@@ -5064,10 +5180,11 @@ function getSizerDraft(type) {
     const riskAmt = window.Baron?.riskAtStop
       ? Baron.riskAtStop(pair, entry, stop, size)
       : size * Math.abs(entry - stop);
-    return {
+    const draft = {
       type: 'cfd', instr, entry, stop, target: target || null, dir, size, exit: null,
       pair, withinRules: riskAmt <= maxRisk * 1.05 && !blocked,
     };
+    return attachFvgToDraft(draft, 'cfd', dir);
   }
   if (type === 'shares') {
     const instr = document.getElementById('sh-instr')?.value?.trim() || '';
@@ -5077,10 +5194,17 @@ function getSizerDraft(type) {
     const size = parseFloat(document.getElementById('sh-units')?.textContent?.replace(/,/g, ''));
     if (!instr || !entry || !stop || !size) return null;
     const riskAmt = size * Math.abs(entry - stop);
-    return {
-      type: 'shares', instr, entry, stop, target: target || null, dir: 'long', size, exit: null,
+    const fvgUsed = window.FvgRetrace && FvgRetrace.inUse({
+      high: document.getElementById('sh-fvg-high')?.value,
+      low: document.getElementById('sh-fvg-low')?.value,
+      confirm: document.getElementById('sh-fvg-confirm')?.value,
+    });
+    const dir = fvgUsed ? (document.getElementById('sh-fvg-dir')?.value || 'long') : 'long';
+    const draft = {
+      type: 'shares', instr, entry, stop, target: target || null, dir, size, exit: null,
       pair: null, withinRules: riskAmt <= maxRisk * 1.05 && !blocked,
     };
+    return attachFvgToDraft(draft, 'sh', dir);
   }
   if (type === 'crypto') {
     const instr = document.getElementById('cry-instr')?.value?.trim() || '';
@@ -5156,6 +5280,7 @@ function commitLog(draft) {
   if (draft.leverage) patch.leverage = draft.leverage;
   if (draft.optMode) patch.optMode = draft.optMode;
   if (draft.optKind) patch.optKind = draft.optKind;
+  if (draft.setup) patch.setup = draft.setup;
   if (draft.book) patch.book = draft.book;
   if (draft.challengeFail) {
     patch.challengeFail = true;
@@ -5232,6 +5357,10 @@ function saveLogFromSizer(type) {
     showToast('Options Coach', 'Fix the 2% / 20% gates to log');
     return;
   }
+  if ((type === 'cfd' || type === 'shares') && draft.fvgCanLog === false) {
+    showToast('FVG retrace', draft.fvgMessage || 'Fix the setup to log');
+    return;
+  }
   draft.stopOk = true;
   const blocked = !!(lastChallengeVerdict && lastChallengeVerdict.blocked);
   draft.sizeOk = draft.withinRules !== false && !blocked;
@@ -5252,6 +5381,10 @@ function fillLogFromSizer(type) {
   const draft = getSizerDraft(type);
   if (!draft) {
     showToast('Sizer', 'Add instrument, entry, stop & size first');
+    return;
+  }
+  if ((type === 'cfd' || type === 'shares') && draft.fvgCanLog === false) {
+    showToast('FVG retrace', draft.fvgMessage || 'Fix the setup to log');
     return;
   }
   openLogModal(type);
