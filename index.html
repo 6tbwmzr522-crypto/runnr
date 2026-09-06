@@ -5,7 +5,7 @@
 <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
 <script>
 (function () {
-  var V = "122";
+  var V = "123";
   try {
     if (localStorage.getItem("runnr_app_v") !== V) {
       localStorage.setItem("runnr_app_v", V);
@@ -652,6 +652,16 @@ body.light #wave-canvas{background:rgba(201,169,110,0.08)}
 .port-hero .ph-val{font-family:var(--font-mono);font-size:40px;font-weight:500;line-height:1;color:var(--text)}
 .port-hero .ph-sub{font-size:12px;margin-top:6px;font-family:var(--font-mono)}
 .port-kpis{display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px;margin-bottom:12px}
+.port-equity-card{margin-top:0}
+.port-recent-row{display:flex;align-items:center;justify-content:space-between;gap:10px;padding:10px 0;border-bottom:1px solid var(--border);cursor:pointer;background:none;border-left:none;border-right:none;border-top:none;width:100%;text-align:left;font:inherit;color:inherit}
+.port-recent-row:last-child{border-bottom:none}
+.port-recent-meta{min-width:0}
+.port-recent-sym{font-family:var(--font-head);font-size:16px;font-weight:400;font-style:italic;color:var(--accent)}
+.port-recent-sub{font-size:11px;color:var(--text3);margin-top:2px}
+.port-recent-right{text-align:right;flex-shrink:0}
+.port-recent-empty{font-size:12px;color:var(--text3);padding:8px 0}
+.port-cta-wrap{margin-bottom:12px}
+.port-cta{min-height:48px}
 .kpi{background:var(--surface2);border:1px solid var(--border);border-radius:var(--r-sm);padding:10px 10px 8px}
 .kpi .k-val{font-family:var(--font-mono);font-size:17px;font-weight:500;color:var(--text);line-height:1}
 .kpi .k-lbl{font-size:9px;color:var(--text3);text-transform:uppercase;letter-spacing:0.7px;margin-top:3px}
@@ -814,6 +824,7 @@ html.runnr-guest .home-challenge-card,
 html.runnr-guest #home-coach-banner,
 html.runnr-guest #incomplete-banner,
 html.runnr-guest #home-job-hero,
+html.runnr-guest .port-cta-wrap,
 html.runnr-guest .home-week-col,
 html.runnr-guest .stat-delta,
 html.runnr-guest #header .header-desk-btn,
@@ -1130,8 +1141,13 @@ html:not(.runnr-guest) #home-coach-banner{display:none !important}
   .wcr-remark{-webkit-line-clamp:1;margin-top:2px}
   #page-watchlist{max-width:1120px}
   #page-portfolio .port-frame > .period-tabs,
-  #page-portfolio .port-frame > .port-wave-card,
-  #page-portfolio .port-frame > .port-equity-card{grid-column:1 / -1}
+  #page-portfolio .port-frame > .port-hero,
+  #page-portfolio .port-frame > .port-equity-card,
+  #page-portfolio .port-frame > .port-kpis,
+  #page-portfolio .port-frame > .port-recent-card,
+  #page-portfolio .port-frame > .port-cta-wrap,
+  #page-portfolio .port-frame > .port-more-kpis,
+  #page-portfolio .port-frame > .port-wave-card{grid-column:1 / -1}
   #page-shelf{max-width:1240px}
   .shelf-deck{display:grid;grid-template-columns:repeat(6,minmax(0,1fr));overflow:visible;padding-bottom:0}
   .shelf-card{flex:none}
@@ -1144,11 +1160,13 @@ html:not(.runnr-guest) #home-coach-banner{display:none !important}
   #page-portfolio .port-kpis{
     display:grid;
     grid-template-columns:repeat(3,minmax(0,1fr));
-    grid-template-rows:repeat(3,minmax(0,1fr));
     gap:1px;
     background:rgba(201,169,110,0.28);
-    height:100%;
+    height:auto;
     padding:0;
+  }
+  #page-portfolio .port-more-kpis{
+    grid-template-columns:repeat(3,minmax(0,1fr));
   }
   #page-portfolio .kpi{
     border:none;
@@ -2257,6 +2275,88 @@ html:not(.runnr-guest) #home-coach-banner{display:none !important}
         <div class="period-tab" onclick="loadPortfolio('ytd',this)">YTD</div>
       </div>
 
+      <!-- Hero P&L -->
+      <div class="port-hero">
+        <div class="ph-label">Total P&L</div>
+        <div class="ph-val" id="port-total-pnl">+€2,313</div>
+        <div class="ph-sub">
+          <span id="port-pnl-pct" style="color:var(--accent)">+23.1%</span>
+        </div>
+        <div style="display:flex;gap:16px;margin-top:12px">
+          <div><div style="font-size:10px;color:var(--text3)">Starting</div><div style="font-family:var(--font-mono);font-size:14px" id="port-start-bal">€10,000</div></div>
+          <div><div style="font-size:10px;color:var(--text3)">Current</div><div style="font-family:var(--font-mono);font-size:14px;color:var(--accent)" id="port-cur-bal">€12,313</div></div>
+          <div><div style="font-size:10px;color:var(--text3)">Open trades</div><div style="font-family:var(--font-mono);font-size:14px" id="port-open">0</div></div>
+        </div>
+      </div>
+
+      <!-- Equity curve -->
+      <div class="card port-equity-card">
+        <div class="section-hdr">
+          <h3>Equity Curve</h3>
+          <span style="font-size:10px;color:var(--text3);font-family:var(--font-mono)">vs Flat Line</span>
+        </div>
+        <canvas id="port-equity-canvas" height="110" style="width:100%"></canvas>
+      </div>
+
+      <!-- Process KPIs — stop / size / incomplete, not win rate -->
+      <div class="port-kpis" id="port-kpis">
+        <div class="kpi">
+          <div class="k-val" id="kpi-stop" style="color:var(--accent)">82%</div>
+          <div class="k-lbl">Stop-ok</div>
+        </div>
+        <div class="kpi">
+          <div class="k-val" id="kpi-size" style="color:var(--accent)">91%</div>
+          <div class="k-lbl">Size-ok</div>
+        </div>
+        <div class="kpi">
+          <div class="k-val" id="kpi-incomplete">—</div>
+          <div class="k-lbl">Incomplete</div>
+        </div>
+      </div>
+
+      <div class="card port-recent-card" id="port-recent-card">
+        <div class="section-hdr">
+          <h3>Recent trades</h3>
+          <button class="see-all" onclick="switchPage('journal')">Journal</button>
+        </div>
+        <div id="port-recent-list"></div>
+      </div>
+
+      <div class="port-cta-wrap" id="port-cta-wrap">
+        <button type="button" class="btn port-cta" id="port-cta">Size the next trade</button>
+      </div>
+
+      <div class="port-kpis port-more-kpis" id="port-more-kpis">
+        <div class="kpi">
+          <div class="k-val" id="kpi-trades">18</div>
+          <div class="k-lbl" id="kpi-trades-lbl">Trades</div>
+        </div>
+        <div class="kpi">
+          <div class="k-val" id="kpi-wr" style="color:var(--accent)">58%</div>
+          <div class="k-lbl">Win Rate</div>
+        </div>
+        <div class="kpi">
+          <div class="k-val" id="kpi-pf" style="color:var(--accent)">1.8</div>
+          <div class="k-lbl">Profit Factor</div>
+        </div>
+        <div class="kpi">
+          <div class="k-val" id="kpi-avgwin">€312</div>
+          <div class="k-lbl">Avg Win</div>
+        </div>
+        <div class="kpi">
+          <div class="k-val" id="kpi-avgloss" style="color:var(--red)">€174</div>
+          <div class="k-lbl">Avg Loss</div>
+        </div>
+        <div class="kpi">
+          <div class="k-val" id="kpi-rr">1.8</div>
+          <div class="k-lbl">Avg R:R</div>
+        </div>
+        <div class="kpi">
+          <div class="k-val" id="kpi-dd" style="color:var(--red)">-3.1%</div>
+          <div class="k-lbl">Max DD</div>
+        </div>
+      </div>
+
       <div class="card port-wave-card">
         <div class="wave-kicker">The mind behind the flags</div>
         <div class="wave-head">
@@ -2285,69 +2385,6 @@ html:not(.runnr-guest) #home-coach-banner{display:none !important}
             <div class="headline" id="wave-headline">Log a close — the wave needs a session.</div>
           </div>
         </div>
-      </div>
-
-      <!-- Hero P&L -->
-      <div class="port-hero">
-        <div class="ph-label">Total P&L</div>
-        <div class="ph-val" id="port-total-pnl">+€2,313</div>
-        <div class="ph-sub">
-          <span id="port-pnl-pct" style="color:var(--accent)">+23.1%</span>
-        </div>
-        <div style="display:flex;gap:16px;margin-top:12px">
-          <div><div style="font-size:10px;color:var(--text3)">Starting</div><div style="font-family:var(--font-mono);font-size:14px" id="port-start-bal">€10,000</div></div>
-          <div><div style="font-size:10px;color:var(--text3)">Current</div><div style="font-family:var(--font-mono);font-size:14px;color:var(--accent)" id="port-cur-bal">€12,313</div></div>
-          <div><div style="font-size:10px;color:var(--text3)">Open trades</div><div style="font-family:var(--font-mono);font-size:14px" id="port-open">0</div></div>
-        </div>
-      </div>
-
-      <!-- KPI grid -->
-      <div class="port-kpis">
-        <div class="kpi">
-          <div class="k-val" id="kpi-trades">18</div>
-          <div class="k-lbl" id="kpi-trades-lbl">Trades</div>
-        </div>
-        <div class="kpi">
-          <div class="k-val" id="kpi-wr" style="color:var(--accent)">58%</div>
-          <div class="k-lbl">Win Rate</div>
-        </div>
-        <div class="kpi">
-          <div class="k-val" id="kpi-pf" style="color:var(--accent)">1.8</div>
-          <div class="k-lbl">Profit Factor</div>
-        </div>
-        <div class="kpi">
-          <div class="k-val" id="kpi-avgwin">€312</div>
-          <div class="k-lbl">Avg Win</div>
-        </div>
-        <div class="kpi">
-          <div class="k-val" id="kpi-avgloss" style="color:var(--red)">€174</div>
-          <div class="k-lbl">Avg Loss</div>
-        </div>
-        <div class="kpi">
-          <div class="k-val" id="kpi-rr">1.8</div>
-          <div class="k-lbl">Avg R:R</div>
-        </div>
-        <div class="kpi">
-          <div class="k-val" id="kpi-stop" style="color:var(--accent)">82%</div>
-          <div class="k-lbl">Stop Disc.</div>
-        </div>
-        <div class="kpi">
-          <div class="k-val" id="kpi-size" style="color:var(--accent)">91%</div>
-          <div class="k-lbl">Size Disc.</div>
-        </div>
-        <div class="kpi">
-          <div class="k-val" id="kpi-dd" style="color:var(--red)">-3.1%</div>
-          <div class="k-lbl">Max DD</div>
-        </div>
-      </div>
-
-      <!-- Equity curve -->
-      <div class="card port-equity-card">
-        <div class="section-hdr">
-          <h3>Equity Curve</h3>
-          <span style="font-size:10px;color:var(--text3);font-family:var(--font-mono)">vs Flat Line</span>
-        </div>
-        <canvas id="port-equity-canvas" height="110" style="width:100%"></canvas>
       </div>
 
       <!-- Discipline vs P&L insight -->
@@ -7276,9 +7313,15 @@ function loadPortfolio(period, tabEl) {
   document.getElementById('kpi-avgloss').textContent = fmtKpi(avgLoss, fmt);
   document.getElementById('kpi-rr').textContent = fmtKpi(avgRR, v => v.toFixed(1));
   document.getElementById('kpi-stop').textContent = discTrades.length ? stopDisc.toFixed(0) + '%' : '—';
-  document.getElementById('kpi-stop').style.color = stopDisc >= 80 ? 'var(--accent)' : stopDisc >= 60 ? 'var(--amber)' : 'var(--red)';
+  document.getElementById('kpi-stop').style.color = discTrades.length ? (stopDisc >= 80 ? 'var(--accent)' : stopDisc >= 60 ? 'var(--amber)' : 'var(--red)') : 'var(--text3)';
   document.getElementById('kpi-size').textContent = discTrades.length ? sizeDisc.toFixed(0) + '%' : '—';
-  document.getElementById('kpi-size').style.color = sizeDisc >= 80 ? 'var(--accent)' : sizeDisc >= 60 ? 'var(--amber)' : 'var(--red)';
+  document.getElementById('kpi-size').style.color = discTrades.length ? (sizeDisc >= 80 ? 'var(--accent)' : sizeDisc >= 60 ? 'var(--amber)' : 'var(--red)') : 'var(--text3)';
+  const incEl = document.getElementById('kpi-incomplete');
+  if (incEl) {
+    const incRate = totalLogged ? (pendingTrades.length / totalLogged * 100) : 0;
+    incEl.textContent = totalLogged ? incRate.toFixed(0) + '%' : '—';
+    incEl.style.color = !totalLogged ? 'var(--text3)' : pendingTrades.length ? 'var(--amber)' : 'var(--accent)';
+  }
   document.getElementById('kpi-dd').textContent = fmtKpi(dd, v => '-' + v.toFixed(1) + '%');
   document.getElementById('kpi-dd').style.color = !hasClosed ? 'var(--text3)' : dd > 10 ? 'var(--red)' : dd > 5 ? 'var(--amber)' : 'var(--text3)';
 
@@ -7399,9 +7442,101 @@ function loadPortfolio(period, tabEl) {
   document.getElementById('count-short').textContent = shortT.length + ' trade' + (shortT.length!==1?'s':'');
 
   renderPortOpenBook(openTrades, completed, sym);
+  renderPortRecent(period, sym);
+  renderPortCta();
 
   // Calendar heatmap — all journal activity in the selected period
   renderCalendar(completed, (S.trades || []).filter((t) => t && !t.mergedAway), period);
+}
+
+function recentJournalTrades(period, limit) {
+  const list = filterByPeriod((S.trades || []).filter((t) => t && !t.mergedAway), period);
+  const ts = (t) => {
+    const d = typeof tradeHeatDate === 'function' ? tradeHeatDate(t) : null;
+    if (d && !Number.isNaN(d.getTime())) return d.getTime();
+    const n = Number(t && t.id);
+    return Number.isFinite(n) ? n : 0;
+  };
+  return list.slice().sort((a, b) => ts(b) - ts(a)).slice(0, limit || 5);
+}
+
+function portRecentFlags(t) {
+  if (!t) return '';
+  const stop = t.incomplete && !t.challengeFail
+    ? '<span class="flag flag-incomplete">Stop ?</span>'
+    : (t.stopOk ? '<span class="flag flag-ok">Stop</span>' : '<span class="flag flag-no">Stop</span>');
+  const size = t.challengeFail
+    ? '<span class="flag flag-no">FAIL</span>'
+    : (t.incomplete
+      ? '<span class="flag flag-incomplete">Size ?</span>'
+      : (t.sizeOk ? '<span class="flag flag-ok">Size</span>' : '<span class="flag flag-no">Size</span>'));
+  return stop + size + (t.incomplete ? '<span class="flag flag-miss">Incomplete</span>' : '');
+}
+
+function openPortRecentTrade(id) {
+  const t = (S.trades || []).find((x) => tradeId(x.id) === tradeId(id));
+  if (!t) {
+    switchPage('journal');
+    return;
+  }
+  const DR = typeof DisciplineReplay !== 'undefined' ? DisciplineReplay : null;
+  if (DR && DR.canReplay(t, S, typeof Baron !== 'undefined' ? Baron : null)) {
+    openDisciplineReplay(id);
+    return;
+  }
+  if (typeof openTradeEditor === 'function') openTradeEditor(id);
+  else switchPage('journal');
+}
+window.openPortRecentTrade = openPortRecentTrade;
+
+function renderPortRecent(period, sym) {
+  const list = document.getElementById('port-recent-list');
+  if (!list) return;
+  const rows = recentJournalTrades(period, 5);
+  if (!rows.length) {
+    list.innerHTML = '<div class="port-recent-empty">No journal fills in this period</div>';
+    return;
+  }
+  const money = sym || S.sym || '';
+  list.innerHTML = rows.map((t) => {
+    const safeId = String(t.id).replace(/[^0-9A-Za-z_-]/g, '');
+    const name = String(t.instr || 'Fill').replace(/[&<>]/g, '');
+    const open = typeof Baron !== 'undefined' && Baron.isOpenTrade?.(t);
+    const pnl = resolveTradePnl(t);
+    const pnlStr = open
+      ? 'open'
+      : (t.incomplete && (t.source === 'alpaca' || t.source === 'ibkr' || t.source === 't212')
+        ? 'review'
+        : ((pnl >= 0 ? '+' : '') + money + Math.round(Math.abs(Number(pnl) || 0)).toLocaleString()));
+    const pnlCls = open || pnlStr === 'review' ? '' : (pnl >= 0 ? 'pos' : 'neg');
+    return `<button type="button" class="port-recent-row" onclick="openPortRecentTrade('${safeId}')">
+      <div class="port-recent-meta">
+        <div class="port-recent-sym">${name}</div>
+        <div class="port-recent-sub">${t.date || '—'} · ${(t.dir || '').toUpperCase() || '—'}</div>
+        <div class="flags">${portRecentFlags(t)}</div>
+      </div>
+      <div class="port-recent-right">
+        <span class="te-pnl ${pnlCls}">${pnlStr}</span>
+      </div>
+    </button>`;
+  }).join('');
+}
+
+function renderPortCta() {
+  const wrap = document.getElementById('port-cta-wrap');
+  const cta = document.getElementById('port-cta');
+  if (!wrap || !cta) return;
+  if (typeof isGuestLanding === 'function' && isGuestLanding()) {
+    wrap.hidden = true;
+    return;
+  }
+  wrap.hidden = false;
+  const job = window.RunnrDeskQuiet
+    ? RunnrDeskQuiet.primaryJob(S.trades, S, typeof Baron !== 'undefined' ? Baron : null)
+    : { id: 'size', cta: 'Size the next trade' };
+  cta.textContent = job.cta || 'Size the next trade';
+  cta.dataset.job = job.id || 'size';
+  cta.onclick = function () { runHomeJob(job); };
 }
 
 function drawPortEquity(trades) {
