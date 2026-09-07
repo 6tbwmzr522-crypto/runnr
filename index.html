@@ -5,7 +5,7 @@
 <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
 <script>
 (function () {
-  var V = "124";
+  var V = "125";
   try {
     if (localStorage.getItem("runnr_app_v") !== V) {
       localStorage.setItem("runnr_app_v", V);
@@ -1304,7 +1304,7 @@ html:not(.runnr-guest) #home-coach-banner{display:none !important}
   </div>
 
   <div id="traffic-banner">
-    <span class="traffic-banner-text" data-i18n="header.trafficBanner">High traffic — live prices may lag. Journal &amp; Alpaca sync still work.</span>
+    <span class="traffic-banner-text" data-i18n="header.trafficBanner">Live prices may lag. Journal &amp; Alpaca sync still work.</span>
     <button type="button" style="background:none;border:none;color:var(--text3);font-size:16px;cursor:pointer;padding:0 4px" onclick="dismissTrafficBanner()">✕</button>
   </div>
 
@@ -6371,15 +6371,17 @@ function hideTrafficBanner() {
   if (el && !trafficBannerDismissed) el.style.display = 'none';
 }
 
-function updateTrafficBanner(liveCount, total) {
+function updateTrafficBanner(liveCount, total, batchStale) {
   if (!total) return;
   const ratio = liveCount / total;
-  const degraded = ratio === 0 || ratio < 0.5 || quoteStaleCount > quoteCacheHits;
+  const stale = Number(batchStale) || 0;
+  // Per-refresh only — never lifetime stale counters (those trip under normal SWR).
+  const degraded = ratio === 0 || ratio < 0.5 || stale > liveCount;
   if (!trafficBannerDismissed) {
     if (ratio === 0) {
-      showTrafficBanner('Prices unavailable — high load or market closed. Journal & Alpaca sync still work.');
+      showTrafficBanner('Prices unavailable — market closed or feed delayed. Journal & Alpaca sync still work.');
     } else if (degraded) {
-      showTrafficBanner('High traffic — live prices may lag. Journal & Alpaca sync still work.');
+      showTrafficBanner('Live prices may lag. Journal & Alpaca sync still work.');
     } else {
       hideTrafficBanner();
     }
@@ -7015,7 +7017,7 @@ async function refreshAllPrices() {
   if (feedFetching) return;
   if (Date.now() < quoteBackoffUntil) {
     setFeedStatus('error', 'Prices delayed — retrying soon');
-    showTrafficBanner('High traffic — live prices may lag. Journal & Alpaca sync still work.');
+    showTrafficBanner('Live prices may lag. Journal & Alpaca sync still work.');
     return;
   }
   feedFetching = true;
@@ -7068,7 +7070,7 @@ async function refreshAllPrices() {
     if (liveCount === syms.length) setFeedStatus('live', 'Live · ' + ts);
     else if (liveCount > 0)        setFeedStatus('live', liveCount + '/' + syms.length + ' live · ' + ts);
     else                            setFeedStatus('error', 'Estimated · ' + ts);
-    updateTrafficBanner(liveCount, syms.length);
+    updateTrafficBanner(liveCount, syms.length, staleCount);
     if (document.getElementById('page-watchlist').classList.contains('active')) {
       renderWatchlist();
       refreshWatchBriefs();
