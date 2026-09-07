@@ -5,7 +5,7 @@
 <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
 <script>
 (function () {
-  var V = "123";
+  var V = "124";
   try {
     if (localStorage.getItem("runnr_app_v") !== V) {
       localStorage.setItem("runnr_app_v", V);
@@ -857,6 +857,9 @@ html.runnr-guest #page-home .stat-grid{grid-template-columns:repeat(3,minmax(0,1
 .disc-meta-row span{min-width:5.6em}
 .disc-meta-row strong{color:var(--text);font-family:var(--font-mono);font-size:13px;font-weight:500}
 #share-canvas{display:block;width:100%;max-width:320px;margin:0 auto;border-radius:var(--r-sm);border:1px solid var(--border)}
+.share-variant-row{display:flex;gap:8px;margin:0 0 12px}
+.share-variant{flex:1;font-family:var(--font-body);font-size:10px;font-weight:600;letter-spacing:0.08em;text-transform:uppercase;padding:8px 10px;border-radius:999px;border:1px solid var(--border);background:transparent;color:var(--text2);cursor:pointer}
+.share-variant.active{border-color:var(--accent);color:var(--accent);background:var(--accent-dim)}
 #session-banner{display:none;align-items:center;justify-content:space-between;gap:10px;margin:0 16px 10px;padding:10px 12px;background:var(--gold-dim);border:1px solid var(--border-strong);border-radius:var(--r-sm);font-size:12px;color:var(--text2);cursor:pointer}
 #session-banner .session-banner-text{flex:1;line-height:1.4}
 #demo-banner{display:none;align-items:center;justify-content:space-between;gap:10px;margin:0 16px 10px;padding:10px 12px;background:rgba(0,229,160,0.08);border:1px solid rgba(0,229,160,0.35);border-radius:var(--r-sm);font-size:12px;color:var(--text2);cursor:pointer}
@@ -1966,8 +1969,8 @@ html:not(.runnr-guest) #home-coach-banner{display:none !important}
 
       <div class="card coach-share-card" style="margin-top:12px">
         <div class="card-title">Share your process</div>
-        <div style="font-size:12px;color:var(--text2);margin-bottom:12px">Brag about discipline — not P&amp;L. Optional public card for X, Discord, prop-firm apps.</div>
-        <div style="display:flex;gap:8px">
+        <div style="font-size:12px;color:var(--text2);margin-bottom:12px">Weekly discipline report with a loud runnr.fyi footer — built for TikTok / Reels. Process, not a performance claim.</div>
+        <div style="display:flex;gap:8px;flex-wrap:wrap">
           <button class="btn btn-sm" onclick="RunnrGrowth.openShareModal(S)">Create share card</button>
           <button class="btn btn-sm btn-ghost" onclick="RunnrGrowth.previewWeeklyDigest(S)">Preview weekly digest</button>
         </div>
@@ -2790,11 +2793,15 @@ html:not(.runnr-guest) #home-coach-banner{display:none !important}
 <!-- Share discipline card -->
 <div class="modal-overlay" id="modal-share" onclick="closeModalOutside(event,'modal-share')">
   <div class="modal">
-    <div class="modal-title">Share discipline score <button class="modal-close" onclick="closeModal('modal-share')">✕</button></div>
-    <canvas id="share-canvas" width="360" height="420"></canvas>
-    <div class="field" style="margin-top:12px"><label>Handle on card</label><input id="share-handle" placeholder="yourname" oninput="S.profileHandle=this.value;persist();RunnrGrowth.drawShareCard(S,document.getElementById('share-canvas'))"></div>
+    <div class="modal-title">Share weekly report <button class="modal-close" onclick="closeModal('modal-share')">✕</button></div>
+    <div class="share-variant-row">
+      <button type="button" class="share-variant active" data-share-variant="weekly" onclick="RunnrGrowth.setShareVariant('weekly', S)">Weekly report</button>
+      <button type="button" class="share-variant" data-share-variant="score" onclick="RunnrGrowth.setShareVariant('score', S)">Score</button>
+    </div>
+    <canvas id="share-canvas" width="360" height="700"></canvas>
+    <div class="field" style="margin-top:12px"><label>Handle on card</label><input id="share-handle" placeholder="yourname" oninput="RunnrGrowth.redrawShareFromHandle(S)"></div>
     <button class="btn" style="margin-top:8px" onclick="RunnrGrowth.shareDisciplineCard(S)">Download / Share PNG</button>
-    <div style="font-size:11px;color:var(--text3);text-align:center;margin-top:8px">No P&amp;L shown — process only</div>
+    <div id="share-card-note" style="font-size:11px;color:var(--text3);text-align:center;margin-top:8px">Loud runnr.fyi footer — built for TikTok / Reels. Process P&amp;L (followed vs leaks).</div>
   </div>
 </div>
 
@@ -2928,10 +2935,10 @@ html:not(.runnr-guest) #home-coach-banner{display:none !important}
 <script src="js/i18n.js?v=15"></script>
 <script src="js/baron.js?v=31"></script>
 <script src="js/discipline-replay.js?v=6"></script>
-<script src="js/coach.js?v=26"></script>
+<script src="js/coach.js?v=27"></script>
 <script src="js/options-coach.js?v=1"></script>
 <script src="js/fvg-retrace.js?v=1"></script>
-<script src="js/onboarding.js?v=30"></script>
+<script src="js/onboarding.js?v=31"></script>
 <script src="js/intro.js?v=1"></script>
 <script src="js/csv-presets.js?v=4"></script>
 <script src="js/trade-limit.js?v=2"></script>

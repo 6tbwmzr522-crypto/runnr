@@ -266,6 +266,158 @@ const CoachEngine = {
     };
   },
 
+  tradesInDays(trades, days, now = new Date()) {
+    const end = now instanceof Date && !Number.isNaN(now.getTime()) ? now : new Date();
+    return (trades || []).filter((t) => {
+      if (!t || t.mergedAway) return false;
+      const d = this.tradeDate(t);
+      if (!d) return false;
+      return (end - d) / 86400000 <= days;
+    });
+  },
+
+  formatCardRange(start, end) {
+    const months = ["JAN", "FEB", "MAR", "APR", "MAY", "JUN", "JUL", "AUG", "SEP", "OCT", "NOV", "DEC"];
+    if (!(start instanceof Date) || !(end instanceof Date)) return "";
+    const d1 = start.getDate();
+    const d2 = end.getDate();
+    const m1 = months[start.getMonth()];
+    const m2 = months[end.getMonth()];
+    const y1 = start.getFullYear();
+    const y2 = end.getFullYear();
+    if (m1 === m2 && y1 === y2) return `${d1} – ${d2} ${m1} ${y1}`;
+    if (y1 === y2) return `${d1} ${m1} – ${d2} ${m2} ${y1}`;
+    return `${d1} ${m1} ${y1} – ${d2} ${m2} ${y2}`;
+  },
+
+  fmtCardMoney(sym, n) {
+    if (n == null || !Number.isFinite(Number(n))) return "—";
+    const r = Math.round(Number(n));
+    return (r < 0 ? "-" : "") + sym + Math.abs(r).toLocaleString("en-GB");
+  },
+
+  fmtCardPct(n) {
+    if (n == null || !Number.isFinite(Number(n))) return "—";
+    return Math.round(Number(n)) + "%";
+  },
+
+  fmtCardPf(n) {
+    if (n == null || !Number.isFinite(Number(n))) return "—";
+    if (Number(n) >= 99) return "∞";
+    return (Math.round(Number(n) * 10) / 10).toFixed(1);
+  },
+
+  leakLabel(score, metrics) {
+    if (!metrics || !metrics.count) return "followed";
+    const stop = Number(score && score.stopPct);
+    const size = Number(score && score.sizePct);
+    if (Number.isFinite(stop) && Number.isFinite(size)) {
+      if (size + 5 < stop) return "size leaks";
+      if (stop + 5 < size) return "stop leaks";
+    }
+    if (metrics.undiscPnl) return "process leaks";
+    return "followed";
+  },
+
+  shareCoachNote(score, metrics, riskPct, hasWeek) {
+    if (!hasWeek) {
+      return "No trades logged this week. Journal the next fill and Coach will write the note.";
+    }
+    const stop = Number(score && score.stopPct);
+    const size = Number(score && score.sizePct);
+    const risk = Number(riskPct) > 0 ? Number(riskPct) : 1;
+    if (stop >= 95 && size < 80) {
+      return `Stops were perfect. Size is the only leak — next week: hard ${risk}% max.`;
+    }
+    if (stop >= 80 && size < 70) {
+      return `Stops held. Size is the leak — next week: hard ${risk}% max.`;
+    }
+    if (size >= 95 && stop < 80) {
+      return "Size was clean. Stops slipped — confirm before the next entry.";
+    }
+    if (stop >= 80 && size >= 80) {
+      return "Process held. Keep the checklist before the next session.";
+    }
+    if (stop < 70 && size < 70) {
+      return "Stops and size both leaked — tighten rules before the next entry.";
+    }
+    if (size <= stop) {
+      return `Size is the weaker leg (${Math.round(size)}%). Next week: hard ${risk}% max.`;
+    }
+    return `Stops are the weaker leg (${Math.round(stop)}%). Confirm before entry.`;
+  },
+
+  eliteProgress(trades) {
+    const d = this.forDiscipline(trades);
+    const n = d.length;
+    const stopOk = d.filter((t) => t.stopOk).length;
+    const stopPct = n ? (stopOk / n) * 100 : 0;
+    const target = 20;
+    const consistent = n >= target && stopPct >= 80;
+    return {
+      label: consistent ? "ELITE RUNNER" : "PROGRESS TO ELITE RUNNER",
+      ratio: consistent ? 1 : Math.min(1, n / target),
+      detail: `${Math.min(n, target)} / ${target} trades with 80%+ stop confirmation`,
+      current: n,
+      target,
+      stopPct: Math.round(stopPct),
+    };
+  },
+
+  /** Share-card payload from journal metrics — never invents sample numbers. */
+  weeklyShareModel(trades, opts = {}) {
+    const now = opts.now instanceof Date && !Number.isNaN(opts.now.getTime()) ? opts.now : new Date();
+    const sym = opts.sym || "€";
+    const riskPct = Number(opts.riskPct) > 0 ? Number(opts.riskPct) : 1;
+    const handle = String(opts.handle || "").replace(/^@/, "").trim();
+    const weekTrades = this.tradesInDays(trades, 7, now);
+    const weekScore = this.disciplineScore(weekTrades);
+    const weekMetrics = this.metrics(weekTrades);
+    const hasWeek = weekScore.tradeCount > 0 || weekMetrics.count > 0;
+    const score = hasWeek ? weekScore : { overall: null, stopPct: null, sizePct: null, streak: this.loggingStreak(trades), tradeCount: 0, tier: "" };
+    const dated = weekTrades.map((t) => this.tradeDate(t)).filter(Boolean);
+    let start;
+    let end;
+    if (dated.length) {
+      start = new Date(Math.min(...dated.map((d) => d.getTime())));
+      end = new Date(Math.max(...dated.map((d) => d.getTime())));
+    } else {
+      end = new Date(now);
+      start = new Date(now);
+      start.setHours(0, 0, 0, 0);
+      start.setDate(start.getDate() - 6);
+    }
+    return {
+      dateLabel: this.formatCardRange(start, end),
+      overall: hasWeek && score.tradeCount ? score.overall : null,
+      overallLabel: hasWeek && score.tradeCount ? score.overall + "%" : "—",
+      tier: hasWeek && score.tradeCount ? score.tier : "—",
+      streak: this.loggingStreak(trades),
+      tradeCount: score.tradeCount || 0,
+      stopPct: hasWeek && score.tradeCount ? score.stopPct : null,
+      sizePct: hasWeek && score.tradeCount ? score.sizePct : null,
+      stopLabel: this.fmtCardPct(hasWeek && score.tradeCount ? score.stopPct : null),
+      sizeLabel: this.fmtCardPct(hasWeek && score.tradeCount ? score.sizePct : null),
+      profitFactor: weekMetrics.count ? weekMetrics.profitFactor : null,
+      winRate: weekMetrics.count ? weekMetrics.winRate : null,
+      pfLabel: this.fmtCardPf(weekMetrics.count ? weekMetrics.profitFactor : null),
+      winLabel: this.fmtCardPct(weekMetrics.count ? weekMetrics.winRate : null),
+      discPnl: weekMetrics.count ? weekMetrics.discPnl : null,
+      undiscPnl: weekMetrics.count ? weekMetrics.undiscPnl : null,
+      discPnlLabel: this.fmtCardMoney(sym, weekMetrics.count ? weekMetrics.discPnl : null),
+      undiscPnlLabel: this.fmtCardMoney(sym, weekMetrics.count ? weekMetrics.undiscPnl : null),
+      hasPnl: weekMetrics.count > 0,
+      leakLabel: this.leakLabel(score, weekMetrics),
+      coachNote: this.shareCoachNote(score, weekMetrics, riskPct, hasWeek),
+      progress: this.eliteProgress(trades),
+      handle,
+      brandUrl: "runnr.fyi",
+      handleUrl: handle ? "runnr.fyi/u/" + handle : "",
+      tagline: "Discipline OS · Process · not P&L",
+      hasWeek,
+    };
+  },
+
   byInstrument(trades) {
     const map = {};
     this.completed(trades).forEach((t) => {
