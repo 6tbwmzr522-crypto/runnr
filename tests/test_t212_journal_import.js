@@ -7,10 +7,8 @@ const path = require("path");
 const vm = require("vm");
 const assert = require("assert");
 
-const root = path.join(__dirname, "..");
-const html = fs.readFileSync(path.join(root, "index.html"), "utf8");
+const { root, html, src, sw } = require("./app_src").loadAppSource();
 const syncSrc = fs.readFileSync(path.join(root, "js/sync.js"), "utf8");
-const sw = fs.readFileSync(path.join(root, "sw.js"), "utf8");
 const t212Py = fs.readFileSync(path.join(root, "api/app/t212.py"), "utf8");
 const brokersPy = fs.readFileSync(path.join(root, "api/app/routers/brokers.py"), "utf8");
 
@@ -28,14 +26,14 @@ check("journal has T212 import control", html.includes('id="journal-t212-btn"') 
 check("Connect T212 form exists", html.includes('id="modal-t212"') && html.includes("submitT212Connect") && html.includes("t212-key") && html.includes("t212-secret"));
 check("T212 copy mentions API (Beta), permissions, SIPP", html.includes("API (Beta)") && html.includes("Leave <strong>orders</strong> off") && html.includes("SIPP is not supported"));
 check("T212 card keeps CSV fallback", /id:\s*"t212"/.test(fs.readFileSync(path.join(root, "js/csv-presets.js"), "utf8")) && html.includes("CSV Import"));
-check("Trading 212 is a live broker card", /code:\s*'Trading 212'[\s\S]{0,80}live:\s*true/.test(html));
+check("Trading 212 is a live broker card", /code:\s*'Trading 212'[\s\S]{0,80}live:\s*true/.test(src));
 check("T212 connect/status/sync routes exist", brokersPy.includes('/t212/connect') && brokersPy.includes('/t212/sync') && brokersPy.includes('/t212/status'));
 check("T212 stores broker='t212' rows", /broker = ['"]t212['"]/.test(brokersPy) || /VALUES \(\?, 't212'/.test(brokersPy));
 check("T212 product path is not house-gated", !brokersPy.includes("require_t212_house") && !brokersPy.includes("email_is_boss"));
 check("T212 product path does not use env require", !brokersPy.includes("require_t212_configured") && !brokersPy.includes("t212_configured("));
 const notConnected = brokersPy.match(/T212_NOT_CONNECTED_FOR_ACCOUNT = \([\s\S]*?\)/)[0];
 check("T212 404 does not mention env keys", !/T212_API_KEY|T212_API_SECRET/.test(notConnected));
-check("UI does not tell users to set T212 env", !html.includes("T212_API_KEY") && !html.includes("T212_API_SECRET"));
+check("UI does not tell users to set T212 env", !src.includes("T212_API_KEY") && !src.includes("T212_API_SECRET"));
 check("T212 client is GET-only", t212Py.includes("method=\"GET\"") || t212Py.includes("method='GET'"));
 check("T212 refuses order-write paths", t212Py.includes("order-write"));
 check("T212 never posts market/limit orders", !/orders\/market/.test(t212Py.split("order-write")[0]) || t212Py.includes("Refusing Trading 212 order-write path"));

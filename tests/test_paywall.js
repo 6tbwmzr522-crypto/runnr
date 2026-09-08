@@ -6,9 +6,7 @@ const fs = require("fs");
 const path = require("path");
 const assert = require("assert");
 
-const root = path.join(__dirname, "..");
-const html = fs.readFileSync(path.join(root, "index.html"), "utf8");
-const sw = fs.readFileSync(path.join(root, "sw.js"), "utf8");
+const { root, html, src, sw } = require("./app_src").loadAppSource();
 const syncSrc = fs.readFileSync(path.join(root, "js/sync.js"), "utf8");
 const limitSrc = fs.readFileSync(path.join(root, "js/trade-limit.js"), "utf8");
 const brokersPy = fs.readFileSync(path.join(root, "api/app/routers/brokers.py"), "utf8");
@@ -25,15 +23,15 @@ const v = html.match(/var V = "(\d+)"/)[1];
 const cache = sw.match(/CACHE = "runnr-v(\d+)"/)[1];
 check("index.html V matches sw.js CACHE", v === cache);
 
-check("askCoach requires Pro", /async function askCoach[\s\S]{0,120}requirePro\(\s*['"]Coach['"]\)/.test(html));
-check("askCoachFree requires Pro", /async function askCoachFree[\s\S]{0,120}requirePro\(\s*['"]Coach['"]\)/.test(html));
-check("renderCoachPage uses hasProAccess", /function renderCoachPage[\s\S]{0,400}hasProAccess\(\)/.test(html));
+check("askCoach requires Pro", /async function askCoach[\s\S]{0,120}requirePro\(\s*['"]Coach['"]\)/.test(src));
+check("askCoachFree requires Pro", /async function askCoachFree[\s\S]{0,120}requirePro\(\s*['"]Coach['"]\)/.test(src));
+check("renderCoachPage uses hasProAccess", /function renderCoachPage[\s\S]{0,400}hasProAccess\(\)/.test(src));
 check("Coach upgrade CTA exists", html.includes('id="coach-upgrade-cta"') && html.includes("Unlock Coach"));
 check("Coach insights live in pro body", html.includes('id="coach-pro-body"'));
 
-check("toggleNotifications requires Alerts", /async function toggleNotifications[\s\S]{0,200}requirePro\(\s*['"]Alerts['"]\)/.test(html));
-check("requestNotifPermission requires Alerts", /async function requestNotifPermission[\s\S]{0,80}requirePro\(\s*['"]Alerts['"]\)/.test(html));
-check("checkPriceAlerts requires hasProAccess", /function checkPriceAlerts[\s\S]{0,120}hasProAccess\(\)/.test(html));
+check("toggleNotifications requires Alerts", /async function toggleNotifications[\s\S]{0,200}requirePro\(\s*['"]Alerts['"]\)/.test(src));
+check("requestNotifPermission requires Alerts", /async function requestNotifPermission[\s\S]{0,80}requirePro\(\s*['"]Alerts['"]\)/.test(src));
+check("checkPriceAlerts requires hasProAccess", /function checkPriceAlerts[\s\S]{0,120}hasProAccess\(\)/.test(src));
 
 check("broker connect/sync call _require_pro_broker", (brokersPy.match(/_require_pro_broker\(user\)/g) || []).length >= 6);
 check("alpaca connect gated before TradingClient", /def connect_alpaca[\s\S]{0,120}_require_pro_broker/.test(brokersPy));
@@ -51,6 +49,6 @@ check("demo exclusion is explicit flag", /t\.isDemo === true/.test(limitSrc) && 
 check("python demo exclusion is explicit flag", tradeLimitPy.includes('trade.get("isDemo") is True'));
 check("python no longer uses DEMO_TRADE_IDS", !/DEMO_TRADE_IDS/.test(tradeLimitPy));
 check("python dropped the 10-trade cap", !/FREE_TRADE_LIMIT/.test(tradeLimitPy));
-check("shipped seeds are flagged isDemo", /id:\s*1,\s*isDemo:\s*true/.test(html) && /id:\s*4,\s*isDemo:\s*true/.test(html));
+check("shipped seeds are flagged isDemo", /id:\s*1,\s*isDemo:\s*true/.test(src) && /id:\s*4,\s*isDemo:\s*true/.test(src));
 
 console.log("ok", n);

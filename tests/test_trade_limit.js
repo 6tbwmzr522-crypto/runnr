@@ -7,9 +7,7 @@ const path = require("path");
 const vm = require("vm");
 const assert = require("assert");
 
-const root = path.join(__dirname, "..");
-const html = fs.readFileSync(path.join(root, "index.html"), "utf8");
-const sw = fs.readFileSync(path.join(root, "sw.js"), "utf8");
+const { root, html, src, sw } = require("./app_src").loadAppSource();
 const limitSrc = fs.readFileSync(path.join(root, "js/trade-limit.js"), "utf8");
 const syncSrc = fs.readFileSync(path.join(root, "js/sync.js"), "utf8");
 const profilePy = fs.readFileSync(path.join(root, "api/app/routers/profile.py"), "utf8");
@@ -27,13 +25,14 @@ function check(name, cond) {
 const leftoverRe = /10 journal trades|5 journal trades|free 5-trade|free 10-trade|10-trade journal|10-trade cap|track 10 trades|Free plan limit reached/;
 [
   ["index.html", html],
+  ["app js", src],
   ["i18n.js", i18nSrc],
   ["login.html", loginHtml],
   ["report/index.html", reportHtml],
   ["onboarding.js", obSrc],
   ["trade-limit.js", limitSrc],
-].forEach(([name, src]) => {
-  check("no leftover 10-trade copy in " + name, !leftoverRe.test(src) && !src.includes("FREE_TRADE_LIMIT"));
+].forEach(([name, srcText]) => {
+  check("no leftover 10-trade copy in " + name, !leftoverRe.test(srcText) && !srcText.includes("FREE_TRADE_LIMIT"));
 });
 
 const v = html.match(/var V = "(\d+)"/)[1];
@@ -41,7 +40,7 @@ const cache = sw.match(/CACHE = "runnr-v(\d+)"/)[1];
 check("index.html V matches sw.js CACHE", v === cache);
 check("trade-limit.js is loaded", html.includes("js/trade-limit.js?v=4"));
 check("sync.js cache-busted", html.includes("js/sync.js?v=70"));
-check("count no longer excludes imported fills", !/!isImportedJournalTrade/.test(html));
+check("count no longer excludes imported fills", !/!isImportedJournalTrade/.test(src));
 check("profile PUT blocks growth after trial", profilePy.includes("would_grow_journal_without_access") && profilePy.includes("TRIAL_EXPIRED_DETAIL"));
 check("user-facing copy is 7-day trial", html.includes("Start free · 7-day trial · then €19/month or €190/year"));
 check("no leftover 10 journal / 10-trade copy", !/10 journal trades|5 journal trades|free 5-trade|free 10-trade|10-trade journal|10-trade cap|track 10 trades/.test(html));
@@ -359,7 +358,7 @@ check("logged-in isPro false before /me", loggedFail.window.RunnrSync.isPro() ==
   check("trial days land on billing cache", trialMe.window.RunnrSync.billing().trialDaysLeft === 4);
   check("trial active lands on billing cache", trialMe.window.RunnrSync.billing().trialActive === true);
 
-  check("shipped seed trades have isDemo", /id:\s*1,\s*isDemo:\s*true/.test(html));
+  check("shipped seed trades have isDemo", /id:\s*1,\s*isDemo:\s*true/.test(src));
   check("limit helper no longer uses DEMO_TRADE_IDS", !/DEMO_TRADE_IDS/.test(limitSrc));
 
   console.log("ok", n);

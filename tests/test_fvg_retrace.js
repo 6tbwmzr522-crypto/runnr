@@ -7,9 +7,7 @@ const path = require("path");
 const vm = require("vm");
 const assert = require("assert");
 
-const root = path.join(__dirname, "..");
-const html = fs.readFileSync(path.join(root, "index.html"), "utf8");
-const sw = fs.readFileSync(path.join(root, "sw.js"), "utf8");
+const { root, html, src, sw } = require("./app_src").loadAppSource();
 const fvgSrc = fs.readFileSync(path.join(root, "js/fvg-retrace.js"), "utf8");
 
 let n = 0;
@@ -53,20 +51,20 @@ check("primary CFD log CTA stays mint btn", /id="cfd-log-btn"[^>]*class="btn"/.t
   || /class="btn"[^>]*id="cfd-log-btn"/.test(html));
 check("CFD / shares log still goes through saveLogFromSizer", html.includes("saveLogFromSizer('cfd')")
   && html.includes("saveLogFromSizer('shares')"));
-check("sizer log blocks when FVG gates fail", /function saveLogFromSizer[\s\S]*fvgCanLog === false[\s\S]*return/.test(html));
-check("review-before-save also fail-closes", /function fillLogFromSizer[\s\S]*fvgCanLog === false[\s\S]*return/.test(html));
-check("logged FVG setup is persisted", /if \(draft\.setup\) patch\.setup = draft\.setup/.test(html)
-  && html.includes("t.setup === 'fvg'"));
-check("calcCFD still sizes from entry / stop / risk", /function calcCFD[\s\S]*Baron\.sizeForex[\s\S]*applyFvgStrip\('cfd'/.test(html));
-check("empty strip does not gate vanilla CFD size", /function calcCFD[\s\S]*if \(!entry \|\| !stop\)/.test(html)
-  && !/cfd-fvg-high/.test(extractTopFn(html, "calcCFD").split("applyFvgStrip")[0]));
+check("sizer log blocks when FVG gates fail", /function saveLogFromSizer[\s\S]*fvgCanLog === false[\s\S]*return/.test(src));
+check("review-before-save also fail-closes", /function fillLogFromSizer[\s\S]*fvgCanLog === false[\s\S]*return/.test(src));
+check("logged FVG setup is persisted", /if \(draft\.setup\) patch\.setup = draft\.setup/.test(src)
+  && src.includes("t.setup === 'fvg'"));
+check("calcCFD still sizes from entry / stop / risk", /function calcCFD[\s\S]*Baron\.sizeForex[\s\S]*applyFvgStrip\('cfd'/.test(src));
+check("empty strip does not gate vanilla CFD size", /function calcCFD[\s\S]*if \(!entry \|\| !stop\)/.test(src)
+  && !/cfd-fvg-high/.test(extractTopFn(src, "calcCFD").split("applyFvgStrip")[0]));
 
-const homeJobFn = extractTopFn(html, "runHomeJob") + extractTopFn(html, "focusSizerForNextTrade");
+const homeJobFn = extractTopFn(src, "runHomeJob") + extractTopFn(src, "focusSizerForNextTrade");
 check("Home job does not open FVG strip", !/fvg|FVG|cfd-fvg/.test(homeJobFn));
-check("Home still sizes CFD by default", html.includes("function focusSizerForNextTrade")
+check("Home still sizes CFD by default", src.includes("function focusSizerForNextTrade")
   && /focusSizerForNextTrade[\s\S]*cfd-instr/.test(homeJobFn));
-check("Home job list is unchanged", html.includes("function runHomeJob")
-  && !/job\.id === 'fvg'/.test(html));
+check("Home job list is unchanged", src.includes("function runHomeJob")
+  && !/job\.id === 'fvg'/.test(src));
 
 const candleBingo = /harami|morning star|three (white )?soldiers|evening star|shooting star|doji|inverted hammer|piercing/i;
 const confirmCopy = (html.match(/hammer \/ engulfing/g) || []).length;
