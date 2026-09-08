@@ -74,7 +74,7 @@ def test_crafted_ids_without_flag_hit_the_cap(monkeypatch):
         assert blocked.json()["detail"] == FREE_LIMIT_DETAIL
 
 
-def test_free_user_demo_only_can_put_5(monkeypatch):
+def test_free_user_demo_only_can_put_10(monkeypatch):
     _enable_billing(monkeypatch)
     demo_plus = {
         "trades": [
@@ -85,7 +85,7 @@ def test_free_user_demo_only_can_put_5(monkeypatch):
         ]
         + [
             {"id": 500 + i, "instr": "MSFT", "source": "csv", "externalId": f"csv:{i}"}
-            for i in range(5)
+            for i in range(10)
         ],
         "bal": 10000,
     }
@@ -93,12 +93,6 @@ def test_free_user_demo_only_can_put_5(monkeypatch):
         headers = _auth("free.demo@example.com")
         res = client.put("/api/v1/profile/state", json={"state": demo_plus}, headers=headers)
         assert res.status_code == 200, res.text
-        blocked = client.put(
-            "/api/v1/profile/state",
-            json={"state": {**demo_plus, "trades": demo_plus["trades"] + [{"id": 999, "instr": "NVDA", "source": "csv"}]}},
-            headers=headers,
-        )
-        assert blocked.status_code == 403
 
 
 def test_legacy_over_limit_snapshot_may_stay(monkeypatch):

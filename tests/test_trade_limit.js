@@ -64,7 +64,7 @@ const demo = [
 ];
 
 check("demo-only count is 0", TL.countJournalTradesForLimit(demo) === 0);
-check("FREE_TRADE_LIMIT is 5", TL.FREE_TRADE_LIMIT === 5);
+check("FREE_TRADE_LIMIT is 10", TL.FREE_TRADE_LIMIT === 10);
 check("score share min is 3", TL.SCORE_SHARE_MIN_TRADES === 3);
 check("demo-only score is locked", TL.scoreShareUnlocked(demo, freeSync) === false);
 check("demo lock copy pushes log", TL.scoreShareLockCopy(demo, freeSync).includes("Log 3 trades"));
@@ -72,18 +72,18 @@ check("2 real trades stay locked for free", TL.scoreShareUnlocked([{ id: 10 }, {
 check("3 real trades unlock score/share", TL.scoreShareUnlocked([{ id: 10 }, { id: 11 }, { id: 12 }], freeSync) === true);
 check("Pro with 1 trade can share", TL.scoreShareUnlocked([{ id: 10 }], proSync) === true);
 check("Pro with 0 trades stays locked", TL.scoreShareUnlocked(demo, proSync) === false);
-check("free slots label at 0", TL.freeSlotsLabel(demo, freeSync) === "5 free slots left");
-check("free slots label at 2", TL.freeSlotsLabel([{ id: 10 }, { id: 11 }], freeSync) === "3 of 5 free trades left");
+check("free slots label at 0", TL.freeSlotsLabel(demo, freeSync) === "10 free slots left");
+check("free slots label at 2", TL.freeSlotsLabel([{ id: 10 }, { id: 11 }], freeSync) === "8 of 10 free trades left");
 check("hint copy says manual + imports", html.includes("logged (manual + imports)"));
 check("remaining counter markup exists", html.includes("data-free-trade-counter"));
 check("score lock copy in markup", html.includes("Log 3 trades to unlock your score") && html.includes('id="disc-unlock-note"'));
 check("share modal has locked panel", html.includes('id="share-locked"'));
-check("user-facing copy is 5 journal trades", html.includes("Start free · 5 journal trades · then €19/month or €190/year"));
-check("no leftover 10 journal trades copy", !html.includes("10 journal trades") && !html.includes("free 10-trade"));
+check("user-facing copy is 10 journal trades", html.includes("Start free · 10 journal trades · then €19/month or €190/year"));
+check("no leftover 5 journal trades copy", !html.includes("5 journal trades") && !html.includes("free 5-trade"));
 
-check("demo-only user can add 5", TL.canAddJournalTrade(5, demo, freeSync) === true);
-check("demo-only user cannot add 6", TL.canAddJournalTrade(6, demo, freeSync) === false);
-check("5 slots remaining with only demos", TL.journalTradeSlotsRemaining(demo, freeSync) === 5);
+check("demo-only user can add 10", TL.canAddJournalTrade(10, demo, freeSync) === true);
+check("demo-only user cannot add 11", TL.canAddJournalTrade(11, demo, freeSync) === false);
+check("10 slots remaining with only demos", TL.journalTradeSlotsRemaining(demo, freeSync) === 10);
 
 const craftedIds = [
   { id: 1, instr: "RACE" },
@@ -94,9 +94,9 @@ const craftedIds = [
 check("crafted ids 1–4 without isDemo count", TL.countJournalTradesForLimit(craftedIds) === 4);
 check("seed:true also excluded", TL.countJournalTradesForLimit([{ id: 9, seed: true }]) === 0);
 
-const t212Five = [];
-for (let i = 0; i < 5; i++) {
-  t212Five.push({
+const t212Ten = [];
+for (let i = 0; i < 10; i++) {
+  t212Ten.push({
     id: 1000 + i,
     instr: "AAPL",
     dir: "long",
@@ -105,28 +105,28 @@ for (let i = 0; i < 5; i++) {
     size: 1,
   });
 }
-check("5 T212 fills count as 5", TL.countJournalTradesForLimit(t212Five) === 5);
-check("5 T212 fills block a 6th", TL.canAddJournalTrade(1, t212Five, freeSync) === false);
-check("0 slots remaining at 5 T212 fills", TL.journalTradeSlotsRemaining(t212Five, freeSync) === 0);
+check("10 T212 fills count as 10", TL.countJournalTradesForLimit(t212Ten) === 10);
+check("10 T212 fills block an 11th", TL.canAddJournalTrade(1, t212Ten, freeSync) === false);
+check("0 slots remaining at 10 T212 fills", TL.journalTradeSlotsRemaining(t212Ten, freeSync) === 0);
 
-const mixed = demo.concat(t212Five);
-check("demos still ignored next to T212 fills", TL.countJournalTradesForLimit(mixed) === 5);
+const mixed = demo.concat(t212Ten);
+check("demos still ignored next to T212 fills", TL.countJournalTradesForLimit(mixed) === 10);
 
-const withMerged = t212Five.concat([{ id: 2000, source: "t212", mergedAway: true, instr: "MSFT" }]);
-check("merged-away rows do not count", TL.countJournalTradesForLimit(withMerged) === 5);
+const withMerged = t212Ten.concat([{ id: 2000, source: "t212", mergedAway: true, instr: "MSFT" }]);
+check("merged-away rows do not count", TL.countJournalTradesForLimit(withMerged) === 10);
 
-const csvThree = Array.from({ length: 3 }, (_, i) => ({
+const csvEight = Array.from({ length: 8 }, (_, i) => ({
   id: 3000 + i,
   source: "csv",
   instr: "NVDA",
   externalId: "csv:" + i,
 }));
-check("CSV fills count", TL.countJournalTradesForLimit(csvThree) === 3);
-check("3 CSV + 2 more ok", TL.canAddJournalTrade(2, csvThree, freeSync) === true);
-check("3 CSV + 3 blocked", TL.canAddJournalTrade(3, csvThree, freeSync) === false);
+check("CSV fills count", TL.countJournalTradesForLimit(csvEight) === 8);
+check("8 CSV + 2 more ok", TL.canAddJournalTrade(2, csvEight, freeSync) === true);
+check("8 CSV + 3 blocked", TL.canAddJournalTrade(3, csvEight, freeSync) === false);
 
-check("Pro is unlimited", TL.canAddJournalTrade(100, t212Five, proSync) === true);
-check("billing.enabled false is unlimited", TL.canAddJournalTrade(100, t212Five, billingOff) === true);
+check("Pro is unlimited", TL.canAddJournalTrade(100, t212Ten, proSync) === true);
+check("billing.enabled false is unlimited", TL.canAddJournalTrade(100, t212Ten, billingOff) === true);
 
 function loadSync(opts) {
   const store = {};
@@ -189,37 +189,37 @@ function fill(id, at) {
 
 const seeded = loadSync({
   free: true,
-  trades: t212Five,
+  trades: t212Ten,
 });
 const eleventh = seeded.window.RunnrSync.importOrders(
   [fill("t212:fill:9999", "2026-04-01T10:00:00.000Z")],
   [],
   { source: "t212" }
 );
-check("importOrders adds zero when already at 5", eleventh.added === 0);
+check("importOrders adds zero when already at 10", eleventh.added === 0);
 check("importOrders reports limited at cap", eleventh.limited === true);
-check("existing T212 rows stay", seeded.window.S.trades.filter((t) => t.source === "t212" && !t.mergedAway).length === 5);
+check("existing T212 rows stay", seeded.window.S.trades.filter((t) => t.source === "t212" && !t.mergedAway).length === 10);
 
 const demoCtx = loadSync({
   free: true,
   trades: demo,
 });
-const fiveFills = Array.from({ length: 5 }, (_, i) =>
+const tenFills = Array.from({ length: 10 }, (_, i) =>
   fill("t212:fill:" + (100 + i), "2026-03-01T00:00:0" + i + ".000Z")
 );
-const firstFive = demoCtx.window.RunnrSync.importOrders(fiveFills, [], { source: "t212" });
-check("demo journal can import 5 fills", firstFive.added === 5);
-check("first 5 fills not limited", firstFive.limited !== true);
+const firstTen = demoCtx.window.RunnrSync.importOrders(tenFills, [], { source: "t212" });
+check("demo journal can import 10 fills", firstTen.added === 10);
+check("first 10 fills not limited", firstTen.limited !== true);
 const extra = demoCtx.window.RunnrSync.importOrders(
   [fill("t212:fill:overflow", "2026-05-01T00:00:00.000Z")],
   [],
   { source: "t212" }
 );
-check("6th fill after demo+5 is blocked", extra.added === 0 && extra.limited === true);
+check("11th fill after demo+10 is blocked", extra.added === 0 && extra.limited === true);
 
 const room = loadSync({
   free: true,
-  trades: csvThree,
+  trades: csvEight,
 });
 const batch = room.window.RunnrSync.importOrders(
   [
@@ -232,13 +232,13 @@ const batch = room.window.RunnrSync.importOrders(
 );
 check("import uses remaining slots only", batch.added === 2 && batch.limited === true);
 check(
-  "journal stays at 5 after partial import",
-  room.window.RunnrSync && TL.countJournalTradesForLimit(room.window.S.trades) === 5
+  "journal stays at 10 after partial import",
+  room.window.RunnrSync && TL.countJournalTradesForLimit(room.window.S.trades) === 10
 );
 
 const unlimited = loadSync({
   pro: true,
-  trades: t212Five,
+  trades: t212Ten,
 });
 const proImport = unlimited.window.RunnrSync.importOrders(
   [fill("t212:fill:pro-extra", "2026-06-01T00:00:00.000Z")],
@@ -247,7 +247,7 @@ const proImport = unlimited.window.RunnrSync.importOrders(
 );
 check("Pro import is not capped", proImport.added === 1 && !proImport.limited);
 
-const failClosed = loadSync({ trades: t212Five });
+const failClosed = loadSync({ trades: t212Ten });
 check("default billing cache is not Pro", failClosed.window.RunnrSync.isPro() === false);
 check("default billing.enabled is on (fail closed)", failClosed.window.RunnrSync.billing().enabled === true);
 check("default billing.pro is false", failClosed.window.RunnrSync.billing().pro === false);

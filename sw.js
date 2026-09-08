@@ -1,4 +1,4 @@
-const CACHE = "runnr-v126";
+const CACHE = "runnr-v127";
 
 self.addEventListener("install", (e) => {
   e.waitUntil(caches.open(CACHE).then(() => self.skipWaiting()));

@@ -27,7 +27,7 @@ check("not-a-broker kicker", html.includes("You do not trade here"));
 check("primary CTA", html.includes('id="ob-hook-start"') && html.includes("Start free"));
 check("sample is secondary", html.includes('id="ob-hook-enter">View sample'));
 check("report secondary", html.includes('href="/report/"') && html.includes("Score one trade"));
-check("pricing copy", html.includes("Start free · 5 journal trades · then €19/month or €190/year"));
+check("pricing copy", html.includes("Start free · 10 journal trades · then €19/month or €190/year"));
 check("sample disclaimer", html.includes("Sample journal is labeled SAMPLE. Those numbers are not yours."));
 check("first-paint class", html.includes("runnr-show-hook"));
 check("guest first-paint class", html.includes("runnr-guest"));

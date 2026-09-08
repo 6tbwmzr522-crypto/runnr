@@ -6,7 +6,7 @@
 (function (global) {
   "use strict";
 
-  const FREE_TRADE_LIMIT = 5;
+  const FREE_TRADE_LIMIT = 10;
   const SCORE_SHARE_MIN_TRADES = 3;
   const IMPORT_SOURCES = new Set(["alpaca", "csv", "ibkr", "t212"]);
 
