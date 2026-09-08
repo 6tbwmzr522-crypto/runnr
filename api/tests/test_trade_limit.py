@@ -1,8 +1,17 @@
+from datetime import datetime, timedelta, timezone
+
 from app.trade_limit import (
-    FREE_TRADE_LIMIT,
     count_journal_trades_for_limit,
     journal_is_unlimited,
-    would_exceed_free_limit,
+    would_grow_journal_without_access,
+)
+from app.trial import (
+    TRIAL_DAYS,
+    default_trial_ends_at_iso,
+    local_trial_is_active,
+    parse_utc,
+    trial_days_left,
+    trial_fields,
 )
 
 
@@ -67,8 +76,20 @@ def test_unlimited_pro_and_billing_off():
     assert journal_is_unlimited({"pro": False, "billing_enabled": True}) is False
 
 
-def test_existing_over_limit_may_stay_but_not_grow():
-    assert would_exceed_free_limit(11, 0) is True
-    assert would_exceed_free_limit(FREE_TRADE_LIMIT, 0) is False
-    assert would_exceed_free_limit(15, 15) is False
-    assert would_exceed_free_limit(16, 15) is True
+def test_paywalled_user_cannot_grow_journal():
+    assert would_grow_journal_without_access(1, 0) is True
+    assert would_grow_journal_without_access(0, 0) is False
+    assert would_grow_journal_without_access(15, 15) is False
+    assert would_grow_journal_without_access(16, 15) is True
+
+
+def test_trial_clock_from_now():
+    now = datetime(2026, 9, 8, 12, 0, tzinfo=timezone.utc)
+    ends = parse_utc(default_trial_ends_at_iso(now))
+    assert ends == now + timedelta(days=TRIAL_DAYS)
+    assert local_trial_is_active(default_trial_ends_at_iso(now), now=now) is True
+    assert local_trial_is_active("2000-01-01T00:00:00Z", now=now) is False
+    assert trial_days_left(default_trial_ends_at_iso(now), now=now) == TRIAL_DAYS
+    fields = trial_fields("2000-01-01T00:00:00Z", now=now)
+    assert fields["trial_active"] is False
+    assert fields["trial_days_left"] == 0

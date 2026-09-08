@@ -5,7 +5,7 @@
 <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
 <script>
 (function () {
-  var V = "125";
+  var V = "128";
   try {
     if (localStorage.getItem("runnr_app_v") !== V) {
       localStorage.setItem("runnr_app_v", V);
@@ -44,7 +44,7 @@
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <title>Runnr — trading discipline, not a broker</title>
-<meta name="description" content="A trading-discipline app: position sizing with a stop, a journal that flags broken rules, and a coach on the one trade that hurt. Not a broker — you do not trade here. Free for 10 journal trades, then €19/month or €190/year.">
+<meta name="description" content="A trading-discipline app: position sizing with a stop, a journal that flags broken rules, and a coach on the one trade that hurt. Not a broker — you do not trade here. 7-day free trial, then €19/month or €190/year.">
 <link rel="manifest" href="manifest.webmanifest">
 <meta name="theme-color" content="#080c12">
 <meta name="apple-mobile-web-app-title" content="Runnr">
@@ -893,15 +893,18 @@ html.runnr-quiet .home-markets-card,
 html.runnr-quiet .home-brokers-card,
 html.runnr-quiet #home-coach-banner,
 html.runnr-quiet #incomplete-banner,
-html.runnr-quiet .home-share-btn,
 html.runnr-quiet .home-analyse-btn,
 html.runnr-quiet .header-desk-btn,
 html.runnr-quiet .nav-advanced,
 html.runnr-quiet .port-wave-card,
 html.runnr-quiet .coach-institutional-block,
-html.runnr-quiet .coach-share-card,
-html.runnr-quiet #page-home .card.highlight-card,
 html.runnr-quiet #page-home .stat-grid{display:none !important}
+.highlight-card.disc-locked .disc-ring{opacity:0.4}
+.disc-unlock-note{font-size:12px;color:var(--text2);line-height:1.45;margin:10px 0 0}
+.free-trade-counter{font-size:11px;color:var(--text3);line-height:1.4;margin:6px 0 0}
+.home-job-link-terminal[hidden]{display:none}
+#share-locked{padding:18px 8px 8px;text-align:center}
+#share-locked p{font-size:14px;color:var(--text2);line-height:1.5;margin:0 0 14px}
 html.runnr-quiet .nav-btn-more{display:flex}
 .nav-btn-more{display:none}
 html:not(.runnr-guest) #incomplete-banner{display:none !important}
@@ -1074,6 +1077,8 @@ html:not(.runnr-guest) #home-coach-banner{display:none !important}
     height:100%;
     padding:16px 18px;
   }
+  #page-home .home-frame > .home-landing-card{display:none}
+  html.runnr-guest #page-home .home-frame > .home-landing-card{display:flex}
   #page-home .card.highlight-card .btn{margin-top:auto}
   #page-home .stat-grid{
     grid-template-columns:repeat(4,minmax(0,1fr));
@@ -1319,7 +1324,7 @@ html:not(.runnr-guest) #home-coach-banner{display:none !important}
         <div class="ob-kicker">You do not trade here</div>
         <h2 class="home-landing-title">Trading discipline, not a broker</h2>
         <p>Sizer, journal, score, streak, and session wave. Not a P&amp;L tracker.</p>
-        <p class="ob-hook-price">Start free · 10 journal trades · then €19/month or €190/year</p>
+        <p class="ob-hook-price">Start free · 7-day trial · then €19/month or €190/year</p>
         <div class="ob-hook-actions">
           <a class="btn" id="home-start-free" href="/login.html">Start free</a>
           <a class="ob-hook-secondary" href="/report/">Score one trade</a>
@@ -1328,13 +1333,13 @@ html:not(.runnr-guest) #home-coach-banner{display:none !important}
 
       <div class="home-job-hero" id="home-job-hero" hidden>
         <div class="home-job-kicker">Next</div>
-        <h2 class="home-job-title" id="home-job-title">Size the next trade</h2>
-        <p class="home-job-sub" id="home-job-sub">Pick a stop. The size follows.</p>
-        <button type="button" class="btn home-job-cta" id="home-job-cta">Size the next trade</button>
+        <h2 class="home-job-title" id="home-job-title">Log your last trade</h2>
+        <p class="home-job-sub" id="home-job-sub">Size it with a stop, then save it to your journal.</p>
+        <button type="button" class="btn home-job-cta" id="home-job-cta">Log your last trade</button>
         <div class="home-job-links">
           <button type="button" class="home-job-link" onclick="switchPage('journal')">Journal</button>
           <button type="button" class="home-job-link" onclick="switchPage('coach')">Coach</button>
-          <button type="button" class="home-job-link" onclick="RunnrDesk.open()">Terminal</button>
+          <button type="button" class="home-job-link home-job-link-terminal" id="home-job-terminal" onclick="RunnrDesk.open()">Terminal</button>
         </div>
       </div>
 
@@ -1344,22 +1349,23 @@ html:not(.runnr-guest) #home-coach-banner{display:none !important}
       </div>
 
       <!-- Discipline score -->
-      <div class="card highlight-card">
+      <div class="card highlight-card disc-locked" id="home-discipline-card">
         <div class="section-hdr" style="margin-bottom:12px">
           <h3 data-i18n="home.disciplineScore">Discipline Score</h3>
-          <button class="see-all home-share-btn" onclick="RunnrGrowth.openShareModal(S)" data-i18n="home.share">Share ↗</button>
+          <button class="see-all home-share-btn" id="home-share-btn" onclick="RunnrGrowth.openShareModal(S)" data-i18n="home.share">Share ↗</button>
         </div>
         <div class="discipline-card">
           <div class="disc-ring" id="disc-score-ring">
             <div class="disc-ring-inner" id="disc-score-val">—</div>
           </div>
           <div class="disc-meta">
-            <div class="disc-tier"><span data-i18n="home.tier">Tier</span> · <strong id="disc-tier-label">Novice</strong></div>
+            <div class="disc-tier"><span data-i18n="home.tier">Tier</span> · <strong id="disc-tier-label">Locked</strong></div>
             <div class="disc-meta-row"><span data-i18n="home.stop">Stop</span><strong id="disc-stop-val">—</strong></div>
             <div class="disc-meta-row"><span data-i18n="home.size">Size</span><strong id="disc-size-val">—</strong></div>
             <div class="disc-meta-row"><span data-i18n="home.logStreak">Log streak</span><strong id="disc-streak-val">0</strong></div>
           </div>
         </div>
+        <p class="disc-unlock-note" id="disc-unlock-note">Log 3 trades to unlock your score &amp; share card</p>
         <button class="btn btn-sm btn-ghost home-analyse-btn" style="width:100%" onclick="RunnrGrowth.open(S)" data-i18n="home.analyseTrade">↻ Analyse another trade</button>
       </div>
 
@@ -1663,6 +1669,7 @@ html:not(.runnr-guest) #home-coach-banner{display:none !important}
           <div class="opt-gate-body" id="cfd-challenge-gate-msg">This fill would fail the eval.</div>
         </div>
         <button class="btn" id="cfd-log-btn" onclick="saveLogFromSizer('cfd')">Log This Trade</button>
+        <p class="free-trade-counter" data-free-trade-counter hidden></p>
         <button type="button" class="btn btn-ghost" style="margin-top:8px;font-size:12px;width:100%" onclick="fillLogFromSizer('cfd')">Review or edit before saving</button>
       </div>
 
@@ -1730,6 +1737,7 @@ html:not(.runnr-guest) #home-coach-banner{display:none !important}
           <div class="opt-gate-body" id="sh-challenge-gate-msg">This fill would fail the eval.</div>
         </div>
         <button class="btn" id="sh-log-btn" onclick="saveLogFromSizer('shares')">Log This Trade</button>
+        <p class="free-trade-counter" data-free-trade-counter hidden></p>
         <button type="button" class="btn btn-ghost" style="margin-top:8px;font-size:12px;width:100%" onclick="fillLogFromSizer('shares')">Review or edit before saving</button>
       </div>
 
@@ -1859,6 +1867,7 @@ html:not(.runnr-guest) #home-coach-banner{display:none !important}
         </div><!-- /opt-coach-calc -->
 
         <button class="btn" id="opt-log-btn" onclick="saveLogFromSizer('options')">Log This Trade</button>
+        <p class="free-trade-counter" data-free-trade-counter hidden></p>
         <button type="button" class="btn btn-ghost" id="opt-log-edit-btn" style="margin-top:8px;font-size:12px;width:100%" onclick="fillLogFromSizer('options')">Review or edit before saving</button>
       </div>
     </div>
@@ -1867,7 +1876,8 @@ html:not(.runnr-guest) #home-coach-banner{display:none !important}
     <div class="page" id="page-journal">
       <div class="section-hdr" style="margin-bottom:12px">
         <h3 style="font-size:15px">Trade Journal</h3>
-        <div style="display:flex;gap:8px;align-items:center">
+        <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;justify-content:flex-end">
+          <p class="free-trade-counter" data-free-trade-counter hidden style="margin:0"></p>
           <button class="btn btn-sm btn-ghost" id="journal-t212-btn" type="button" onclick="importT212Fills()" style="display:none">Import T212</button>
           <button class="btn btn-sm" onclick="saveLogFromSizer('cfd')" style="background:var(--accent);color:#070d0b;font-family:var(--font-head);font-size:12px;font-weight:700;border:none;cursor:pointer;padding:7px 14px;border-radius:20px">+ Log Trade</button>
         </div>
@@ -1969,10 +1979,16 @@ html:not(.runnr-guest) #home-coach-banner{display:none !important}
 
       <div class="card coach-share-card" style="margin-top:12px">
         <div class="card-title">Share your process</div>
+        <div id="coach-share-ready">
         <div style="font-size:12px;color:var(--text2);margin-bottom:12px">Weekly discipline report with a loud runnr.fyi footer — built for TikTok / Reels. Process, not a performance claim.</div>
         <div style="display:flex;gap:8px;flex-wrap:wrap">
           <button class="btn btn-sm" onclick="RunnrGrowth.openShareModal(S)">Create share card</button>
           <button class="btn btn-sm btn-ghost" onclick="RunnrGrowth.previewWeeklyDigest(S)">Preview weekly digest</button>
+        </div>
+        </div>
+        <div id="coach-share-locked" hidden>
+          <p data-share-lock-copy style="font-size:13px;color:var(--text2);line-height:1.5;margin:0 0 12px">Log 3 trades to unlock your score &amp; share card</p>
+          <button type="button" class="btn btn-sm" onclick="openLogModal('cfd')">Log a trade</button>
         </div>
       </div>
 
@@ -2262,6 +2278,7 @@ html:not(.runnr-guest) #home-coach-banner{display:none !important}
       </div>
 
       <button class="btn" id="cry-log-btn" onclick="saveLogFromSizer('crypto')">Log This Trade</button>
+      <p class="free-trade-counter" data-free-trade-counter hidden></p>
       <button type="button" class="btn btn-ghost" style="margin-top:8px;font-size:12px;width:100%" onclick="fillLogFromSizer('crypto')">Review or edit before saving</button>
     </div>
 
@@ -2587,7 +2604,7 @@ html:not(.runnr-guest) #home-coach-banner{display:none !important}
         <div class="ob-hook-pill"><dt>Coach</dt><dd>Report on the one trade that hurt</dd></div>
         <div class="ob-hook-pill"><dt>Terminal</dt><dd>Session clocks, heatmap, chart — look without paying</dd></div>
       </dl>
-      <p class="ob-hook-price">Start free · 10 journal trades · then €19/month or €190/year</p>
+      <p class="ob-hook-price">Start free · 7-day trial · then €19/month or €190/year</p>
       <p class="ob-hook-sample">Sample journal is labeled SAMPLE. Those numbers are not yours.</p>
       <div class="ob-hook-actions">
         <a class="btn" id="ob-hook-start" href="/login.html">Start free</a>
@@ -2799,8 +2816,12 @@ html:not(.runnr-guest) #home-coach-banner{display:none !important}
       <button type="button" class="share-variant" data-share-variant="score" onclick="RunnrGrowth.setShareVariant('score', S)">Score</button>
     </div>
     <canvas id="share-canvas" width="360" height="700"></canvas>
+    <div id="share-locked" hidden>
+      <p data-share-lock-copy>Log 3 trades to unlock your score &amp; share card</p>
+      <button type="button" class="btn" onclick="closeModal('modal-share'); openLogModal('cfd')">Log a trade</button>
+    </div>
     <div class="field" style="margin-top:12px"><label>Handle on card</label><input id="share-handle" placeholder="yourname" oninput="RunnrGrowth.redrawShareFromHandle(S)"></div>
-    <button class="btn" style="margin-top:8px" onclick="RunnrGrowth.shareDisciplineCard(S)">Download / Share PNG</button>
+    <button class="btn" id="share-download-btn" style="margin-top:8px" onclick="RunnrGrowth.shareDisciplineCard(S)">Download / Share PNG</button>
     <div id="share-card-note" style="font-size:11px;color:var(--text3);text-align:center;margin-top:8px">Loud runnr.fyi footer — built for TikTok / Reels. Process P&amp;L (followed vs leaks).</div>
   </div>
 </div>
@@ -2916,12 +2937,12 @@ html:not(.runnr-guest) #home-coach-banner{display:none !important}
     <div class="modal-title">Runnr <button class="modal-close" onclick="closeModal('modal-upgrade')">✕</button></div>
     <div id="upgrade-free-panel">
       <div id="upgrade-feature-hint" style="font-size:12px;color:var(--accent);margin-bottom:10px;display:none"></div>
-      <div style="font-size:13px;color:var(--text2);line-height:1.5;margin-bottom:8px">Full journal, Coach, alerts, broker sync &amp; CSV.</div>
+      <div style="font-size:13px;color:var(--text2);line-height:1.5;margin-bottom:8px">7-day free trial of all of Runnr, then full journal, Coach, alerts, broker sync &amp; CSV.</div>
       <div class="upgrade-price">€19 <span>/ month</span></div>
       <div style="font-size:12px;color:var(--text3);margin-bottom:16px">Or €190 / year — two months free.</div>
       <button type="button" class="btn" style="width:100%;margin-bottom:10px;background:linear-gradient(135deg,var(--accent2),var(--accent))" onclick="startStripeCheckout('month')">Start Runnr — €19/month</button>
       <button type="button" class="btn btn-ghost" style="width:100%;margin-bottom:14px" onclick="startStripeCheckout('year')">Yearly · €190</button>
-      <div style="font-size:11px;color:var(--text3);text-align:center;line-height:1.45">Cancel anytime · <a href="/refund/" style="color:var(--gold)">Refund Policy</a> · <a href="/terms/" style="color:var(--gold)">Terms</a> · Card via Stripe</div>
+      <div style="font-size:11px;color:var(--text3);text-align:center;line-height:1.45">7-day trial · cancel anytime · <a href="/refund/" style="color:var(--gold)">Refund Policy</a> · <a href="/terms/" style="color:var(--gold)">Terms</a> · Card via Stripe</div>
     </div>
     <div id="upgrade-pro-panel" style="display:none">
       <div style="font-size:15px;color:var(--accent);font-weight:600;margin-bottom:8px">You’re on Runnr</div>
@@ -2932,18 +2953,18 @@ html:not(.runnr-guest) #home-coach-banner{display:none !important}
   </div>
 </div>
 
-<script src="js/i18n.js?v=15"></script>
+<script src="js/i18n.js?v=17"></script>
 <script src="js/baron.js?v=31"></script>
 <script src="js/discipline-replay.js?v=6"></script>
 <script src="js/coach.js?v=27"></script>
 <script src="js/options-coach.js?v=1"></script>
 <script src="js/fvg-retrace.js?v=1"></script>
-<script src="js/onboarding.js?v=31"></script>
+<script src="js/onboarding.js?v=33"></script>
 <script src="js/intro.js?v=1"></script>
 <script src="js/csv-presets.js?v=4"></script>
-<script src="js/trade-limit.js?v=2"></script>
-<script src="js/desk-quiet.js?v=1"></script>
-<script src="js/sync.js?v=69"></script>
+<script src="js/trade-limit.js?v=4"></script>
+<script src="js/desk-quiet.js?v=2"></script>
+<script src="js/sync.js?v=70"></script>
 <script src="js/desk-sessions.js?v=2"></script>
 <script src="js/desk.js?v=12"></script>
 <script src="js/wave.js?v=1"></script>
@@ -2953,7 +2974,6 @@ html:not(.runnr-guest) #home-coach-banner{display:none !important}
 // ── STATE ──────────────────────────────────────────────────────────────────
 const WHOP_URL = 'https://whop.com/runnr'; // legacy; upgrades now go through Stripe
 const INST_MIN_TRADES = 30;
-const FREE_TRADE_LIMIT = window.RunnrTradeLimit.FREE_TRADE_LIMIT;
 
 function isImportedJournalTrade(t) {
   return window.RunnrTradeLimit.isImportedJournalTrade(t);
@@ -2974,12 +2994,15 @@ function journalTradeSlotsRemaining() {
   return window.RunnrTradeLimit.journalTradeSlotsRemaining(S.trades);
 }
 function openJournalLimitUpgrade() {
-  openUpgrade(`Free plan · ${FREE_TRADE_LIMIT} trades (includes imports)`);
+  const TL = window.RunnrTradeLimit;
+  const loggedIn = typeof RunnrSync !== "undefined" && RunnrSync.isLoggedIn && RunnrSync.isLoggedIn();
+  if (!loggedIn) openUpgrade("Start your 7-day free trial");
+  else if (TL && typeof TL.trialActive === "function" && TL.trialActive()) openUpgrade("Runnr");
+  else openUpgrade("Your 7-day trial has ended");
 }
 function maybeOpenJournalLimit(limited) {
   if (limited) openJournalLimitUpgrade();
 }
-window.FREE_TRADE_LIMIT = FREE_TRADE_LIMIT;
 window.countJournalTradesForLimit = countJournalTradesForLimit;
 window.canAddJournalTrade = canAddJournalTrade;
 window.journalTradeSlotsRemaining = journalTradeSlotsRemaining;
@@ -3376,12 +3399,17 @@ function renderHomeJob() {
   }
   const job = window.RunnrDeskQuiet
     ? RunnrDeskQuiet.primaryJob(S.trades, S, typeof Baron !== 'undefined' ? Baron : null)
-    : { id: 'size', title: 'Size the next trade', sub: 'Pick a stop. The size follows.', cta: 'Size the next trade' };
+    : { id: 'log', title: 'Log your last trade', sub: 'Size it with a stop, then save it to your journal.', cta: 'Log your last trade' };
   hero.hidden = false;
   hero.dataset.job = job.id;
   const title = document.getElementById('home-job-title');
   const sub = document.getElementById('home-job-sub');
   const cta = document.getElementById('home-job-cta');
+  const terminalLink = document.getElementById('home-job-terminal');
+  const countable = window.RunnrTradeLimit
+    ? RunnrTradeLimit.countJournalTradesForLimit(S.trades)
+    : 0;
+  if (terminalLink) terminalLink.hidden = countable < 1;
   if (title) title.textContent = job.title;
   if (sub) sub.textContent = job.sub;
   if (cta) {
@@ -3389,11 +3417,17 @@ function renderHomeJob() {
     cta.dataset.job = job.id;
     cta.onclick = function () { runHomeJob(job); };
   }
+  try { renderFreeTradeCounters(); } catch (e) {}
 }
 window.renderHomeJob = renderHomeJob;
 
 function runHomeJob(job) {
   if (!job) return;
+  if (job.id === 'log') {
+    switchPage('journal');
+    if (typeof openLogModal === 'function') openLogModal('cfd');
+    return;
+  }
   if (job.id === 'review') {
     reviewNextIncompleteFill();
     return;
@@ -3494,19 +3528,28 @@ async function refreshBillingUI() {
     await window.RunnrSync?.refreshBilling?.();
   } catch (e) {}
   const b = window.RunnrSync?.billing?.() || { pro: false, plan: 'free', status: 'free', enabled: false };
-  const isPro = !!window.RunnrSync?.isLoggedIn?.() && (typeof RunnrSync.isPro === 'function' ? !!RunnrSync.isPro() : !!b.pro);
-  updateProBadge(isPro);
+  const loggedIn = !!window.RunnrSync?.isLoggedIn?.();
+  const isPro = loggedIn && (typeof RunnrSync.isPro === 'function' ? !!RunnrSync.isPro() : !!b.pro);
+  const paidPro = loggedIn && window.RunnrTradeLimit && typeof RunnrTradeLimit.isPaidPro === 'function'
+    ? !!RunnrTradeLimit.isPaidPro()
+    : (b.status === 'active' || b.plan === 'boss' || !!b.house);
+  const stripeSub = b.status === 'trialing' || paidPro;
+  updateProBadge(isPro && stripeSub);
   try { renderHeaderSyncPill(); } catch (e) {}
 
   if (line) {
     if (!b.enabled) line.textContent = 'Billing not configured on server yet';
-    else if (isPro) line.textContent = 'Plan: Runnr · ' + (b.plan || 'pro') + ' · ' + (b.status || 'active');
-    else line.textContent = `Plan: Free · ${countJournalTradesForLimit()}/${FREE_TRADE_LIMIT} trades logged`;
+    else if (stripeSub) line.textContent = 'Plan: Runnr · ' + (b.plan || 'pro') + ' · ' + (b.status || 'active');
+    else if (b.trialActive) {
+      const days = Number(b.trialDaysLeft) || 0;
+      line.textContent = days === 1 ? 'Plan: Trial · 1 day left' : `Plan: Trial · ${days} days left`;
+    } else if (loggedIn) line.textContent = 'Plan: Trial ended — subscribe to keep Runnr';
+    else line.textContent = 'Plan: Start free · 7-day trial';
   }
-  if (freeBox) freeBox.style.display = (!isPro && b.enabled !== false) ? 'block' : 'none';
-  if (proBox) proBox.style.display = isPro ? 'block' : 'none';
-  if (upFree) upFree.style.display = isPro ? 'none' : 'block';
-  if (upPro) upPro.style.display = isPro ? 'block' : 'none';
+  if (freeBox) freeBox.style.display = (b.enabled !== false && !stripeSub) ? 'block' : 'none';
+  if (proBox) proBox.style.display = stripeSub ? 'block' : 'none';
+  if (upFree) upFree.style.display = stripeSub ? 'none' : 'block';
+  if (upPro) upPro.style.display = stripeSub ? 'block' : 'none';
   if (upProLine) {
     upProLine.textContent = isPro
       ? ('Plan: ' + (b.plan || 'pro') + ' · ' + (b.status || 'active'))
@@ -3522,6 +3565,7 @@ async function refreshBillingUI() {
       drawEquityCurve();
     }
   } catch (e) {}
+  try { maybeOpenExpiredTrialPaywall(); } catch (e) {}
 }
 async function startStripeCheckout(interval) {
   if (!RunnrSync.isLoggedIn()) {
@@ -3568,6 +3612,18 @@ function hasProAccess() {
     }
   } catch (e) {}
   return false;
+}
+let trialPaywallShown = false;
+function maybeOpenExpiredTrialPaywall() {
+  if (trialPaywallShown) return;
+  try {
+    if (!RunnrSync.isLoggedIn?.()) return;
+    const b = RunnrSync.billing?.() || {};
+    if (b.enabled === false) return;
+    if (RunnrSync.isPro?.()) return;
+    trialPaywallShown = true;
+    openUpgrade("Your 7-day trial has ended");
+  } catch (e) {}
 }
 async function requireVerifiedEmail() {
   try { await RunnrSync.refreshBilling?.(); } catch (e) {}
@@ -3822,6 +3878,7 @@ function updateHomeStats() {
   }
   applyQuietDesk();
   renderHomeJob();
+  try { renderFreeTradeCounters(); } catch (e) {}
   updateDemoBanner();
   try { renderChallengePanel(); } catch (e) {}
 }
@@ -4860,6 +4917,21 @@ function bindJournalClicks() {
   });
 }
 
+function renderFreeTradeCounters() {
+  const TL = window.RunnrTradeLimit;
+  const copy = TL && typeof TL.freeSlotsLabel === 'function' ? TL.freeSlotsLabel() : '';
+  document.querySelectorAll('[data-free-trade-counter]').forEach((el) => {
+    if (!copy) {
+      el.hidden = true;
+      el.textContent = '';
+      return;
+    }
+    el.hidden = false;
+    el.textContent = copy;
+  });
+}
+window.renderFreeTradeCounters = renderFreeTradeCounters;
+
 function renderJournal() {
   bindJournalClicks();
   renderJournalChallengeChrome();
@@ -4892,21 +4964,25 @@ function renderJournal() {
           <button type="button" class="btn btn-ghost" onclick="applyDisciplineDefaultsToAll(event)">Mark all as compliant (Stop ✓ Size ✓)</button>
         </div>
       </div>`;
-    } else if (!RunnrSync.isPro?.() && RunnrSync.billing?.()?.enabled !== false) {
+    } else if (RunnrSync.billing?.()?.enabled !== false) {
       hint.classList.remove('journal-hint-calm');
-      const used = countJournalTradesForLimit();
-      const rem = Math.max(0, FREE_TRADE_LIMIT - used);
-      hint.style.display = 'block';
-      if (rem === 0) {
-        hint.innerHTML = `<span><strong>Free limit reached</strong> (${FREE_TRADE_LIMIT} trades logged, including imports). Upgrade for unlimited journal, Coach, sync &amp; CSV — <button type="button" class="btn btn-sm" style="margin-left:8px" onclick="openUpgrade('Unlimited journal')">€19/mo</button></span>`;
+      const TL = window.RunnrTradeLimit;
+      const copy = TL && typeof TL.freeSlotsLabel === 'function' ? TL.freeSlotsLabel() : '';
+      if (copy && !RunnrSync.isPro?.()) {
+        hint.style.display = 'block';
+        hint.innerHTML = `<span><strong>${copy}</strong> · <button type="button" class="btn btn-sm" style="margin-left:8px" onclick="openJournalLimitUpgrade()">Start Runnr — €19/mo</button></span>`;
+      } else if (copy && TL && typeof TL.trialActive === 'function' && TL.trialActive()) {
+        hint.style.display = 'block';
+        hint.innerHTML = `<span><strong>${copy}</strong> · then €19/month</span>`;
       } else {
-        hint.innerHTML = `<span>Free plan: <strong>${used}/${FREE_TRADE_LIMIT}</strong> trades logged (manual + imports) · ${rem} remaining before upgrade</span>`;
+        hint.style.display = 'none';
       }
     } else {
       hint.classList.remove('journal-hint-calm');
       hint.style.display = 'none';
     }
   }
+  try { renderFreeTradeCounters(); } catch (e) {}
   renderT212JournalButton();
   if (!S.trades.length) {
     list.innerHTML = '<div class="empty-state"><div class="es-icon">📋</div>No trades yet. Import T212 / Alpaca on Sync or log a trade.</div>';
@@ -9385,6 +9461,7 @@ try { bootRunnrSync(); } catch (e) { console.warn('bootRunnrSync failed', e); }
 const coachAnswers = {}; // legacy — CoachEngine used instead
 
 function renderCoachPage() {
+  try { if (window.RunnrGrowth) RunnrGrowth.renderDisciplineCard(S); } catch (e) {}
   const label = document.getElementById('coach-week-label');
   if (label) label.textContent = 'Week of ' + new Date().toLocaleDateString('en-GB', { month: 'short', day: 'numeric', year: 'numeric' });
   const unlocked = hasProAccess();

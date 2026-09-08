@@ -25,7 +25,7 @@ const v = html.match(/var V = "(\d+)"/)[1];
 const cache = sw.match(/CACHE = "runnr-v(\d+)"/)[1];
 check("index.html V matches sw.js CACHE", v === cache);
 check("cache is 120+", Number(v) >= 120);
-check("desk-quiet.js is loaded", html.includes("js/desk-quiet.js?v=1"));
+check("desk-quiet.js is loaded", html.includes("js/desk-quiet.js?v=2"));
 check("discipline-replay cache-bust", html.includes("js/discipline-replay.js?v=6"));
 
 check("home job hero exists", html.includes('id="home-job-hero"') && html.includes('id="home-job-cta"'));
@@ -44,13 +44,17 @@ check("Replay primary CSS is a full-width mint button", html.includes(".te-repla
 check("offerDisciplineReplay is wired after saveLog", html.includes("function offerDisciplineReplay")
   && /function saveLog[\s\S]*offerDisciplineReplay/.test(html));
 
-check("quiet mode hides shelf / wave / institutional / share / terminal chrome",
+check("quiet mode hides shelf / wave / institutional / terminal chrome",
   html.includes("html.runnr-quiet .nav-advanced")
   && html.includes("html.runnr-quiet .port-wave-card")
   && html.includes("html.runnr-quiet .coach-institutional-block")
-  && html.includes("html.runnr-quiet .coach-share-card")
   && html.includes("html.runnr-quiet .header-desk-btn")
   && html.includes("html.runnr-quiet .home-watch-shelf"));
+check("quiet mode keeps score card visible for the log unlock",
+  !html.includes("html.runnr-quiet .coach-share-card")
+  && !html.includes("html.runnr-quiet #page-home .card.highlight-card")
+  && html.includes('id="home-discipline-card"')
+  && html.includes('id="disc-unlock-note"'));
 check("More nav exists and is hidden until quiet", html.includes('data-nav="more"')
   && html.includes("onclick=\"expandDeskMore()\"")
   && html.includes(".nav-btn-more{display:none}")
@@ -144,7 +148,8 @@ check("replayable miss is the Home job when inbox is clear", replayJob.id === "r
   && replayJob.tradeId === 20);
 
 const sizeJob = Q.primaryJob([], { bal: 10000, risk: 1 }, Baron);
-check("empty desk defaults to size the next trade", sizeJob.id === "size" && sizeJob.cta === "Size the next trade");
+check("empty desk defaults to log the last trade", sizeJob.id === "log" && sizeJob.cta === "Log your last trade");
+check("demo-only desk job is log not replay", Q.primaryJob(demo, { bal: 10000, risk: 1 }, Baron).id === "log");
 
 const clean = {
   id: 30, instr: "RACE", dir: "long", entry: 354, exit: 380, size: 28, pnl: 728,
@@ -170,7 +175,9 @@ check("missing snapshot still offers Replay as the job", Q.primaryJob([orphan], 
 
 check("primaryJob prefers review over replay", Q.primaryJob(pending.concat([miss]), { bal: 10000, risk: 1 }, Baron).id === "review");
 
-check("renderHomeJob and runHomeJob exist", html.includes("function renderHomeJob") && html.includes("function runHomeJob"));
+check("home job logs first", html.includes("function runHomeJob") && /job\.id === 'log'/.test(html)
+  && html.includes('id="home-job-terminal"'));
+check("Terminal link is de-emphasized until a countable trade", html.includes("terminalLink.hidden = countable < 1"));
 check("size job focuses the sizer", html.includes("function focusSizerForNextTrade") && /switchPage\('sizer'\)/.test(html));
 check("no freemium/billing rewrite in quiet helper", !/FREE_TRADE_LIMIT|stripe|checkout/i.test(quietSrc));
 

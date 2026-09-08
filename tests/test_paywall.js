@@ -50,6 +50,7 @@ check("subscription_is_pro uses PRO_STATUSES", billingUtil.includes("return st i
 check("demo exclusion is explicit flag", /t\.isDemo === true/.test(limitSrc) && /seed === true/.test(limitSrc));
 check("python demo exclusion is explicit flag", tradeLimitPy.includes('trade.get("isDemo") is True'));
 check("python no longer uses DEMO_TRADE_IDS", !/DEMO_TRADE_IDS/.test(tradeLimitPy));
+check("python dropped the 10-trade cap", !/FREE_TRADE_LIMIT/.test(tradeLimitPy));
 check("shipped seeds are flagged isDemo", /id:\s*1,\s*isDemo:\s*true/.test(html) && /id:\s*4,\s*isDemo:\s*true/.test(html));
 
 console.log("ok", n);

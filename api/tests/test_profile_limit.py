@@ -1,4 +1,4 @@
-"""Profile PUT enforces the free-plan journal cap when Stripe billing is on."""
+"""Profile PUT: trial/Pro unlimited; expired trial cannot grow the journal."""
 
 from fastapi.testclient import TestClient
 
@@ -6,7 +6,10 @@ from app.auth import create_access_token, hash_password
 from app.config import settings
 from app.db import get_db, init_db
 from app.main import app
-from app.trade_limit import FREE_LIMIT_DETAIL, FREE_TRADE_LIMIT
+from app.trade_limit import FREE_LIMIT_DETAIL
+
+PAST = "2000-01-01T00:00:00Z"
+FUTURE = "2099-12-31T00:00:00Z"
 
 
 def _enable_billing(monkeypatch):
@@ -14,7 +17,7 @@ def _enable_billing(monkeypatch):
     monkeypatch.setattr(settings, "stripe_price_monthly", "price_monthly_test")
 
 
-def _token(email: str, *, pro_plan: bool = False) -> str:
+def _token(email: str, *, pro_plan: bool = False, trial_ends_at: str | None = PAST) -> str:
     init_db()
     email = email.strip().lower()
     with get_db() as conn:
@@ -23,20 +26,24 @@ def _token(email: str, *, pro_plan: bool = False) -> str:
             uid = row["id"]
         else:
             cur = conn.execute(
-                "INSERT INTO users (email, password_hash, email_verified, plan, subscription_status) VALUES (?, ?, 1, ?, ?)",
+                """
+                INSERT INTO users (email, password_hash, email_verified, plan, subscription_status, trial_ends_at)
+                VALUES (?, ?, 1, ?, ?, ?)
+                """,
                 (
                     email,
                     hash_password("test-pass-12"),
                     "monthly" if pro_plan else "free",
                     "active" if pro_plan else "free",
+                    None if pro_plan else trial_ends_at,
                 ),
             )
             uid = cur.lastrowid
     return create_access_token(uid, email)
 
 
-def _auth(email: str, *, pro_plan: bool = False) -> dict:
-    return {"Authorization": f"Bearer {_token(email, pro_plan=pro_plan)}"}
+def _auth(email: str, *, pro_plan: bool = False, trial_ends_at: str | None = PAST) -> dict:
+    return {"Authorization": f"Bearer {_token(email, pro_plan=pro_plan, trial_ends_at=trial_ends_at)}"}
 
 
 def _state(n: int, source: str = "t212") -> dict:
@@ -47,34 +54,32 @@ def _state(n: int, source: str = "t212") -> dict:
     return {"trades": trades, "bal": 10000}
 
 
-def test_free_user_cannot_put_11_imported_trades(monkeypatch):
+def test_expired_trial_cannot_put_new_trades(monkeypatch):
     _enable_billing(monkeypatch)
     with TestClient(app) as client:
-        headers = _auth("free.cap@example.com")
-        ok = client.put("/api/v1/profile/state", json={"state": _state(FREE_TRADE_LIMIT)}, headers=headers)
-        assert ok.status_code == 200, ok.text
-        blocked = client.put("/api/v1/profile/state", json={"state": _state(11)}, headers=headers)
+        headers = _auth("free.cap@example.com", trial_ends_at=PAST)
+        blocked = client.put("/api/v1/profile/state", json={"state": _state(1)}, headers=headers)
         assert blocked.status_code == 403
         assert blocked.json()["detail"] == FREE_LIMIT_DETAIL
         stay = client.get("/api/v1/profile/state", headers=headers)
         assert stay.status_code == 200
-        assert len(stay.json()["state"]["trades"]) == FREE_TRADE_LIMIT
+        assert stay.json()["state"] is None
 
 
-def test_crafted_ids_without_flag_hit_the_cap(monkeypatch):
+def test_crafted_ids_without_flag_blocked_after_trial(monkeypatch):
     _enable_billing(monkeypatch)
     crafted = {
         "trades": [{"id": i, "instr": "X"} for i in range(1, 12)],
         "bal": 10000,
     }
     with TestClient(app) as client:
-        headers = _auth("free.crafted@example.com")
+        headers = _auth("free.crafted@example.com", trial_ends_at=PAST)
         blocked = client.put("/api/v1/profile/state", json={"state": crafted}, headers=headers)
         assert blocked.status_code == 403
         assert blocked.json()["detail"] == FREE_LIMIT_DETAIL
 
 
-def test_free_user_demo_only_can_put_10(monkeypatch):
+def test_trial_user_unlimited(monkeypatch):
     _enable_billing(monkeypatch)
     demo_plus = {
         "trades": [
@@ -85,12 +90,12 @@ def test_free_user_demo_only_can_put_10(monkeypatch):
         ]
         + [
             {"id": 500 + i, "instr": "MSFT", "source": "csv", "externalId": f"csv:{i}"}
-            for i in range(10)
+            for i in range(25)
         ],
         "bal": 10000,
     }
     with TestClient(app) as client:
-        headers = _auth("free.demo@example.com")
+        headers = _auth("trial.demo@example.com", trial_ends_at=FUTURE)
         res = client.put("/api/v1/profile/state", json={"state": demo_plus}, headers=headers)
         assert res.status_code == 200, res.text
 
@@ -98,8 +103,7 @@ def test_free_user_demo_only_can_put_10(monkeypatch):
 def test_legacy_over_limit_snapshot_may_stay(monkeypatch):
     _enable_billing(monkeypatch)
     with TestClient(app) as client:
-        headers = _auth("free.legacy@example.com")
-        # Seed 15 while treating the user as already stored (direct db insert).
+        headers = _auth("free.legacy@example.com", trial_ends_at=PAST)
         from app.db import get_db as gdb
         import json
 
@@ -131,6 +135,31 @@ def test_pro_user_unlimited(monkeypatch):
 
 def test_billing_disabled_unlimited():
     with TestClient(app) as client:
-        headers = _auth("dev.unlimited@example.com")
+        headers = _auth("dev.unlimited@example.com", trial_ends_at=PAST)
         res = client.put("/api/v1/profile/state", json={"state": _state(25)}, headers=headers)
         assert res.status_code == 200, res.text
+
+
+def test_me_exposes_trial_fields(monkeypatch):
+    _enable_billing(monkeypatch)
+    with TestClient(app) as client:
+        live = client.get(
+            "/api/v1/auth/me",
+            headers=_auth("trial.me@example.com", trial_ends_at=FUTURE),
+        )
+        assert live.status_code == 200
+        data = live.json()
+        assert data["pro"] is True
+        assert data["trial_active"] is True
+        assert data["trial_days_left"] >= 1
+        assert data["trial_ends_at"]
+
+        dead = client.get(
+            "/api/v1/auth/me",
+            headers=_auth("expired.me@example.com", trial_ends_at=PAST),
+        )
+        assert dead.status_code == 200
+        ended = dead.json()
+        assert ended["pro"] is False
+        assert ended["trial_active"] is False
+        assert ended["trial_days_left"] == 0

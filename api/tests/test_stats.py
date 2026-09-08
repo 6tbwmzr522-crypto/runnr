@@ -125,6 +125,101 @@ def test_stats_html_is_gated():
     assert "/login.html?next=/stats.html" in html
     assert "runnr_api_token" in html
     assert "Bearer" in html
+    assert "/api/v1/admin/funnel" in html
+    assert "Signed-in funnel" in html
+    assert "never sign in" in html
+
+
+def test_funnel_requires_auth():
+    with TestClient(app) as client:
+        res = client.get("/api/v1/admin/funnel")
+        assert res.status_code == 401
+        res = client.get("/api/v1/stats/funnel")
+        assert res.status_code == 401
+
+
+def test_funnel_forbidden_for_other_signed_in_users():
+    with TestClient(app) as client:
+        res = client.get(
+            "/api/v1/admin/funnel",
+            headers={"Authorization": f"Bearer {token_for('someone@example.com')}"},
+        )
+        assert res.status_code == 403
+
+
+def test_funnel_counts_signed_in_journals():
+    import json
+
+    init_db()
+    with get_db() as conn:
+        cur = conn.execute(
+            """
+            INSERT INTO users (email, password_hash, email_verified, plan, subscription_status, trial_ends_at)
+            VALUES (?, ?, 1, 'free', 'free', ?)
+            """,
+            ("funnel.trader@example.com", hash_password("test-pass-12"), "2099-12-31T00:00:00Z"),
+        )
+        uid = cur.lastrowid
+        conn.execute(
+            """
+            INSERT INTO user_state (user_id, state_json, updated_at)
+            VALUES (?, ?, CURRENT_TIMESTAMP)
+            """,
+            (
+                uid,
+                json.dumps(
+                    {
+                        "trades": [
+                            {"id": 1, "isDemo": True, "instr": "RACE"},
+                            {"id": 10, "instr": "AAPL", "source": "t212"},
+                            {"id": 11, "instr": "MSFT", "source": "csv"},
+                            {"id": 12, "instr": "NVDA"},
+                            {"id": 13, "source": "t212", "mergedAway": True},
+                        ]
+                    }
+                ),
+            ),
+        )
+        conn.execute(
+            """
+            INSERT INTO users (email, password_hash, email_verified, plan, subscription_status, trial_ends_at)
+            VALUES (?, ?, 1, 'free', 'free', ?)
+            """,
+            ("funnel.empty@example.com", hash_password("test-pass-12"), "2000-01-01T00:00:00Z"),
+        )
+        conn.execute(
+            """
+            INSERT INTO users (email, password_hash, email_verified, plan, subscription_status, trial_ends_at)
+            VALUES (?, ?, 1, 'monthly', 'active', ?)
+            """,
+            ("funnel.pro@example.com", hash_password("test-pass-12"), "2000-01-01T00:00:00Z"),
+        )
+
+    with TestClient(app) as client:
+        res = client.get(
+            "/api/v1/admin/funnel",
+            headers={"Authorization": f"Bearer {token_for('janis@thinicedigital.com')}"},
+        )
+        assert res.status_code == 200, res.text
+        data = res.json()
+        assert data["users_total"] >= 3
+        assert data["users_with_state"] >= 1
+        assert data["users_with_trades_ge_1"] >= 1
+        assert data["users_with_trades_ge_3"] >= 1
+        assert data["users_with_trades_ge_10"] >= 0
+        assert data["users_pro"] >= 1
+        assert data["users_in_local_trial"] >= 1
+        assert data["users_trial_expired"] >= 1
+        assert "never sign in" in data["note"]
+        assert "0" in data["trade_count_histogram"]
+        assert res.headers.get("cache-control") == "no-store"
+
+        alias = client.get(
+            "/api/v1/stats/funnel",
+            headers={"Authorization": f"Bearer {token_for('berzins.j@inbox.lv')}"},
+        )
+        assert alias.status_code == 200
+        assert alias.json()["users_total"] == data["users_total"]
 
 
 def test_public_legal_and_login_footers_omit_stats():
@@ -150,6 +245,7 @@ def test_app_hides_stats_link_until_janis():
     stats_py = (ROOT / "api/app/routers/stats.py").read_text(encoding="utf-8")
     assert "from app.billing_util import" not in stats_py
     assert "email_is_boss(" not in stats_py
+    assert "/admin/funnel" in stats_py
     login = (ROOT / "login.html").read_text(encoding="utf-8")
     assert "safeNextPath" in login
     assert 'get("next")' in login

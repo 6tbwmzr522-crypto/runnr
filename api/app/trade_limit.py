@@ -1,8 +1,9 @@
-"""Free-plan journal cap — matches js/trade-limit.js.
+"""Journal countable-trade rules — matches js/trade-limit.js.
 
-Manual journal rows and imported fills (csv / t212 / ibkr / alpaca) share
-FREE_TRADE_LIMIT. Explicit demo seed rows (isDemo/seed) and merged-away pair
-legs do not count. Bare ids 1–4 without that flag do count.
+Used by the conversion funnel and the score/share aha gate. Explicit demo
+seed rows (isDemo/seed) and merged-away pair legs do not count. Bare ids
+1–4 without that flag do count. Entitlement is the 7-day trial / Pro, not
+a free trade-count cap.
 """
 
 from __future__ import annotations
@@ -11,12 +12,10 @@ import json
 from typing import Any
 
 from app.billing_util import user_has_pro_access
+from app.trial import TRIAL_EXPIRED_DETAIL
 
-FREE_TRADE_LIMIT = 10
 IMPORT_SOURCES = frozenset({"alpaca", "csv", "ibkr", "t212"})
-FREE_LIMIT_DETAIL = (
-    "Free plan allows 10 trades (manual and imported). Upgrade for unlimited."
-)
+FREE_LIMIT_DETAIL = TRIAL_EXPIRED_DETAIL
 
 
 def is_demo_journal_trade(trade: Any) -> bool:
@@ -57,11 +56,9 @@ def existing_countable_from_state_json(state_json: str | None) -> int:
     return count_journal_trades_for_limit(state.get("trades"))
 
 
-def would_exceed_free_limit(new_count: int, existing_count: int) -> bool:
-    """True when a free user grows the journal past the cap.
+def would_grow_journal_without_access(new_count: int, existing_count: int) -> bool:
+    """True when a paywalled user tries to add countable journal rows.
 
-    Already-over-limit snapshots may stay (no delete). Growth beyond the
-    stored count is blocked.
+    Already-stored snapshots may stay (no delete). Growth is blocked.
     """
-    allowed = max(FREE_TRADE_LIMIT, existing_count)
-    return new_count > allowed
+    return new_count > existing_count

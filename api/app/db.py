@@ -147,6 +147,7 @@ def init_db() -> None:
         _migrate_site_stats(conn)
         _migrate_meta(conn)
         _migrate_oauth_identities(conn)
+        _migrate_local_trial(conn)
         conn.commit()
     except Exception:
         conn.rollback()
@@ -166,6 +167,7 @@ def _migrate_users_billing(conn: sqlite3.Connection) -> None:
         ("first_name", "TEXT"),
         ("intro_seen", "INTEGER DEFAULT 0"),
         ("avatar_url", "TEXT"),
+        ("trial_ends_at", "TEXT"),
     ]
     for col, ddl in migrations:
         if col not in cols:
@@ -229,6 +231,39 @@ def stats_day_count() -> int:
         return int(row["n"] if row else 0)
     except sqlite3.Error:
         return 0
+
+
+def _migrate_local_trial(conn: sqlite3.Connection) -> None:
+    """Give every current account a fresh 7-day window once, then leave clocks alone.
+
+    New signups set trial_ends_at at INSERT (created_at + 7d). Existing free
+    users must not be locked the day this ships.
+    """
+    from app.trial import LOCAL_TRIAL_BACKFILL_KEY, default_trial_ends_at_iso, format_utc, utc_now
+
+    cols = {row[1] for row in conn.execute("PRAGMA table_info(users)").fetchall()}
+    if "trial_ends_at" not in cols:
+        conn.execute("ALTER TABLE users ADD COLUMN trial_ends_at TEXT")
+
+    row = conn.execute(
+        "SELECT v FROM runnr_meta WHERE k = ?",
+        (LOCAL_TRIAL_BACKFILL_KEY,),
+    ).fetchone()
+    if row:
+        return
+    ends = default_trial_ends_at_iso()
+    conn.execute(
+        """
+        UPDATE users
+        SET trial_ends_at = ?
+        WHERE trial_ends_at IS NULL OR TRIM(trial_ends_at) = ''
+        """,
+        (ends,),
+    )
+    conn.execute(
+        "INSERT INTO runnr_meta (k, v) VALUES (?, ?)",
+        (LOCAL_TRIAL_BACKFILL_KEY, format_utc(utc_now())),
+    )
 
 
 def _migrate_oauth_identities(conn: sqlite3.Connection) -> None:

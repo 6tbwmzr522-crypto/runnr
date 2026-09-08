@@ -14,6 +14,7 @@ from fastapi.responses import JSONResponse
 from app.auth import get_current_user
 from app.config import settings
 from app.db import get_db
+from app.funnel import build_funnel
 
 router = APIRouter(tags=["stats"])
 
@@ -175,3 +176,10 @@ def stats_get(_user: dict = Depends(require_stats_viewer)):
         },
         headers={"Cache-Control": "no-store"},
     )
+
+
+@router.get("/admin/funnel")
+@router.get("/stats/funnel")
+def funnel_get(_user: dict = Depends(require_stats_viewer)):
+    payload = build_funnel()
+    return JSONResponse(content=payload, headers={"Cache-Control": "no-store"})

@@ -211,6 +211,27 @@ button {
   text-decoration: none;
   padding: 14px 16px;
 }
+.gate {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  padding: 22px 18px 18px;
+  margin: 8px 0 18px;
+}
+.gate h2 {
+  font-family: var(--font-head);
+  font-size: 22px;
+  font-weight: 500;
+  color: var(--gold);
+  margin-bottom: 8px;
+}
+.gate p { color: var(--text2); font-size: 14px; line-height: 1.5; margin-bottom: 16px; }
+.gate a.btn-primary {
+  display: block;
+  text-align: center;
+  text-decoration: none;
+}
+#form-card[hidden], #report[hidden] { display: none !important; }
 .fine {
   margin-top: 10px;
   font-size: 11px;
@@ -250,9 +271,16 @@ button {
   <p class="tag">Discipline OS for traders who already know the rules — and break them.</p>
 
   <h1>Your worst trade, scored.</h1>
-  <p class="lead">Enter one trade. We’ll show stop, size, and R:R leaks — and what following your own rules would have cost instead.</p>
+  <p class="lead">Enter one trade. We’ll show stop, size, and R:R leaks — and what following your own rules would have cost instead. Trial or Pro only.</p>
 
-  <div class="card" id="form-card">
+  <div class="gate" id="report-gate">
+    <h2>Start your 7-day trial</h2>
+    <p id="report-gate-copy">Sign in to score a trade. The report is included in the Runnr trial — then €19/month.</p>
+    <a class="btn-primary" id="report-gate-cta" href="/login.html?next=/report/">Start free · sign in</a>
+    <p class="fine">Not a free forever guest tool. Guests who never sign in cannot use /report.</p>
+  </div>
+
+  <div class="card" id="form-card" hidden>
     <h2>Trade details</h2>
     <div class="grid">
       <div class="field">
@@ -305,11 +333,11 @@ button {
     </div>
   </div>
 
-  <div class="report" id="report">
+  <div class="report" id="report" hidden>
     <div class="report-shell" id="report-body"></div>
     <div class="cta-block">
-      <a class="btn-primary" href="../index.html">Track Your Next 10 Trades Free</a>
-      <p class="fine">Free to start · track 10 trades · Runnr €19/month via Stripe</p>
+      <a class="btn-primary" href="/login.html">Open Runnr — 7-day trial</a>
+      <p class="fine">Start free · 7-day trial · then €19/month via Stripe</p>
     </div>
   </div>
 
@@ -510,8 +538,86 @@ button {
     run();
   });
 
-  // Auto-run example so the page lands with the aha visible
-  run();
+  function apiBase() {
+    try {
+      var saved = localStorage.getItem("runnr_api_url");
+      if (saved) return String(saved).replace(/\/$/, "");
+    } catch (e) {}
+    if (location.hostname === "localhost" || location.hostname === "127.0.0.1") {
+      return "http://localhost:8090";
+    }
+    return "https://api.runnr.fyi";
+  }
+
+  function token() {
+    try { return localStorage.getItem("runnr_api_token") || ""; } catch (e) { return ""; }
+  }
+
+  function showGate(kind) {
+    var gate = $("report-gate");
+    var form = $("form-card");
+    var report = $("report");
+    var copy = $("report-gate-copy");
+    var cta = $("report-gate-cta");
+    var title = gate && gate.querySelector("h2");
+    if (form) form.hidden = true;
+    if (report) {
+      report.hidden = true;
+      report.classList.remove("show");
+    }
+    if (gate) gate.hidden = false;
+    if (kind === "expired") {
+      if (title) title.textContent = "Trial ended";
+      if (copy) copy.textContent = "Your 7-day Runnr trial has ended. Subscribe to keep the discipline report, journal, Coach, and sync.";
+      if (cta) {
+        cta.href = "/?billing=upgrade";
+        cta.textContent = "Continue with Runnr — €19/month";
+      }
+    } else {
+      if (title) title.textContent = "Start your 7-day trial";
+      if (copy) copy.textContent = "Sign in to score a trade. The report is included in the Runnr trial — then €19/month.";
+      if (cta) {
+        cta.href = "/login.html?next=/report/";
+        cta.textContent = "Start free · sign in";
+      }
+    }
+  }
+
+  function showTool() {
+    var gate = $("report-gate");
+    var form = $("form-card");
+    var report = $("report");
+    if (gate) gate.hidden = true;
+    if (form) form.hidden = false;
+    if (report) report.hidden = false;
+    run();
+  }
+
+  var tok = token();
+  if (!tok) {
+    showGate("guest");
+    return;
+  }
+  fetch(apiBase() + "/api/v1/auth/me", {
+    credentials: "omit",
+    headers: { Authorization: "Bearer " + tok }
+  }).then(function (res) {
+    if (res.status === 401 || res.status === 403) {
+      showGate("guest");
+      return null;
+    }
+    if (!res.ok) throw new Error("me");
+    return res.json();
+  }).then(function (me) {
+    if (!me) return;
+    if (me.billing_enabled === false || me.pro) {
+      showTool();
+      return;
+    }
+    showGate("expired");
+  }).catch(function () {
+    showGate("guest");
+  });
 })();
 </script>
 </body>

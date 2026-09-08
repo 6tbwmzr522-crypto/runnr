@@ -21,3 +21,6 @@ class BillingStatusResponse(BaseModel):
     publishable_key: str | None = None
     price_monthly: str | None = None
     price_yearly: str | None = None
+    trial_ends_at: str | None = None
+    trial_active: bool = False
+    trial_days_left: int = 0

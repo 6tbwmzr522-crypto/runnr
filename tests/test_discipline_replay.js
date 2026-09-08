@@ -215,8 +215,8 @@ limitCtx.window = limitCtx;
 limitCtx.globalThis = limitCtx;
 vm.runInNewContext(limitSrc, limitCtx);
 const TL = limitCtx.window.RunnrTradeLimit;
-check("FREE_TRADE_LIMIT stays 10", TL.FREE_TRADE_LIMIT === 10);
-check("demo seeds still do not burn the cap", TL.countJournalTradesForLimit(demo) === 0);
+check("trial days is 7", TL.TRIAL_DAYS === 7);
+check("demo seeds still do not count", TL.countJournalTradesForLimit(demo) === 0);
 check("replay helper is not a countable trade source", TL.countJournalTradesForLimit(demo.concat([{
   id: 99, instr: "BE", sizeOk: false, stopOk: true, isDemo: true,
 }])) === 0);

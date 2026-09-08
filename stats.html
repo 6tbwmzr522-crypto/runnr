@@ -122,6 +122,55 @@
   <h2>How this is counted</h2>
   <p>On each load of <code>index.html</code> or <code>login.html</code>, the page sends a tiny beacon to our API. The server hashes the visitor’s IP address together with the UTC date and user-agent, using a secret that never leaves the server, then discards the IP. We store only that hash (to know if the visitor is new today) and the counters you see here. Hashes older than two days are deleted.</p>
   <p>We do not store IP addresses. We do not use advertising cookies. We do not send this data to Google or any other analytics vendor. These totals are internal and are not published. Details are in the <a href="/privacy/">Privacy Policy</a>.</p>
+
+  <h2>Signed-in funnel</h2>
+  <p class="lead" id="funnel-note">How many accounts have a synced journal vs visit uniques. Guests who never sign in cannot be counted.</p>
+  <p class="status" id="funnel-status">Loading funnel…</p>
+  <div class="kpis">
+    <div class="kpi">
+      <div class="label">Users</div>
+      <div class="num" id="funnel-users">—</div>
+      <p class="hint">Rows in users</p>
+    </div>
+    <div class="kpi">
+      <div class="label">With synced state</div>
+      <div class="num" id="funnel-state">—</div>
+      <p class="hint">user_state rows</p>
+    </div>
+    <div class="kpi">
+      <div class="label">≥1 countable trade</div>
+      <div class="num" id="funnel-ge1">—</div>
+      <p class="hint">Demo/seed/mergedAway excluded</p>
+    </div>
+    <div class="kpi">
+      <div class="label">≥3 / ≥10 trades</div>
+      <div class="num" id="funnel-ge3">—</div>
+      <p class="hint" id="funnel-ge10-hint">Aha gate · old 10-trade mark</p>
+    </div>
+    <div class="kpi">
+      <div class="label">Pro / Stripe trial</div>
+      <div class="num" id="funnel-pro">—</div>
+      <p class="hint" id="funnel-trialing-hint">Boss counts as Pro</p>
+    </div>
+    <div class="kpi">
+      <div class="label">Local trial / expired</div>
+      <div class="num" id="funnel-local-trial">—</div>
+      <p class="hint" id="funnel-expired-hint">Free accounts only</p>
+    </div>
+  </div>
+  <h3>Countable trade histogram</h3>
+  <table>
+    <thead>
+      <tr>
+        <th>Bucket</th>
+        <th class="num">Users</th>
+        <th>Share</th>
+      </tr>
+    </thead>
+    <tbody id="funnel-hist-body">
+      <tr><td colspan="3" class="empty">No funnel yet.</td></tr>
+    </tbody>
+  </table>
   </div>
 
   <nav class="legal-nav">
@@ -206,6 +255,7 @@
       var body = document.getElementById("days-body");
       if (!days.length) {
         statusEl.textContent = "No visits recorded yet.";
+        loadFunnel();
         return;
       }
       body.innerHTML = days.map(function (row) {
@@ -216,12 +266,58 @@
           '<td><div class="bar-wrap"><div class="bar" style="width:' + pct + '%"></div></div></td></tr>';
       }).join("");
       statusEl.textContent = "Updated just now · " + (data.timezone || "UTC");
+      loadFunnel();
     })
     .catch(function () {
       showMain();
       statusEl.className = "status err";
       statusEl.textContent = "Stats are unavailable right now. Try again in a moment.";
     });
+
+  function loadFunnel() {
+    var funnelStatus = document.getElementById("funnel-status");
+    fetch(apiBase() + "/api/v1/admin/funnel", {
+      credentials: "omit",
+      headers: { Authorization: "Bearer " + tok }
+    })
+      .then(function (res) {
+        if (!res.ok) throw new Error("funnel");
+        return res.json();
+      })
+      .then(function (funnel) {
+        if (funnel.note) {
+          var noteEl = document.getElementById("funnel-note");
+          if (noteEl) noteEl.textContent = funnel.note;
+        }
+        setText("funnel-users", fmt(funnel.users_total));
+        setText("funnel-state", fmt(funnel.users_with_state));
+        setText("funnel-ge1", fmt(funnel.users_with_trades_ge_1));
+        setText("funnel-ge3", fmt(funnel.users_with_trades_ge_3) + " / " + fmt(funnel.users_with_trades_ge_10));
+        setText("funnel-pro", fmt(funnel.users_pro) + " / " + fmt(funnel.users_trialing));
+        setText("funnel-local-trial", fmt(funnel.users_in_local_trial) + " / " + fmt(funnel.users_trial_expired));
+        var hist = funnel.trade_count_histogram || {};
+        var keys = ["0", "1", "2", "3-9", "10-24", "25+"];
+        var maxN = 1;
+        keys.forEach(function (k) { if ((hist[k] || 0) > maxN) maxN = hist[k]; });
+        var body = document.getElementById("funnel-hist-body");
+        if (body) {
+          body.innerHTML = keys.map(function (k) {
+            var n = hist[k] || 0;
+            var pct = Math.max(2, Math.round((n / maxN) * 100));
+            return "<tr><td>" + k + " trades</td>" +
+              '<td class="num">' + fmt(n) + "</td>" +
+              '<td><div class="bar-wrap"><div class="bar" style="width:' + pct + '%"></div></div></td></tr>';
+          }).join("");
+        }
+        if (funnelStatus) funnelStatus.textContent = "Funnel · " + fmt(funnel.users_free) + " free (local trial or expired)";
+      })
+      .catch(function () {
+        if (funnelStatus) {
+          funnelStatus.className = "status err";
+          funnelStatus.textContent = "Funnel is unavailable right now.";
+        }
+      });
+  }
 })();
 </script>
 </body>

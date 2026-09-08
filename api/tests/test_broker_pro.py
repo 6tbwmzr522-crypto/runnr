@@ -13,12 +13,16 @@ IBKR_TOKEN = "flex-token"
 IBKR_QID = "qid1"
 
 
+PAST = "2000-01-01T00:00:00Z"
+FUTURE = "2099-12-31T00:00:00Z"
+
+
 def _enable_billing(monkeypatch):
     monkeypatch.setattr(settings, "stripe_secret_key", "sk_test_limit")
     monkeypatch.setattr(settings, "stripe_price_monthly", "price_monthly_test")
 
 
-def _token(email: str, *, pro_plan: bool = False) -> str:
+def _token(email: str, *, pro_plan: bool = False, trial_ends_at: str | None = PAST) -> str:
     init_db()
     email = email.strip().lower()
     with get_db() as conn:
@@ -27,20 +31,24 @@ def _token(email: str, *, pro_plan: bool = False) -> str:
             uid = row["id"]
         else:
             cur = conn.execute(
-                "INSERT INTO users (email, password_hash, email_verified, plan, subscription_status) VALUES (?, ?, 1, ?, ?)",
+                """
+                INSERT INTO users (email, password_hash, email_verified, plan, subscription_status, trial_ends_at)
+                VALUES (?, ?, 1, ?, ?, ?)
+                """,
                 (
                     email,
                     hash_password("test-pass-12"),
                     "monthly" if pro_plan else "free",
                     "active" if pro_plan else "free",
+                    None if pro_plan else trial_ends_at,
                 ),
             )
             uid = cur.lastrowid
     return create_access_token(uid, email)
 
 
-def _auth(email: str, *, pro_plan: bool = False) -> dict:
-    return {"Authorization": f"Bearer {_token(email, pro_plan=pro_plan)}"}
+def _auth(email: str, *, pro_plan: bool = False, trial_ends_at: str | None = PAST) -> dict:
+    return {"Authorization": f"Bearer {_token(email, pro_plan=pro_plan, trial_ends_at=trial_ends_at)}"}
 
 
 def _mock_t212(monkeypatch):
@@ -80,6 +88,21 @@ def test_free_bearer_cannot_connect_or_sync_when_billing_on(monkeypatch):
         assert ibkr_sync.status_code == 403
 
 
+def test_trial_user_can_connect_when_billing_on(monkeypatch):
+    _enable_billing(monkeypatch)
+    _mock_t212(monkeypatch)
+    with TestClient(app) as client:
+        headers = _auth("trial.broker@example.com", trial_ends_at=FUTURE)
+        res = client.post(
+            "/api/v1/brokers/t212/connect",
+            headers=headers,
+            json={"api_key": KEY, "api_secret": SECRET},
+        )
+        assert res.status_code == 200, res.text
+        sync = client.get("/api/v1/brokers/t212/sync", headers=headers)
+        assert sync.status_code == 200
+
+
 def test_canceled_stale_plan_cannot_connect(monkeypatch):
     _enable_billing(monkeypatch)
     _mock_t212(monkeypatch)
@@ -87,8 +110,11 @@ def test_canceled_stale_plan_cannot_connect(monkeypatch):
     email = "canceled.broker@example.com"
     with get_db() as conn:
         cur = conn.execute(
-            "INSERT INTO users (email, password_hash, email_verified, plan, subscription_status) VALUES (?, ?, 1, ?, ?)",
-            (email, hash_password("test-pass-12"), "monthly", "canceled"),
+            """
+            INSERT INTO users (email, password_hash, email_verified, plan, subscription_status, trial_ends_at)
+            VALUES (?, ?, 1, ?, ?, ?)
+            """,
+            (email, hash_password("test-pass-12"), "monthly", "canceled", PAST),
         )
         uid = cur.lastrowid
     token = create_access_token(uid, email)

@@ -100,6 +100,7 @@ check("Home job hero markup unchanged",
   && html.includes('class="btn home-job-cta"'));
 check("Home job function still reviews / replays / sizes",
   html.includes("function runHomeJob")
+  && /job\.id === 'log'/.test(homeJobFn)
   && /job\.id === 'review'/.test(homeJobFn)
   && /job\.id === 'replay'/.test(homeJobFn)
   && /focusSizerForNextTrade/.test(homeJobFn));
@@ -116,7 +117,7 @@ check("quiet mode still hides session wave, not the stack",
 
 check("Options Coach file is untouched by this stack", html.includes("js/options-coach.js?v=1"));
 check("FVG strip file is untouched by this stack", html.includes("js/fvg-retrace.js?v=1"));
-check("Home quiet helper cache-bust unchanged", html.includes("js/desk-quiet.js?v=1"));
+check("Home quiet helper cache-bust unchanged", html.includes("js/desk-quiet.js?v=2"));
 
 void kpiBlock;
 

@@ -56,3 +56,5 @@ def test_webhook_still_clears_plan_when_not_active():
     assert 'plan = "free"' in src
     assert 'status not in ("active", "trialing")' in src
     assert "customer.subscription.deleted" in src
+    assert "trial_period_days" in src
+    assert "STRIPE_TRIAL_DAYS" in src
