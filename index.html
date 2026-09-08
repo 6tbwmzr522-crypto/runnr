@@ -5,7 +5,7 @@
 <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
 <script>
 (function () {
-  var V = "129";
+  var V = "130";
   try {
     if (localStorage.getItem("runnr_app_v") !== V) {
       localStorage.setItem("runnr_app_v", V);
@@ -1912,7 +1912,7 @@ html:not(.runnr-guest) #home-coach-banner{display:none !important}
 
       <div id="coach-upgrade-cta" class="card" style="display:none;margin-bottom:16px">
         <div class="card-title">Coach is Runnr Pro</div>
-        <div style="font-size:13px;color:var(--text2);line-height:1.5;margin-bottom:12px">Weekly insights, Ask Coach, and rule-vs-actual equity are included with Pro — not the free trial alone.</div>
+        <div style="font-size:13px;color:var(--text2);line-height:1.5;margin-bottom:12px">Weekly insights, Ask Coach, and rule-vs-actual equity are included in the 7-day trial and Pro — then €19/month.</div>
         <button type="button" class="btn" style="width:100%" onclick="requirePro('Coach')">Unlock Coach — €19/mo</button>
       </div>
 
@@ -2953,7 +2953,7 @@ html:not(.runnr-guest) #home-coach-banner{display:none !important}
   </div>
 </div>
 
-<script src="js/i18n.js?v=17"></script>
+<script src="js/i18n.js?v=18"></script>
 <script src="js/baron.js?v=31"></script>
 <script src="js/discipline-replay.js?v=6"></script>
 <script src="js/coach.js?v=27"></script>
@@ -9214,7 +9214,7 @@ async function importCsvFile(file) {
 
     if (!added) {
       if (limited) {
-        setCsvImportStatus('Free plan limit reached — upgrade to import more fills.', false);
+        setCsvImportStatus('Trial ended — upgrade to import more fills.', false);
         openJournalLimitUpgrade();
         return;
       }
@@ -9222,7 +9222,7 @@ async function importCsvFile(file) {
       return;
     }
     const pairNote = paired ? ` · ${paired} paired` : '';
-    const limitNote = limited ? ' Free limit reached — upgrade for the rest.' : '';
+    const limitNote = limited ? ' Trial ended — upgrade for the rest.' : '';
     setCsvImportStatus(`Imported ${added} via ${presetLabel}${pairNote}${skipped ? ` (${skipped} skipped)` : ''}.${limitNote}`, true);
     if (limited) openJournalLimitUpgrade();
     renderJournal();

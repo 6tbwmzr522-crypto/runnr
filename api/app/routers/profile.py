@@ -5,8 +5,8 @@ from fastapi import APIRouter, Depends, HTTPException
 from app.auth import get_current_user
 from app.db import get_db
 from app.models.profile import ProfileStatePut, ProfileStateResponse
+from app.trial import TRIAL_EXPIRED_DETAIL
 from app.trade_limit import (
-    FREE_LIMIT_DETAIL,
     count_journal_trades_for_limit,
     existing_countable_from_state_json,
     journal_is_unlimited,
@@ -50,7 +50,7 @@ def put_state(body: ProfileStatePut, user: dict = Depends(get_current_user)):
             row["state_json"] if row else None
         )
         if would_grow_journal_without_access(new_count, existing_count):
-            raise HTTPException(status_code=403, detail=FREE_LIMIT_DETAIL)
+            raise HTTPException(status_code=403, detail=TRIAL_EXPIRED_DETAIL)
     with get_db() as conn:
         conn.execute(
             """

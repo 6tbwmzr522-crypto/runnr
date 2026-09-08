@@ -39,7 +39,7 @@ def subscription_is_pro(status: str | None, plan: str | None = None, email: str 
 
 
 def user_has_pro_access(user: dict | None) -> bool:
-    """Boss/Pro, or billing disabled (dev). Used by journal cap and broker mutations."""
+    """Boss/Pro, or billing disabled (dev). Used by trial/Pro gates and broker mutations."""
     if not user:
         return False
     if user.get("pro"):

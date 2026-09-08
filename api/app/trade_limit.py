@@ -12,10 +12,8 @@ import json
 from typing import Any
 
 from app.billing_util import user_has_pro_access
-from app.trial import TRIAL_EXPIRED_DETAIL
 
 IMPORT_SOURCES = frozenset({"alpaca", "csv", "ibkr", "t212"})
-FREE_LIMIT_DETAIL = TRIAL_EXPIRED_DETAIL
 
 
 def is_demo_journal_trade(trade: Any) -> bool:
