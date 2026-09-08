@@ -13,6 +13,10 @@ const sw = fs.readFileSync(path.join(root, "sw.js"), "utf8");
 const limitSrc = fs.readFileSync(path.join(root, "js/trade-limit.js"), "utf8");
 const syncSrc = fs.readFileSync(path.join(root, "js/sync.js"), "utf8");
 const profilePy = fs.readFileSync(path.join(root, "api/app/routers/profile.py"), "utf8");
+const i18nSrc = fs.readFileSync(path.join(root, "js/i18n.js"), "utf8");
+const loginHtml = fs.readFileSync(path.join(root, "login.html"), "utf8");
+const reportHtml = fs.readFileSync(path.join(root, "report/index.html"), "utf8");
+const obSrc = fs.readFileSync(path.join(root, "js/onboarding.js"), "utf8");
 
 let n = 0;
 function check(name, cond) {
@@ -20,15 +24,28 @@ function check(name, cond) {
   n += 1;
 }
 
+const leftoverRe = /10 journal trades|5 journal trades|free 5-trade|free 10-trade|10-trade journal|10-trade cap|track 10 trades|Free plan limit reached/;
+[
+  ["index.html", html],
+  ["i18n.js", i18nSrc],
+  ["login.html", loginHtml],
+  ["report/index.html", reportHtml],
+  ["onboarding.js", obSrc],
+  ["trade-limit.js", limitSrc],
+].forEach(([name, src]) => {
+  check("no leftover 10-trade copy in " + name, !leftoverRe.test(src) && !src.includes("FREE_TRADE_LIMIT"));
+});
+
 const v = html.match(/var V = "(\d+)"/)[1];
 const cache = sw.match(/CACHE = "runnr-v(\d+)"/)[1];
 check("index.html V matches sw.js CACHE", v === cache);
 check("trade-limit.js is loaded", html.includes("js/trade-limit.js?v=4"));
 check("sync.js cache-busted", html.includes("js/sync.js?v=70"));
 check("count no longer excludes imported fills", !/!isImportedJournalTrade/.test(html));
-check("profile PUT blocks growth after trial", profilePy.includes("would_grow_journal_without_access") && profilePy.includes("FREE_LIMIT_DETAIL"));
+check("profile PUT blocks growth after trial", profilePy.includes("would_grow_journal_without_access") && profilePy.includes("TRIAL_EXPIRED_DETAIL"));
 check("user-facing copy is 7-day trial", html.includes("Start free · 7-day trial · then €19/month or €190/year"));
-check("no leftover 10 journal trades copy", !html.includes("10 journal trades") && !html.includes("5 journal trades") && !html.includes("free 5-trade"));
+check("no leftover 10 journal / 10-trade copy", !/10 journal trades|5 journal trades|free 5-trade|free 10-trade|10-trade journal|10-trade cap|track 10 trades/.test(html));
+check("no leftover 10 trades marketing in html", !html.includes("10 trades"));
 check("remaining counter markup exists", html.includes("data-free-trade-counter"));
 check("score lock copy in markup", html.includes("Log 3 trades to unlock your score") && html.includes('id="disc-unlock-note"'));
 check("share modal has locked panel", html.includes('id="share-locked"'));

@@ -6,7 +6,7 @@ from app.auth import create_access_token, hash_password
 from app.config import settings
 from app.db import get_db, init_db
 from app.main import app
-from app.trade_limit import FREE_LIMIT_DETAIL
+from app.trial import TRIAL_EXPIRED_DETAIL
 
 PAST = "2000-01-01T00:00:00Z"
 FUTURE = "2099-12-31T00:00:00Z"
@@ -60,7 +60,7 @@ def test_expired_trial_cannot_put_new_trades(monkeypatch):
         headers = _auth("free.cap@example.com", trial_ends_at=PAST)
         blocked = client.put("/api/v1/profile/state", json={"state": _state(1)}, headers=headers)
         assert blocked.status_code == 403
-        assert blocked.json()["detail"] == FREE_LIMIT_DETAIL
+        assert blocked.json()["detail"] == TRIAL_EXPIRED_DETAIL
         stay = client.get("/api/v1/profile/state", headers=headers)
         assert stay.status_code == 200
         assert stay.json()["state"] is None
@@ -76,7 +76,7 @@ def test_crafted_ids_without_flag_blocked_after_trial(monkeypatch):
         headers = _auth("free.crafted@example.com", trial_ends_at=PAST)
         blocked = client.put("/api/v1/profile/state", json={"state": crafted}, headers=headers)
         assert blocked.status_code == 403
-        assert blocked.json()["detail"] == FREE_LIMIT_DETAIL
+        assert blocked.json()["detail"] == TRIAL_EXPIRED_DETAIL
 
 
 def test_trial_user_unlimited(monkeypatch):
