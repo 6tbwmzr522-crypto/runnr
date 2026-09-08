@@ -7,9 +7,7 @@ const path = require("path");
 const vm = require("vm");
 const assert = require("assert");
 
-const root = path.join(__dirname, "..");
-const html = fs.readFileSync(path.join(root, "index.html"), "utf8");
-const sw = fs.readFileSync(path.join(root, "sw.js"), "utf8");
+const { root, html, src, sw } = require("./app_src").loadAppSource();
 const baronSrc = fs.readFileSync(path.join(root, "js/baron.js"), "utf8");
 const replaySrc = fs.readFileSync(path.join(root, "js/discipline-replay.js"), "utf8");
 const limitSrc = fs.readFileSync(path.join(root, "js/trade-limit.js"), "utf8");
@@ -26,10 +24,10 @@ check("index.html V matches sw.js CACHE", v === cache);
 check("discipline-replay.js is loaded", html.includes("js/discipline-replay.js?v=6"));
 check("replay modal exists", html.includes('id="modal-discipline-replay"'));
 check("journal button copy", html.includes("Replay Disciplined"));
-check("journal Replay is visually primary", html.includes('class="te-replay te-replay-primary"') && html.includes(".te-replay.te-replay-primary"));
-check("journal button gated on canReplay", html.includes("DisciplineReplay.canReplay(t, S"));
-check("journal render does not offer button via isEligible", !/DisciplineReplay\.isEligible\(t\) \?/.test(html));
-check("openDisciplineReplay keeps isEligible safety net", /function openDisciplineReplay[\s\S]{0,400}isEligible\(t\)/.test(html));
+check("journal Replay is visually primary", src.includes('class="te-replay te-replay-primary"') && html.includes(".te-replay.te-replay-primary"));
+check("journal button gated on canReplay", src.includes("DisciplineReplay.canReplay(t, S"));
+check("journal render does not offer button via isEligible", !/DisciplineReplay\.isEligible\(t\) \?/.test(src));
+check("openDisciplineReplay keeps isEligible safety net", /function openDisciplineReplay[\s\S]{0,400}isEligible\(t\)/.test(src));
 check("no new nav tab", !html.includes("switchPage('replay')") && !html.includes("page-replay"));
 check("no candle UI in replay helper", !/candlestick|ohlc|replay-chart/i.test(replaySrc) && !html.includes('id="replay-chart"'));
 check("copy never claims market would have", !/what the market would have done/i.test(replaySrc) && !/what the market would have done/i.test(html));
@@ -39,16 +37,16 @@ check("missing snapshot copy", replaySrc.includes("no risk snapshot for this tra
 check("stamp live CTA copy is explicit not silent history", replaySrc.includes("Use current risk % / balance for this trade")
   && replaySrc.includes("today's settings")
   && replaySrc.includes("trade-time rules were never saved"));
-check("stamp live CTA is wired in modal", html.includes("stampReplayFromLiveSettings")
-  && html.includes("onclick=\"stampReplayFromLiveSettings()\""));
-check("stamp live CTA persist then rebuild", /function stampReplayFromLiveSettings[\s\S]{0,900}stampTrade[\s\S]{0,400}persist\(\)[\s\S]{0,250}buildView/.test(html));
-check("does not auto-backfill all trades on load", !/trades\.forEach\([^)]*stampTrade/.test(html)
-  && !/for\s*\([^)]*trades[^)]*\)[^;]*stampTrade/.test(html));
+check("stamp live CTA is wired in modal", src.includes("stampReplayFromLiveSettings")
+  && src.includes("onclick=\"stampReplayFromLiveSettings()\""));
+check("stamp live CTA persist then rebuild", /function stampReplayFromLiveSettings[\s\S]{0,900}stampTrade[\s\S]{0,400}persist\(\)[\s\S]{0,250}buildView/.test(src));
+check("does not auto-backfill all trades on load", !/trades\.forEach\([^)]*stampTrade/.test(src)
+  && !/for\s*\([^)]*trades[^)]*\)[^;]*stampTrade/.test(src));
 check("identical stop does not claim stop was the problem", !/Stop was flagged/.test(replaySrc));
 check("empty-Δ copy stays in helper", replaySrc.includes("Process flag ≠ math.") && replaySrc.includes("process miss"));
 check("missing-stop CTA", replaySrc.includes("Add a stop on this trade to replay"));
 check("replay does not write journal rows", !/commitLog|canAddJournalTrade|S\.trades\.(unshift|push)/.test(replaySrc));
-check("empty-Δ renderer exists", html.includes("replay-empty") && html.includes("Recorded") && html.includes("replayReasonHtml"));
+check("empty-Δ renderer exists", src.includes("replay-empty") && src.includes("Recorded") && src.includes("replayReasonHtml"));
 check("journal banner dropped Confirm stop & size", !/Confirm stop &amp; size/i.test(html) && !/Confirm stop & size/i.test(html));
 
 function extractTopFn(src, name) {
@@ -65,22 +63,22 @@ function extractTopFn(src, name) {
   }
   return "";
 }
-const hintTpl = (html.match(/alpacaPending\.length[\s\S]*?hint\.innerHTML = `([\s\S]*?)`;/) || [])[1] || "";
+const hintTpl = (src.match(/alpacaPending\.length[\s\S]*?hint\.innerHTML = `([\s\S]*?)`;/) || [])[1] || "";
 const primaryBtn = (hintTpl.match(/<button type="button" class="btn"(?! btn-ghost)[\s\S]*?<\/button>/) || [])[0] || "";
 check("journal banner primary is Review next incomplete", primaryBtn.includes("reviewNextIncompleteFill") && primaryBtn.includes("Review next incomplete"));
 check("journal banner primary is not stamp-all", !primaryBtn.includes("applyDisciplineDefaultsToAll") && !/stopOk/.test(primaryBtn));
 check("journal banner stamp-all is ghost secondary", hintTpl.includes("btn-ghost") && hintTpl.includes("Mark all as compliant (Stop ✓ Size ✓)") && hintTpl.includes("applyDisciplineDefaultsToAll"));
-check("journal high-count uses calm hero not panic wall", hintTpl.includes("journal-incomplete-hero") && html.includes("journal-hint-calm") && html.includes(" of ") && html.includes(" reviewed"));
-check("saveLog offers Replay after a miss", /function saveLog[\s\S]*offerDisciplineReplay/.test(html) && html.includes("function offerDisciplineReplay"));
-const reviewFn = extractTopFn(html, "reviewNextIncompleteFill");
+check("journal high-count uses calm hero not panic wall", hintTpl.includes("journal-incomplete-hero") && html.includes("journal-hint-calm") && src.includes(" of ") && src.includes(" reviewed"));
+check("saveLog offers Replay after a miss", /function saveLog[\s\S]*offerDisciplineReplay/.test(src) && src.includes("function offerDisciplineReplay"));
+const reviewFn = extractTopFn(src, "reviewNextIncompleteFill");
 check("reviewNextIncompleteFill opens one trade", /openTradeEditor/.test(reviewFn));
 check("batch primary path does not set all stopOk/sizeOk true", reviewFn.length > 0 && !/stopOk\s*=/.test(reviewFn) && !/sizeOk\s*=/.test(reviewFn));
-const stampFn = extractTopFn(html, "applyDisciplineDefaultsToAll");
+const stampFn = extractTopFn(src, "applyDisciplineDefaultsToAll");
 check("stamp-all confirm says Replay will not apply", /Replay will NOT apply/i.test(stampFn));
-check("sizer log clears incomplete once flags are known", /function saveLogFromSizer[\s\S]{0,900}draft\.incomplete = false/.test(html));
-check("demo 1 is a clean seed", html.includes("id:1, isDemo:true, instr:'RACE'") && /id:1, isDemo:true[\s\S]*?sizeOk:true/.test(html));
-check("demo 2 is a size fail", html.includes("id:2, isDemo:true, instr:'BE'") && html.includes("sizeOk:false"));
-check("demo 4 stays incomplete", html.includes("id:4, isDemo:true, instr:'AAPL CFD'") && html.includes("incomplete:true"));
+check("sizer log clears incomplete once flags are known", /function saveLogFromSizer[\s\S]{0,900}draft\.incomplete = false/.test(src));
+check("demo 1 is a clean seed", src.includes("id:1, isDemo:true, instr:'RACE'") && /id:1, isDemo:true[\s\S]*?sizeOk:true/.test(src));
+check("demo 2 is a size fail", src.includes("id:2, isDemo:true, instr:'BE'") && src.includes("sizeOk:false"));
+check("demo 4 stays incomplete", src.includes("id:4, isDemo:true, instr:'AAPL CFD'") && src.includes("incomplete:true"));
 
 const ctx = { window: {}, document: { getElementById: () => null } };
 ctx.window = ctx;
@@ -391,8 +389,8 @@ histState.risk = 2;
 DR.stampHistory(histState);
 check("stampHistory appends when risk changes", histState.riskHistory.length === 2 && histState.riskHistory[1].risk === 2);
 
-check("commitLog stamps new trades", /DisciplineReplay\.stampTrade\(row, S/.test(html));
-check("persist records risk history", /DisciplineReplay\.stampHistory\(S\)/.test(html));
-check("demo seeds carry riskSnapshot", /id:2, isDemo:true[\s\S]*?riskSnapshot:\{ risk:1, bal:10000/.test(html));
+check("commitLog stamps new trades", /DisciplineReplay\.stampTrade\(row, S/.test(src));
+check("persist records risk history", /DisciplineReplay\.stampHistory\(S\)/.test(src));
+check("demo seeds carry riskSnapshot", /id:2, isDemo:true[\s\S]*?riskSnapshot:\{ risk:1, bal:10000/.test(src));
 
 console.log("ok " + n);

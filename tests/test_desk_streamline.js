@@ -7,9 +7,7 @@ const path = require("path");
 const vm = require("vm");
 const assert = require("assert");
 
-const root = path.join(__dirname, "..");
-const html = fs.readFileSync(path.join(root, "index.html"), "utf8");
-const sw = fs.readFileSync(path.join(root, "sw.js"), "utf8");
+const { root, html, src, sw } = require("./app_src").loadAppSource();
 const quietSrc = fs.readFileSync(path.join(root, "js/desk-quiet.js"), "utf8");
 const limitSrc = fs.readFileSync(path.join(root, "js/trade-limit.js"), "utf8");
 const replaySrc = fs.readFileSync(path.join(root, "js/discipline-replay.js"), "utf8");
@@ -38,11 +36,11 @@ check("guest landing hides the job hero", html.includes("html.runnr-guest #home-
 check("logged-out hook video still present", html.includes('id="intro-overlay"') && html.includes("/media/runnr-how-it-works.mp4"));
 check("logged-out landing card kept", html.includes('id="home-landing"') && html.includes('id="home-start-free"'));
 
-check("Replay journal button uses primary class", html.includes('class="te-replay te-replay-primary"'));
+check("Replay journal button uses primary class", src.includes('class="te-replay te-replay-primary"'));
 check("Replay primary CSS is a full-width mint button", html.includes(".te-replay.te-replay-primary")
   && /te-replay-primary\{[^}]*background:var\(--accent\)/.test(html));
-check("offerDisciplineReplay is wired after saveLog", html.includes("function offerDisciplineReplay")
-  && /function saveLog[\s\S]*offerDisciplineReplay/.test(html));
+check("offerDisciplineReplay is wired after saveLog", src.includes("function offerDisciplineReplay")
+  && /function saveLog[\s\S]*offerDisciplineReplay/.test(src));
 
 check("quiet mode hides shelf / wave / institutional / terminal chrome",
   html.includes("html.runnr-quiet .nav-advanced")
@@ -67,12 +65,12 @@ check("sizer and journal stay in the primary nav",
 
 check("journal calm class and progress copy exist", html.includes("journal-hint-calm")
   && html.includes("journal-incomplete-progress")
-  && html.includes("reviewed"));
-check("mass-mark stays ghost secondary", /class="btn btn-ghost"[^>]*applyDisciplineDefaultsToAll/.test(html)
-  || /applyDisciplineDefaultsToAll[\s\S]{0,80}Mark all as compliant/.test(html));
-check("high incomplete wall can collapse", html.includes("hideIncompleteWall")
-  && html.includes("Show all")
-  && html.includes("toggleIncompleteFillWall"));
+  && src.includes("reviewed"));
+check("mass-mark stays ghost secondary", /class="btn btn-ghost"[^>]*applyDisciplineDefaultsToAll/.test(src)
+  || /applyDisciplineDefaultsToAll[\s\S]{0,80}Mark all as compliant/.test(src));
+check("high incomplete wall can collapse", src.includes("hideIncompleteWall")
+  && src.includes("Show all")
+  && src.includes("toggleIncompleteFillWall"));
 
 const ctx = {
   window: {},
@@ -175,10 +173,10 @@ check("missing snapshot still offers Replay as the job", Q.primaryJob([orphan], 
 
 check("primaryJob prefers review over replay", Q.primaryJob(pending.concat([miss]), { bal: 10000, risk: 1 }, Baron).id === "review");
 
-check("home job logs first", html.includes("function runHomeJob") && /job\.id === 'log'/.test(html)
+check("home job logs first", src.includes("function runHomeJob") && /job\.id === 'log'/.test(src)
   && html.includes('id="home-job-terminal"'));
-check("Terminal link is de-emphasized until a countable trade", html.includes("terminalLink.hidden = countable < 1"));
-check("size job focuses the sizer", html.includes("function focusSizerForNextTrade") && /switchPage\('sizer'\)/.test(html));
+check("Terminal link is de-emphasized until a countable trade", src.includes("terminalLink.hidden = countable < 1"));
+check("size job focuses the sizer", src.includes("function focusSizerForNextTrade") && /switchPage\('sizer'\)/.test(src));
 check("no freemium/billing rewrite in quiet helper", !/FREE_TRADE_LIMIT|stripe|checkout/i.test(quietSrc));
 
 console.log("ok " + n);

@@ -7,9 +7,7 @@ const path = require("path");
 const vm = require("vm");
 const assert = require("assert");
 
-const root = path.join(__dirname, "..");
-const html = fs.readFileSync(path.join(root, "index.html"), "utf8");
-const sw = fs.readFileSync(path.join(root, "sw.js"), "utf8");
+const { root, html, src, sw } = require("./app_src").loadAppSource();
 const coachSrc = fs.readFileSync(path.join(root, "js/options-coach.js"), "utf8");
 
 let n = 0;
@@ -35,8 +33,8 @@ check("calcOptions still paints Rule 1 / 2 / 3 cards", html.includes("id=\"rule1
   && html.includes("Max 2% portfolio risk per trade")
   && html.includes("Max 20% total options exposure")
   && html.includes("Minimum 2:1 reward-to-risk ratio"));
-check("calcOptions calls OptionsCoach.computePlan", /function calcOptions[\s\S]*computePlan/.test(html));
-check("options draft cannot log when gates fail", /function saveLogFromSizer[\s\S]*type === 'options'[\s\S]*withinRules === false[\s\S]*return/.test(html));
+check("calcOptions calls OptionsCoach.computePlan", /function calcOptions[\s\S]*computePlan/.test(src));
+check("options draft cannot log when gates fail", /function saveLogFromSizer[\s\S]*type === 'options'[\s\S]*withinRules === false[\s\S]*return/.test(src));
 function extractTopFn(src, name) {
   const start = src.indexOf("function " + name + "(");
   if (start < 0) return "";
@@ -51,10 +49,10 @@ function extractTopFn(src, name) {
   }
   return "";
 }
-const homeJobFn = extractTopFn(html, "runHomeJob") + extractTopFn(html, "focusSizerForNextTrade");
+const homeJobFn = extractTopFn(src, "runHomeJob") + extractTopFn(src, "focusSizerForNextTrade");
 check("Home job does not open Options Coach", !/switchOptCoachMode|opt-mode-|Options Coach/.test(homeJobFn));
-check("Home still sizes CFD by default", html.includes("function focusSizerForNextTrade")
-  && /focusSizerForNextTrade[\s\S]*cfd-instr/.test(html));
+check("Home still sizes CFD by default", src.includes("function focusSizerForNextTrade")
+  && /focusSizerForNextTrade[\s\S]*cfd-instr/.test(src));
 check("no live options chain / Greeks scanner", !/options.?chain/i.test(coachSrc)
   && !/implied.?volatility|delta|theta|vega/i.test(coachSrc)
   && !/finnhub|yahoo.*option/i.test(coachSrc));
@@ -64,11 +62,11 @@ check("no strategist / guaranteed-income copy", !/\$500/.test(html + coachSrc)
 check("CFD / shares / crypto sizers stay in the page", html.includes('id="sizer-cfd"')
   && html.includes('id="sizer-shares"')
   && html.includes("page-crypto"));
-check("review reuses Replay / journal, not excursion stats", html.includes("openDisciplineReplay")
-  && html.includes("openTradeEditor")
+check("review reuses Replay / journal, not excursion stats", src.includes("openDisciplineReplay")
+  && src.includes("openTradeEditor")
   && !/\bMFE\b|\bMAE\b/.test(coachSrc)
   && /no invented excursion stats/.test(coachSrc)
-  && html.includes("function openOptionsFillReview"));
+  && src.includes("function openOptionsFillReview"));
 
 const ctx = { window: {}, document: { getElementById: () => null } };
 ctx.window = ctx;

@@ -6,10 +6,8 @@ const fs = require("fs");
 const path = require("path");
 const assert = require("assert");
 
-const root = path.join(__dirname, "..");
-const html = fs.readFileSync(path.join(root, "index.html"), "utf8");
+const { root, html, src, sw } = require("./app_src").loadAppSource();
 const ob = fs.readFileSync(path.join(root, "js/onboarding.js"), "utf8");
-const sw = fs.readFileSync(path.join(root, "sw.js"), "utf8");
 
 function check(name, cond) {
   assert(cond, name);
@@ -45,10 +43,10 @@ check("landing title stays a separate line", html.includes('class="home-landing-
 check("landing card is full-width on desktop", html.includes("#page-home .home-frame > .home-landing-card"));
 check("80% lives only in the progress card", html.includes("Need 80%+ stop confirmation over 20 trades"));
 
-check("guest fetches are gated", html.includes("function isGuestLanding(") && html.includes("function startMarketFeedsIfAllowed(") && html.includes("if (isGuestLanding()) return"));
-check("init no longer always starts feeds", html.includes("startMarketFeedsIfAllowed()") && !/setTimeout\(\(\) => \{\s*try \{ startFeedTimer\(\); \}/.test(html));
-check("fear-greed fetch bails for guests", /async function fetchFearGreed\(\) \{\s*if \(isGuestLanding\(\)\) return;/.test(html));
-check("home markets fetch bails for guests", /async function refreshHomeMarkets\(\) \{\s*if \(isGuestLanding\(\)\) return;/.test(html));
+check("guest fetches are gated", src.includes("function isGuestLanding(") && src.includes("function startMarketFeedsIfAllowed(") && src.includes("if (isGuestLanding()) return"));
+check("init no longer always starts feeds", src.includes("startMarketFeedsIfAllowed()") && !/setTimeout\(\(\) => \{\s*try \{ startFeedTimer\(\); \}/.test(src));
+check("fear-greed fetch bails for guests", /async function fetchFearGreed\(\) \{\s*if \(isGuestLanding\(\)\) return;/.test(src));
+check("home markets fetch bails for guests", /async function refreshHomeMarkets\(\) \{\s*if \(isGuestLanding\(\)\) return;/.test(src));
 
 check("email/password login kept", fs.readFileSync(path.join(root, "login.html"), "utf8").includes('id="signin-form"'));
 check("login page states 7-day trial", fs.readFileSync(path.join(root, "login.html"), "utf8").includes("7-day trial"));

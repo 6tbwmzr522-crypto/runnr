@@ -2,13 +2,9 @@
 /** Portfolio phone stack — IW scroll order, Runnr honesty. Home job stays PR #30. */
 "use strict";
 
-const fs = require("fs");
-const path = require("path");
 const assert = require("assert");
 
-const root = path.join(__dirname, "..");
-const html = fs.readFileSync(path.join(root, "index.html"), "utf8");
-const sw = fs.readFileSync(path.join(root, "sw.js"), "utf8");
+const { html, src, sw } = require("./app_src").loadAppSource();
 
 let n = 0;
 function check(name, cond) {
@@ -79,33 +75,33 @@ check("primary CTA is a fat mint button",
   /id="port-cta"[^>]*class="btn port-cta"/.test(port)
   || /class="btn port-cta"[^>]*id="port-cta"/.test(port));
 check("CTA reuses Home job runner",
-  html.includes("function renderPortCta")
-  && /function renderPortCta[\s\S]*primaryJob[\s\S]*runHomeJob/.test(html));
+  src.includes("function renderPortCta")
+  && /function renderPortCta[\s\S]*primaryJob[\s\S]*runHomeJob/.test(src));
 check("recent rows open editor or Replay",
-  html.includes("function openPortRecentTrade")
-  && /openDisciplineReplay/.test(extractTopFn(html, "openPortRecentTrade"))
-  && /openTradeEditor/.test(extractTopFn(html, "openPortRecentTrade")));
+  src.includes("function openPortRecentTrade")
+  && /openDisciplineReplay/.test(extractTopFn(src, "openPortRecentTrade"))
+  && /openTradeEditor/.test(extractTopFn(src, "openPortRecentTrade")));
 check("incomplete rate uses pending / logged, not invented expectancy",
-  /pendingTrades\.length \/ totalLogged/.test(html)
+  /pendingTrades\.length \/ totalLogged/.test(src)
   && !/expectancy/i.test(port)
-  && !/function fake|invented/.test(extractTopFn(html, "loadPortfolio")));
+  && !/function fake|invented/.test(extractTopFn(src, "loadPortfolio")));
 
 const banned = /Copy Portfolio|Pelosi|Nancy|InsiderWave|Insider Wave|Capitol|smart money|copy.?trad/i;
 check("no Copy Portfolio / Pelosi / InsiderWave strings", !banned.test(html) && !banned.test(port));
 
-const homeJobFn = extractTopFn(html, "runHomeJob") + extractTopFn(html, "focusSizerForNextTrade");
+const homeJobFn = extractTopFn(src, "runHomeJob") + extractTopFn(src, "focusSizerForNextTrade");
 check("Home job hero markup unchanged",
   html.includes('id="home-job-hero"')
   && html.includes('id="home-job-cta"')
   && html.includes('class="btn home-job-cta"'));
 check("Home job function still reviews / replays / sizes",
-  html.includes("function runHomeJob")
+  src.includes("function runHomeJob")
   && /job\.id === 'log'/.test(homeJobFn)
   && /job\.id === 'review'/.test(homeJobFn)
   && /job\.id === 'replay'/.test(homeJobFn)
   && /focusSizerForNextTrade/.test(homeJobFn));
 check("Home still sizes CFD by default",
-  html.includes("function focusSizerForNextTrade")
+  src.includes("function focusSizerForNextTrade")
   && /focusSizerForNextTrade[\s\S]*cfd-instr/.test(homeJobFn));
 check("guest still hides Home job and Portfolio CTA",
   html.includes("html.runnr-guest #home-job-hero")

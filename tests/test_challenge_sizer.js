@@ -7,10 +7,8 @@ const path = require("path");
 const vm = require("vm");
 const assert = require("assert");
 
-const root = path.join(__dirname, "..");
-const html = fs.readFileSync(path.join(root, "index.html"), "utf8");
-const baronSrc = fs.readFileSync(path.join(root, "js/baron.js"), "utf8");
-const sw = fs.readFileSync(path.join(root, "sw.js"), "utf8");
+const { html, src, sw } = require("./app_src").loadAppSource();
+const baronSrc = fs.readFileSync(path.join(__dirname, "..", "js/baron.js"), "utf8");
 
 function check(name, cond) {
   assert(cond, name);
@@ -29,7 +27,7 @@ check("consistency is a labeled setting", html.includes("id=\"set-ch-consistency
 check("home challenge card exists", html.includes('id="home-challenge-card"'));
 check("guest shell hides home challenge card", html.includes("html.runnr-guest #home-challenge-card") || html.includes("html.runnr-guest .home-challenge-card"));
 check("approaching warning lives on the challenge card", html.includes("id=\"ch-approach-warn\""));
-check("sample journal still ships", html.includes("instr:'RACE'") && html.includes("instr:'AAPL CFD'"));
+check("sample journal still ships", src.includes("instr:'RACE'") && src.includes("instr:'AAPL CFD'"));
 check("options 2% / 20% / 2R gate still present", html.includes("Max 2% portfolio risk per trade") && html.includes("Max 20% total options exposure") && html.includes("Minimum 2:1 reward-to-risk ratio"));
 
 const ctx = { window: {}, document: { getElementById: () => null } };
