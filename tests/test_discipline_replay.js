@@ -7,7 +7,7 @@ const path = require("path");
 const vm = require("vm");
 const assert = require("assert");
 
-const { root, html, src, sw } = require("./app_src").loadAppSource();
+const { root, html, src, sw, css } = require("./app_src").loadAppSource();
 const baronSrc = fs.readFileSync(path.join(root, "js/baron.js"), "utf8");
 const replaySrc = fs.readFileSync(path.join(root, "js/discipline-replay.js"), "utf8");
 const limitSrc = fs.readFileSync(path.join(root, "js/trade-limit.js"), "utf8");
@@ -24,7 +24,7 @@ check("index.html V matches sw.js CACHE", v === cache);
 check("discipline-replay.js is loaded", html.includes("js/discipline-replay.js?v=6"));
 check("replay modal exists", html.includes('id="modal-discipline-replay"'));
 check("journal button copy", html.includes("Replay Disciplined"));
-check("journal Replay is visually primary", src.includes('class="te-replay te-replay-primary"') && html.includes(".te-replay.te-replay-primary"));
+check("journal Replay is visually primary", src.includes('class="te-replay te-replay-primary"') && css.includes(".te-replay.te-replay-primary"));
 check("journal button gated on canReplay", src.includes("DisciplineReplay.canReplay(t, S"));
 check("journal render does not offer button via isEligible", !/DisciplineReplay\.isEligible\(t\) \?/.test(src));
 check("openDisciplineReplay keeps isEligible safety net", /function openDisciplineReplay[\s\S]{0,400}isEligible\(t\)/.test(src));
@@ -68,7 +68,7 @@ const primaryBtn = (hintTpl.match(/<button type="button" class="btn"(?! btn-ghos
 check("journal banner primary is Review next incomplete", primaryBtn.includes("reviewNextIncompleteFill") && primaryBtn.includes("Review next incomplete"));
 check("journal banner primary is not stamp-all", !primaryBtn.includes("applyDisciplineDefaultsToAll") && !/stopOk/.test(primaryBtn));
 check("journal banner stamp-all is ghost secondary", hintTpl.includes("btn-ghost") && hintTpl.includes("Mark all as compliant (Stop ✓ Size ✓)") && hintTpl.includes("applyDisciplineDefaultsToAll"));
-check("journal high-count uses calm hero not panic wall", hintTpl.includes("journal-incomplete-hero") && html.includes("journal-hint-calm") && src.includes(" of ") && src.includes(" reviewed"));
+check("journal high-count uses calm hero not panic wall", hintTpl.includes("journal-incomplete-hero") && css.includes("journal-hint-calm") && src.includes(" of ") && src.includes(" reviewed"));
 check("saveLog offers Replay after a miss", /function saveLog[\s\S]*offerDisciplineReplay/.test(src) && src.includes("function offerDisciplineReplay"));
 const reviewFn = extractTopFn(src, "reviewNextIncompleteFill");
 check("reviewNextIncompleteFill opens one trade", /openTradeEditor/.test(reviewFn));

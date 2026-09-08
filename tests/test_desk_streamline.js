@@ -7,7 +7,7 @@ const path = require("path");
 const vm = require("vm");
 const assert = require("assert");
 
-const { root, html, src, sw } = require("./app_src").loadAppSource();
+const { root, html, src, sw, css } = require("./app_src").loadAppSource();
 const quietSrc = fs.readFileSync(path.join(root, "js/desk-quiet.js"), "utf8");
 const limitSrc = fs.readFileSync(path.join(root, "js/trade-limit.js"), "utf8");
 const replaySrc = fs.readFileSync(path.join(root, "js/discipline-replay.js"), "utf8");
@@ -32,39 +32,39 @@ check("home job CTA is mint primary btn", /id="home-job-cta"[^>]*class="btn home
 check("home job secondary links are quiet text", html.includes('class="home-job-link"')
   && html.includes("switchPage('journal')")
   && html.includes("switchPage('coach')"));
-check("guest landing hides the job hero", html.includes("html.runnr-guest #home-job-hero"));
+check("guest landing hides the job hero", css.includes("html.runnr-guest #home-job-hero"));
 check("logged-out hook video still present", html.includes('id="intro-overlay"') && html.includes("/media/runnr-how-it-works.mp4"));
 check("logged-out landing card kept", html.includes('id="home-landing"') && html.includes('id="home-start-free"'));
 
 check("Replay journal button uses primary class", src.includes('class="te-replay te-replay-primary"'));
-check("Replay primary CSS is a full-width mint button", html.includes(".te-replay.te-replay-primary")
-  && /te-replay-primary\{[^}]*background:var\(--accent\)/.test(html));
+check("Replay primary CSS is a full-width mint button", css.includes(".te-replay.te-replay-primary")
+  && /te-replay-primary\{[^}]*background:var\(--accent\)/.test(css));
 check("offerDisciplineReplay is wired after saveLog", src.includes("function offerDisciplineReplay")
   && /function saveLog[\s\S]*offerDisciplineReplay/.test(src));
 
 check("quiet mode hides shelf / wave / institutional / terminal chrome",
-  html.includes("html.runnr-quiet .nav-advanced")
-  && html.includes("html.runnr-quiet .port-wave-card")
-  && html.includes("html.runnr-quiet .coach-institutional-block")
-  && html.includes("html.runnr-quiet .header-desk-btn")
-  && html.includes("html.runnr-quiet .home-watch-shelf"));
+  css.includes("html.runnr-quiet .nav-advanced")
+  && css.includes("html.runnr-quiet .port-wave-card")
+  && css.includes("html.runnr-quiet .coach-institutional-block")
+  && css.includes("html.runnr-quiet .header-desk-btn")
+  && css.includes("html.runnr-quiet .home-watch-shelf"));
 check("quiet mode keeps score card visible for the log unlock",
-  !html.includes("html.runnr-quiet .coach-share-card")
-  && !html.includes("html.runnr-quiet #page-home .card.highlight-card")
+  !css.includes("html.runnr-quiet .coach-share-card")
+  && !css.includes("html.runnr-quiet #page-home .card.highlight-card")
   && html.includes('id="home-discipline-card"')
   && html.includes('id="disc-unlock-note"'));
 check("More nav exists and is hidden until quiet", html.includes('data-nav="more"')
   && html.includes("onclick=\"expandDeskMore()\"")
-  && html.includes(".nav-btn-more{display:none}")
-  && html.includes("html.runnr-quiet .nav-btn-more{display:flex}"));
+  && css.includes(".nav-btn-more{display:none}")
+  && css.includes("html.runnr-quiet .nav-btn-more{display:flex}"));
 check("sizer and journal stay in the primary nav",
   /onclick="switchPage\('sizer'\)"/.test(html)
   && /onclick="switchPage\('journal'\)"/.test(html)
   && !/nav-advanced"[^>]*switchPage\('sizer'\)/.test(html)
   && !/nav-advanced"[^>]*switchPage\('journal'\)/.test(html));
 
-check("journal calm class and progress copy exist", html.includes("journal-hint-calm")
-  && html.includes("journal-incomplete-progress")
+check("journal calm class and progress copy exist", css.includes("journal-hint-calm")
+  && css.includes("journal-incomplete-progress")
   && src.includes("reviewed"));
 check("mass-mark stays ghost secondary", /class="btn btn-ghost"[^>]*applyDisciplineDefaultsToAll/.test(src)
   || /applyDisciplineDefaultsToAll[\s\S]{0,80}Mark all as compliant/.test(src));

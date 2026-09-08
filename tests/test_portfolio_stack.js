@@ -4,7 +4,7 @@
 
 const assert = require("assert");
 
-const { html, src, sw } = require("./app_src").loadAppSource();
+const { html, src, sw, css } = require("./app_src").loadAppSource();
 
 let n = 0;
 function check(name, cond) {
@@ -104,12 +104,12 @@ check("Home still sizes CFD by default",
   src.includes("function focusSizerForNextTrade")
   && /focusSizerForNextTrade[\s\S]*cfd-instr/.test(homeJobFn));
 check("guest still hides Home job and Portfolio CTA",
-  html.includes("html.runnr-guest #home-job-hero")
-  && html.includes("html.runnr-guest .port-cta-wrap"));
+  css.includes("html.runnr-guest #home-job-hero")
+  && css.includes("html.runnr-guest .port-cta-wrap"));
 check("quiet mode still hides session wave, not the stack",
-  html.includes("html.runnr-quiet .port-wave-card")
-  && !/html\.runnr-quiet \.port-hero/.test(html)
-  && !/html\.runnr-quiet #port-cta/.test(html));
+  css.includes("html.runnr-quiet .port-wave-card")
+  && !/html\.runnr-quiet \.port-hero/.test(css)
+  && !/html\.runnr-quiet #port-cta/.test(css));
 
 check("Options Coach file is untouched by this stack", html.includes("js/options-coach.js?v=1"));
 check("FVG strip file is untouched by this stack", html.includes("js/fvg-retrace.js?v=1"));

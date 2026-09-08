@@ -7,10 +7,8 @@ const path = require("path");
 const vm = require("vm");
 const assert = require("assert");
 
-const root = path.join(__dirname, "..");
-const html = fs.readFileSync(path.join(root, "index.html"), "utf8");
-const shelfSrc = fs.readFileSync(path.join(root, "js/shelf.js"), "utf8");
-const sw = fs.readFileSync(path.join(root, "sw.js"), "utf8");
+const { html, sw, css } = require("./app_src").loadAppSource();
+const shelfSrc = fs.readFileSync(path.join(__dirname, "..", "js/shelf.js"), "utf8");
 
 function check(name, cond) {
   assert(cond, name);
@@ -20,7 +18,7 @@ const v = html.match(/var V = "(\d+)"/)[1];
 const cache = sw.match(/CACHE = "runnr-v(\d+)"/)[1];
 check("index.html V matches sw.js CACHE", v === cache);
 check("shelf.js cache-busted at v=4", html.includes("js/shelf.js?v=4"));
-check("desktop deck is six columns", html.includes("grid-template-columns:repeat(6,minmax(0,1fr))"));
+check("desktop deck is six columns", css.includes("grid-template-columns:repeat(6,minmax(0,1fr))"));
 
 const ctx = { window: {}, document: { getElementById: () => null } };
 ctx.window = ctx;

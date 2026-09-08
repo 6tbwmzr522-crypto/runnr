@@ -1,0 +1,61 @@
+/* Extracted from index.html — look-preserving. Do not restyle. */
+
+:root {
+  --bg: #080c12;
+  --surface: #0c1118;
+  --surface2: #101620;
+  --surface3: #161d28;
+  --border: rgba(201, 169, 110, 0.14);
+  --border-strong: rgba(201, 169, 110, 0.28);
+  --gold: #C9A96E;
+  --gold-light: #E8C97A;
+  --gold-dim: rgba(201, 169, 110, 0.12);
+  --accent: #00e5a0;
+  --accent2: #00b87a;
+  --accent-dim: rgba(0, 229, 160, 0.12);
+  --accent-glow: rgba(0, 229, 160, 0.06);
+  --text: #F5F2EC;
+  --text2: rgba(245, 242, 236, 0.58);
+  --text3: rgba(245, 242, 236, 0.36);
+  --red: #e85d6f;
+  --red-dim: rgba(232, 93, 111, 0.12);
+  --amber: #E8C97A;
+  --amber-dim: rgba(232, 201, 122, 0.12);
+  --blue: #7eb8e8;
+  --blue-dim: rgba(126, 184, 232, 0.12);
+  --font-head: 'Cormorant Garamond', Georgia, serif;
+  --font-body: 'Jost', sans-serif;
+  --font-num: 'Cormorant Garamond', Georgia, serif;
+  --font-mono: var(--font-num);
+  --r: 12px;
+  --r-sm: 6px;
+  --safe-bottom: env(safe-area-inset-bottom, 0px);
+}
+*{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent}
+html,body{height:100%;background:var(--bg);color:var(--text);font-family:var(--font-body);font-weight:300;font-size:15px;overflow:hidden;font-variant-numeric:oldstyle-nums}
+body::before{content:'';position:fixed;inset:0;background:radial-gradient(ellipse 90% 55% at 50% -15%,rgba(201,169,110,0.09),transparent 55%),radial-gradient(ellipse 50% 35% at 100% 80%,rgba(0,229,160,0.05),transparent);pointer-events:none;z-index:0}
+
+/* Royal figures — serif numerals throughout */
+.stat-val,.stat-delta,.te-pnl,.result-main,.result-sub-item .val,.fg-value,.fg-updated,
+.sd-price,.sd-change-pos,.sd-change-neg,.sd-stat .s-val,.sd-premarket .pm-price,.sd-postmarket .pm-price,
+.rsi-val,.range-labels,.lp-price,.lp-change-pos,.lp-change-neg,.lp-dist,.lp-loading,
+.port-hero .ph-val,.port-hero .ph-sub,.kpi .k-val,.kpi .k-delta,.instr-pnl,.donut-pct,.th-pnl,
+.disc-leg-item .dl-val,.disc-leg-item .dl-count,.disc-ring-inner,.disc-meta-row strong,
+.ob-aha-cost,.ob-compare strong,.field input,.field select,.risk-pill,.badge,.tier-labels,
+.broker-card .bk-status,.alert-item .ai-trigger,.home-price-chip,.period-tab,.cal-labels span,
+.market-tile .m-price,.market-tile .m-chg,
+.rule-card .r-status,.opt-portfolio-input input,.badge-row .badge{
+  font-family:var(--font-num);
+  font-weight:300;
+  font-variant-numeric:lining-nums;
+  letter-spacing:0.02em;
+}
+#home-bal,.port-hero .ph-val,.result-main,.ob-aha-cost,.fg-value,.disc-ring-inner{
+  font-weight:300;
+  letter-spacing:0.03em;
+}
+#acct-display{font-family:var(--font-num)!important;font-weight:400;font-style:italic;letter-spacing:0.02em;font-size:13px;white-space:nowrap}
+.header-bal-settings{display:flex;align-items:center;gap:5px;background:none;border:none;padding:0;cursor:pointer;color:var(--text2);font-family:inherit;line-height:1}
+.header-bal-settings .header-gear{width:17px;height:17px;flex-shrink:0;color:var(--text3);opacity:0.75;transition:color 0.2s,opacity 0.2s}
+.header-bal-settings:active .header-gear{color:var(--accent);opacity:1}
+

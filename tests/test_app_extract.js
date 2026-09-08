@@ -14,7 +14,7 @@ function check(name, cond) {
 const v = html.match(/var V = "(\d+)"/)[1];
 const cache = sw.match(/CACHE = "runnr-v(\d+)"/)[1];
 check("index.html V matches sw.js CACHE", v === cache);
-check("cache is 131+", Number(v) >= 131);
+check("cache is 132+", Number(v) >= 132);
 
 const appFiles = [
   "js/app-state.js",
