@@ -60,23 +60,76 @@ const RunnrGrowth = {
     el.querySelector("span").textContent = d.bannerText;
   },
 
+  scoreTrades(state) {
+    const TL = window.RunnrTradeLimit;
+    const all = (state && state.trades) || [];
+    if (TL && typeof TL.countableTradeList === "function") return TL.countableTradeList(all);
+    return all.filter((t) => t && !t.mergedAway && !t.isDemo && !t.seed);
+  },
+
+  scoreShareUnlocked(state) {
+    const TL = window.RunnrTradeLimit;
+    if (TL && typeof TL.scoreShareUnlocked === "function") {
+      return TL.scoreShareUnlocked((state && state.trades) || []);
+    }
+    return this.scoreTrades(state).length >= 3;
+  },
+
+  scoreShareLockCopy(state) {
+    const TL = window.RunnrTradeLimit;
+    if (TL && typeof TL.scoreShareLockCopy === "function") {
+      return TL.scoreShareLockCopy((state && state.trades) || []);
+    }
+    return "Log 3 trades to unlock your score & share card";
+  },
+
   renderDisciplineCard(state) {
-    const score = CoachEngine.disciplineScore(state.trades);
+    const unlocked = this.scoreShareUnlocked(state);
+    const lockCopy = this.scoreShareLockCopy(state);
+    const scoreTrades = this.scoreTrades(state);
+    const score = unlocked
+      ? CoachEngine.disciplineScore(scoreTrades)
+      : { overall: 0, stopPct: 0, sizePct: 0, streak: 0, tradeCount: 0, tier: "—" };
     const set = (id, v) => { const e = document.getElementById(id); if (e) e.textContent = v; };
-    set("disc-score-val", score.tradeCount ? score.overall + "%" : "—");
-    set("disc-stop-val", score.tradeCount ? score.stopPct + "%" : "—");
-    set("disc-size-val", score.tradeCount ? score.sizePct + "%" : "—");
-    set("disc-streak-val", score.streak ? score.streak + "d" : "0");
-    set("disc-tier-label", score.tier);
+    set("disc-score-val", unlocked && score.tradeCount ? score.overall + "%" : "—");
+    set("disc-stop-val", unlocked && score.tradeCount ? score.stopPct + "%" : "—");
+    set("disc-size-val", unlocked && score.tradeCount ? score.sizePct + "%" : "—");
+    set("disc-streak-val", unlocked && score.streak ? score.streak + "d" : "0");
+    set("disc-tier-label", unlocked ? score.tier : "Locked");
     const ring = document.getElementById("disc-score-ring");
     if (ring) {
-      const pct = score.tradeCount ? score.overall : 0;
+      const pct = unlocked && score.tradeCount ? score.overall : 0;
       ring.style.background = `conic-gradient(var(--accent) ${pct * 3.6}deg, var(--surface3) 0)`;
     }
+    const card = document.getElementById("home-discipline-card");
+    if (card) card.classList.toggle("disc-locked", !unlocked);
+    const note = document.getElementById("disc-unlock-note");
+    if (note) {
+      note.hidden = unlocked;
+      note.textContent = lockCopy;
+    }
+    const shareBtn = document.getElementById("home-share-btn");
+    if (shareBtn) {
+      shareBtn.textContent = unlocked
+        ? (typeof t === "function" ? t("home.share") : "Share ↗")
+        : "Unlock";
+      shareBtn.setAttribute("aria-disabled", unlocked ? "false" : "true");
+    }
+    const coachReady = document.getElementById("coach-share-ready");
+    const coachLocked = document.getElementById("coach-share-locked");
+    if (coachReady) coachReady.hidden = !unlocked;
+    if (coachLocked) {
+      coachLocked.hidden = unlocked;
+      const lockLine = coachLocked.querySelector("[data-share-lock-copy]");
+      if (lockLine) lockLine.textContent = lockCopy || "Log 3 trades to unlock your score & share card";
+    }
     const badge = document.getElementById("tier-badge");
-    if (badge && score.tradeCount) {
-      const icons = { Novice: "🌱", Learning: "📈", Disciplined: "🎯", "Consistent Runner": "🏃" };
-      badge.textContent = `${icons[score.tier] || "🌱"} ${score.tier.toUpperCase()}`;
+    if (badge) {
+      if (!unlocked) badge.textContent = "🌱 NOVICE";
+      else if (score.tradeCount) {
+        const icons = { Novice: "🌱", Learning: "📈", Disciplined: "🎯", "Consistent Runner": "🏃" };
+        badge.textContent = `${icons[score.tier] || "🌱"} ${score.tier.toUpperCase()}`;
+      }
     }
   },
 
@@ -114,7 +167,7 @@ const RunnrGrowth = {
           <div class="ob-hook-pill"><dt>Coach</dt><dd>Report on the one trade that hurt</dd></div>
           <div class="ob-hook-pill"><dt>Terminal</dt><dd>Session clocks, heatmap, chart — look without paying</dd></div>
         </dl>
-        <p class="ob-hook-price">Start free · 10 journal trades · then €19/month or €190/year</p>
+        <p class="ob-hook-price">Start free · 5 journal trades · then €19/month or €190/year</p>
         <p class="ob-hook-sample">Sample journal is labeled SAMPLE. Those numbers are not yours.</p>
         <div class="ob-hook-actions">
           <a class="btn" id="ob-hook-start" href="/login.html">Start free</a>
@@ -371,7 +424,7 @@ const RunnrGrowth = {
     if (typeof canAddJournalTrade === "function" && !canAddJournalTrade(symbols.length)) {
       if (typeof openUpgrade === "function") {
         if (typeof openJournalLimitUpgrade === "function") openJournalLimitUpgrade();
-        else openUpgrade(`Free plan · ${window.FREE_TRADE_LIMIT || 10} trades (includes imports)`);
+        else openUpgrade(`Free plan · ${window.FREE_TRADE_LIMIT || 5} trades (includes imports)`);
       } else {
         alert("Free plan journal limit reached. Upgrade for unlimited trades.");
       }
@@ -475,7 +528,7 @@ const RunnrGrowth = {
   },
 
   weeklyShareModel(state) {
-    return CoachEngine.weeklyShareModel(state.trades || [], {
+    return CoachEngine.weeklyShareModel(this.scoreTrades(state), {
       sym: state.sym || "€",
       riskPct: state.risk,
       handle: state.profileHandle || "",
@@ -528,7 +581,7 @@ const RunnrGrowth = {
   },
 
   drawShareCard(state, canvas) {
-    const score = CoachEngine.disciplineScore(state.trades);
+    const score = CoachEngine.disciplineScore(this.scoreTrades(state));
     const handle = state.profileHandle || "runner";
     const W = this.SHARE_SCORE.w;
     const H = this.SHARE_SCORE.h;
@@ -727,6 +780,10 @@ const RunnrGrowth = {
   },
 
   async shareDisciplineCard(state) {
+    if (!this.scoreShareUnlocked(state)) {
+      this.openShareModal(state);
+      return;
+    }
     const canvas = document.getElementById("share-canvas");
     if (!canvas) return;
     try { await document.fonts?.ready; } catch (e) {}
@@ -758,7 +815,33 @@ const RunnrGrowth = {
     URL.revokeObjectURL(a.href);
   },
 
+  applyShareModalLock(state) {
+    const unlocked = this.scoreShareUnlocked(state);
+    const lockedEl = document.getElementById("share-locked");
+    const canvas = document.getElementById("share-canvas");
+    const variants = document.querySelector(".share-variant-row");
+    const handleField = document.getElementById("share-handle")?.closest(".field");
+    const download = document.getElementById("share-download-btn");
+    const note = document.getElementById("share-card-note");
+    if (lockedEl) {
+      lockedEl.hidden = unlocked;
+      const line = lockedEl.querySelector("[data-share-lock-copy]");
+      if (line) line.textContent = this.scoreShareLockCopy(state);
+    }
+    if (canvas) canvas.style.display = unlocked ? "" : "none";
+    if (variants) variants.style.display = unlocked ? "" : "none";
+    if (handleField) handleField.style.display = unlocked ? "" : "none";
+    if (download) download.style.display = unlocked ? "" : "none";
+    if (note) note.style.display = unlocked ? "" : "none";
+    return unlocked;
+  },
+
   openShareModal(state, variant) {
+    const unlocked = this.applyShareModalLock(state);
+    if (!unlocked) {
+      openModal("modal-share");
+      return;
+    }
     this.shareVariant = variant === "score" ? "score" : "weekly";
     const h = document.getElementById("share-handle");
     if (h) h.value = state.profileHandle || "";
@@ -811,15 +894,19 @@ const RunnrGrowth = {
   },
 
   previewWeeklyDigest(state) {
+    if (!this.scoreShareUnlocked(state)) {
+      this.openShareModal(state);
+      return;
+    }
     if (typeof requirePro === "function") {
       requirePro("Coach").then((ok) => {
         if (!ok) return;
-        const d = CoachEngine.weeklyDigest(state.trades, state.sym);
+        const d = CoachEngine.weeklyDigest(this.scoreTrades(state), state.sym);
         alert(`${d.pushTitle}\n\n${d.pushBody}\n\nAction: ${d.action}`);
       });
       return;
     }
-    const d = CoachEngine.weeklyDigest(state.trades, state.sym);
+    const d = CoachEngine.weeklyDigest(this.scoreTrades(state), state.sym);
     alert(`${d.pushTitle}\n\n${d.pushBody}\n\nAction: ${d.action}`);
   },
 };

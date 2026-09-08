@@ -78,6 +78,15 @@
   }
 
   function primaryJob(trades, settings, baron) {
+    if (countableTrades(trades) === 0) {
+      return {
+        id: "log",
+        title: "Log your last trade",
+        sub: "Size it with a stop, then save it to your journal.",
+        cta: "Log your last trade",
+        tradeId: null,
+      };
+    }
     const DR = replay();
     const pending = DR && typeof DR.firstIncompleteBrokerFill === "function"
       ? DR.firstIncompleteBrokerFill(trades)

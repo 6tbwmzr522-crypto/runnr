@@ -12,10 +12,10 @@ from typing import Any
 
 from app.billing_util import user_has_pro_access
 
-FREE_TRADE_LIMIT = 10
+FREE_TRADE_LIMIT = 5
 IMPORT_SOURCES = frozenset({"alpaca", "csv", "ibkr", "t212"})
 FREE_LIMIT_DETAIL = (
-    "Free plan allows 10 trades (manual and imported). Upgrade for unlimited."
+    "Free plan allows 5 trades (manual and imported). Upgrade for unlimited."
 )
 
 
