@@ -803,6 +803,11 @@ async function connectBroker(name) {
       openSyncAuthModal();
       return;
     }
+    if (!(await requirePro('Alpaca connection'))) return;
+    if (!canAddJournalTrade(1)) {
+      openJournalLimitUpgrade();
+      return;
+    }
     const ok = await RunnrSync.ensureAlpacaConnected();
     renderSyncPage();
     renderHomeBrokerPreview();
@@ -822,6 +827,11 @@ async function connectBroker(name) {
   if (name === 'IBKR') {
     if (!RunnrSync.isLoggedIn()) {
       openSyncAuthModal();
+      return;
+    }
+    if (!(await requirePro('IBKR Flex connection'))) return;
+    if (!canAddJournalTrade(1)) {
+      openJournalLimitUpgrade();
       return;
     }
     const ok = await RunnrSync.ensureIbkrConnected();
@@ -995,6 +1005,7 @@ async function reconnectAlpaca() {
     openSyncAuthModal();
     return;
   }
+  if (!(await requirePro('Alpaca connection'))) return;
   const ok = await RunnrSync.tryAutoReconnectAlpaca();
   renderSyncPage();
   renderHomeBrokerPreview();

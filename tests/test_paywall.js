@@ -33,9 +33,18 @@ check("toggleNotifications requires Alerts", /async function toggleNotifications
 check("requestNotifPermission requires Alerts", /async function requestNotifPermission[\s\S]{0,80}requirePro\(\s*['"]Alerts['"]\)/.test(src));
 check("checkPriceAlerts requires hasProAccess", /function checkPriceAlerts[\s\S]{0,120}hasProAccess\(\)/.test(src));
 
-check("broker connect/sync call _require_pro_broker", (brokersPy.match(/_require_pro_broker\(user\)/g) || []).length >= 6);
+check("broker connect/sync/status call _require_pro_broker", (brokersPy.match(/_require_pro_broker\(user\)/g) || []).length >= 9);
 check("alpaca connect gated before TradingClient", /def connect_alpaca[\s\S]{0,120}_require_pro_broker/.test(brokersPy));
+check("alpaca status gated", /def alpaca_status[\s\S]{0,80}_require_pro_broker/.test(brokersPy));
+check("ibkr status gated", /def ibkr_status[\s\S]{0,80}_require_pro_broker/.test(brokersPy));
+check("t212 status gated", /def t212_status[\s\S]{0,80}_require_pro_broker/.test(brokersPy));
 check("t212 sync gated", /def t212_sync[\s\S]{0,80}_require_pro_broker/.test(brokersPy));
+
+check("connectBroker Alpaca requires Pro", /if \(name === 'Alpaca'\)[\s\S]{0,280}requirePro\(\s*['"]Alpaca connection['"]\)/.test(src));
+check("connectBroker IBKR requires Pro", /if \(name === 'IBKR'\)[\s\S]{0,280}requirePro\(\s*['"]IBKR Flex connection['"]\)/.test(src));
+check("reconnectAlpaca requires Pro", /async function reconnectAlpaca[\s\S]{0,200}requirePro\(\s*['"]Alpaca connection['"]\)/.test(src));
+check("openLogModal gates new logs", /function openLogModal[\s\S]{0,220}canAddJournalTrade/.test(src));
+check("billing=upgrade opens paywall", /billing=upgrade[\s\S]{0,400}openUpgrade/.test(src));
 
 check("billing cache helper is fail-closed", syncSrc.includes("function failClosedBilling") && /pro:\s*false/.test(syncSrc));
 check("no fail-open default object", !/let billingCache = \{\s*pro:\s*true/.test(syncSrc));

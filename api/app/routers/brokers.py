@@ -96,6 +96,7 @@ def connect_alpaca(body: AlpacaConnectRequest, user: dict = Depends(get_current_
 
 @router.get("/alpaca/status", response_model=BrokerStatusResponse)
 def alpaca_status(user: dict = Depends(get_current_user)):
+    _require_pro_broker(user)
     creds = _load_alpaca(user["id"])
     if not creds:
         return BrokerStatusResponse(broker="alpaca", connected=False)
@@ -213,6 +214,7 @@ def connect_ibkr(body: IbkrFlexConnectRequest, user: dict = Depends(get_current_
 
 @router.get("/ibkr/status", response_model=BrokerStatusResponse)
 def ibkr_status(user: dict = Depends(get_current_user)):
+    _require_pro_broker(user)
     creds = _load_ibkr(user["id"])
     if not creds:
         return BrokerStatusResponse(broker="ibkr", connected=False)
@@ -298,6 +300,7 @@ def connect_t212(body: T212ConnectRequest, user: dict = Depends(get_current_user
 
 @router.get("/t212/status", response_model=BrokerStatusResponse)
 def t212_status(user: dict = Depends(get_current_user)):
+    _require_pro_broker(user)
     creds = _load_t212(user["id"])
     if not creds:
         raise HTTPException(status_code=404, detail=T212_NOT_CONNECTED_FOR_ACCOUNT)
