@@ -6,7 +6,7 @@ const fs = require("fs");
 const path = require("path");
 const assert = require("assert");
 
-const { root, html, src, sw } = require("./app_src").loadAppSource();
+const { root, html, src, sw, css } = require("./app_src").loadAppSource();
 const ob = fs.readFileSync(path.join(root, "js/onboarding.js"), "utf8");
 
 function check(name, cond) {
@@ -30,17 +30,17 @@ check("hook pricing is the real offer", hook.includes("7-day trial") && hook.inc
 check("no invented 30-trade free tier", !html.includes("30 journal") && !html.includes("30 trades/month"));
 check("js hook matches html CTA", ob.includes('id="ob-hook-start"') && ob.includes("Start free") && ob.includes("View sample"));
 
-check("guest class hides live market widgets", html.includes("html.runnr-guest .fg-card") && html.includes("html.runnr-guest .home-markets-card") && html.includes("html.runnr-guest .home-commodities-card"));
-check("guest class hides challenge remaining card", html.includes("html.runnr-guest #home-challenge-card"));
-check("hook hides the desk", html.includes("html.runnr-show-hook #app{visibility:hidden"));
-check("overlay is full viewport", html.includes("#onboarding-overlay{position:fixed;inset:0;width:100%") && html.includes("max-width:none"));
-check("guest header drops smashed Terminal+balance", html.includes("html.runnr-guest #header .header-desk-btn") && html.includes("html.runnr-guest .header-bal-settings"));
+check("guest class hides live market widgets", css.includes("html.runnr-guest .fg-card") && css.includes("html.runnr-guest .home-markets-card") && css.includes("html.runnr-guest .home-commodities-card"));
+check("guest class hides challenge remaining card", css.includes("html.runnr-guest #home-challenge-card"));
+check("hook hides the desk", css.includes("html.runnr-show-hook #app{visibility:hidden"));
+check("overlay is full viewport", css.includes("#onboarding-overlay{position:fixed;inset:0;width:100%") && css.includes("max-width:none"));
+check("guest header drops smashed Terminal+balance", css.includes("html.runnr-guest #header .header-desk-btn") && css.includes("html.runnr-guest .header-bal-settings"));
 
 check("home landing card has pricing + Start free", html.includes('id="home-landing"') && html.includes('id="home-start-free"') && html.includes("Start free · 7-day trial · then €19/month or €190/year"));
-check("signed-in desktop hides the guest landing card", html.includes("#page-home .home-frame > .home-landing-card{display:none}")
-  && html.includes("html.runnr-guest #page-home .home-frame > .home-landing-card{display:flex}"));
+check("signed-in desktop hides the guest landing card", css.includes("#page-home .home-frame > .home-landing-card{display:none}")
+  && css.includes("html.runnr-guest #page-home .home-frame > .home-landing-card{display:flex}"));
 check("landing title stays a separate line", html.includes('class="home-landing-title">Trading discipline, not a broker'));
-check("landing card is full-width on desktop", html.includes("#page-home .home-frame > .home-landing-card"));
+check("landing card is full-width on desktop", css.includes("#page-home .home-frame > .home-landing-card"));
 check("80% lives only in the progress card", html.includes("Need 80%+ stop confirmation over 20 trades"));
 
 check("guest fetches are gated", src.includes("function isGuestLanding(") && src.includes("function startMarketFeedsIfAllowed(") && src.includes("if (isGuestLanding()) return"));

@@ -7,7 +7,7 @@ const path = require("path");
 const vm = require("vm");
 const assert = require("assert");
 
-const { html, src, sw } = require("./app_src").loadAppSource();
+const { html, src, sw, css } = require("./app_src").loadAppSource();
 const baronSrc = fs.readFileSync(path.join(__dirname, "..", "js/baron.js"), "utf8");
 
 function check(name, cond) {
@@ -25,7 +25,7 @@ check("journal near-miss banner exists", html.includes("journal-challenge-banner
 check("settings keep custom eval fields", html.includes("set-ch-daily") && html.includes("set-ch-dd") && html.includes("set-ch-target"));
 check("consistency is a labeled setting", html.includes("id=\"set-ch-consistency\"") && html.includes("Best-day cap"));
 check("home challenge card exists", html.includes('id="home-challenge-card"'));
-check("guest shell hides home challenge card", html.includes("html.runnr-guest #home-challenge-card") || html.includes("html.runnr-guest .home-challenge-card"));
+check("guest shell hides home challenge card", css.includes("html.runnr-guest #home-challenge-card") || css.includes("html.runnr-guest .home-challenge-card"));
 check("approaching warning lives on the challenge card", html.includes("id=\"ch-approach-warn\""));
 check("sample journal still ships", src.includes("instr:'RACE'") && src.includes("instr:'AAPL CFD'"));
 check("options 2% / 20% / 2R gate still present", html.includes("Max 2% portfolio risk per trade") && html.includes("Max 20% total options exposure") && html.includes("Minimum 2:1 reward-to-risk ratio"));

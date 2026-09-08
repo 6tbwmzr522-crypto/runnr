@@ -1,7 +1,7 @@
 "use strict";
 /**
- * Concatenate index.html + every js/*.js the PWA loads so source-level
- * checks still work after the inline-script extract.
+ * Concatenate index.html + every js/*.js and css/*.css the PWA loads so
+ * source-level checks still work after the inline-script / stylesheet extract.
  */
 const fs = require("fs");
 const path = require("path");
@@ -20,7 +20,22 @@ function loadAppSource() {
   let m;
   while ((m = re.exec(html))) srcs.push(m[1]);
   const js = srcs.map(read).join("\n");
-  return { root, html, sw, js, src: html + "\n" + js, scripts: srcs };
+
+  const stylesheets = [];
+  const cssRe = /<link rel="stylesheet" href="(css\/[^"?]+)(?:\?[^"]*)?"/g;
+  while ((m = cssRe.exec(html))) stylesheets.push(m[1]);
+  const inlineCss = [...html.matchAll(/<style>([\s\S]*?)<\/style>/g)].map((x) => x[1]).join("\n");
+  const css = stylesheets.map(read).join("\n") + (inlineCss ? "\n" + inlineCss : "");
+  return {
+    root,
+    html,
+    sw,
+    js,
+    css,
+    src: html + "\n" + js,
+    scripts: srcs,
+    stylesheets,
+  };
 }
 
 module.exports = { root, read, loadAppSource };
