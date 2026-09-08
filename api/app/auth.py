@@ -12,6 +12,7 @@ from jose import JWTError, jwt
 from app.billing_util import email_is_boss, subscription_is_pro
 from app.config import settings
 from app.db import get_db
+from app.trial import local_trial_is_active, trial_fields
 
 bearer = HTTPBearer(auto_error=False)
 
@@ -68,12 +69,18 @@ def _user_from_row(row) -> dict:
     avatar_url = None
     if "avatar_url" in row.keys():
         avatar_url = row["avatar_url"] or None
+    trial_ends_at = None
+    if "trial_ends_at" in row.keys():
+        trial_ends_at = row["trial_ends_at"] or None
+    trial = trial_fields(trial_ends_at, created_at)
+    stripe_pro = subscription_is_pro(status, plan, email)
+    local_trial = (not stripe_pro) and local_trial_is_active(trial_ends_at, created_at)
     return {
         "id": row["id"],
         "email": email,
         "subscription_status": "active" if boss else status,
         "plan": "boss" if boss else plan,
-        "pro": subscription_is_pro(status, plan, email),
+        "pro": stripe_pro or local_trial,
         "billing_enabled": settings.stripe_enabled,
         "stripe_customer_id": row["stripe_customer_id"] if "stripe_customer_id" in row.keys() else None,
         "email_verified": True if boss else verified,
@@ -81,6 +88,9 @@ def _user_from_row(row) -> dict:
         "created_at": created_at,
         "intro_seen": intro_seen,
         "avatar_url": avatar_url,
+        "trial_ends_at": trial["trial_ends_at"],
+        "trial_active": local_trial,
+        "trial_days_left": trial["trial_days_left"] if local_trial else 0,
     }
 
 
@@ -137,7 +147,7 @@ def _load_user_row(user_id: int):
             return conn.execute(
                 """
                 SELECT id, email, stripe_customer_id, subscription_status, plan, email_verified, first_name,
-                       created_at, intro_seen, avatar_url
+                       created_at, intro_seen, avatar_url, trial_ends_at
                 FROM users WHERE id = ?
                 """,
                 (user_id,),

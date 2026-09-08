@@ -17,6 +17,7 @@ from app.models.billing import (
     CheckoutResponse,
     PortalResponse,
 )
+from app.trial import STRIPE_TRIAL_DAYS
 
 router = APIRouter(prefix="/billing", tags=["billing"])
 
@@ -168,7 +169,10 @@ def _create_checkout_session(user: dict, interval: str) -> str:
             cancel_url=settings.stripe_cancel_url,
             client_reference_id=str(user["id"]),
             metadata={"runnr_user_id": str(user["id"]), "interval": interval},
-            subscription_data={"metadata": {"runnr_user_id": str(user["id"])}},
+            subscription_data={
+                "metadata": {"runnr_user_id": str(user["id"])},
+                "trial_period_days": STRIPE_TRIAL_DAYS,
+            },
             allow_promotion_codes=True,
         )
     except stripe.error.StripeError as exc:
@@ -183,14 +187,18 @@ def billing_status(user: dict = Depends(get_current_user)):
     row = _load_user(user["id"])
     status = row.get("subscription_status") or "free"
     plan = row.get("plan") or "free"
+    stripe_pro = subscription_is_pro(status, plan, row.get("email"))
     return BillingStatusResponse(
         enabled=settings.stripe_enabled,
-        pro=subscription_is_pro(status, plan, row.get("email")),
+        pro=bool(user.get("pro")) if user.get("pro") is not None else stripe_pro,
         plan=plan,
         status=status,
         publishable_key=settings.stripe_publishable_key or None,
         price_monthly=settings.stripe_price_monthly or None,
         price_yearly=settings.stripe_price_yearly or None,
+        trial_ends_at=user.get("trial_ends_at"),
+        trial_active=bool(user.get("trial_active")),
+        trial_days_left=int(user.get("trial_days_left") or 0),
     )
 
 

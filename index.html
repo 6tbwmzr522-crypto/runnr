@@ -5,7 +5,7 @@
 <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
 <script>
 (function () {
-  var V = "127";
+  var V = "128";
   try {
     if (localStorage.getItem("runnr_app_v") !== V) {
       localStorage.setItem("runnr_app_v", V);
@@ -44,7 +44,7 @@
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <title>Runnr — trading discipline, not a broker</title>
-<meta name="description" content="A trading-discipline app: position sizing with a stop, a journal that flags broken rules, and a coach on the one trade that hurt. Not a broker — you do not trade here. Free for 10 journal trades, then €19/month or €190/year.">
+<meta name="description" content="A trading-discipline app: position sizing with a stop, a journal that flags broken rules, and a coach on the one trade that hurt. Not a broker — you do not trade here. 7-day free trial, then €19/month or €190/year.">
 <link rel="manifest" href="manifest.webmanifest">
 <meta name="theme-color" content="#080c12">
 <meta name="apple-mobile-web-app-title" content="Runnr">
@@ -1324,7 +1324,7 @@ html:not(.runnr-guest) #home-coach-banner{display:none !important}
         <div class="ob-kicker">You do not trade here</div>
         <h2 class="home-landing-title">Trading discipline, not a broker</h2>
         <p>Sizer, journal, score, streak, and session wave. Not a P&amp;L tracker.</p>
-        <p class="ob-hook-price">Start free · 10 journal trades · then €19/month or €190/year</p>
+        <p class="ob-hook-price">Start free · 7-day trial · then €19/month or €190/year</p>
         <div class="ob-hook-actions">
           <a class="btn" id="home-start-free" href="/login.html">Start free</a>
           <a class="ob-hook-secondary" href="/report/">Score one trade</a>
@@ -2604,7 +2604,7 @@ html:not(.runnr-guest) #home-coach-banner{display:none !important}
         <div class="ob-hook-pill"><dt>Coach</dt><dd>Report on the one trade that hurt</dd></div>
         <div class="ob-hook-pill"><dt>Terminal</dt><dd>Session clocks, heatmap, chart — look without paying</dd></div>
       </dl>
-      <p class="ob-hook-price">Start free · 10 journal trades · then €19/month or €190/year</p>
+      <p class="ob-hook-price">Start free · 7-day trial · then €19/month or €190/year</p>
       <p class="ob-hook-sample">Sample journal is labeled SAMPLE. Those numbers are not yours.</p>
       <div class="ob-hook-actions">
         <a class="btn" id="ob-hook-start" href="/login.html">Start free</a>
@@ -2937,12 +2937,12 @@ html:not(.runnr-guest) #home-coach-banner{display:none !important}
     <div class="modal-title">Runnr <button class="modal-close" onclick="closeModal('modal-upgrade')">✕</button></div>
     <div id="upgrade-free-panel">
       <div id="upgrade-feature-hint" style="font-size:12px;color:var(--accent);margin-bottom:10px;display:none"></div>
-      <div style="font-size:13px;color:var(--text2);line-height:1.5;margin-bottom:8px">Full journal, Coach, alerts, broker sync &amp; CSV.</div>
+      <div style="font-size:13px;color:var(--text2);line-height:1.5;margin-bottom:8px">7-day free trial of all of Runnr, then full journal, Coach, alerts, broker sync &amp; CSV.</div>
       <div class="upgrade-price">€19 <span>/ month</span></div>
       <div style="font-size:12px;color:var(--text3);margin-bottom:16px">Or €190 / year — two months free.</div>
       <button type="button" class="btn" style="width:100%;margin-bottom:10px;background:linear-gradient(135deg,var(--accent2),var(--accent))" onclick="startStripeCheckout('month')">Start Runnr — €19/month</button>
       <button type="button" class="btn btn-ghost" style="width:100%;margin-bottom:14px" onclick="startStripeCheckout('year')">Yearly · €190</button>
-      <div style="font-size:11px;color:var(--text3);text-align:center;line-height:1.45">Cancel anytime · <a href="/refund/" style="color:var(--gold)">Refund Policy</a> · <a href="/terms/" style="color:var(--gold)">Terms</a> · Card via Stripe</div>
+      <div style="font-size:11px;color:var(--text3);text-align:center;line-height:1.45">7-day trial · cancel anytime · <a href="/refund/" style="color:var(--gold)">Refund Policy</a> · <a href="/terms/" style="color:var(--gold)">Terms</a> · Card via Stripe</div>
     </div>
     <div id="upgrade-pro-panel" style="display:none">
       <div style="font-size:15px;color:var(--accent);font-weight:600;margin-bottom:8px">You’re on Runnr</div>
@@ -2953,18 +2953,18 @@ html:not(.runnr-guest) #home-coach-banner{display:none !important}
   </div>
 </div>
 
-<script src="js/i18n.js?v=16"></script>
+<script src="js/i18n.js?v=17"></script>
 <script src="js/baron.js?v=31"></script>
 <script src="js/discipline-replay.js?v=6"></script>
 <script src="js/coach.js?v=27"></script>
 <script src="js/options-coach.js?v=1"></script>
 <script src="js/fvg-retrace.js?v=1"></script>
-<script src="js/onboarding.js?v=32"></script>
+<script src="js/onboarding.js?v=33"></script>
 <script src="js/intro.js?v=1"></script>
 <script src="js/csv-presets.js?v=4"></script>
-<script src="js/trade-limit.js?v=3"></script>
+<script src="js/trade-limit.js?v=4"></script>
 <script src="js/desk-quiet.js?v=2"></script>
-<script src="js/sync.js?v=69"></script>
+<script src="js/sync.js?v=70"></script>
 <script src="js/desk-sessions.js?v=2"></script>
 <script src="js/desk.js?v=12"></script>
 <script src="js/wave.js?v=1"></script>
@@ -2974,7 +2974,6 @@ html:not(.runnr-guest) #home-coach-banner{display:none !important}
 // ── STATE ──────────────────────────────────────────────────────────────────
 const WHOP_URL = 'https://whop.com/runnr'; // legacy; upgrades now go through Stripe
 const INST_MIN_TRADES = 30;
-const FREE_TRADE_LIMIT = window.RunnrTradeLimit.FREE_TRADE_LIMIT;
 
 function isImportedJournalTrade(t) {
   return window.RunnrTradeLimit.isImportedJournalTrade(t);
@@ -2995,12 +2994,15 @@ function journalTradeSlotsRemaining() {
   return window.RunnrTradeLimit.journalTradeSlotsRemaining(S.trades);
 }
 function openJournalLimitUpgrade() {
-  openUpgrade(`Free plan · ${FREE_TRADE_LIMIT} trades (includes imports)`);
+  const TL = window.RunnrTradeLimit;
+  const loggedIn = typeof RunnrSync !== "undefined" && RunnrSync.isLoggedIn && RunnrSync.isLoggedIn();
+  if (!loggedIn) openUpgrade("Start your 7-day free trial");
+  else if (TL && typeof TL.trialActive === "function" && TL.trialActive()) openUpgrade("Runnr");
+  else openUpgrade("Your 7-day trial has ended");
 }
 function maybeOpenJournalLimit(limited) {
   if (limited) openJournalLimitUpgrade();
 }
-window.FREE_TRADE_LIMIT = FREE_TRADE_LIMIT;
 window.countJournalTradesForLimit = countJournalTradesForLimit;
 window.canAddJournalTrade = canAddJournalTrade;
 window.journalTradeSlotsRemaining = journalTradeSlotsRemaining;
@@ -3526,19 +3528,28 @@ async function refreshBillingUI() {
     await window.RunnrSync?.refreshBilling?.();
   } catch (e) {}
   const b = window.RunnrSync?.billing?.() || { pro: false, plan: 'free', status: 'free', enabled: false };
-  const isPro = !!window.RunnrSync?.isLoggedIn?.() && (typeof RunnrSync.isPro === 'function' ? !!RunnrSync.isPro() : !!b.pro);
-  updateProBadge(isPro);
+  const loggedIn = !!window.RunnrSync?.isLoggedIn?.();
+  const isPro = loggedIn && (typeof RunnrSync.isPro === 'function' ? !!RunnrSync.isPro() : !!b.pro);
+  const paidPro = loggedIn && window.RunnrTradeLimit && typeof RunnrTradeLimit.isPaidPro === 'function'
+    ? !!RunnrTradeLimit.isPaidPro()
+    : (b.status === 'active' || b.plan === 'boss' || !!b.house);
+  const stripeSub = b.status === 'trialing' || paidPro;
+  updateProBadge(isPro && stripeSub);
   try { renderHeaderSyncPill(); } catch (e) {}
 
   if (line) {
     if (!b.enabled) line.textContent = 'Billing not configured on server yet';
-    else if (isPro) line.textContent = 'Plan: Runnr · ' + (b.plan || 'pro') + ' · ' + (b.status || 'active');
-    else line.textContent = `Plan: Free · ${countJournalTradesForLimit()}/${FREE_TRADE_LIMIT} trades logged`;
+    else if (stripeSub) line.textContent = 'Plan: Runnr · ' + (b.plan || 'pro') + ' · ' + (b.status || 'active');
+    else if (b.trialActive) {
+      const days = Number(b.trialDaysLeft) || 0;
+      line.textContent = days === 1 ? 'Plan: Trial · 1 day left' : `Plan: Trial · ${days} days left`;
+    } else if (loggedIn) line.textContent = 'Plan: Trial ended — subscribe to keep Runnr';
+    else line.textContent = 'Plan: Start free · 7-day trial';
   }
-  if (freeBox) freeBox.style.display = (!isPro && b.enabled !== false) ? 'block' : 'none';
-  if (proBox) proBox.style.display = isPro ? 'block' : 'none';
-  if (upFree) upFree.style.display = isPro ? 'none' : 'block';
-  if (upPro) upPro.style.display = isPro ? 'block' : 'none';
+  if (freeBox) freeBox.style.display = (b.enabled !== false && !stripeSub) ? 'block' : 'none';
+  if (proBox) proBox.style.display = stripeSub ? 'block' : 'none';
+  if (upFree) upFree.style.display = stripeSub ? 'none' : 'block';
+  if (upPro) upPro.style.display = stripeSub ? 'block' : 'none';
   if (upProLine) {
     upProLine.textContent = isPro
       ? ('Plan: ' + (b.plan || 'pro') + ' · ' + (b.status || 'active'))
@@ -3554,6 +3565,7 @@ async function refreshBillingUI() {
       drawEquityCurve();
     }
   } catch (e) {}
+  try { maybeOpenExpiredTrialPaywall(); } catch (e) {}
 }
 async function startStripeCheckout(interval) {
   if (!RunnrSync.isLoggedIn()) {
@@ -3600,6 +3612,18 @@ function hasProAccess() {
     }
   } catch (e) {}
   return false;
+}
+let trialPaywallShown = false;
+function maybeOpenExpiredTrialPaywall() {
+  if (trialPaywallShown) return;
+  try {
+    if (!RunnrSync.isLoggedIn?.()) return;
+    const b = RunnrSync.billing?.() || {};
+    if (b.enabled === false) return;
+    if (RunnrSync.isPro?.()) return;
+    trialPaywallShown = true;
+    openUpgrade("Your 7-day trial has ended");
+  } catch (e) {}
 }
 async function requireVerifiedEmail() {
   try { await RunnrSync.refreshBilling?.(); } catch (e) {}
@@ -4940,18 +4964,18 @@ function renderJournal() {
           <button type="button" class="btn btn-ghost" onclick="applyDisciplineDefaultsToAll(event)">Mark all as compliant (Stop ✓ Size ✓)</button>
         </div>
       </div>`;
-    } else if (!RunnrSync.isPro?.() && RunnrSync.billing?.()?.enabled !== false) {
+    } else if (RunnrSync.billing?.()?.enabled !== false) {
       hint.classList.remove('journal-hint-calm');
-      const used = countJournalTradesForLimit();
-      const rem = Math.max(0, FREE_TRADE_LIMIT - used);
-      hint.style.display = 'block';
-      if (rem === 0) {
-        hint.innerHTML = `<span><strong>Free limit reached</strong> (${FREE_TRADE_LIMIT} trades logged, including imports). Upgrade for unlimited journal, Coach, sync &amp; CSV — <button type="button" class="btn btn-sm" style="margin-left:8px" onclick="openUpgrade('Unlimited journal')">€19/mo</button></span>`;
+      const TL = window.RunnrTradeLimit;
+      const copy = TL && typeof TL.freeSlotsLabel === 'function' ? TL.freeSlotsLabel() : '';
+      if (copy && !RunnrSync.isPro?.()) {
+        hint.style.display = 'block';
+        hint.innerHTML = `<span><strong>${copy}</strong> · <button type="button" class="btn btn-sm" style="margin-left:8px" onclick="openJournalLimitUpgrade()">Start Runnr — €19/mo</button></span>`;
+      } else if (copy && TL && typeof TL.trialActive === 'function' && TL.trialActive()) {
+        hint.style.display = 'block';
+        hint.innerHTML = `<span><strong>${copy}</strong> · then €19/month</span>`;
       } else {
-        const slots = window.RunnrTradeLimit && typeof RunnrTradeLimit.freeSlotsLabel === 'function'
-          ? RunnrTradeLimit.freeSlotsLabel()
-          : `${rem} of ${FREE_TRADE_LIMIT} free trades left`;
-        hint.innerHTML = `<span><strong>${slots}</strong> · ${used}/${FREE_TRADE_LIMIT} logged (manual + imports)</span>`;
+        hint.style.display = 'none';
       }
     } else {
       hint.classList.remove('journal-hint-calm');

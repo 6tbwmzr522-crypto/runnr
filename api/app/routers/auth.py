@@ -22,6 +22,7 @@ from app.models.auth import (
     VerifyEmailRequest,
 )
 from app.names import normalize_first_name
+from app.trial import default_trial_ends_at_iso
 from app.oauth import (
     apple_authorize_url,
     apple_configured,
@@ -65,6 +66,9 @@ def _me_response(user: dict) -> MeResponse:
         created_at=user.get("created_at") or None,
         intro_seen=bool(user.get("intro_seen")),
         avatar_url=user.get("avatar_url") or None,
+        trial_ends_at=user.get("trial_ends_at") or None,
+        trial_active=bool(user.get("trial_active")),
+        trial_days_left=int(user.get("trial_days_left") or 0),
         **_email_flags(user.get("email")),
     )
 
@@ -147,8 +151,8 @@ def register(body: RegisterRequest):
             )
         verified = 0 if email_configured() else 1
         cur = conn.execute(
-            "INSERT INTO users (email, password_hash, email_verified, first_name) VALUES (?, ?, ?, ?)",
-            (email, hash_password(body.password), verified, first_name),
+            "INSERT INTO users (email, password_hash, email_verified, first_name, trial_ends_at) VALUES (?, ?, ?, ?, ?)",
+            (email, hash_password(body.password), verified, first_name, default_trial_ends_at_iso()),
         )
         user_id = cur.lastrowid
 

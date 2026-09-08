@@ -15,6 +15,7 @@ from app.auth import create_access_token, hash_password
 from app.config import settings
 from app.db import get_db
 from app.names import normalize_first_name
+from app.trial import default_trial_ends_at_iso
 
 OAUTH_PASSWORD_SENTINEL = "oauth:unusable"
 GOOGLE_AUTH = "https://accounts.google.com/o/oauth2/v2/auth"
@@ -340,10 +341,10 @@ def upsert_oauth_user(
         if user is None:
             cur = conn.execute(
                 """
-                INSERT INTO users (email, password_hash, email_verified, first_name, avatar_url)
-                VALUES (?, ?, ?, ?, ?)
+                INSERT INTO users (email, password_hash, email_verified, first_name, avatar_url, trial_ends_at)
+                VALUES (?, ?, ?, ?, ?, ?)
                 """,
-                (email, OAUTH_PASSWORD_SENTINEL, verified, first_name, avatar_url),
+                (email, OAUTH_PASSWORD_SENTINEL, verified, first_name, avatar_url, default_trial_ends_at_iso()),
             )
             user_id = int(cur.lastrowid)
             user = conn.execute("SELECT * FROM users WHERE id = ?", (user_id,)).fetchone()

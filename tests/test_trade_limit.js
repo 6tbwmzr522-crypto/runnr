@@ -1,5 +1,5 @@
 #!/usr/bin/env node
-/** Free-plan journal cap: imported fills count; demo rows do not. */
+/** Trial/Pro entitlement: countable trades still drive aha gates; no 10-trade cap. */
 "use strict";
 
 const fs = require("fs");
@@ -23,12 +23,16 @@ function check(name, cond) {
 const v = html.match(/var V = "(\d+)"/)[1];
 const cache = sw.match(/CACHE = "runnr-v(\d+)"/)[1];
 check("index.html V matches sw.js CACHE", v === cache);
-check("trade-limit.js is loaded", html.includes("js/trade-limit.js?v=3"));
-check("sync.js cache-busted", html.includes("js/sync.js?v=69"));
+check("trade-limit.js is loaded", html.includes("js/trade-limit.js?v=4"));
+check("sync.js cache-busted", html.includes("js/sync.js?v=70"));
 check("count no longer excludes imported fills", !/!isImportedJournalTrade/.test(html));
-check("hint copy says manual + imports", html.includes("logged (manual + imports)"));
-check("limit-reached copy mentions imports", html.includes("including imports"));
-check("profile PUT enforces the cap", profilePy.includes("would_exceed_free_limit") && profilePy.includes("FREE_LIMIT_DETAIL"));
+check("profile PUT blocks growth after trial", profilePy.includes("would_grow_journal_without_access") && profilePy.includes("FREE_LIMIT_DETAIL"));
+check("user-facing copy is 7-day trial", html.includes("Start free · 7-day trial · then €19/month or €190/year"));
+check("no leftover 10 journal trades copy", !html.includes("10 journal trades") && !html.includes("5 journal trades") && !html.includes("free 5-trade"));
+check("remaining counter markup exists", html.includes("data-free-trade-counter"));
+check("score lock copy in markup", html.includes("Log 3 trades to unlock your score") && html.includes('id="disc-unlock-note"'));
+check("share modal has locked panel", html.includes('id="share-locked"'));
+check("no FREE_TRADE_LIMIT entitlement", !limitSrc.includes("FREE_TRADE_LIMIT"));
 
 function loadLimit() {
   const ctx = {
@@ -52,8 +56,18 @@ function loadLimit() {
 }
 
 const TL = loadLimit();
-const freeSync = { isPro: () => false, billing: () => ({ enabled: true }) };
-const proSync = { isPro: () => true, billing: () => ({ enabled: true }) };
+const freeSync = { isPro: () => false, isLoggedIn: () => false, billing: () => ({ enabled: true }) };
+const expiredSync = { isPro: () => false, isLoggedIn: () => true, billing: () => ({ enabled: true, trialActive: false, trialDaysLeft: 0 }) };
+const trialSync = {
+  isPro: () => true,
+  isLoggedIn: () => true,
+  billing: () => ({ enabled: true, trialActive: true, trialDaysLeft: 5, status: "free", plan: "free" }),
+};
+const paidProSync = {
+  isPro: () => true,
+  isLoggedIn: () => true,
+  billing: () => ({ enabled: true, status: "active", plan: "monthly" }),
+};
 const billingOff = { isPro: () => false, billing: () => ({ enabled: false }) };
 
 const demo = [
@@ -64,26 +78,24 @@ const demo = [
 ];
 
 check("demo-only count is 0", TL.countJournalTradesForLimit(demo) === 0);
-check("FREE_TRADE_LIMIT is 10", TL.FREE_TRADE_LIMIT === 10);
 check("score share min is 3", TL.SCORE_SHARE_MIN_TRADES === 3);
+check("trial days constant is 7", TL.TRIAL_DAYS === 7);
 check("demo-only score is locked", TL.scoreShareUnlocked(demo, freeSync) === false);
 check("demo lock copy pushes log", TL.scoreShareLockCopy(demo, freeSync).includes("Log 3 trades"));
-check("2 real trades stay locked for free", TL.scoreShareUnlocked([{ id: 10 }, { id: 11 }], freeSync) === false);
-check("3 real trades unlock score/share", TL.scoreShareUnlocked([{ id: 10 }, { id: 11 }, { id: 12 }], freeSync) === true);
-check("Pro with 1 trade can share", TL.scoreShareUnlocked([{ id: 10 }], proSync) === true);
-check("Pro with 0 trades stays locked", TL.scoreShareUnlocked(demo, proSync) === false);
-check("free slots label at 0", TL.freeSlotsLabel(demo, freeSync) === "10 free slots left");
-check("free slots label at 2", TL.freeSlotsLabel([{ id: 10 }, { id: 11 }], freeSync) === "8 of 10 free trades left");
-check("hint copy says manual + imports", html.includes("logged (manual + imports)"));
-check("remaining counter markup exists", html.includes("data-free-trade-counter"));
-check("score lock copy in markup", html.includes("Log 3 trades to unlock your score") && html.includes('id="disc-unlock-note"'));
-check("share modal has locked panel", html.includes('id="share-locked"'));
-check("user-facing copy is 10 journal trades", html.includes("Start free · 10 journal trades · then €19/month or €190/year"));
-check("no leftover 5 journal trades copy", !html.includes("5 journal trades") && !html.includes("free 5-trade"));
+check("2 real trades stay locked for trial", TL.scoreShareUnlocked([{ id: 10 }, { id: 11 }], trialSync) === false);
+check("3 real trades unlock score/share", TL.scoreShareUnlocked([{ id: 10 }, { id: 11 }, { id: 12 }], trialSync) === true);
+check("Paid Pro with 1 trade can share", TL.scoreShareUnlocked([{ id: 10 }], paidProSync) === true);
+check("Trial with 1 trade stays locked", TL.scoreShareUnlocked([{ id: 10 }], trialSync) === false);
+check("Paid Pro with 0 trades stays locked", TL.scoreShareUnlocked(demo, paidProSync) === false);
+check("guest label asks to sign in", TL.freeSlotsLabel(demo, freeSync).includes("7-day trial"));
+check("expired label", TL.freeSlotsLabel(demo, expiredSync) === "Trial ended — upgrade to keep Runnr");
+check("trial days label", TL.freeSlotsLabel(demo, trialSync) === "5 days left in trial");
+check("paid Pro has no slots label", TL.freeSlotsLabel(demo, paidProSync) === "");
 
-check("demo-only user can add 10", TL.canAddJournalTrade(10, demo, freeSync) === true);
-check("demo-only user cannot add 11", TL.canAddJournalTrade(11, demo, freeSync) === false);
-check("10 slots remaining with only demos", TL.journalTradeSlotsRemaining(demo, freeSync) === 10);
+check("guest cannot add a trade", TL.canAddJournalTrade(1, demo, freeSync) === false);
+check("expired cannot add a trade", TL.canAddJournalTrade(1, demo, expiredSync) === false);
+check("trial can add 100", TL.canAddJournalTrade(100, demo, trialSync) === true);
+check("expired remaining is 0", TL.journalTradeSlotsRemaining(demo, expiredSync) === 0);
 
 const craftedIds = [
   { id: 1, instr: "RACE" },
@@ -106,8 +118,6 @@ for (let i = 0; i < 10; i++) {
   });
 }
 check("10 T212 fills count as 10", TL.countJournalTradesForLimit(t212Ten) === 10);
-check("10 T212 fills block an 11th", TL.canAddJournalTrade(1, t212Ten, freeSync) === false);
-check("0 slots remaining at 10 T212 fills", TL.journalTradeSlotsRemaining(t212Ten, freeSync) === 0);
 
 const mixed = demo.concat(t212Ten);
 check("demos still ignored next to T212 fills", TL.countJournalTradesForLimit(mixed) === 10);
@@ -115,17 +125,7 @@ check("demos still ignored next to T212 fills", TL.countJournalTradesForLimit(mi
 const withMerged = t212Ten.concat([{ id: 2000, source: "t212", mergedAway: true, instr: "MSFT" }]);
 check("merged-away rows do not count", TL.countJournalTradesForLimit(withMerged) === 10);
 
-const csvEight = Array.from({ length: 8 }, (_, i) => ({
-  id: 3000 + i,
-  source: "csv",
-  instr: "NVDA",
-  externalId: "csv:" + i,
-}));
-check("CSV fills count", TL.countJournalTradesForLimit(csvEight) === 8);
-check("8 CSV + 2 more ok", TL.canAddJournalTrade(2, csvEight, freeSync) === true);
-check("8 CSV + 3 blocked", TL.canAddJournalTrade(3, csvEight, freeSync) === false);
-
-check("Pro is unlimited", TL.canAddJournalTrade(100, t212Ten, proSync) === true);
+check("Paid Pro is unlimited", TL.canAddJournalTrade(100, t212Ten, paidProSync) === true);
 check("billing.enabled false is unlimited", TL.canAddJournalTrade(100, t212Ten, billingOff) === true);
 
 function loadSync(opts) {
@@ -166,10 +166,13 @@ function loadSync(opts) {
   vm.runInNewContext(syncSrc, ctx);
   if (opts.pro) {
     ctx.window.RunnrSync.isPro = () => true;
-    ctx.window.RunnrSync.billing = () => ({ enabled: true, pro: true });
+    ctx.window.RunnrSync.billing = () => ({ enabled: true, pro: true, status: "active" });
+  } else if (opts.trial) {
+    ctx.window.RunnrSync.isPro = () => true;
+    ctx.window.RunnrSync.billing = () => ({ enabled: true, pro: true, trialActive: true, trialDaysLeft: 6, status: "free" });
   } else if (opts.free) {
     ctx.window.RunnrSync.isPro = () => false;
-    ctx.window.RunnrSync.billing = () => ({ enabled: true });
+    ctx.window.RunnrSync.billing = () => ({ enabled: true, trialActive: false });
   }
   return ctx;
 }
@@ -196,45 +199,30 @@ const eleventh = seeded.window.RunnrSync.importOrders(
   [],
   { source: "t212" }
 );
-check("importOrders adds zero when already at 10", eleventh.added === 0);
-check("importOrders reports limited at cap", eleventh.limited === true);
-check("existing T212 rows stay", seeded.window.S.trades.filter((t) => t.source === "t212" && !t.mergedAway).length === 10);
+check("importOrders adds zero when paywalled", eleventh.added === 0);
+check("importOrders reports limited when paywalled", eleventh.limited === true);
 
 const demoCtx = loadSync({
   free: true,
   trades: demo,
 });
-const tenFills = Array.from({ length: 10 }, (_, i) =>
-  fill("t212:fill:" + (100 + i), "2026-03-01T00:00:0" + i + ".000Z")
-);
-const firstTen = demoCtx.window.RunnrSync.importOrders(tenFills, [], { source: "t212" });
-check("demo journal can import 10 fills", firstTen.added === 10);
-check("first 10 fills not limited", firstTen.limited !== true);
-const extra = demoCtx.window.RunnrSync.importOrders(
-  [fill("t212:fill:overflow", "2026-05-01T00:00:00.000Z")],
+const firstTen = demoCtx.window.RunnrSync.importOrders(
+  [fill("t212:fill:100", "2026-03-01T00:00:00.000Z")],
   [],
   { source: "t212" }
 );
-check("11th fill after demo+10 is blocked", extra.added === 0 && extra.limited === true);
+check("paywalled journal cannot import the first fill", firstTen.added === 0 && firstTen.limited === true);
 
-const room = loadSync({
-  free: true,
-  trades: csvEight,
+const trialImport = loadSync({
+  trial: true,
+  trades: t212Ten,
 });
-const batch = room.window.RunnrSync.importOrders(
-  [
-    fill("alpaca:1", "2026-01-01T00:00:00.000Z"),
-    fill("alpaca:2", "2026-01-02T00:00:00.000Z"),
-    fill("alpaca:3", "2026-01-03T00:00:00.000Z"),
-  ],
+const trialExtra = trialImport.window.RunnrSync.importOrders(
+  [fill("t212:fill:trial-extra", "2026-06-01T00:00:00.000Z")],
   [],
-  { source: "alpaca" }
+  { source: "t212" }
 );
-check("import uses remaining slots only", batch.added === 2 && batch.limited === true);
-check(
-  "journal stays at 10 after partial import",
-  room.window.RunnrSync && TL.countJournalTradesForLimit(room.window.S.trades) === 10
-);
+check("trial import is not capped", trialExtra.added === 1 && !trialExtra.limited);
 
 const unlimited = loadSync({
   pro: true,
@@ -335,6 +323,24 @@ check("logged-in isPro false before /me", loggedFail.window.RunnrSync.isPro() ==
   check("successful /me boss is Pro", firstMe.pro === true && boss.window.RunnrSync.isPro() === true);
   const kept = await boss.window.RunnrSync.refreshBilling();
   check("failed refresh preserves known Pro", kept.pro === true && boss.window.RunnrSync.isPro() === true);
+
+  const trialMe = loadSyncBilling({
+    store: { runnr_api_token: "tok" },
+    me: {
+      pro: true,
+      billing_enabled: true,
+      plan: "free",
+      subscription_status: "free",
+      trial_active: true,
+      trial_days_left: 4,
+      trial_ends_at: "2099-01-01T00:00:00Z",
+      email_verified: true,
+    },
+  });
+  const trialBill = await trialMe.window.RunnrSync.refreshBilling();
+  check("successful /me trial is Pro", trialBill.pro === true && trialMe.window.RunnrSync.isPro() === true);
+  check("trial days land on billing cache", trialMe.window.RunnrSync.billing().trialDaysLeft === 4);
+  check("trial active lands on billing cache", trialMe.window.RunnrSync.billing().trialActive === true);
 
   check("shipped seed trades have isDemo", /id:\s*1,\s*isDemo:\s*true/.test(html));
   check("limit helper no longer uses DEMO_TRADE_IDS", !/DEMO_TRADE_IDS/.test(limitSrc));

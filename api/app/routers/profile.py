@@ -10,7 +10,7 @@ from app.trade_limit import (
     count_journal_trades_for_limit,
     existing_countable_from_state_json,
     journal_is_unlimited,
-    would_exceed_free_limit,
+    would_grow_journal_without_access,
 )
 
 router = APIRouter(prefix="/profile", tags=["profile"])
@@ -49,7 +49,7 @@ def put_state(body: ProfileStatePut, user: dict = Depends(get_current_user)):
         existing_count = existing_countable_from_state_json(
             row["state_json"] if row else None
         )
-        if would_exceed_free_limit(new_count, existing_count):
+        if would_grow_journal_without_access(new_count, existing_count):
             raise HTTPException(status_code=403, detail=FREE_LIMIT_DETAIL)
     with get_db() as conn:
         conn.execute(

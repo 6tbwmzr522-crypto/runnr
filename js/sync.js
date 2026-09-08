@@ -603,6 +603,9 @@ const RunnrSync = (() => {
         introSeen: false,
         createdAt: "",
         avatarUrl: "",
+        trialEndsAt: "",
+        trialActive: false,
+        trialDaysLeft: 0,
       },
       extra || {}
     );
@@ -1717,7 +1720,7 @@ const RunnrSync = (() => {
   }
 
   // Fail closed until /auth/me (or health, when logged out) succeeds.
-  // Logged-in users are free + billing-on so isPro() is false and the journal cap applies.
+  // Logged-in users without Pro or an active trial stay paywalled.
   let billingKnown = false;
   let billingCache = failClosedBilling();
 
@@ -1738,6 +1741,9 @@ const RunnrSync = (() => {
     if (data.intro_seen != null) billingCache.introSeen = !!data.intro_seen;
     if (data.created_at) billingCache.createdAt = data.created_at;
     if (data.avatar_url !== undefined) billingCache.avatarUrl = data.avatar_url || "";
+    if (data.trial_ends_at !== undefined) billingCache.trialEndsAt = data.trial_ends_at || "";
+    if (data.trial_active != null) billingCache.trialActive = !!data.trial_active;
+    if (data.trial_days_left != null) billingCache.trialDaysLeft = Number(data.trial_days_left) || 0;
     if (data.pro != null || data.billing_enabled != null) billingKnown = true;
     return billingCache;
   }
@@ -1798,6 +1804,9 @@ const RunnrSync = (() => {
         introSeen: !!me.intro_seen,
         createdAt: me.created_at || "",
         avatarUrl: me.avatar_url || "",
+        trialEndsAt: me.trial_ends_at || "",
+        trialActive: !!me.trial_active,
+        trialDaysLeft: Number(me.trial_days_left) || 0,
       });
       if (me.intro_seen && window.S) window.S.introWalkthroughSeen = true;
       if (!billingCache.canViewStats) {

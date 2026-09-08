@@ -19,7 +19,7 @@ function check(name, cond) {
 const v = html.match(/var V = "(\d+)"/)[1];
 const cache = sw.match(/CACHE = "runnr-v(\d+)"/)[1];
 check("index.html V matches sw.js CACHE", v === cache);
-check("onboarding.js cache-busted", html.includes("js/onboarding.js?v=32"));
+check("onboarding.js cache-busted", html.includes("js/onboarding.js?v=33"));
 check("headline present", html.includes("Trading discipline, not a broker"));
 check("hook names Terminal", html.includes("<dt>Terminal</dt>"));
 check("hook Terminal pill is look-without-paying", html.includes("Session clocks, heatmap, chart — look without paying"));
@@ -27,7 +27,7 @@ check("not-a-broker kicker", html.includes("You do not trade here"));
 check("primary CTA", html.includes('id="ob-hook-start"') && html.includes("Start free"));
 check("sample is secondary", html.includes('id="ob-hook-enter">View sample'));
 check("report secondary", html.includes('href="/report/"') && html.includes("Score one trade"));
-check("pricing copy", html.includes("Start free · 10 journal trades · then €19/month or €190/year"));
+check("pricing copy", html.includes("Start free · 7-day trial · then €19/month or €190/year"));
 check("sample disclaimer", html.includes("Sample journal is labeled SAMPLE. Those numbers are not yours."));
 check("first-paint class", html.includes("runnr-show-hook"));
 check("guest first-paint class", html.includes("runnr-guest"));

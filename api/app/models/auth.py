@@ -40,6 +40,9 @@ class MeResponse(BaseModel):
     created_at: str | None = None
     intro_seen: bool = False
     avatar_url: str | None = None
+    trial_ends_at: str | None = None
+    trial_active: bool = False
+    trial_days_left: int = 0
 
 
 class UpdateMeRequest(BaseModel):

@@ -18,7 +18,7 @@ function check(name, cond) {
 const v = html.match(/var V = "(\d+)"/)[1];
 const cache = sw.match(/CACHE = "runnr-v(\d+)"/)[1];
 check("index.html V matches sw.js CACHE", v === cache);
-check("onboarding cache-bust", html.includes("js/onboarding.js?v=32"));
+check("onboarding cache-bust", html.includes("js/onboarding.js?v=33"));
 
 const hookStart = html.indexOf('id="onboarding-overlay"');
 const hookEnd = html.indexOf('id="intro-overlay"');
@@ -28,7 +28,7 @@ check("80% is not in the hook hero", !/80%/.test(hook));
 check("hook has one Start free CTA", (hook.match(/Start free/g) || []).length >= 1);
 check("hook Start free goes to login", hook.includes('id="ob-hook-start"') && hook.includes('href="/login.html"'));
 check("hook does not duplicate Sign in blocks", !/card-title[^>]*>Sign in/.test(hook) && (hook.match(/>Sign in</g) || []).length === 0);
-check("hook pricing is the real offer", hook.includes("10 journal trades") && hook.includes("€19/month") && hook.includes("€190/year"));
+check("hook pricing is the real offer", hook.includes("7-day trial") && hook.includes("€19/month") && hook.includes("€190/year"));
 check("no invented 30-trade free tier", !html.includes("30 journal") && !html.includes("30 trades/month"));
 check("js hook matches html CTA", ob.includes('id="ob-hook-start"') && ob.includes("Start free") && ob.includes("View sample"));
 
@@ -38,7 +38,7 @@ check("hook hides the desk", html.includes("html.runnr-show-hook #app{visibility
 check("overlay is full viewport", html.includes("#onboarding-overlay{position:fixed;inset:0;width:100%") && html.includes("max-width:none"));
 check("guest header drops smashed Terminal+balance", html.includes("html.runnr-guest #header .header-desk-btn") && html.includes("html.runnr-guest .header-bal-settings"));
 
-check("home landing card has pricing + Start free", html.includes('id="home-landing"') && html.includes('id="home-start-free"') && html.includes("Start free · 10 journal trades · then €19/month or €190/year"));
+check("home landing card has pricing + Start free", html.includes('id="home-landing"') && html.includes('id="home-start-free"') && html.includes("Start free · 7-day trial · then €19/month or €190/year"));
 check("signed-in desktop hides the guest landing card", html.includes("#page-home .home-frame > .home-landing-card{display:none}")
   && html.includes("html.runnr-guest #page-home .home-frame > .home-landing-card{display:flex}"));
 check("landing title stays a separate line", html.includes('class="home-landing-title">Trading discipline, not a broker'));
@@ -51,8 +51,8 @@ check("fear-greed fetch bails for guests", /async function fetchFearGreed\(\) \{
 check("home markets fetch bails for guests", /async function refreshHomeMarkets\(\) \{\s*if \(isGuestLanding\(\)\) return;/.test(html));
 
 check("email/password login kept", fs.readFileSync(path.join(root, "login.html"), "utf8").includes('id="signin-form"'));
-check("login page states 10 journal trades", fs.readFileSync(path.join(root, "login.html"), "utf8").includes("10 journal trades"));
-check("report CTA is 10 trades", fs.readFileSync(path.join(root, "report/index.html"), "utf8").includes("track 10 trades"));
+check("login page states 7-day trial", fs.readFileSync(path.join(root, "login.html"), "utf8").includes("7-day trial"));
+check("report is gated to trial or Pro", fs.readFileSync(path.join(root, "report/index.html"), "utf8").includes("Start your 7-day trial") && fs.readFileSync(path.join(root, "report/index.html"), "utf8").includes("/api/v1/auth/me"));
 check("intro overlay not removed", html.includes('id="intro-overlay"') && html.includes("/media/runnr-how-it-works.mp4"));
 check("footer mailto kept", html.includes("mailto:info@thinicedigital.com"));
 

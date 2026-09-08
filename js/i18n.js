@@ -37,7 +37,7 @@
       "settings.coachDigestHint": "Sunday push if you haven't logged in 48h",
       "settings.account": "Account",
       "settings.pricing": "Pricing",
-      "settings.pricingFree": "Free — sizer, 10 trades (manual + imports), watchlist",
+      "settings.pricingFree": "7-day free trial — then €19/month or €190/year",
       "settings.pricingPaid": "Runnr — €19/mo or €190/yr · full journal, Coach, alerts, broker sync, CSV, cloud",
       "settings.pricingBasic": "Runnr — €19/mo or €190/yr · full journal, Coach, alerts, broker sync, CSV, cloud",
       "settings.pricingPro": "One plan — cancel anytime",

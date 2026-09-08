@@ -167,7 +167,7 @@ const RunnrGrowth = {
           <div class="ob-hook-pill"><dt>Coach</dt><dd>Report on the one trade that hurt</dd></div>
           <div class="ob-hook-pill"><dt>Terminal</dt><dd>Session clocks, heatmap, chart — look without paying</dd></div>
         </dl>
-        <p class="ob-hook-price">Start free · 10 journal trades · then €19/month or €190/year</p>
+        <p class="ob-hook-price">Start free · 7-day trial · then €19/month or €190/year</p>
         <p class="ob-hook-sample">Sample journal is labeled SAMPLE. Those numbers are not yours.</p>
         <div class="ob-hook-actions">
           <a class="btn" id="ob-hook-start" href="/login.html">Start free</a>
@@ -424,9 +424,9 @@ const RunnrGrowth = {
     if (typeof canAddJournalTrade === "function" && !canAddJournalTrade(symbols.length)) {
       if (typeof openUpgrade === "function") {
         if (typeof openJournalLimitUpgrade === "function") openJournalLimitUpgrade();
-        else openUpgrade(`Free plan · ${window.FREE_TRADE_LIMIT || 10} trades (includes imports)`);
+        else openUpgrade("Your 7-day trial has ended");
       } else {
-        alert("Free plan journal limit reached. Upgrade for unlimited trades.");
+        alert("Your 7-day trial has ended. Upgrade to keep logging trades.");
       }
       return;
     }
