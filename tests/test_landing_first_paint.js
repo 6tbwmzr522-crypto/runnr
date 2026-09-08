@@ -39,6 +39,8 @@ check("overlay is full viewport", html.includes("#onboarding-overlay{position:fi
 check("guest header drops smashed Terminal+balance", html.includes("html.runnr-guest #header .header-desk-btn") && html.includes("html.runnr-guest .header-bal-settings"));
 
 check("home landing card has pricing + Start free", html.includes('id="home-landing"') && html.includes('id="home-start-free"') && html.includes("Start free · 5 journal trades · then €19/month or €190/year"));
+check("signed-in desktop hides the guest landing card", html.includes("#page-home .home-frame > .home-landing-card{display:none}")
+  && html.includes("html.runnr-guest #page-home .home-frame > .home-landing-card{display:flex}"));
 check("landing title stays a separate line", html.includes('class="home-landing-title">Trading discipline, not a broker'));
 check("landing card is full-width on desktop", html.includes("#page-home .home-frame > .home-landing-card"));
 check("80% lives only in the progress card", html.includes("Need 80%+ stop confirmation over 20 trades"));
