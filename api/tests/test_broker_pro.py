@@ -86,6 +86,12 @@ def test_free_bearer_cannot_connect_or_sync_when_billing_on(monkeypatch):
         assert alpaca_sync.status_code == 403
         ibkr_sync = client.get("/api/v1/brokers/ibkr/sync", headers=headers)
         assert ibkr_sync.status_code == 403
+        alpaca_status = client.get("/api/v1/brokers/alpaca/status", headers=headers)
+        assert alpaca_status.status_code == 403
+        ibkr_status = client.get("/api/v1/brokers/ibkr/status", headers=headers)
+        assert ibkr_status.status_code == 403
+        t212_status = client.get("/api/v1/brokers/t212/status", headers=headers)
+        assert t212_status.status_code == 403
 
 
 def test_trial_user_can_connect_when_billing_on(monkeypatch):
@@ -101,6 +107,8 @@ def test_trial_user_can_connect_when_billing_on(monkeypatch):
         assert res.status_code == 200, res.text
         sync = client.get("/api/v1/brokers/t212/sync", headers=headers)
         assert sync.status_code == 200
+        status = client.get("/api/v1/brokers/t212/status", headers=headers)
+        assert status.status_code == 200
 
 
 def test_canceled_stale_plan_cannot_connect(monkeypatch):

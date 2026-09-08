@@ -565,6 +565,12 @@ function commitLog(draft) {
 }
 
 function openLogModal(type) {
+  if (!S.editingTradeId) {
+    if (typeof canAddJournalTrade === 'function' && !canAddJournalTrade(1)) {
+      if (typeof openJournalLimitUpgrade === 'function') openJournalLimitUpgrade();
+      return;
+    }
+  }
   S.flags = { stop: null, size: null };
   ['stop-yes','stop-no','size-yes','size-no'].forEach(id => {
     document.getElementById(id).style.background = '';

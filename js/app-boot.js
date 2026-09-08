@@ -252,6 +252,19 @@ function initApp() {
   } else if (/[?&]billing=cancel/.test(location.search)) {
     history.replaceState(null, '', location.pathname + location.hash);
     showToast('Runnr', 'Checkout cancelled');
+  } else if (/[?&]billing=upgrade/.test(location.search)) {
+    history.replaceState(null, '', location.pathname + location.hash);
+    const openPaywall = () => {
+      if (typeof openUpgrade === 'function') openUpgrade('Your 7-day trial has ended');
+    };
+    if (window.RunnrSync?.isLoggedIn?.()) {
+      RunnrSync.refreshBilling?.()
+        .then(() => { try { refreshBillingUI(); } catch (e) {} openPaywall(); })
+        .catch(() => openPaywall());
+    } else if (typeof openSyncAuthModal === 'function') {
+      openSyncAuthModal();
+      showToast('Runnr', 'Sign in, then subscribe to keep Runnr');
+    }
   }
   if (/[?&]signedin=1/.test(location.search) && window.RunnrSync?.isLoggedIn?.()) {
     history.replaceState(null, '', location.pathname + location.hash);

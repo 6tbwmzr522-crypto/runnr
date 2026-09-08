@@ -51,6 +51,8 @@ check("home markets fetch bails for guests", /async function refreshHomeMarkets\
 check("email/password login kept", fs.readFileSync(path.join(root, "login.html"), "utf8").includes('id="signin-form"'));
 check("login page states 7-day trial", fs.readFileSync(path.join(root, "login.html"), "utf8").includes("7-day trial"));
 check("report is gated to trial or Pro", fs.readFileSync(path.join(root, "report/index.html"), "utf8").includes("Start your 7-day trial") && fs.readFileSync(path.join(root, "report/index.html"), "utf8").includes("/api/v1/auth/me"));
+check("report expired CTA hits billing=upgrade", fs.readFileSync(path.join(root, "report/index.html"), "utf8").includes("/?billing=upgrade"));
+check("app handles billing=upgrade", src.includes("billing=upgrade") && /openUpgrade\(['"]Your 7-day trial has ended['"]\)/.test(src));
 check("intro overlay not removed", html.includes('id="intro-overlay"') && html.includes("/media/runnr-how-it-works.mp4"));
 check("footer mailto kept", html.includes("mailto:info@thinicedigital.com"));
 
