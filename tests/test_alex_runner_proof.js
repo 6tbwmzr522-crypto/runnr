@@ -51,6 +51,7 @@ check("no fake quote marks as testimonials", !/“I (cut|saved|made)/i.test(html
 check("js hook still has Start free + View sample", ob.includes('id="ob-hook-start"') && ob.includes("Start free") && ob.includes("View sample"));
 check("renderHook injects proofCardHtml", ob.includes("proofCardHtml") && ob.includes("paintProof"));
 check("proof CSS is mobile-first stacked CTAs", css.includes(".runnr-proof-actions") && css.includes(".runnr-proof-brand") && css.includes("grid-template-columns:1fr 1fr"));
+check("demo desk does not repeat the landing proof card", css.includes("html.runnr-demo #page-home .home-frame > .home-landing-card{display:none !important}"));
 check("proof ring uses engine pct var", css.includes("--proof-pct"));
 
 function freshCtx() {

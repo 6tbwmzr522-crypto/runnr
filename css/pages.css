@@ -191,6 +191,8 @@ a.btn{display:block;text-decoration:none;text-align:center;box-sizing:border-box
 .ob-hook-secondary:active{color:var(--gold-light)}
 .home-landing-card{display:none}
 html.runnr-guest .home-landing-card{display:block}
+html.runnr-demo .home-landing-card,
+html.runnr-demo #page-home .home-frame > .home-landing-card{display:none !important}
 .home-landing-title{font-family:var(--font-head);font-size:26px;font-weight:300;font-style:italic;line-height:1.2;margin:0 0 8px;color:var(--text);display:block}
 .home-landing-card p{font-size:14px;color:var(--text2);line-height:1.5;margin:0 0 12px}
 html.runnr-guest .fg-card,

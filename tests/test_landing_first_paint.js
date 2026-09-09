@@ -44,6 +44,8 @@ check("guest header drops smashed Terminal+balance", css.includes("html.runnr-gu
 check("home landing card has pricing + Start free", html.includes('id="home-landing"') && html.includes('id="home-start-free"') && html.includes("Start free · 7-day trial · then €19/month or €190/year"));
 check("signed-in desktop hides the guest landing card", css.includes("#page-home .home-frame > .home-landing-card{display:none}")
   && css.includes("html.runnr-guest #page-home .home-frame > .home-landing-card{display:flex}"));
+check("SAMPLE desk hides the guest landing card", css.includes("html.runnr-demo .home-landing-card")
+  && css.includes("html.runnr-demo #page-home .home-frame > .home-landing-card{display:none !important}"));
 check("landing title stays a separate line", html.includes('class="home-landing-title">Trading discipline, not a broker'));
 check("landing card is full-width on desktop", css.includes("#page-home .home-frame > .home-landing-card"));
 check("80% lives only in the progress card", html.includes("Need 80%+ stop confirmation over 20 trades"));
