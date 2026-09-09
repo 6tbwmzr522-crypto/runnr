@@ -1,0 +1,273 @@
+/**
+ * Populated SAMPLE desk for logged-out visitors.
+ * Alex Runner — €10k, 1% risk, stops held, size leaked.
+ * Demo rows are isDemo:true so they never count toward trial/journal caps
+ * and never merge into a signed-in real book.
+ */
+(function (global) {
+  "use strict";
+
+  const REV = 1;
+  const MIN_BOOK = 12;
+  const VIEW_KEY = "runnr_demo_viewed";
+
+  function snap(at) {
+    return { risk: 1, bal: 10000, at: at || "2026-04-15T00:00:00.000Z", sym: "€" };
+  }
+
+  function isDemoTrade(t) {
+    if (global.RunnrTradeLimit && typeof RunnrTradeLimit.isDemoJournalTrade === "function") {
+      return RunnrTradeLimit.isDemoJournalTrade(t);
+    }
+    return !!(t && (t.isDemo === true || t.seed === true));
+  }
+
+  function isFactoryWatch(w) {
+    if (!w) return false;
+    const id = Number(w.id);
+    const sym = String(w.sym || "").toUpperCase();
+    return (id === 1 || id === 2 || id === 3) && (sym === "RACE" || sym === "ASTS" || sym === "EURUSD");
+  }
+
+  function isDemoWatch(w) {
+    if (!w) return false;
+    if (w.isDemo === true || w.seed === true) return true;
+    return isFactoryWatch(w);
+  }
+
+  function isBrokerOrCsvSource(src) {
+    const s = String(src || "").toLowerCase();
+    return s === "alpaca" || s === "ibkr" || s === "t212" || s === "csv";
+  }
+
+  function isOwnTrade(t) {
+    if (!t || isDemoTrade(t)) return false;
+    if (t.mergedAway) return false;
+    return isBrokerOrCsvSource(t.source) || t.id != null;
+  }
+
+  function looksLikeRealBook(s) {
+    if (!s) return false;
+    if (s.balFromAlpaca || s.brokerSync?.alpaca?.connected) return true;
+    if (Number(s.journalBaseBal) > 0) return true;
+    if (Number(s.bal) > 0 && Number(s.bal) !== 10000) return true;
+    const trades = s.trades || [];
+    if (trades.some(isOwnTrade)) return true;
+    const wl = s.watchlist || [];
+    if (wl.some((w) => w && !isDemoWatch(w))) return true;
+    return false;
+  }
+
+  function isLoggedIn() {
+    try {
+      if (global.RunnrSync && typeof RunnrSync.isLoggedIn === "function" && RunnrSync.isLoggedIn()) {
+        return true;
+      }
+    } catch (e) {}
+    try {
+      if (global.localStorage && localStorage.getItem("runnr_api_token")) return true;
+    } catch (e) {}
+    return false;
+  }
+
+  function queryForce() {
+    try {
+      const search = (global.location && location.search) || "";
+      return new URLSearchParams(search).get("demo") === "1";
+    } catch (e) {
+      return false;
+    }
+  }
+
+  function dayIso(now, daysAgo) {
+    const d = new Date(now.getTime());
+    d.setHours(12, 0, 0, 0);
+    d.setDate(d.getDate() - daysAgo);
+    return d.toISOString();
+  }
+
+  function dayLabel(iso) {
+    return new Date(iso).toLocaleDateString("en-GB", { month: "short", day: "numeric" });
+  }
+
+  function classicSeeds() {
+    return [
+      { id:1, isDemo:true, instr:'RACE', dir:'long', entry:354, exit:380, size:28, pnl:728, stopOk:true, sizeOk:true, type:'shares', date:'Apr 17', stop:338, riskSnapshot:{ risk:1, bal:10000, at:'2026-04-17T00:00:00.000Z', sym:'€' } },
+      { id:2, isDemo:true, instr:'BE', dir:'long', entry:137, exit:151, size:65, pnl:910, stopOk:true, sizeOk:false, type:'shares', date:'Apr 15', stop:135, sampleOrigin:'manual', riskSnapshot:{ risk:1, bal:10000, at:'2026-04-15T00:00:00.000Z', sym:'€' } },
+      { id:3, isDemo:true, instr:'USDJPY', dir:'short', entry:159.37, exit:157.93, size:0.5, pnl:720, stopOk:true, sizeOk:true, type:'cfd', date:'Apr 12', stop:160.2, riskSnapshot:{ risk:1, bal:10000, at:'2026-04-12T00:00:00.000Z', sym:'€' } },
+      { id:4, isDemo:true, instr:'AAPL CFD', dir:'long', entry:198, exit:195, size:15, pnl:-45, stopOk:false, sizeOk:true, type:'cfd', date:'Apr 10', incomplete:true, riskSnapshot:{ risk:1, bal:10000, at:'2026-04-10T00:00:00.000Z', sym:'€' } },
+    ];
+  }
+
+  function extraSeeds() {
+    return [
+      { id:5, isDemo:true, instr:'NVDA', dir:'long', entry:120, exit:126, size:50, pnl:300, stop:118, stopOk:true, sizeOk:true, type:'shares', sampleOrigin:'synced' },
+      { id:6, isDemo:true, instr:'MSFT', dir:'long', entry:415, exit:422, size:20, pnl:140, stop:410, stopOk:true, sizeOk:true, type:'shares' },
+      { id:7, isDemo:true, instr:'TSLA', dir:'long', entry:175, exit:168, size:20, pnl:-140, stop:170, stopOk:true, sizeOk:true, type:'shares' },
+      { id:8, isDemo:true, instr:'AMD', dir:'long', entry:155, exit:162, size:25, pnl:175, stop:151, stopOk:true, sizeOk:true, type:'shares' },
+      { id:9, isDemo:true, instr:'AAPL', dir:'long', entry:198, exit:204, size:25, pnl:150, stop:194, stopOk:true, sizeOk:true, type:'shares', sampleOrigin:'manual' },
+      { id:10, isDemo:true, instr:'META', dir:'long', entry:510, exit:498, size:10, pnl:-120, stop:500, stopOk:true, sizeOk:true, type:'shares' },
+      { id:11, isDemo:true, instr:'AMZN', dir:'long', entry:185, exit:191, size:25, pnl:150, stop:181, stopOk:true, sizeOk:true, type:'shares' },
+      { id:12, isDemo:true, instr:'GOOGL', dir:'long', entry:165, exit:171, size:25, pnl:150, stop:161, stopOk:true, sizeOk:true, type:'shares' },
+      { id:13, isDemo:true, instr:'EURUSD', dir:'short', entry:1.142, exit:1.128, size:12500, pnl:175, stop:1.150, stopOk:true, sizeOk:true, type:'cfd', sampleOrigin:'synced' },
+      { id:14, isDemo:true, instr:'GBPUSD', dir:'long', entry:1.270, exit:1.278, size:12500, pnl:100, stop:1.262, stopOk:true, sizeOk:true, type:'cfd' },
+      { id:15, isDemo:true, instr:'SPY', dir:'long', entry:520, exit:526, size:20, pnl:120, stop:515, stopOk:true, sizeOk:true, type:'shares' },
+      { id:16, isDemo:true, instr:'NFLX', dir:'long', entry:620, exit:608, size:10, pnl:-120, stop:610, stopOk:true, sizeOk:true, type:'shares' },
+      { id:17, isDemo:true, instr:'NVDA', dir:'long', entry:118, exit:112, size:80, pnl:-480, stop:114, stopOk:true, sizeOk:false, type:'shares', sampleOrigin:'synced' },
+      { id:18, isDemo:true, instr:'TSLA', dir:'long', entry:180, exit:172, size:70, pnl:-560, stop:176, stopOk:true, sizeOk:false, type:'shares' },
+      { id:19, isDemo:true, instr:'AMD', dir:'long', entry:160, exit:154, size:60, pnl:-360, stop:156, stopOk:true, sizeOk:false, type:'shares' },
+      { id:20, isDemo:true, instr:'META', dir:'long', entry:500, exit:490, size:40, pnl:-400, stop:494, stopOk:true, sizeOk:false, type:'shares' },
+      { id:21, isDemo:true, instr:'AMZN', dir:'long', entry:190, exit:184, size:50, pnl:-300, stop:188, stopOk:false, sizeOk:false, type:'shares' },
+      { id:22, isDemo:true, instr:'MSFT CFD', dir:'long', entry:420, exit:415, size:8, pnl:-40, stop:412, stopOk:false, sizeOk:false, type:'cfd', incomplete:true },
+    ];
+  }
+
+  function stampBook(trades, now) {
+    const offsets = [0, 1, 2, 3, 4, 5, 8, 9, 10, 12, 13, 15, 16, 18, 20, 21, 23, 25, 27, 28, 30, 32];
+    return trades.map((t, i) => {
+      const iso = dayIso(now, offsets[i] != null ? offsets[i] : (i + 1));
+      const row = Object.assign({}, t, {
+        date: dayLabel(iso),
+        filledAt: iso,
+        riskSnapshot: Object.assign({}, snap(iso), t.riskSnapshot || {}, { at: iso }),
+      });
+      return row;
+    });
+  }
+
+  function factoryTrades(now) {
+    const when = now instanceof Date ? now : new Date();
+    return stampBook(classicSeeds().concat(extraSeeds()), when);
+  }
+
+  function factoryWatchlist() {
+    return [
+      { id:1, isDemo:true, sym:'RACE', dir:'long', entry:354, stop:338, target:420, thesis:'Post-selloff recovery, 52-week range support, buyback programme active', rr:3.9, urgent:false },
+      { id:2, isDemo:true, sym:'ASTS', dir:'long', entry:18, stop:15.5, target:28, thesis:'LEO satellite revenue inflection, institutional accumulation', rr:4.0, urgent:true },
+      { id:3, isDemo:true, sym:'EURUSD', dir:'short', entry:1.142, stop:1.150, target:1.110, thesis:'ECB dovish pivot signals, USD strength on rate divergence', rr:4.0, urgent:false },
+      { id:4, isDemo:true, sym:'NVDA', dir:'long', entry:120, stop:118, target:138, thesis:'Sized from the 1% book — wait for the next pullback', rr:9.0, urgent:false },
+      { id:5, isDemo:true, sym:'BE', dir:'long', entry:137, stop:135, target:160, thesis:'Size leak in the journal — next one stays at 1%', rr:11.5, urgent:true },
+      { id:6, isDemo:true, sym:'AAPL', dir:'long', entry:198, stop:194, target:214, thesis:'Manual (sample) setup from the desk', rr:4.0, urgent:false },
+    ];
+  }
+
+  function demoTradeCount(s) {
+    return ((s && s.trades) || []).filter(isDemoTrade).length;
+  }
+
+  function shouldApply(state, opts) {
+    const force = !!(opts && opts.force) || queryForce();
+    if (isLoggedIn()) return false;
+    if (looksLikeRealBook(state)) return false;
+    if (force) return true;
+    if ((state && state.demoSandboxRev || 0) < REV) return true;
+    if (demoTradeCount(state) < MIN_BOOK) return true;
+    return false;
+  }
+
+  function apply(state, opts) {
+    if (!state || !shouldApply(state, opts)) return false;
+    const book = factoryTrades();
+    state.trades = book;
+    state.watchlist = factoryWatchlist();
+    if (!state.bal || Number(state.bal) === 10000) state.bal = 10000;
+    if (!state.risk) state.risk = 1;
+    if (!state.sym) state.sym = "€";
+    state.demoSandboxRev = REV;
+    return true;
+  }
+
+  function hydrate(state, opts) {
+    const applied = apply(state, opts);
+    if (applied || isDemoState(state)) paintChrome(state);
+    if (applied) beacon("demo_view");
+    return applied;
+  }
+
+  function isDemoState(s) {
+    if (global.RunnrSync && typeof RunnrSync.isDemoState === "function" && RunnrSync !== api) {
+      try { return !!RunnrSync.isDemoState(s); } catch (e) {}
+    }
+    s = s || global.S;
+    if (!s) return true;
+    if (s.balFromAlpaca || s.brokerSync?.alpaca?.connected) return false;
+    const trades = s.trades || [];
+    if (trades.some((t) => t && (isBrokerOrCsvSource(t.source) || !isDemoTrade(t)))) return false;
+    const wl = s.watchlist || [];
+    if (wl.some((w) => w && !isDemoWatch(w))) return false;
+    return true;
+  }
+
+  function paintChrome(state) {
+    const demo = isDemoState(state || global.S);
+    try {
+      if (global.document && document.documentElement) {
+        document.documentElement.classList.toggle("runnr-demo", !!demo);
+      }
+    } catch (e) {}
+    const chrome = global.document && document.getElementById("demo-chrome");
+    if (chrome) {
+      chrome.hidden = !demo;
+      chrome.classList.toggle("show", !!demo);
+    }
+    return demo;
+  }
+
+  function bindChrome() {
+    const cta = global.document && document.getElementById("demo-chrome-cta");
+    if (!cta || cta.dataset.demoBound) return;
+    cta.dataset.demoBound = "1";
+    cta.addEventListener("click", function () {
+      beacon("demo_cta_start");
+    });
+  }
+
+  function beacon(event) {
+    try {
+      const nav = global.navigator;
+      if (!nav) return;
+      if (nav.doNotTrack === "1" || nav.globalPrivacyControl) return;
+      if (event === "demo_view") {
+        try {
+          if (global.sessionStorage && sessionStorage.getItem(VIEW_KEY) === "1") return;
+          if (global.sessionStorage) sessionStorage.setItem(VIEW_KEY, "1");
+        } catch (e) {}
+      }
+      let base = "https://api.runnr.fyi";
+      if (global.RunnrSync && typeof RunnrSync.apiBase === "function") {
+        base = RunnrSync.apiBase();
+      }
+      const url = String(base).replace(/\/$/, "") + "/api/v1/stats/hit?e=" + encodeURIComponent(event || "demo_view");
+      if (nav.sendBeacon) {
+        nav.sendBeacon(url);
+        return;
+      }
+      if (typeof global.fetch === "function") {
+        global.fetch(url, { method: "POST", keepalive: true, mode: "cors", credentials: "omit" });
+      }
+    } catch (e) {}
+  }
+
+  const api = {
+    REV,
+    MIN_BOOK,
+    factoryTrades,
+    factoryWatchlist,
+    classicSeeds,
+    isDemoTrade,
+    isDemoWatch,
+    isFactoryWatch,
+    isOwnTrade,
+    looksLikeRealBook,
+    shouldApply,
+    apply,
+    hydrate,
+    isDemoState,
+    paintChrome,
+    bindChrome,
+    beacon,
+    queryForce,
+  };
+
+  global.RunnrDemoSandbox = api;
+})(typeof window !== "undefined" ? window : globalThis);

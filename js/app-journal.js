@@ -137,7 +137,7 @@ function renderJournal() {
         </div>
       </div>
       <div class="te-meta">${metaLine}</div>
-      <div class="flags">${stopFlag}${sizeFlag}${t.setup === 'fvg' ? '<span class="flag flag-ok">FVG</span>' : ''}${t.challengeFail ? '' : (t.incomplete?'<span class="flag flag-miss">Incomplete</span>':'')}</div>
+      <div class="flags">${(t.isDemo || t.seed) ? '<span class="flag flag-ok demo-row-badge">SAMPLE</span>' : ''}${t.sampleOrigin === 'synced' ? '<span class="flag">Synced (sample)</span>' : ''}${t.sampleOrigin === 'manual' ? '<span class="flag">Manual (sample)</span>' : ''}${stopFlag}${sizeFlag}${t.setup === 'fvg' ? '<span class="flag flag-ok">FVG</span>' : ''}${t.challengeFail ? '' : (t.incomplete?'<span class="flag flag-miss">Incomplete</span>':'')}</div>
       ${typeof DisciplineReplay !== 'undefined' && DisciplineReplay.canReplay(t, S, typeof Baron !== 'undefined' ? Baron : null) ? `<button type="button" class="te-replay te-replay-primary" onclick="openDisciplineReplay('${t.id}', event)">Replay Disciplined</button>` : ''}
       ${t.challengeNote ? `<div class="te-note">${escapeTeText(t.challengeNote)}</div>` : ''}
     </div>`;

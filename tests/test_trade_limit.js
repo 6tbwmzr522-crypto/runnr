@@ -39,7 +39,7 @@ const v = html.match(/var V = "(\d+)"/)[1];
 const cache = sw.match(/CACHE = "runnr-v(\d+)"/)[1];
 check("index.html V matches sw.js CACHE", v === cache);
 check("trade-limit.js is loaded", html.includes("js/trade-limit.js?v=4"));
-check("sync.js cache-busted", html.includes("js/sync.js?v=70"));
+check("sync.js cache-busted", html.includes("js/sync.js?v=71"));
 check("count no longer excludes imported fills", !/!isImportedJournalTrade/.test(src));
 check("profile PUT blocks growth after trial", profilePy.includes("would_grow_journal_without_access") && profilePy.includes("TRIAL_EXPIRED_DETAIL"));
 check("user-facing copy is 7-day trial", html.includes("Start free · 7-day trial · then €19/month or €190/year"));
