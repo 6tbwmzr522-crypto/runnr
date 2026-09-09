@@ -296,11 +296,11 @@
         '<header class="runnr-proof-head">' +
           '<div class="runnr-proof-who">' +
             '<div class="runnr-proof-kicker">Alex Runner · <span class="runnr-proof-badge">SAMPLE</span></div>' +
+            '<p class="runnr-proof-tier" data-proof="tier">—</p>' +
             '<p class="runnr-proof-story">Stops held, size leaked.</p>' +
           '</div>' +
           '<div class="runnr-proof-score">' +
             '<strong data-proof="overall">—</strong>' +
-            '<span data-proof="tier">—</span>' +
           '</div>' +
         '</header>' +
         '<dl class="runnr-proof-split">' +
