@@ -52,8 +52,15 @@ const RunnrSync = (() => {
     return localStorage.getItem(TOKEN_KEY) || "";
   }
 
-  const DEMO_TRADE_IDS = new Set([1, 2, 3, 4]);
-  const DEMO_WATCH_SYMS = new Set(["RACE", "ASTS", "EURUSD"]);
+  function isDemoJournalTrade(t) {
+    if (typeof window !== "undefined" && window.RunnrDemoSandbox && typeof window.RunnrDemoSandbox.isDemoTrade === "function") {
+      return window.RunnrDemoSandbox.isDemoTrade(t);
+    }
+    if (typeof window !== "undefined" && window.RunnrTradeLimit && typeof window.RunnrTradeLimit.isDemoJournalTrade === "function") {
+      return window.RunnrTradeLimit.isDemoJournalTrade(t);
+    }
+    return !!(t && (t.isDemo === true || t.seed === true));
+  }
 
   function parseStoredState(raw) {
     try {
@@ -65,10 +72,14 @@ const RunnrSync = (() => {
   }
 
   function isDemoWatch(w) {
+    if (typeof window !== "undefined" && window.RunnrDemoSandbox && typeof window.RunnrDemoSandbox.isDemoWatch === "function") {
+      return window.RunnrDemoSandbox.isDemoWatch(w);
+    }
     if (!w) return false;
+    if (w.isDemo === true || w.seed === true) return true;
     const id = Number(w.id);
     const sym = String(w.sym || "").toUpperCase();
-    return (id === 1 || id === 2 || id === 3) && DEMO_WATCH_SYMS.has(sym);
+    return (id === 1 || id === 2 || id === 3) && (sym === "RACE" || sym === "ASTS" || sym === "EURUSD");
   }
 
   function watchRichness(w) {
@@ -128,7 +139,7 @@ const RunnrSync = (() => {
   function stateLooksReal(s) {
     if (!s) return false;
     const trades = s.trades || [];
-    if (trades.some((t) => t && (isBrokerOrCsvSource(t.source) || (t.id != null && !DEMO_TRADE_IDS.has(t.id))))) {
+    if (trades.some((t) => t && !isDemoJournalTrade(t) && (isBrokerOrCsvSource(t.source) || t.id != null))) {
       return true;
     }
     const wl = s.watchlist || [];
@@ -227,7 +238,7 @@ const RunnrSync = (() => {
   function tradeWatchSym(t) {
     if (!t || t.mergedAway) return "";
     const src = String(t.source || "").toLowerCase();
-    if (DEMO_TRADE_IDS.has(t.id) && src !== "alpaca" && src !== "ibkr" && src !== "t212" && src !== "csv") return "";
+    if (isDemoJournalTrade(t) && src !== "alpaca" && src !== "ibkr" && src !== "t212" && src !== "csv") return "";
     const raw = String(t.instr || t.symbol || "").replace(/\s+CFD$/i, "").trim().toUpperCase();
     if (!raw || raw.includes("/") || raw.includes("=")) return "";
     if (/^[A-Z]{6}$/.test(raw)) return "";
@@ -1418,7 +1429,7 @@ const RunnrSync = (() => {
     if (!s) return true;
     if (s.balFromAlpaca || s.brokerSync?.alpaca?.connected) return false;
     const trades = s.trades || [];
-    if (trades.some((t) => isBrokerOrCsvSource(t.source) || !DEMO_TRADE_IDS.has(t.id))) return false;
+    if (trades.some((t) => t && (isBrokerOrCsvSource(t.source) || !isDemoJournalTrade(t)))) return false;
     const wl = s.watchlist || [];
     if (wl.some((w) => w && !isDemoWatch(w))) return false;
     return true;
@@ -1515,13 +1526,11 @@ const RunnrSync = (() => {
     (remoteTrades || []).forEach(add);
     (localTrades || []).forEach(add);
     let merged = [...byKey.values()];
-    const remoteHasOwn = (remoteTrades || []).some(
-      (t) => t && (isBrokerOrCsvSource(t.source) || !DEMO_TRADE_IDS.has(Number(t.id)))
-    );
-    if (remoteHasOwn) {
-      merged = merged.filter(
-        (t) => t && (isBrokerOrCsvSource(t.source) || !DEMO_TRADE_IDS.has(Number(t.id)))
-      );
+    const isOwn = (t) => t && !isDemoJournalTrade(t) && (isBrokerOrCsvSource(t.source) || t.id != null);
+    const remoteHasOwn = (remoteTrades || []).some(isOwn);
+    const localHasOwn = (localTrades || []).some(isOwn);
+    if (remoteHasOwn || localHasOwn) {
+      merged = merged.filter((t) => t && !isDemoJournalTrade(t));
     }
     return merged;
   }
@@ -1957,6 +1966,8 @@ const RunnrSync = (() => {
     pushProfileStateDebounced,
     hasMeaningfulState,
     isDemoState,
+    mergeTrades,
+    mergeProfiles,
     recoverLocalState,
     recoverWatchlistIfEmpty,
     enrichFromSnapshots,

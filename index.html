@@ -5,7 +5,7 @@
 <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
 <script>
 (function () {
-  var V = "133";
+  var V = "134";
   try {
     if (localStorage.getItem("runnr_app_v") !== V) {
       localStorage.setItem("runnr_app_v", V);
@@ -33,6 +33,10 @@
     }
     if (localStorage.getItem("runnr_hook_v1") === "done") return;
     if (localStorage.getItem("runnr_api_token")) return;
+    if (/[?&]demo=1(?:&|$)/.test(location.search || "")) {
+      try { localStorage.setItem("runnr_hook_v1", "done"); } catch (e2) {}
+      return;
+    }
     document.documentElement.classList.add("runnr-show-hook");
   } catch (e) {
     document.documentElement.classList.add("runnr-guest");
@@ -81,8 +85,13 @@
     <button type="button" style="background:none;border:none;color:var(--text3);font-size:16px;cursor:pointer;padding:0 4px" onclick="event.stopPropagation();hideSessionBanner()">✕</button>
   </div>
 
+  <div id="demo-chrome" hidden>
+    <span class="demo-chrome-text" data-i18n="header.demoChrome">SAMPLE · not your book</span>
+    <a class="btn btn-sm" id="demo-chrome-cta" href="/login.html" data-i18n="header.demoCta">Start free · 7-day trial</a>
+  </div>
+
   <div id="demo-banner" onclick="switchPage('sync')">
-    <span class="demo-banner-text" data-i18n="header.demoBanner">Sample journal — connect Alpaca or import CSV for your data</span>
+    <span class="demo-banner-text" data-i18n="header.demoBanner">SAMPLE · not your book</span>
     <button type="button" style="background:none;border:none;color:var(--text3);font-size:16px;cursor:pointer;padding:0 4px" onclick="event.stopPropagation();dismissDemoBanner()">✕</button>
   </div>
 
@@ -1081,7 +1090,7 @@
 
       <!-- Hero P&L -->
       <div class="port-hero">
-        <div class="ph-label">Total P&L</div>
+        <div class="ph-label">Total P&L<span id="port-demo-badge" class="demo-badge" style="display:none" data-i18n="header.demoBadge">SAMPLE</span></div>
         <div class="ph-val" id="port-total-pnl">+€2,313</div>
         <div class="ph-sub">
           <span id="port-pnl-pct" style="color:var(--accent)">+23.1%</span>
@@ -1743,12 +1752,13 @@
 <script src="js/coach.js?v=27"></script>
 <script src="js/options-coach.js?v=1"></script>
 <script src="js/fvg-retrace.js?v=1"></script>
-<script src="js/onboarding.js?v=33"></script>
+<script src="js/onboarding.js?v=34"></script>
 <script src="js/intro.js?v=1"></script>
 <script src="js/csv-presets.js?v=4"></script>
 <script src="js/trade-limit.js?v=4"></script>
 <script src="js/desk-quiet.js?v=2"></script>
-<script src="js/sync.js?v=70"></script>
+<script src="js/demo-sandbox.js?v=1"></script>
+<script src="js/sync.js?v=71"></script>
 <script src="js/desk-sessions.js?v=2"></script>
 <script src="js/desk.js?v=12"></script>
 <script src="js/wave.js?v=1"></script>

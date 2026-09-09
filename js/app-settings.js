@@ -210,11 +210,21 @@ window.resendFromVerifyBanner = resendFromVerifyBanner;
 function updateDemoBanner() {
   const el = document.getElementById('demo-banner');
   const badge = document.getElementById('home-demo-badge');
-  const isDemo = typeof RunnrSync?.isDemoState === 'function' && RunnrSync.isDemoState(S);
+  const isDemo = (typeof RunnrSync?.isDemoState === 'function' && RunnrSync.isDemoState(S))
+    || (typeof RunnrDemoSandbox !== 'undefined' && RunnrDemoSandbox.isDemoState && RunnrDemoSandbox.isDemoState(S));
   let dismissed = false;
   try { dismissed = sessionStorage.getItem('runnr_demo_banner_dismissed') === '1'; } catch (e) {}
-  if (el) el.classList.toggle('show', isDemo && !dismissed);
+  const chrome = document.getElementById('demo-chrome');
+  if (el) el.classList.toggle('show', isDemo && !dismissed && !chrome);
   if (badge) badge.style.display = isDemo ? 'inline-block' : 'none';
+  const portBadge = document.getElementById('port-demo-badge');
+  if (portBadge) portBadge.style.display = isDemo ? 'inline-block' : 'none';
+  try {
+    if (window.RunnrDemoSandbox) {
+      RunnrDemoSandbox.paintChrome(S);
+      RunnrDemoSandbox.bindChrome();
+    }
+  } catch (e) {}
 }
 window.openAboutModal = openAboutModal;
 window.openPrivacyModal = openPrivacyModal;
@@ -374,10 +384,11 @@ function updateHomeStats() {
     const item = document.getElementById(id)?.closest('.stat-item');
     if (item) item.hidden = !!hide;
   };
-  hideEmptyStat('qs-stop', !allM.count);
-  hideEmptyStat('qs-size', !allM.count);
-  hideEmptyStat('qs-pf', pfEmpty);
-  hideEmptyStat('qs-wr', !allM.count);
+  const keepDemoStats = !!(window.RunnrSync && typeof RunnrSync.isDemoState === 'function' && RunnrSync.isDemoState(S));
+  hideEmptyStat('qs-stop', !allM.count && !keepDemoStats);
+  hideEmptyStat('qs-size', !allM.count && !keepDemoStats);
+  hideEmptyStat('qs-pf', pfEmpty && !keepDemoStats);
+  hideEmptyStat('qs-wr', !allM.count && !keepDemoStats);
 
   document.querySelectorAll('.risk-pill').forEach(pill => {
     pill.classList.toggle('active', parseFloat(pill.textContent) === S.risk);

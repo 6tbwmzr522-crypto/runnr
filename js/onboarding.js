@@ -24,6 +24,9 @@ const RunnrGrowth = {
     try {
       if (localStorage.getItem(this.HOOK_KEY) === "done") return false;
     } catch (e) {}
+    try {
+      if (typeof location !== "undefined" && new URLSearchParams(location.search).get("demo") === "1") return false;
+    } catch (e) {}
     if (typeof RunnrSync !== "undefined" && RunnrSync.isLoggedIn?.()) return false;
     if (!this.isDemoOrEmpty(state)) return false;
     return true;
@@ -39,6 +42,16 @@ const RunnrGrowth = {
     try {
       if (localStorage.getItem("runnr_onboarding_v1") === "done") return false;
     } catch (e) {}
+    try {
+      if (typeof location !== "undefined" && new URLSearchParams(location.search).get("demo") === "1") {
+        this.completeOnboarding(state);
+        return false;
+      }
+    } catch (e) {}
+    if (state && state.demoSandboxRev) {
+      this.completeOnboarding(state);
+      return false;
+    }
     // Sample journal (ids 1–4) must not count as “already onboarded”.
     const real = ((state && state.trades) || []).filter((t) => t && t.source);
     if (real.length >= 3) {
@@ -61,8 +74,11 @@ const RunnrGrowth = {
   },
 
   scoreTrades(state) {
-    const TL = window.RunnrTradeLimit;
     const all = (state && state.trades) || [];
+    const demo = (typeof RunnrSync !== "undefined" && typeof RunnrSync.isDemoState === "function" && RunnrSync.isDemoState(state))
+      || (typeof RunnrDemoSandbox !== "undefined" && typeof RunnrDemoSandbox.isDemoState === "function" && RunnrDemoSandbox.isDemoState(state));
+    if (demo) return all.filter((t) => t && !t.mergedAway);
+    const TL = window.RunnrTradeLimit;
     if (TL && typeof TL.countableTradeList === "function") return TL.countableTradeList(all);
     return all.filter((t) => t && !t.mergedAway && !t.isDemo && !t.seed);
   },
@@ -84,8 +100,10 @@ const RunnrGrowth = {
   },
 
   renderDisciplineCard(state) {
-    const unlocked = this.scoreShareUnlocked(state);
-    const lockCopy = this.scoreShareLockCopy(state);
+    const demo = (typeof RunnrSync !== "undefined" && typeof RunnrSync.isDemoState === "function" && RunnrSync.isDemoState(state))
+      || (typeof RunnrDemoSandbox !== "undefined" && typeof RunnrDemoSandbox.isDemoState === "function" && RunnrDemoSandbox.isDemoState(state));
+    const unlocked = demo || this.scoreShareUnlocked(state);
+    const lockCopy = demo ? "" : this.scoreShareLockCopy(state);
     const scoreTrades = this.scoreTrades(state);
     const score = unlocked
       ? CoachEngine.disciplineScore(scoreTrades)
@@ -180,7 +198,16 @@ const RunnrGrowth = {
   dismissHook(state) {
     this.completeHook();
     if (state) this.completeOnboarding(state);
+    try {
+      if (typeof RunnrDemoSandbox !== "undefined") {
+        RunnrDemoSandbox.hydrate(state || window.S, { force: false });
+        RunnrDemoSandbox.beacon("demo_view");
+      }
+    } catch (e) {}
     if (typeof persist === "function") persist();
+    if (typeof updateHomeStats === "function") updateHomeStats();
+    if (typeof renderJournal === "function") renderJournal();
+    if (typeof applyGuestShell === "function") applyGuestShell();
     this.close();
   },
 

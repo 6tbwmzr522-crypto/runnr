@@ -41,17 +41,22 @@ window.journalTradeSlotsRemaining = journalTradeSlotsRemaining;
 var S = {
   bal: 10000, risk: 1, sym: '€',
   riskHistory: [],
-  trades: [
+  trades: (typeof RunnrDemoSandbox !== 'undefined' && RunnrDemoSandbox.factoryTrades)
+    ? RunnrDemoSandbox.factoryTrades()
+    : [
     { id:1, isDemo:true, instr:'RACE', dir:'long', entry:354, exit:380, size:28, pnl:728, stopOk:true, sizeOk:true, type:'shares', date:'Apr 17', riskSnapshot:{ risk:1, bal:10000, at:'2026-04-17T00:00:00.000Z', sym:'€' } },
     { id:2, isDemo:true, instr:'BE', dir:'long', entry:137, exit:151, size:65, pnl:910, stopOk:true, sizeOk:false, type:'shares', date:'Apr 15', riskSnapshot:{ risk:1, bal:10000, at:'2026-04-15T00:00:00.000Z', sym:'€' } },
     { id:3, isDemo:true, instr:'USDJPY', dir:'short', entry:159.37, exit:157.93, size:0.5, pnl:720, stopOk:true, sizeOk:true, type:'cfd', date:'Apr 12', riskSnapshot:{ risk:1, bal:10000, at:'2026-04-12T00:00:00.000Z', sym:'€' } },
     { id:4, isDemo:true, instr:'AAPL CFD', dir:'long', entry:198, exit:195, size:15, pnl:-45, stopOk:false, sizeOk:true, type:'cfd', date:'Apr 10', incomplete:true, riskSnapshot:{ risk:1, bal:10000, at:'2026-04-10T00:00:00.000Z', sym:'€' } },
   ],
-  watchlist: [
-    { id:1, sym:'RACE', dir:'long', entry:354, stop:338, target:420, thesis:'Post-selloff recovery, 52-week range support, buyback programme active', rr:3.9, urgent:false },
-    { id:2, sym:'ASTS', dir:'long', entry:18, stop:15.5, target:28, thesis:'LEO satellite revenue inflection, institutional accumulation', rr:4.0, urgent:true },
-    { id:3, sym:'EURUSD', dir:'short', entry:1.142, stop:1.150, target:1.110, thesis:'ECB dovish pivot signals, USD strength on rate divergence', rr:4.0, urgent:false },
+  watchlist: (typeof RunnrDemoSandbox !== 'undefined' && RunnrDemoSandbox.factoryWatchlist)
+    ? RunnrDemoSandbox.factoryWatchlist()
+    : [
+    { id:1, isDemo:true, sym:'RACE', dir:'long', entry:354, stop:338, target:420, thesis:'Post-selloff recovery, 52-week range support, buyback programme active', rr:3.9, urgent:false },
+    { id:2, isDemo:true, sym:'ASTS', dir:'long', entry:18, stop:15.5, target:28, thesis:'LEO satellite revenue inflection, institutional accumulation', rr:4.0, urgent:true },
+    { id:3, isDemo:true, sym:'EURUSD', dir:'short', entry:1.142, stop:1.150, target:1.110, thesis:'ECB dovish pivot signals, USD strength on rate divergence', rr:4.0, urgent:false },
   ],
+  demoSandboxRev: (typeof RunnrDemoSandbox !== 'undefined' && RunnrDemoSandbox.REV) || 0,
   flags: { stop: null, size: null },
   editingTradeId: null,
   editingWatchId: null,
@@ -231,8 +236,20 @@ function persist() {
   }
 }
 
+try {
+  if (typeof RunnrDemoSandbox !== 'undefined' && RunnrDemoSandbox.hydrate) {
+    const force = !!(RunnrDemoSandbox.queryForce && RunnrDemoSandbox.queryForce());
+    if (RunnrDemoSandbox.hydrate(S, { force })) persist();
+    else RunnrDemoSandbox.paintChrome(S);
+  }
+} catch (e) { console.warn('demo sandbox hydrate', e); }
+
 function isFactoryDemoWatchItem(w) {
   if (!w) return true;
+  if (typeof RunnrDemoSandbox !== 'undefined' && RunnrDemoSandbox.isDemoWatch) {
+    return RunnrDemoSandbox.isDemoWatch(w);
+  }
+  if (w.isDemo === true || w.seed === true) return true;
   const id = Number(w.id);
   const sym = String(w.sym || '').toUpperCase();
   return (id === 1 || id === 2 || id === 3) && (sym === 'RACE' || sym === 'ASTS' || sym === 'EURUSD');

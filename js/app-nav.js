@@ -26,13 +26,20 @@ function applyGuestShell() {
     document.documentElement.classList.toggle('runnr-guest', guest);
     if (!guest) document.documentElement.classList.remove('runnr-show-hook');
   } catch (e) {}
+  try {
+    if (window.RunnrDemoSandbox) {
+      RunnrDemoSandbox.paintChrome(S);
+      RunnrDemoSandbox.bindChrome();
+    }
+  } catch (e) {}
   applyQuietDesk();
 }
 window.applyGuestShell = applyGuestShell;
 
 function applyQuietDesk() {
   const guest = typeof isGuestLanding === 'function' && isGuestLanding();
-  const quiet = !guest && window.RunnrDeskQuiet && RunnrDeskQuiet.isQuiet(S && S.trades);
+  const demo = !!(window.RunnrSync && typeof RunnrSync.isDemoState === 'function' && RunnrSync.isDemoState(S));
+  const quiet = !guest && !demo && window.RunnrDeskQuiet && RunnrDeskQuiet.isQuiet(S && S.trades);
   try { document.documentElement.classList.toggle('runnr-quiet', !!quiet); } catch (e) {}
   return !!quiet;
 }
