@@ -42,6 +42,16 @@ const RunnrGrowth = {
     try {
       if (localStorage.getItem("runnr_onboarding_v1") === "done") return false;
     } catch (e) {}
+    try {
+      if (typeof location !== "undefined" && new URLSearchParams(location.search).get("demo") === "1") {
+        this.completeOnboarding(state);
+        return false;
+      }
+    } catch (e) {}
+    if (state && state.demoSandboxRev) {
+      this.completeOnboarding(state);
+      return false;
+    }
     // Sample journal (ids 1–4) must not count as “already onboarded”.
     const real = ((state && state.trades) || []).filter((t) => t && t.source);
     if (real.length >= 3) {

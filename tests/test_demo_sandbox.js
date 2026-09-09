@@ -37,6 +37,8 @@ check("discipline card unlocks for demo state", onboardingSrc.includes("const un
 check("scoreTrades includes demo rows in demo state", /if \(demo\) return all\.filter/.test(onboardingSrc));
 check("sync merge uses isDemo flag not id set", /isDemoJournalTrade/.test(syncSrc) && !/DEMO_TRADE_IDS/.test(syncSrc));
 check("hydrate refuses signed-in books", sandboxSrc.includes("if (isLoggedIn()) return false") && sandboxSrc.includes("looksLikeRealBook"));
+check("demo apply completes onboarding so the analyse wizard stays closed", sandboxSrc.includes("state.onboardingComplete = true"));
+check("demo=1 skips the analyse wizard", onboardingSrc.includes('get("demo") === "1"') && onboardingSrc.includes("completeOnboarding(state)"));
 
 function freshCtx() {
   const store = {};

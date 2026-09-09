@@ -174,6 +174,11 @@
     if (!state.risk) state.risk = 1;
     if (!state.sym) state.sym = "€";
     state.demoSandboxRev = REV;
+    state.onboardingComplete = true;
+    try { localStorage.setItem("runnr_onboarding_v1", "done"); } catch (e) {}
+    if (queryForce() || (opts && opts.force)) {
+      try { localStorage.setItem("runnr_hook_v1", "done"); } catch (e) {}
+    }
     return true;
   }
 
