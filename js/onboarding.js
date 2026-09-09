@@ -176,10 +176,13 @@ const RunnrGrowth = {
       <div class="ob-hook">
         <div class="ob-hero">
           <div class="ob-kicker">You do not trade here</div>
-          <h2>Trading discipline, not a broker</h2>
-          <p>Sizer, journal, score, streak, and session wave. Not a P&amp;L tracker.</p>
-        </div>
-        <dl class="ob-hook-pills">
+        <h2>Trading discipline, not a broker</h2>
+        <p>Sizer, journal, score, streak, and session wave. Not a P&amp;L tracker.</p>
+      </div>
+      ${typeof RunnrDemoSandbox !== "undefined" && RunnrDemoSandbox.proofCardHtml
+        ? RunnrDemoSandbox.proofCardHtml()
+        : ""}
+      <dl class="ob-hook-pills">
           <div class="ob-hook-pill"><dt>Sizer</dt><dd>Account, risk %, and a stop</dd></div>
           <div class="ob-hook-pill"><dt>Journal</dt><dd>Flags skipped stops and oversized trades</dd></div>
           <div class="ob-hook-pill"><dt>Coach</dt><dd>Report on the one trade that hurt</dd></div>
@@ -193,6 +196,12 @@ const RunnrGrowth = {
           <a class="ob-hook-secondary" id="ob-hook-report" href="/report/">Score one trade</a>
         </div>
       </div>`;
+    if (typeof RunnrDemoSandbox !== "undefined") {
+      try {
+        RunnrDemoSandbox.paintProof(body);
+        RunnrDemoSandbox.bindProof();
+      } catch (e) {}
+    }
   },
 
   dismissHook(state) {

@@ -185,6 +185,8 @@
   function hydrate(state, opts) {
     const applied = apply(state, opts);
     if (applied || isDemoState(state)) paintChrome(state);
+    paintProof();
+    bindProof();
     if (applied) beacon("demo_view");
     return applied;
   }
@@ -220,10 +222,156 @@
 
   function bindChrome() {
     const cta = global.document && document.getElementById("demo-chrome-cta");
-    if (!cta || cta.dataset.demoBound) return;
-    cta.dataset.demoBound = "1";
-    cta.addEventListener("click", function () {
-      beacon("demo_cta_start");
+    if (cta && !cta.dataset.demoBound) {
+      cta.dataset.demoBound = "1";
+      cta.addEventListener("click", function () {
+        beacon("demo_cta_start");
+      });
+    }
+    paintProof();
+    bindProof();
+  }
+
+  function moneyLabel(n, sym) {
+    const Coach = global.CoachEngine;
+    if (Coach && typeof Coach.fmtCardMoney === "function") {
+      return Coach.fmtCardMoney(sym || "€", n);
+    }
+    const r = Math.round(Number(n) || 0);
+    return (r < 0 ? "-" : "") + (sym || "€") + Math.abs(r).toLocaleString("en-GB");
+  }
+
+  /**
+   * Public SAMPLE case — numbers come from the factory book + CoachEngine.
+   * Do not hard-code score / P&L in the DOM.
+   */
+  function proofModel(now) {
+    const Coach = global.CoachEngine;
+    const trades = factoryTrades(now);
+    const score = Coach && typeof Coach.disciplineScore === "function"
+      ? Coach.disciplineScore(trades)
+      : { overall: 0, stopPct: 0, sizePct: 0, tier: "—", tradeCount: 0 };
+    const metrics = Coach && typeof Coach.metrics === "function"
+      ? Coach.metrics(trades)
+      : { discPnl: 0, undiscPnl: 0 };
+    const leak = Coach && typeof Coach.leakLabel === "function"
+      ? Coach.leakLabel(score, metrics)
+      : "size leaks";
+    return {
+      name: "Alex Runner",
+      badge: "SAMPLE",
+      kicker: "Alex Runner · SAMPLE",
+      story: "Stops held, size leaked.",
+      disclaimer: "Illustrative demo book — not a customer testimonial, not live AUM.",
+      brand: "runnr.fyi",
+      deskHref: "/?demo=1",
+      trialHref: "/login.html",
+      trialLabel: "Start free · 7-day trial",
+      deskLabel: "Open SAMPLE desk",
+      overall: score.overall,
+      overallLabel: Number.isFinite(Number(score.overall)) && score.tradeCount
+        ? Math.round(score.overall) + "%"
+        : "—",
+      tier: score.tier || "—",
+      stopPct: score.stopPct,
+      sizePct: score.sizePct,
+      stopLabel: Number.isFinite(Number(score.stopPct)) && score.tradeCount
+        ? Math.round(score.stopPct) + "%"
+        : "—",
+      sizeLabel: Number.isFinite(Number(score.sizePct)) && score.tradeCount
+        ? Math.round(score.sizePct) + "%"
+        : "—",
+      discPnl: metrics.discPnl,
+      undiscPnl: metrics.undiscPnl,
+      discPnlLabel: moneyLabel(metrics.discPnl, "€"),
+      undiscPnlLabel: moneyLabel(metrics.undiscPnl, "€"),
+      leakLabel: leak,
+      tradeCount: score.tradeCount,
+    };
+  }
+
+  function proofCardHtml() {
+    return (
+      '<article class="runnr-proof" data-runnr-proof aria-label="Alex Runner SAMPLE case">' +
+        '<header class="runnr-proof-head">' +
+          '<div class="runnr-proof-who">' +
+            '<div class="runnr-proof-kicker">Alex Runner · <span class="runnr-proof-badge">SAMPLE</span></div>' +
+            '<p class="runnr-proof-story">Stops held, size leaked.</p>' +
+          '</div>' +
+          '<div class="runnr-proof-score">' +
+            '<strong data-proof="overall">—</strong>' +
+            '<span data-proof="tier">—</span>' +
+          '</div>' +
+        '</header>' +
+        '<dl class="runnr-proof-split">' +
+          '<div><dt>Stop</dt><dd data-proof="stop">—</dd></div>' +
+          '<div><dt>Size</dt><dd data-proof="size">—</dd></div>' +
+        '</dl>' +
+        '<div class="runnr-proof-pnl">' +
+          '<div><span>Disciplined</span><strong class="runnr-proof-up" data-proof="disc">—</strong></div>' +
+          '<div><span>Size leak</span><strong class="runnr-proof-dn" data-proof="leak">—</strong></div>' +
+        '</div>' +
+        '<p class="runnr-proof-note">Illustrative demo book — not a customer testimonial, not live AUM.</p>' +
+        '<div class="runnr-proof-actions">' +
+          '<a class="btn runnr-proof-cta-start" href="/login.html">Start free · 7-day trial</a>' +
+          '<a class="btn btn-ghost runnr-proof-cta-desk" href="/?demo=1">Open SAMPLE desk</a>' +
+        '</div>' +
+        '<p class="runnr-proof-brand">runnr.fyi</p>' +
+      '</article>'
+    );
+  }
+
+  function fillProofCard(card, model) {
+    if (!card || !model) return;
+    const set = (key, value) => {
+      card.querySelectorAll('[data-proof="' + key + '"]').forEach((el) => {
+        el.textContent = value;
+      });
+    };
+    set("overall", model.overallLabel);
+    set("tier", model.tier);
+    set("stop", model.stopLabel);
+    set("size", model.sizeLabel);
+    set("disc", model.discPnlLabel);
+    set("leak", model.undiscPnlLabel);
+    const ring = card.querySelector(".runnr-proof-score");
+    if (ring) {
+      const pct = Math.max(0, Math.min(100, Number(model.overall) || 0));
+      ring.style.setProperty("--proof-pct", String(pct));
+    }
+  }
+
+  function paintProof(root) {
+    const doc = (root && root.querySelectorAll) ? root : (global.document || null);
+    if (!doc) return null;
+    const model = proofModel();
+    const hosts = doc.querySelectorAll("[data-runnr-proof-host]");
+    hosts.forEach((host) => {
+      if (!host.querySelector("[data-runnr-proof]")) {
+        host.innerHTML = proofCardHtml();
+      }
+    });
+    const cards = doc.querySelectorAll("[data-runnr-proof]");
+    cards.forEach((card) => fillProofCard(card, model));
+    return model;
+  }
+
+  function bindProof() {
+    const doc = global.document;
+    if (!doc) return;
+    doc.querySelectorAll(".runnr-proof-cta-start").forEach((el) => {
+      if (el.dataset.proofBound) return;
+      el.dataset.proofBound = "1";
+      el.addEventListener("click", function () {
+        beacon("demo_cta_start");
+      });
+    });
+    doc.querySelectorAll(".runnr-proof-cta-desk").forEach((el) => {
+      if (el.dataset.proofBound) return;
+      el.dataset.proofBound = "1";
+      el.addEventListener("click", function () {
+        beacon("demo_view");
+      });
     });
   }
 
@@ -272,7 +420,25 @@
     bindChrome,
     beacon,
     queryForce,
+    proofModel,
+    proofCardHtml,
+    paintProof,
+    bindProof,
   };
 
   global.RunnrDemoSandbox = api;
+
+  if (global.document) {
+    const bootProof = function () {
+      try {
+        paintProof();
+        bindProof();
+      } catch (e) {}
+    };
+    if (global.document.readyState === "loading") {
+      global.document.addEventListener("DOMContentLoaded", bootProof);
+    } else {
+      bootProof();
+    }
+  }
 })(typeof window !== "undefined" ? window : globalThis);
