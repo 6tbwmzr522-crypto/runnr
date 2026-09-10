@@ -31,6 +31,74 @@ const CoachEngine = {
     return this.parseTradeDate(t.date, t.filledAt);
   },
 
+  /**
+   * Fill-evidence weights (hypothesis — refine if the mix feels off).
+   * Broker-synced fills are higher-confidence than self-reported journal rows.
+   * CSV imports sit in between: they come from a broker export but can be
+   * remapped or edited. Manual logs are still scored — they just weigh less,
+   * so an 80% stop rate is not self-graded homework.
+   *
+   *   synced   (alpaca / ibkr / t212 / sampleOrigin synced) = 1.00
+   *   imported (csv / sampleOrigin imported)                = 0.85
+   *   manual   (typed journal / sampleOrigin manual)        = 0.50
+   */
+  FILL_WEIGHT: { synced: 1, imported: 0.85, manual: 0.5 },
+  BROKER_SOURCES: { alpaca: true, ibkr: true, t212: true },
+
+  fillEvidenceKind(t) {
+    if (!t) return "manual";
+    const origin = String(t.sampleOrigin || "").toLowerCase();
+    if (origin === "synced" || origin === "broker") return "synced";
+    if (origin === "imported" || origin === "csv") return "imported";
+    if (origin === "manual") return "manual";
+    const src = String(t.source || "").toLowerCase();
+    if (this.BROKER_SOURCES[src]) return "synced";
+    if (src === "csv") return "imported";
+    // SAMPLE factory rows without a source are a broker-like preview.
+    if (t.isDemo === true || t.seed === true) return "synced";
+    return "manual";
+  },
+
+  fillWeight(t) {
+    const kind = this.fillEvidenceKind(t);
+    const w = this.FILL_WEIGHT[kind];
+    return Number.isFinite(w) ? w : this.FILL_WEIGHT.manual;
+  },
+
+  fillEvidenceLabel(t) {
+    const kind = this.fillEvidenceKind(t);
+    const demo = !!(t && (t.isDemo === true || t.seed === true));
+    if (kind === "synced") return demo ? "Synced (sample)" : "Synced";
+    if (kind === "imported") return demo ? "Imported (sample)" : "Imported";
+    return demo ? "Manual (sample)" : "Manual";
+  },
+
+  fillEvidenceBadgeHtml(t) {
+    const kind = this.fillEvidenceKind(t);
+    const label = this.fillEvidenceLabel(t);
+    return `<span class="flag flag-src flag-src-${kind}">${label}</span>`;
+  },
+
+  fillEvidenceMix(trades) {
+    const mix = { synced: 0, imported: 0, manual: 0 };
+    (trades || []).forEach((t) => {
+      if (!t) return;
+      mix[this.fillEvidenceKind(t)] += 1;
+    });
+    return mix;
+  },
+
+  weightedFlagPct(trades, pred) {
+    let ok = 0;
+    let all = 0;
+    (trades || []).forEach((t) => {
+      const w = this.fillWeight(t);
+      all += w;
+      if (pred(t)) ok += w;
+    });
+    return all > 0 ? (ok / all) * 100 : 0;
+  },
+
   isClosedPnlTrade(t) {
     if (!t || t.disciplineOnly || t.mergedAway) return false;
     if (window.Baron?.isOpenTrade?.(t)) return false;
@@ -69,35 +137,40 @@ const CoachEngine = {
     const d = this.forDiscipline(trades);
     const wins = c.filter((t) => t.pnl > 0);
     const losses = c.filter((t) => t.pnl <= 0);
-    const stopOk = d.filter((t) => t.stopOk).length;
-    const sizeOk = d.filter((t) => t.sizeOk).length;
     const winPnL = wins.reduce((s, t) => s + t.pnl, 0);
     const lossPnL = Math.abs(losses.reduce((s, t) => s + t.pnl, 0));
     return {
       count: c.length,
       winRate: c.length ? (wins.length / c.length) * 100 : 0,
       profitFactor: lossPnL > 0 ? winPnL / lossPnL : wins.length ? 999 : 0,
-      stopPct: d.length ? (stopOk / d.length) * 100 : 0,
-      sizePct: d.length ? (sizeOk / d.length) * 100 : 0,
+      stopPct: this.weightedFlagPct(d, (t) => t.stopOk),
+      sizePct: this.weightedFlagPct(d, (t) => t.sizeOk),
       totalPnl: c.reduce((s, t) => s + t.pnl, 0),
       undiscPnl: c.filter((t) => !t.stopOk || !t.sizeOk).reduce((s, t) => s + t.pnl, 0),
       discPnl: c.filter((t) => t.stopOk && t.sizeOk).reduce((s, t) => s + t.pnl, 0),
     };
   },
 
-  /** Weighted discipline score: 40% stops, 40% size, 20% journal completeness */
+  /**
+   * Discipline score: 40% stops, 40% size, 20% both-flags completeness.
+   * Stop / size / completeness percents are fill-weighted (see FILL_WEIGHT)
+   * so broker-synced rows move the needle more than manual journal rows.
+   * tradeCount stays an unweighted headcount. P&L is never weighted.
+   */
   disciplineScore(trades) {
     const d = this.forDiscipline(trades);
     const c = this.completed(trades);
+    const evidence = this.fillEvidenceMix(d);
     if (!d.length) {
       return {
         overall: 0, stopPct: 0, sizePct: 0, completePct: 0,
         streak: this.loggingStreak(trades), tradeCount: 0, tier: "Novice",
+        evidence,
       };
     }
-    const stopPct = d.filter((t) => t.stopOk).length / d.length * 100;
-    const sizePct = d.filter((t) => t.sizeOk).length / d.length * 100;
-    const completePct = d.filter((t) => t.stopOk && t.sizeOk).length / d.length * 100;
+    const stopPct = this.weightedFlagPct(d, (t) => t.stopOk);
+    const sizePct = this.weightedFlagPct(d, (t) => t.sizeOk);
+    const completePct = this.weightedFlagPct(d, (t) => t.stopOk && t.sizeOk);
     const overall = stopPct * 0.4 + sizePct * 0.4 + completePct * 0.2;
     let tier = "Novice";
     if (overall >= 80 && d.length >= 20) tier = "Consistent Runner";
@@ -111,6 +184,7 @@ const CoachEngine = {
       streak: this.loggingStreak(trades),
       tradeCount: d.length,
       tier,
+      evidence,
     };
   },
 
@@ -350,8 +424,7 @@ const CoachEngine = {
   eliteProgress(trades) {
     const d = this.forDiscipline(trades);
     const n = d.length;
-    const stopOk = d.filter((t) => t.stopOk).length;
-    const stopPct = n ? (stopOk / n) * 100 : 0;
+    const stopPct = this.weightedFlagPct(d, (t) => t.stopOk);
     const target = 20;
     const consistent = n >= target && stopPct >= 80;
     return {

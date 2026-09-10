@@ -31,7 +31,8 @@ const appFiles = [
   "js/app-boot.js",
 ];
 appFiles.forEach((f) => {
-  check(f + " is loaded with cache-bust", html.includes(f + "?v=1"));
+  const pin = (f === "js/app-journal.js" || f === "js/app-boot.js") ? "?v=2" : "?v=1";
+  check(f + " is loaded with cache-bust", html.includes(f + pin));
   check(f + " is in the script list", scripts.includes(f));
 });
 

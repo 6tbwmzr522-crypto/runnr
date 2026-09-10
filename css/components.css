@@ -75,12 +75,16 @@
 .te-pnl.pos{color:var(--accent)}
 .te-pnl.neg{color:var(--red)}
 .trade-entry .te-meta{font-size:11px;color:var(--text3);display:flex;gap:10px}
-.flags{display:flex;gap:5px;margin-top:6px}
+.flags{display:flex;flex-wrap:wrap;gap:5px;margin-top:6px}
 .flag{font-size:9px;padding:3px 8px;border-radius:10px;font-weight:500;letter-spacing:0.08em;text-transform:uppercase}
 .flag-ok{background:var(--accent-dim);color:var(--accent)}
 .flag-no{background:var(--red-dim);color:var(--red)}
 .flag-miss{background:var(--amber-dim);color:var(--amber)}
 .flag-incomplete{background:var(--surface3);color:var(--text3);border:1px dashed var(--border)}
+.flag-src{border:1px solid var(--border);background:var(--surface3);color:var(--text2);letter-spacing:0.06em}
+.flag-src-synced{background:var(--accent-dim);color:var(--accent);border-color:rgba(0,229,160,0.35)}
+.flag-src-imported{background:var(--gold-dim);color:var(--gold);border-color:var(--border-strong)}
+.flag-src-manual{background:var(--surface3);color:var(--text3);border-color:var(--border)}
 .te-replay{background:none;border:none;color:var(--gold);font-size:11px;font-weight:500;padding:8px 0 0;margin:0;cursor:pointer;letter-spacing:0.04em;font-family:var(--font-body);text-decoration:underline;text-underline-offset:3px;display:inline-block}
 .te-replay:hover{color:var(--gold-light)}
 .te-replay.te-replay-primary{display:block;width:100%;margin-top:10px;padding:12px 14px;background:var(--accent);color:#080c12;border:none;border-radius:var(--r-sm);font-size:12px;font-weight:600;letter-spacing:0.12em;text-transform:uppercase;text-decoration:none;text-align:center}

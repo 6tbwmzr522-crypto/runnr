@@ -14,6 +14,25 @@ function isTradeEditable(t) {
   return !!t;
 }
 
+function fillEvidenceBadgeHtml(t) {
+  if (window.CoachEngine && typeof CoachEngine.fillEvidenceBadgeHtml === "function") {
+    return CoachEngine.fillEvidenceBadgeHtml(t);
+  }
+  const demo = !!(t && (t.isDemo || t.seed));
+  const origin = String((t && t.sampleOrigin) || "").toLowerCase();
+  const src = String((t && t.source) || "").toLowerCase();
+  let kind = "manual";
+  if (origin === "synced" || origin === "broker" || src === "alpaca" || src === "ibkr" || src === "t212") kind = "synced";
+  else if (origin === "imported" || origin === "csv" || src === "csv") kind = "imported";
+  else if (demo && !origin && !src) kind = "synced";
+  const label = kind === "synced"
+    ? (demo ? "Synced (sample)" : "Synced")
+    : kind === "imported"
+      ? (demo ? "Imported (sample)" : "Imported")
+      : (demo ? "Manual (sample)" : "Manual");
+  return `<span class="flag flag-src flag-src-${kind}">${label}</span>`;
+}
+
 function bindJournalClicks() {
   const list = document.getElementById('journal-list');
   if (!list || journalClickBound) return;
@@ -137,7 +156,7 @@ function renderJournal() {
         </div>
       </div>
       <div class="te-meta">${metaLine}</div>
-      <div class="flags">${(t.isDemo || t.seed) ? '<span class="flag flag-ok demo-row-badge">SAMPLE</span>' : ''}${t.sampleOrigin === 'synced' ? '<span class="flag">Synced (sample)</span>' : ''}${t.sampleOrigin === 'manual' ? '<span class="flag">Manual (sample)</span>' : ''}${stopFlag}${sizeFlag}${t.setup === 'fvg' ? '<span class="flag flag-ok">FVG</span>' : ''}${t.challengeFail ? '' : (t.incomplete?'<span class="flag flag-miss">Incomplete</span>':'')}</div>
+      <div class="flags">${(t.isDemo || t.seed) ? '<span class="flag flag-ok demo-row-badge">SAMPLE</span>' : ''}${fillEvidenceBadgeHtml(t)}${stopFlag}${sizeFlag}${t.setup === 'fvg' ? '<span class="flag flag-ok">FVG</span>' : ''}${t.challengeFail ? '' : (t.incomplete?'<span class="flag flag-miss">Incomplete</span>':'')}</div>
       ${typeof DisciplineReplay !== 'undefined' && DisciplineReplay.canReplay(t, S, typeof Baron !== 'undefined' ? Baron : null) ? `<button type="button" class="te-replay te-replay-primary" onclick="openDisciplineReplay('${t.id}', event)">Replay Disciplined</button>` : ''}
       ${t.challengeNote ? `<div class="te-note">${escapeTeText(t.challengeNote)}</div>` : ''}
     </div>`;
