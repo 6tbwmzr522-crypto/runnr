@@ -5,7 +5,7 @@
 <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
 <script>
 (function () {
-  var V = "134";
+  var V = "135";
   try {
     if (localStorage.getItem("runnr_app_v") !== V) {
       localStorage.setItem("runnr_app_v", V);
@@ -58,7 +58,7 @@
 <link rel="stylesheet" href="css/tokens.css?v=1">
 <link rel="stylesheet" href="css/layout.css?v=1">
 <link rel="stylesheet" href="css/components.css?v=1">
-<link rel="stylesheet" href="css/pages.css?v=1">
+<link rel="stylesheet" href="css/pages.css?v=2">
 </head>
 <body>
 <div id="app">
@@ -117,9 +117,38 @@
         <div class="ob-kicker">You do not trade here</div>
         <h2 class="home-landing-title">Trading discipline, not a broker</h2>
         <p>Sizer, journal, score, streak, and session wave. Not a P&amp;L tracker.</p>
+        <div data-runnr-proof-host="home">
+          <article class="runnr-proof" data-runnr-proof aria-label="Alex Runner SAMPLE case">
+            <header class="runnr-proof-head">
+              <div class="runnr-proof-who">
+                <div class="runnr-proof-kicker">Alex Runner · <span class="runnr-proof-badge">SAMPLE</span></div>
+                <p class="runnr-proof-tier" data-proof="tier">—</p>
+                <p class="runnr-proof-story">Stops held, size leaked.</p>
+              </div>
+              <div class="runnr-proof-score">
+                <strong data-proof="overall">—</strong>
+              </div>
+            </header>
+            <dl class="runnr-proof-split">
+              <div><dt>Stop</dt><dd data-proof="stop">—</dd></div>
+              <div><dt>Size</dt><dd data-proof="size">—</dd></div>
+            </dl>
+            <div class="runnr-proof-pnl">
+              <div><span>Disciplined</span><strong class="runnr-proof-up" data-proof="disc">—</strong></div>
+              <div><span>Size leak</span><strong class="runnr-proof-dn" data-proof="leak">—</strong></div>
+            </div>
+            <p class="runnr-proof-note">Illustrative demo book — not a customer testimonial, not live AUM.</p>
+            <div class="runnr-proof-actions">
+              <a class="btn runnr-proof-cta-start" href="/login.html">Start free · 7-day trial</a>
+              <a class="btn btn-ghost runnr-proof-cta-desk" href="/?demo=1">Open SAMPLE desk</a>
+            </div>
+            <p class="runnr-proof-brand">runnr.fyi</p>
+          </article>
+        </div>
         <p class="ob-hook-price">Start free · 7-day trial · then €19/month or €190/year</p>
         <div class="ob-hook-actions">
           <a class="btn" id="home-start-free" href="/login.html">Start free</a>
+          <a class="btn btn-ghost" id="home-view-sample" href="/?demo=1">View sample</a>
           <a class="ob-hook-secondary" href="/report/">Score one trade</a>
         </div>
       </div>
@@ -1391,6 +1420,32 @@
         <h2>Trading discipline, not a broker</h2>
         <p>Sizer, journal, score, streak, and session wave. Not a P&amp;L tracker.</p>
       </div>
+      <article class="runnr-proof" data-runnr-proof aria-label="Alex Runner SAMPLE case">
+        <header class="runnr-proof-head">
+          <div class="runnr-proof-who">
+            <div class="runnr-proof-kicker">Alex Runner · <span class="runnr-proof-badge">SAMPLE</span></div>
+            <p class="runnr-proof-tier" data-proof="tier">—</p>
+            <p class="runnr-proof-story">Stops held, size leaked.</p>
+          </div>
+          <div class="runnr-proof-score">
+            <strong data-proof="overall">—</strong>
+          </div>
+        </header>
+        <dl class="runnr-proof-split">
+          <div><dt>Stop</dt><dd data-proof="stop">—</dd></div>
+          <div><dt>Size</dt><dd data-proof="size">—</dd></div>
+        </dl>
+        <div class="runnr-proof-pnl">
+          <div><span>Disciplined</span><strong class="runnr-proof-up" data-proof="disc">—</strong></div>
+          <div><span>Size leak</span><strong class="runnr-proof-dn" data-proof="leak">—</strong></div>
+        </div>
+        <p class="runnr-proof-note">Illustrative demo book — not a customer testimonial, not live AUM.</p>
+        <div class="runnr-proof-actions">
+          <a class="btn runnr-proof-cta-start" href="/login.html">Start free · 7-day trial</a>
+          <a class="btn btn-ghost runnr-proof-cta-desk" href="/?demo=1">Open SAMPLE desk</a>
+        </div>
+        <p class="runnr-proof-brand">runnr.fyi</p>
+      </article>
       <dl class="ob-hook-pills">
         <div class="ob-hook-pill"><dt>Sizer</dt><dd>Account, risk %, and a stop</dd></div>
         <div class="ob-hook-pill"><dt>Journal</dt><dd>Flags skipped stops and oversized trades</dd></div>
@@ -1752,12 +1807,12 @@
 <script src="js/coach.js?v=27"></script>
 <script src="js/options-coach.js?v=1"></script>
 <script src="js/fvg-retrace.js?v=1"></script>
-<script src="js/onboarding.js?v=34"></script>
+<script src="js/onboarding.js?v=35"></script>
 <script src="js/intro.js?v=1"></script>
 <script src="js/csv-presets.js?v=4"></script>
 <script src="js/trade-limit.js?v=4"></script>
 <script src="js/desk-quiet.js?v=2"></script>
-<script src="js/demo-sandbox.js?v=1"></script>
+<script src="js/demo-sandbox.js?v=2"></script>
 <script src="js/sync.js?v=71"></script>
 <script src="js/desk-sessions.js?v=2"></script>
 <script src="js/desk.js?v=12"></script>

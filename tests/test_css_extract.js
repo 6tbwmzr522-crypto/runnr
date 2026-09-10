@@ -23,7 +23,8 @@ const appCss = [
   "css/pages.css",
 ];
 appCss.forEach((f) => {
-  check(f + " is loaded with cache-bust", html.includes(f + "?v=1"));
+  const pin = f === "css/pages.css" ? "?v=2" : "?v=1";
+  check(f + " is loaded with cache-bust", html.includes(f + pin));
   check(f + " is in the stylesheet list", stylesheets.includes(f));
 });
 

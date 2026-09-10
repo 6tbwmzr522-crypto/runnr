@@ -25,7 +25,7 @@ function check(name, cond) {
 const v = html.match(/var V = "(\d+)"/)[1];
 const cache = sw.match(/CACHE = "runnr-v(\d+)"/)[1];
 check("index.html V matches sw.js CACHE", v === cache);
-check("cache is 134+", Number(v) >= 134);
+check("cache is 135+", Number(v) >= 135);
 check("demo-sandbox.js is loaded before app-state", html.indexOf("js/demo-sandbox.js") < html.indexOf("js/app-state.js"));
 check("demo-sandbox.js is loaded before sync", html.indexOf("js/demo-sandbox.js") < html.indexOf("js/sync.js"));
 check("persistent SAMPLE chrome + trial CTA", html.includes('id="demo-chrome"') && html.includes("SAMPLE · not your book") && html.includes('id="demo-chrome-cta"') && html.includes("Start free · 7-day trial"));

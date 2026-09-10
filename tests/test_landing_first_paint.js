@@ -16,8 +16,8 @@ function check(name, cond) {
 const v = html.match(/var V = "(\d+)"/)[1];
 const cache = sw.match(/CACHE = "runnr-v(\d+)"/)[1];
 check("index.html V matches sw.js CACHE", v === cache);
-check("onboarding cache-bust", html.includes("js/onboarding.js?v=34"));
-check("demo sandbox is loaded", html.includes("js/demo-sandbox.js?v=1"));
+check("onboarding cache-bust", html.includes("js/onboarding.js?v=35"));
+check("demo sandbox is loaded", html.includes("js/demo-sandbox.js?v=2"));
 check("demo chrome is persistent on the guest desk", html.includes('id="demo-chrome"') && html.includes('id="demo-chrome-cta"') && html.includes("SAMPLE · not your book"));
 check("demo=1 skips the first-paint hook", html.includes("demo=1") && /runnr_hook_v1[\s\S]*demo=1|demo=1[\s\S]*runnr_hook_v1/.test(html));
 
@@ -25,7 +25,9 @@ const hookStart = html.indexOf('id="onboarding-overlay"');
 const hookEnd = html.indexOf('id="intro-overlay"');
 const hook = html.slice(hookStart, hookEnd);
 check("hook headline is its own h2", /<h2>Trading discipline, not a broker<\/h2>/.test(hook));
-check("80% is not in the hook hero", !/80%/.test(hook));
+const hero = hook.slice(hook.indexOf('class="ob-hero"'), hook.indexOf('data-runnr-proof'));
+check("80% is not in the hook hero", !/80%/.test(hero));
+check("hook shows Alex Runner SAMPLE proof", hook.includes("Alex Runner") && hook.includes("SAMPLE") && hook.includes("Open SAMPLE desk") && hook.includes('href="/?demo=1"'));
 check("hook has one Start free CTA", (hook.match(/Start free/g) || []).length >= 1);
 check("hook Start free goes to login", hook.includes('id="ob-hook-start"') && hook.includes('href="/login.html"'));
 check("hook does not duplicate Sign in blocks", !/card-title[^>]*>Sign in/.test(hook) && (hook.match(/>Sign in</g) || []).length === 0);
@@ -42,6 +44,8 @@ check("guest header drops smashed Terminal+balance", css.includes("html.runnr-gu
 check("home landing card has pricing + Start free", html.includes('id="home-landing"') && html.includes('id="home-start-free"') && html.includes("Start free · 7-day trial · then €19/month or €190/year"));
 check("signed-in desktop hides the guest landing card", css.includes("#page-home .home-frame > .home-landing-card{display:none}")
   && css.includes("html.runnr-guest #page-home .home-frame > .home-landing-card{display:flex}"));
+check("SAMPLE desk hides the guest landing card", css.includes("html.runnr-demo .home-landing-card")
+  && css.includes("html.runnr-demo #page-home .home-frame > .home-landing-card{display:none !important}"));
 check("landing title stays a separate line", html.includes('class="home-landing-title">Trading discipline, not a broker'));
 check("landing card is full-width on desktop", css.includes("#page-home .home-frame > .home-landing-card"));
 check("80% lives only in the progress card", html.includes("Need 80%+ stop confirmation over 20 trades"));

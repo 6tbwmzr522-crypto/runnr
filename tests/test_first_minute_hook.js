@@ -19,13 +19,14 @@ function check(name, cond) {
 const v = html.match(/var V = "(\d+)"/)[1];
 const cache = sw.match(/CACHE = "runnr-v(\d+)"/)[1];
 check("index.html V matches sw.js CACHE", v === cache);
-check("onboarding.js cache-busted", html.includes("js/onboarding.js?v=34"));
+check("onboarding.js cache-busted", html.includes("js/onboarding.js?v=35"));
 check("headline present", html.includes("Trading discipline, not a broker"));
 check("hook names Terminal", html.includes("<dt>Terminal</dt>"));
 check("hook Terminal pill is look-without-paying", html.includes("Session clocks, heatmap, chart — look without paying"));
 check("not-a-broker kicker", html.includes("You do not trade here"));
 check("primary CTA", html.includes('id="ob-hook-start"') && html.includes("Start free"));
 check("sample is secondary", html.includes('id="ob-hook-enter">View sample'));
+check("Alex Runner SAMPLE proof on first paint", html.includes("Alex Runner") && html.includes("Open SAMPLE desk") && html.includes("not a customer testimonial"));
 check("report secondary", html.includes('href="/report/"') && html.includes("Score one trade"));
 check("pricing copy", html.includes("Start free · 7-day trial · then €19/month or €190/year"));
 check("sample disclaimer", html.includes("Sample journal is labeled SAMPLE. Those numbers are not yours."));
