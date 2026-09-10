@@ -25,9 +25,9 @@ function updateTierProgress() {
 }
 
 function updateTier() {
-  const stopOk = S.trades.filter(t=>!t.incomplete && t.stopOk).length;
-  const total  = S.trades.filter(t=>!t.incomplete).length;
-  const rate   = total > 0 ? stopOk/total : 0;
+  const score = CoachEngine.disciplineScore(S.trades);
+  const total = score.tradeCount;
+  const rate = total > 0 ? score.stopPct / 100 : 0;
   const badge  = document.getElementById('tier-badge');
   if (badge) {
     if (rate >= 0.85 && total >= 20) { badge.textContent = '🏆 ELITE'; }

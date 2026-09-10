@@ -126,6 +126,18 @@ const RunnrGrowth = {
       note.hidden = unlocked;
       note.textContent = lockCopy;
     }
+    const hint = document.getElementById("disc-weight-hint");
+    if (hint) hint.hidden = false;
+    const evidenceEl = document.getElementById("disc-evidence");
+    if (evidenceEl) {
+      const mix = (unlocked && score.evidence) ? score.evidence : { synced: 0, imported: 0, manual: 0 };
+      const pills = [];
+      if (mix.synced) pills.push(`<span class="disc-evidence-pill flag-src-synced">${mix.synced} Synced</span>`);
+      if (mix.imported) pills.push(`<span class="disc-evidence-pill flag-src-imported">${mix.imported} Imported</span>`);
+      if (mix.manual) pills.push(`<span class="disc-evidence-pill flag-src-manual">${mix.manual} Manual</span>`);
+      evidenceEl.hidden = !pills.length;
+      evidenceEl.innerHTML = pills.join("");
+    }
     const shareBtn = document.getElementById("home-share-btn");
     if (shareBtn) {
       shareBtn.textContent = unlocked

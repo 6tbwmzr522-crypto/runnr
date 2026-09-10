@@ -30,7 +30,7 @@ check("demo-sandbox.js is loaded before app-state", html.indexOf("js/demo-sandbo
 check("demo-sandbox.js is loaded before sync", html.indexOf("js/demo-sandbox.js") < html.indexOf("js/sync.js"));
 check("persistent SAMPLE chrome + trial CTA", html.includes('id="demo-chrome"') && html.includes("SAMPLE · not your book") && html.includes('id="demo-chrome-cta"') && html.includes("Start free · 7-day trial"));
 check("journal rows badge SAMPLE", src.includes("demo-row-badge") && src.includes("SAMPLE"));
-check("optional synced/manual sample badges", src.includes("Synced (sample)") && src.includes("Manual (sample)"));
+check("optional synced/manual sample badges", src.includes("Synced (sample)") && src.includes("Manual (sample)") && src.includes("Imported (sample)"));
 check("guest chrome CSS is persistent", css.includes("#demo-chrome.show{display:flex}"));
 check("quiet desk does not apply on demo state", src.includes("!demo && window.RunnrDeskQuiet"));
 check("discipline card unlocks for demo state", onboardingSrc.includes("const unlocked = demo || this.scoreShareUnlocked(state)"));
