@@ -498,22 +498,34 @@
     markHeroDismissed();
     hideSampleHero();
     const book = state || global.S;
+    try {
+      if (book && !firstIncompleteSample(book) && !isLoggedIn() && !looksLikeRealBook(book)) {
+        apply(book, { force: true });
+        if (typeof global.persist === "function") global.persist();
+      }
+    } catch (e) {}
     const t = firstIncompleteSample(book);
     if (!t) {
       markAha("proof");
       showKeepScore();
       return false;
     }
+    function openRow() {
+      try {
+        if (typeof global.switchPage === "function") global.switchPage("journal");
+        if (typeof global.openTradeEditor === "function") global.openTradeEditor(t.id);
+        const title = global.document && document.querySelector("#modal-log .modal-title");
+        if (title) {
+          title.innerHTML = "Score this trade · " + (t.instr || "SAMPLE") +
+            ' <button class="modal-close" onclick="closeModal(\'modal-log\')">✕</button>';
+        }
+      } catch (e) {}
+    }
+    openRow();
     try {
-      if (typeof global.switchPage === "function") global.switchPage("journal");
-      if (typeof global.openTradeEditor === "function") global.openTradeEditor(t.id);
-      const title = global.document && document.querySelector("#modal-log .modal-title");
-      if (title) {
-        title.innerHTML = "Score this trade · " + (t.instr || "SAMPLE") +
-          ' <button class="modal-close" onclick="closeModal(\'modal-log\')">✕</button>';
-      }
-      beacon("demo_score_trade");
+      if (global.setTimeout) global.setTimeout(openRow, 60);
     } catch (e) {}
+    beacon("demo_score_trade");
     return true;
   }
 
