@@ -99,9 +99,9 @@
 </head>
 <body>
 <div class="wrap">
-  <a class="back" href="/">← Back to Runnr</a>
+  <a class="back" href="/" id="login-back">← Back to Runnr</a>
   <h1>runnr</h1>
-  <p class="sub">Simple sign-in for iPhone. Start free · 7-day trial · then €19/month or €190/year. First name is for your terminal — e.g. John’s terminal.</p>
+  <p class="sub" id="login-sub">Simple sign-in for iPhone. Start free · 7-day trial · then €19/month or €190/year. First name is for your terminal — e.g. John’s terminal.</p>
 
   <div class="card">
     <div class="oauth-row">
@@ -145,6 +145,16 @@
 <script>
 (function () {
   const API = "https://api.runnr.fyi";
+  try {
+    if (/[?&]keep=1(?:&|$)/.test(location.search || "")) {
+      var sub = document.getElementById("login-sub");
+      var back = document.getElementById("login-back");
+      var btn = document.getElementById("signin-btn");
+      if (sub) sub.textContent = "Keep this score — save with email. SAMPLE stays SAMPLE until you log real trades. 7-day trial · then €19/month or €190/year.";
+      if (back) back.setAttribute("href", "/?demo=1");
+      if (btn) btn.textContent = "Save with email";
+    }
+  } catch (e) {}
   const emailEl = document.getElementById("email");
   const nameEl = document.getElementById("first-name");
   const passEl = document.getElementById("password");

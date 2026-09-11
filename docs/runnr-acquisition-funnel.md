@@ -6,7 +6,7 @@
 ## Funnel
 
 1. **Awareness** — Reddit/Discord/TikTok/forums where people vent blown accounts & no stops  
-2. **Hook** — “See what skipped stops/sizing cost you” in &lt;5 min → [`/report/`](../report/) discipline report  
+2. **Hook** — TikTok bio → SAMPLE desk [`https://runnr.fyi/?demo=1`](https://runnr.fyi/?demo=1) (aliases `/sample`, `#sample`). First 15s: discipline not P&amp;L, Alex Runner chrome, Score this trade. Signup after that aha — not login.html. Report still at [`/report/`](../report/).  
 3. **Activation** — Free: size one trade, log 3 with discipline flags, one Coach insight  
 4. **Convert** — Stripe €19/month (or €190/year) when the 7-day trial ends, or earlier if they want to lock in Pro  
 5. **Retain** — Weekly Coach + shareable discipline score  

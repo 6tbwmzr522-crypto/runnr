@@ -23,7 +23,7 @@ const v = html.match(/var V = "(\d+)"/)[1];
 const cache = sw.match(/CACHE = "runnr-v(\d+)"/)[1];
 check("index.html V matches sw.js CACHE", v === cache);
 check("cache is 120+", Number(v) >= 120);
-check("desk-quiet.js is loaded", html.includes("js/desk-quiet.js?v=2"));
+check("desk-quiet.js is loaded", html.includes("js/desk-quiet.js?v=3"));
 check("discipline-replay cache-bust", html.includes("js/discipline-replay.js?v=6"));
 
 check("home job hero exists", html.includes('id="home-job-hero"') && html.includes('id="home-job-cta"'));
@@ -32,7 +32,7 @@ check("home job CTA is mint primary btn", /id="home-job-cta"[^>]*class="btn home
 check("home job secondary links are quiet text", html.includes('class="home-job-link"')
   && html.includes("switchPage('journal')")
   && html.includes("switchPage('coach')"));
-check("guest landing hides the job hero", css.includes("html.runnr-guest #home-job-hero"));
+check("guest landing hides the job hero", css.includes("html.runnr-guest:not(.runnr-demo) #home-job-hero") || css.includes("html.runnr-guest #home-job-hero"));
 check("logged-out hook video still present", html.includes('id="intro-overlay"') && html.includes("/media/runnr-how-it-works.mp4"));
 check("logged-out landing card kept", html.includes('id="home-landing"') && html.includes('id="home-start-free"'));
 

@@ -5,7 +5,7 @@
 <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
 <script>
 (function () {
-  var V = "137";
+  var V = "138";
   try {
     if (localStorage.getItem("runnr_app_v") !== V) {
       localStorage.setItem("runnr_app_v", V);
@@ -31,12 +31,21 @@
     if (!localStorage.getItem("runnr_api_token")) {
       document.documentElement.classList.add("runnr-guest");
     }
-    if (localStorage.getItem("runnr_hook_v1") === "done") return;
     if (localStorage.getItem("runnr_api_token")) return;
-    if (/[?&]demo=1(?:&|$)/.test(location.search || "")) {
+    var path = (location.pathname || "").replace(/\/+$/, "");
+    var sample = /[?&]demo=1(?:&|$)/.test(location.search || "")
+      || /^#(?:sample|demo)\b/i.test(location.hash || "")
+      || /(?:^|\/)sample$/i.test(path);
+    if (sample) {
       try { localStorage.setItem("runnr_hook_v1", "done"); } catch (e2) {}
+      var aha = false;
+      var heroDone = false;
+      try { aha = localStorage.getItem("runnr_sample_aha_v1") === "1"; } catch (e3) {}
+      try { heroDone = sessionStorage.getItem("runnr_sample_hero_v1") === "done"; } catch (e4) {}
+      if (!aha && !heroDone) document.documentElement.classList.add("runnr-sample-landing");
       return;
     }
+    if (localStorage.getItem("runnr_hook_v1") === "done") return;
     document.documentElement.classList.add("runnr-show-hook");
   } catch (e) {
     document.documentElement.classList.add("runnr-guest");
@@ -58,7 +67,7 @@
 <link rel="stylesheet" href="css/tokens.css?v=1">
 <link rel="stylesheet" href="css/layout.css?v=1">
 <link rel="stylesheet" href="css/components.css?v=2">
-<link rel="stylesheet" href="css/pages.css?v=4">
+<link rel="stylesheet" href="css/pages.css?v=5">
 </head>
 <body>
 <div id="app">
@@ -805,7 +814,7 @@
       <div class="card coach-share-card" style="margin-top:12px">
         <div class="card-title">Share your process</div>
         <div id="coach-share-ready">
-        <div style="font-size:12px;color:var(--text2);margin-bottom:12px">Weekly discipline report with a loud runnr.fyi footer — built for TikTok / Reels. Process, not a performance claim.</div>
+        <div style="font-size:12px;color:var(--text2);margin-bottom:12px">Weekly discipline report — TikTok bio is <code>runnr.fyi/?demo=1</code> (SAMPLE desk), not login.html. Process, not a performance claim.</div>
         <div style="display:flex;gap:8px;flex-wrap:wrap">
           <button class="btn btn-sm" onclick="RunnrGrowth.openShareModal(S)">Create share card</button>
           <button class="btn btn-sm btn-ghost" onclick="RunnrGrowth.previewWeeklyDigest(S)">Preview weekly digest</button>
@@ -1466,6 +1475,44 @@
   </div>
 </div>
 
+<div id="sample-hero" hidden role="dialog" aria-modal="true" aria-label="Alex Runner SAMPLE">
+  <div class="sample-hero-top">
+    <div class="logo" style="font-family:var(--font-head);font-size:22px;font-weight:700;color:var(--accent);font-style:italic">runnr</div>
+    <button type="button" class="ob-skip" id="sample-hero-skip">Skip</button>
+  </div>
+  <div class="sample-hero-inner">
+    <div class="ob-hero">
+      <div class="ob-kicker">Alex Runner · SAMPLE</div>
+      <h2>Discipline, not P&amp;L</h2>
+      <p>Stops held, size leaked. Score one incomplete SAMPLE row — then keep the book.</p>
+    </div>
+    <article class="runnr-proof" data-runnr-proof aria-label="Alex Runner SAMPLE case">
+      <header class="runnr-proof-head">
+        <div class="runnr-proof-who">
+          <div class="runnr-proof-kicker">Alex Runner · <span class="runnr-proof-badge">SAMPLE</span></div>
+          <p class="runnr-proof-tier" data-proof="tier">—</p>
+          <p class="runnr-proof-story">Stops held, size leaked.</p>
+        </div>
+        <div class="runnr-proof-score">
+          <strong data-proof="overall">—</strong>
+        </div>
+      </header>
+      <dl class="runnr-proof-split">
+        <div><dt>Stop</dt><dd data-proof="stop">—</dd></div>
+        <div><dt>Size</dt><dd data-proof="size">—</dd></div>
+      </dl>
+      <div class="runnr-proof-pnl">
+        <div><span>Disciplined</span><strong class="runnr-proof-up" data-proof="disc">—</strong></div>
+        <div><span>Size leak</span><strong class="runnr-proof-dn" data-proof="leak">—</strong></div>
+      </div>
+      <p class="runnr-proof-note">Illustrative demo book — not a customer testimonial, not live AUM.</p>
+      <p class="runnr-proof-brand">runnr.fyi</p>
+    </article>
+    <button type="button" class="btn" id="sample-score-cta">Score this trade</button>
+    <p class="ob-hook-sample">AAPL CFD · Apr 10 · incomplete SAMPLE row. Flag stop and size — that is the job.</p>
+  </div>
+</div>
+
 <div id="intro-overlay" aria-hidden="true" role="dialog" aria-modal="true" aria-label="How Runnr works">
   <div class="intro-card">
     <div class="intro-top">
@@ -1658,6 +1705,15 @@
   </div>
 </div>
 
+<div class="modal-overlay" id="modal-sample-keep" onclick="closeModalOutside(event,'modal-sample-keep')">
+  <div class="modal" onclick="event.stopPropagation()">
+    <div class="modal-title">Keep this score <button class="modal-close" onclick="closeModal('modal-sample-keep')">✕</button></div>
+    <p class="sample-keep-copy">Save with email. SAMPLE stays SAMPLE — it never merges into a real book.</p>
+    <a class="btn" data-sample-keep-cta href="/login.html?keep=1">Keep this score — save with email</a>
+    <button type="button" class="btn btn-ghost" id="sample-keep-dismiss">Not now</button>
+  </div>
+</div>
+
 <!-- Share discipline card -->
 <div class="modal-overlay" id="modal-share" onclick="closeModalOutside(event,'modal-share')">
   <div class="modal">
@@ -1673,7 +1729,7 @@
     </div>
     <div class="field" style="margin-top:12px"><label>Handle on card</label><input id="share-handle" placeholder="yourname" oninput="RunnrGrowth.redrawShareFromHandle(S)"></div>
     <button class="btn" id="share-download-btn" style="margin-top:8px" onclick="RunnrGrowth.shareDisciplineCard(S)">Download / Share PNG</button>
-    <div id="share-card-note" style="font-size:11px;color:var(--text3);text-align:center;margin-top:8px">Loud runnr.fyi footer — built for TikTok / Reels. Process P&amp;L (followed vs leaks).</div>
+    <div id="share-card-note" style="font-size:11px;color:var(--text3);text-align:center;margin-top:8px">Loud runnr.fyi/?demo=1 footer — TikTok bio lands on SAMPLE, not login. Process P&amp;L (followed vs leaks).</div>
   </div>
 </div>
 
@@ -1810,12 +1866,12 @@
 <script src="js/coach.js?v=28"></script>
 <script src="js/options-coach.js?v=1"></script>
 <script src="js/fvg-retrace.js?v=1"></script>
-<script src="js/onboarding.js?v=36"></script>
+<script src="js/onboarding.js?v=37"></script>
 <script src="js/intro.js?v=1"></script>
 <script src="js/csv-presets.js?v=4"></script>
 <script src="js/trade-limit.js?v=4"></script>
-<script src="js/desk-quiet.js?v=2"></script>
-<script src="js/demo-sandbox.js?v=3"></script>
+<script src="js/desk-quiet.js?v=3"></script>
+<script src="js/demo-sandbox.js?v=4"></script>
 <script src="js/sync.js?v=71"></script>
 <script src="js/desk-sessions.js?v=2"></script>
 <script src="js/desk.js?v=12"></script>
@@ -1823,10 +1879,10 @@
 <script src="js/shelf.js?v=4"></script>
 <script src="js/visit.js?v=1"></script>
 <script src="js/app-state.js?v=1"></script>
-<script src="js/app-nav.js?v=1"></script>
+<script src="js/app-nav.js?v=2"></script>
 <script src="js/app-settings.js?v=1"></script>
 <script src="js/app-sizer.js?v=1"></script>
-<script src="js/app-journal.js?v=2"></script>
+<script src="js/app-journal.js?v=3"></script>
 <script src="js/app-watchlist.js?v=1"></script>
 <script src="js/app-quotes.js?v=1"></script>
 <script src="js/app-alerts.js?v=1"></script>

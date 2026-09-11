@@ -16,8 +16,8 @@ function check(name, cond) {
 const v = html.match(/var V = "(\d+)"/)[1];
 const cache = sw.match(/CACHE = "runnr-v(\d+)"/)[1];
 check("index.html V matches sw.js CACHE", v === cache);
-check("onboarding cache-bust", html.includes("js/onboarding.js?v=36"));
-check("demo sandbox is loaded", html.includes("js/demo-sandbox.js?v=3"));
+check("onboarding cache-bust", html.includes("js/onboarding.js?v=37"));
+check("demo sandbox is loaded", html.includes("js/demo-sandbox.js?v=4"));
 check("demo chrome is persistent on the guest desk", html.includes('id="demo-chrome"') && html.includes('id="demo-chrome-cta"') && html.includes("SAMPLE · not your book"));
 check("demo=1 skips the first-paint hook", html.includes("demo=1") && /runnr_hook_v1[\s\S]*demo=1|demo=1[\s\S]*runnr_hook_v1/.test(html));
 
