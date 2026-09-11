@@ -54,7 +54,8 @@ window.expandDeskMore = expandDeskMore;
 function renderHomeJob() {
   const hero = document.getElementById('home-job-hero');
   if (!hero) return;
-  if (typeof isGuestLanding === 'function' && isGuestLanding()) {
+  const demoDesk = !!(window.RunnrDemoSandbox && typeof RunnrDemoSandbox.isDemoState === 'function' && RunnrDemoSandbox.isDemoState(S));
+  if (typeof isGuestLanding === 'function' && isGuestLanding() && !demoDesk) {
     hero.hidden = true;
     return;
   }
@@ -87,6 +88,12 @@ function runHomeJob(job) {
   if (job.id === 'log') {
     switchPage('journal');
     if (typeof openLogModal === 'function') openLogModal('cfd');
+    return;
+  }
+  if (job.id === 'sample-score') {
+    if (window.RunnrDemoSandbox && typeof RunnrDemoSandbox.openScoreTrade === 'function') {
+      RunnrDemoSandbox.openScoreTrade(S);
+    }
     return;
   }
   if (job.id === 'review') {

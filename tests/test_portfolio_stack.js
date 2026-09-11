@@ -104,7 +104,7 @@ check("Home still sizes CFD by default",
   src.includes("function focusSizerForNextTrade")
   && /focusSizerForNextTrade[\s\S]*cfd-instr/.test(homeJobFn));
 check("guest still hides Home job and Portfolio CTA",
-  css.includes("html.runnr-guest #home-job-hero")
+  (css.includes("html.runnr-guest:not(.runnr-demo) #home-job-hero") || css.includes("html.runnr-guest #home-job-hero"))
   && css.includes("html.runnr-guest .port-cta-wrap"));
 check("quiet mode still hides session wave, not the stack",
   css.includes("html.runnr-quiet .port-wave-card")
@@ -113,7 +113,7 @@ check("quiet mode still hides session wave, not the stack",
 
 check("Options Coach file is untouched by this stack", html.includes("js/options-coach.js?v=1"));
 check("FVG strip file is untouched by this stack", html.includes("js/fvg-retrace.js?v=1"));
-check("Home quiet helper cache-bust unchanged", html.includes("js/desk-quiet.js?v=2"));
+check("Home quiet helper cache-bust", html.includes("js/desk-quiet.js?v=3"));
 
 void kpiBlock;
 

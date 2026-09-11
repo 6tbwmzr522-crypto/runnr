@@ -10,6 +10,12 @@
   const REV = 1;
   const MIN_BOOK = 12;
   const VIEW_KEY = "runnr_demo_viewed";
+  const AHA_KEY = "runnr_sample_aha_v1";
+  const HERO_KEY = "runnr_sample_hero_v1";
+  const KEEP_KEY = "runnr_sample_keep_v1";
+  const BIO_URL = "https://runnr.fyi/?demo=1";
+  const ALIAS_PATH = "/sample";
+  const KEEP_HREF = "/login.html?keep=1";
 
   function snap(at) {
     return { risk: 1, bal: 10000, at: at || "2026-04-15T00:00:00.000Z", sym: "€" };
@@ -70,13 +76,24 @@
     return false;
   }
 
-  function queryForce() {
+  function isSampleLandingLocation(loc) {
+    loc = loc || (global.location || {});
     try {
-      const search = (global.location && location.search) || "";
-      return new URLSearchParams(search).get("demo") === "1";
-    } catch (e) {
-      return false;
-    }
+      if (/(?:^|[?&])demo=1(?:&|$)/.test(String(loc.search || ""))) return true;
+    } catch (e) {}
+    try {
+      const hash = String(loc.hash || "").replace(/^#/, "").split(/[/?&]/)[0].toLowerCase();
+      if (hash === "sample" || hash === "demo") return true;
+    } catch (e) {}
+    try {
+      const path = String(loc.pathname || "").replace(/\/+$/, "").toLowerCase();
+      if (path === "/sample" || path.endsWith("/sample")) return true;
+    } catch (e) {}
+    return false;
+  }
+
+  function queryForce() {
+    return isSampleLandingLocation();
   }
 
   function dayIso(now, daysAgo) {
@@ -187,6 +204,7 @@
     if (applied || isDemoState(state)) paintChrome(state);
     paintProof();
     bindProof();
+    bootSampleLanding(state);
     if (applied) beacon("demo_view");
     return applied;
   }
@@ -217,6 +235,18 @@
       chrome.hidden = !demo;
       chrome.classList.toggle("show", !!demo);
     }
+    const cta = global.document && document.getElementById("demo-chrome-cta");
+    if (cta && demo && !isLoggedIn()) {
+      if (!hasAha()) {
+        cta.hidden = true;
+      } else {
+        cta.hidden = false;
+        cta.textContent = "Keep this score — save with email";
+        cta.setAttribute("href", KEEP_HREF);
+      }
+    } else if (cta) {
+      cta.hidden = !demo;
+    }
     return demo;
   }
 
@@ -230,6 +260,7 @@
     }
     paintProof();
     bindProof();
+    bootSampleLanding(global.S);
   }
 
   function moneyLabel(n, sym) {
@@ -375,6 +406,217 @@
     });
   }
 
+  function storageGet(store, key) {
+    try {
+      if (!store) return null;
+      return store.getItem(key);
+    } catch (e) {
+      return null;
+    }
+  }
+
+  function storageSet(store, key, value) {
+    try {
+      if (store) store.setItem(key, value);
+    } catch (e) {}
+  }
+
+  function hasAha() {
+    return storageGet(global.localStorage, AHA_KEY) === "1";
+  }
+
+  function heroDismissed() {
+    return storageGet(global.sessionStorage, HERO_KEY) === "done";
+  }
+
+  function markHeroDismissed() {
+    storageSet(global.sessionStorage, HERO_KEY, "done");
+    try {
+      if (global.document && document.documentElement) {
+        document.documentElement.classList.remove("runnr-sample-landing");
+      }
+    } catch (e) {}
+  }
+
+  function markAha(reason) {
+    storageSet(global.localStorage, AHA_KEY, "1");
+    storageSet(global.sessionStorage, KEEP_KEY, reason || "1");
+    paintChrome(global.S);
+    beacon("demo_aha");
+  }
+
+  function firstIncompleteSample(state) {
+    const trades = ((state && state.trades) || []).length
+      ? state.trades
+      : factoryTrades();
+    const aapl = trades.find((t) => t && isDemoTrade(t) && t.incomplete && /AAPL\s*CFD/i.test(String(t.instr || "")));
+    if (aapl) return aapl;
+    return trades.find((t) => t && isDemoTrade(t) && t.incomplete) || null;
+  }
+
+  function sampleHeroEl() {
+    return global.document && document.getElementById("sample-hero");
+  }
+
+  function showSampleHero() {
+    const el = sampleHeroEl();
+    if (!el) return false;
+    el.hidden = false;
+    el.classList.add("open");
+    try {
+      if (global.document && document.documentElement) {
+        document.documentElement.classList.add("runnr-sample-landing");
+      }
+    } catch (e) {}
+    paintProof(el);
+    return true;
+  }
+
+  function hideSampleHero() {
+    const el = sampleHeroEl();
+    if (el) {
+      el.classList.remove("open");
+      el.hidden = true;
+    }
+    try {
+      if (global.document && document.documentElement) {
+        document.documentElement.classList.remove("runnr-sample-landing");
+      }
+    } catch (e) {}
+  }
+
+  function shouldShowSampleHero(state) {
+    if (isLoggedIn()) return false;
+    if (looksLikeRealBook(state)) return false;
+    if (!queryForce() && !isDemoState(state)) return false;
+    if (!queryForce()) return false;
+    if (hasAha() || heroDismissed()) return false;
+    return true;
+  }
+
+  function openScoreTrade(state) {
+    markHeroDismissed();
+    hideSampleHero();
+    const book = state || global.S;
+    const t = firstIncompleteSample(book);
+    if (!t) {
+      markAha("proof");
+      showKeepScore();
+      return false;
+    }
+    try {
+      if (typeof global.switchPage === "function") global.switchPage("journal");
+      if (typeof global.openTradeEditor === "function") global.openTradeEditor(t.id);
+      const title = global.document && document.querySelector("#modal-log .modal-title");
+      if (title) {
+        title.innerHTML = "Score this trade · " + (t.instr || "SAMPLE") +
+          ' <button class="modal-close" onclick="closeModal(\'modal-log\')">✕</button>';
+      }
+      beacon("demo_score_trade");
+    } catch (e) {}
+    return true;
+  }
+
+  function onSampleScored(trade, opts) {
+    if (isLoggedIn()) return false;
+    if (!isDemoState(global.S)) return false;
+    if (trade && !isDemoTrade(trade)) return false;
+    markAha("score");
+    if (!opts || opts.prompt !== false) showKeepScore();
+    return true;
+  }
+
+  function onProofViewed() {
+    if (isLoggedIn()) return false;
+    if (!isDemoState(global.S) && !queryForce()) return false;
+    markAha("proof");
+    showKeepScore();
+    return true;
+  }
+
+  function showKeepScore() {
+    if (isLoggedIn()) return false;
+    const modal = global.document && document.getElementById("modal-sample-keep");
+    if (modal && typeof global.openModal === "function") {
+      global.openModal("modal-sample-keep");
+      return true;
+    }
+    if (modal) {
+      modal.classList.add("open");
+      return true;
+    }
+    return false;
+  }
+
+  function hideKeepScore() {
+    const modal = global.document && document.getElementById("modal-sample-keep");
+    if (modal && typeof global.closeModal === "function") {
+      global.closeModal("modal-sample-keep");
+      return;
+    }
+    if (modal) modal.classList.remove("open");
+  }
+
+  function bindSampleHero() {
+    const doc = global.document;
+    if (!doc) return;
+    const score = doc.getElementById("sample-score-cta");
+    if (score && !score.dataset.sampleBound) {
+      score.dataset.sampleBound = "1";
+      score.addEventListener("click", function (ev) {
+        if (ev) ev.preventDefault();
+        openScoreTrade(global.S);
+      });
+    }
+    const skip = doc.getElementById("sample-hero-skip");
+    if (skip && !skip.dataset.sampleBound) {
+      skip.dataset.sampleBound = "1";
+      skip.addEventListener("click", function () {
+        markHeroDismissed();
+        hideSampleHero();
+        beacon("demo_view");
+      });
+    }
+    doc.querySelectorAll("#sample-hero [data-runnr-proof]").forEach((card) => {
+      if (card.dataset.sampleProofBound) return;
+      card.dataset.sampleProofBound = "1";
+      card.addEventListener("click", function (ev) {
+        if (ev && ev.target && ev.target.closest && ev.target.closest("button, a")) return;
+        onProofViewed();
+      });
+    });
+  }
+
+  function bindKeepScore() {
+    const doc = global.document;
+    if (!doc) return;
+    const dismiss = doc.getElementById("sample-keep-dismiss");
+    if (dismiss && !dismiss.dataset.sampleBound) {
+      dismiss.dataset.sampleBound = "1";
+      dismiss.addEventListener("click", function () {
+        hideKeepScore();
+      });
+    }
+    doc.querySelectorAll("[data-sample-keep-cta]").forEach((el) => {
+      if (el.dataset.sampleBound) return;
+      el.dataset.sampleBound = "1";
+      el.addEventListener("click", function () {
+        beacon("demo_cta_start");
+      });
+    });
+  }
+
+  function bootSampleLanding(state) {
+    bindSampleHero();
+    bindKeepScore();
+    if (shouldShowSampleHero(state || global.S)) {
+      showSampleHero();
+    } else {
+      hideSampleHero();
+    }
+    paintChrome(state || global.S);
+  }
+
   function beacon(event) {
     try {
       const nav = global.navigator;
@@ -404,6 +646,11 @@
   const api = {
     REV,
     MIN_BOOK,
+    BIO_URL,
+    ALIAS_PATH,
+    KEEP_HREF,
+    AHA_KEY,
+    HERO_KEY,
     factoryTrades,
     factoryWatchlist,
     classicSeeds,
@@ -420,10 +667,23 @@
     bindChrome,
     beacon,
     queryForce,
+    isSampleLandingLocation,
     proofModel,
     proofCardHtml,
     paintProof,
     bindProof,
+    hasAha,
+    markAha,
+    firstIncompleteSample,
+    openScoreTrade,
+    onSampleScored,
+    onProofViewed,
+    showKeepScore,
+    hideKeepScore,
+    shouldShowSampleHero,
+    bootSampleLanding,
+    showSampleHero,
+    hideSampleHero,
   };
 
   global.RunnrDemoSandbox = api;
@@ -433,6 +693,7 @@
       try {
         paintProof();
         bindProof();
+        bootSampleLanding(global.S);
       } catch (e) {}
     };
     if (global.document.readyState === "loading") {

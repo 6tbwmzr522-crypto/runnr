@@ -24,7 +24,7 @@ const cache = sw.match(/CACHE = "runnr-v(\d+)"/)[1];
 check("index.html V matches sw.js CACHE", v === cache);
 check("cache is 124+", Number(v) >= 124);
 check("coach.js cache-busted", html.includes("js/coach.js?v=28"));
-check("onboarding.js cache-busted", html.includes("js/onboarding.js?v=36"));
+check("onboarding.js cache-busted", html.includes("js/onboarding.js?v=37"));
 check("weekly canvas is taller than the score card", html.includes('id="share-canvas" width="360" height="700"'));
 check("weekly / score toggle exists", html.includes('data-share-variant="weekly"') && html.includes('data-share-variant="score"'));
 check("handle redraws active card", html.includes("RunnrGrowth.redrawShareFromHandle(S)"));

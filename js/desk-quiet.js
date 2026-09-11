@@ -78,6 +78,19 @@
   }
 
   function primaryJob(trades, settings, baron) {
+    const SB = global.RunnrDemoSandbox;
+    if (SB && typeof SB.isDemoState === "function" && SB.isDemoState({ trades: trades, bal: settings && settings.bal, watchlist: settings && settings.watchlist })) {
+      const row = typeof SB.firstIncompleteSample === "function" ? SB.firstIncompleteSample({ trades: trades }) : null;
+      if (row) {
+        return {
+          id: "sample-score",
+          title: "Score this trade",
+          sub: (row.instr || "AAPL CFD") + " · incomplete SAMPLE row",
+          cta: "Score this trade",
+          tradeId: row.id,
+        };
+      }
+    }
     if (countableTrades(trades) === 0) {
       return {
         id: "log",

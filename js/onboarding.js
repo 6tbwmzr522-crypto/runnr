@@ -25,6 +25,7 @@ const RunnrGrowth = {
       if (localStorage.getItem(this.HOOK_KEY) === "done") return false;
     } catch (e) {}
     try {
+      if (typeof RunnrDemoSandbox !== "undefined" && RunnrDemoSandbox.queryForce && RunnrDemoSandbox.queryForce()) return false;
       if (typeof location !== "undefined" && new URLSearchParams(location.search).get("demo") === "1") return false;
     } catch (e) {}
     if (typeof RunnrSync !== "undefined" && RunnrSync.isLoggedIn?.()) return false;
@@ -43,7 +44,9 @@ const RunnrGrowth = {
       if (localStorage.getItem("runnr_onboarding_v1") === "done") return false;
     } catch (e) {}
     try {
-      if (typeof location !== "undefined" && new URLSearchParams(location.search).get("demo") === "1") {
+      const sample = (typeof RunnrDemoSandbox !== "undefined" && RunnrDemoSandbox.queryForce && RunnrDemoSandbox.queryForce())
+        || (typeof location !== "undefined" && new URLSearchParams(location.search).get("demo") === "1");
+      if (sample) {
         this.completeOnboarding(state);
         return false;
       }
@@ -813,7 +816,7 @@ const RunnrGrowth = {
     if (note) {
       note.textContent = this.shareVariant === "score"
         ? "Process only — no P&L on the score card."
-        : "Loud runnr.fyi footer — built for TikTok / Reels. Process P&L (followed vs leaks).";
+        : "Loud runnr.fyi/?demo=1 footer — TikTok bio lands on SAMPLE, not login. Process P&L (followed vs leaks).";
     }
     const canvas = document.getElementById("share-canvas");
     if (canvas) this.drawActiveShareCard(state, canvas);

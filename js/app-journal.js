@@ -722,6 +722,9 @@ function saveLog() {
     && !draft.incomplete
     && typeof DisciplineReplay !== 'undefined'
     && DisciplineReplay.canReplay(saved, S, typeof Baron !== 'undefined' ? Baron : null);
+  if (saved && !draft.incomplete && window.RunnrDemoSandbox && typeof RunnrDemoSandbox.onSampleScored === 'function') {
+    try { RunnrDemoSandbox.onSampleScored(saved, { prompt: !replayReady && !keepReviewing }); } catch (e) {}
+  }
   if (replayReady) {
     reviewingIncompleteQueue = false;
     showToast(saved.instr || draft.instr, 'Replay this miss — see the disciplined version');
