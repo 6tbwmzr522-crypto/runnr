@@ -133,7 +133,7 @@
 
   function todayRows(trades, now) {
     const key = todayKey(now);
-    return (trades || []).filter((t) => t && !t.mergedAway && tradeDayKey(t, now) === key);
+    return (trades || []).filter((t) => t && !t.mergedAway && isPretradeRow(t) && tradeDayKey(t, now) === key);
   }
 
   function todayRisked(trades, now) {

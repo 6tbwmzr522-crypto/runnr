@@ -133,6 +133,11 @@ const daily = PT.computePlan({
 }, rails, ctx.window.S.trades, now);
 check("today's logged risk can block the next plan", daily.blocked === true && daily.reasons.some((r) => /daily loss/i.test(r)));
 
+const sampleToday = PT.todayRisked([
+  { id: 1, isDemo: true, instr: "RACE", entry: 354, stop: 338, size: 28, dateKey: "2026-09-14" },
+], now);
+check("SAMPLE factory rows do not eat today's pretrade budget", sampleToday === 0);
+
 check("#desk and ?desk=1 open the terminal", PT.wantsDesk({ search: "?demo=1&desk=1", hash: "" }) === true);
 check("#desk-journal opens the gold journal", PT.wantsDesk({ search: "", hash: "#desk-journal" }) === "journal");
 
