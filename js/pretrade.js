@@ -1,6 +1,6 @@
 /**
- * Pre-trade desk — gold terminal + journal.
- * Size a plan, LOG TRADE into S.trades, mark WIN / LOSS / BE.
+ * Pre-trade desk — gold sizer on the Size tab.
+ * Size a plan, LOG TRADE into S.trades. WIN / LOSS / BE lives on the unified Journal.
  * Blocked plans still journal (planStatus=blocked, sizeOk=false) and drop the score.
  */
 (function (global) {
@@ -15,7 +15,6 @@
   };
 
   let view = "desk";
-  let journalFilter = "all";
   let form = { ticker: "AAPL", dir: "long", entry: "", stop: "", target: "", notes: "" };
   let railsDraft = null;
 
@@ -420,6 +419,14 @@
     return deskTrades().filter(isPretradeRow);
   }
 
+  function filterJournalBook(trades, filter) {
+    const rows = (trades || []).filter((t) => t && !t.mergedAway);
+    const want = String(filter || "all").toLowerCase();
+    if (want === "approved") return rows.filter((t) => isPretradeRow(t) && planStatusOf(t) === "approved");
+    if (want === "blocked") return rows.filter((t) => isPretradeRow(t) && planStatusOf(t) === "blocked");
+    return rows;
+  }
+
   function esc(s) {
     return String(s || "").replace(/[&<>"']/g, (c) => ({
       "&": "&amp;",
@@ -623,52 +630,6 @@
       '<button type="button" class="pt-out-reset" data-pt-out="reset" data-id="' + id + '">RESET</button></div>';
   }
 
-  function renderJournalView() {
-    const rails = railsDraft || readRails();
-    const all = planRows();
-    const mix = disciplineMix(all);
-    const edge = edgeFromTrades(all);
-    const filtered = all.filter((t) => {
-      if (journalFilter === "approved") return planStatusOf(t) === "approved";
-      if (journalFilter === "blocked") return planStatusOf(t) === "blocked";
-      return true;
-    });
-    const stats = document.getElementById("pt-j-stats");
-    if (stats) {
-      document.getElementById("pt-j-total").textContent = String(all.length);
-      document.getElementById("pt-j-ok").textContent = String(mix.approved);
-      document.getElementById("pt-j-no").textContent = String(mix.blocked);
-      document.getElementById("pt-j-rr").textContent = fmtRR(edge.avgApprovedRR || edge.avgRR);
-    }
-    document.querySelectorAll("[data-pt-filter]").forEach((btn) => {
-      btn.classList.toggle("on", btn.getAttribute("data-pt-filter") === journalFilter);
-    });
-    const list = document.getElementById("pt-j-list");
-    if (!list) return;
-    if (!filtered.length) {
-      list.innerHTML = '<div class="pt-empty">No plans in this filter.</div>';
-      return;
-    }
-    list.innerHTML = filtered.map((t) => {
-      const dir = (t.dir || "long") === "short" ? '<span class="neg">S</span>' : "L";
-      const blocked = planStatusOf(t) === "blocked";
-      return '<article class="pt-j-row' + (blocked ? " is-blocked" : "") + '">' +
-        '<div class="pt-j-main">' +
-          '<div class="pt-tk">' + markIcon(t) + " " + esc(t.instr || "") + "</div>" +
-          "<div>" + dir + "</div>" +
-          "<div>" + fmtPx(t.entry) + "</div>" +
-          "<div>" + fmtPx(t.stop) + "</div>" +
-          "<div>" + fmtPx(t.target) + "</div>" +
-          '<div class="mint">' + (t.size != null ? esc(String(t.size)) : "—") + "</div>" +
-          '<div class="neg">' + money(riskAmtOf(t), rails.sym) + "</div>" +
-          "<div>" + fmtRR(rrOf(t)) + "</div>" +
-          "<div>" + statusCell(t) + "</div>" +
-        "</div>" +
-        outcomeBtns(t) +
-      "</article>";
-    }).join("");
-  }
-
   function currencyOf(sym) {
     if (sym === "$") return "USD";
     if (sym === "£") return "GBP";
@@ -706,7 +667,7 @@
           '<div><div class="pt-stat-lbl">EXPECTANCY</div><div class="pt-stat-val mint" id="pt-edge-exp"></div></div>' +
           '<div><div class="pt-stat-lbl">EDGE</div><div class="pt-stat-val mint" id="pt-edge-label"></div></div>' +
         "</div>" +
-        '<div class="pt-edge-foot"><div id="pt-edge-mix"></div><div class="pt-sec-meta">MARK OUTCOMES IN THE JOURNAL TO COMPUTE WIN RATE</div></div>' +
+        '<div class="pt-edge-foot"><div id="pt-edge-mix"></div><div class="pt-sec-meta">MARK OUTCOMES IN JOURNAL TO COMPUTE WIN RATE</div></div>' +
       "</section>" +
       '<div class="pt-split">' +
         '<section class="pt-panel" aria-label="Position sizer">' +
@@ -781,30 +742,6 @@
     );
   }
 
-  function journalHTML() {
-    return (
-      '<header class="pt-top">' +
-        '<div class="pt-brand">' +
-          '<button type="button" class="pt-nav-btn" id="pt-back">← BACK</button>' +
-          '<div class="pt-name italic">trade.journal</div>' +
-        "</div>" +
-      "</header>" +
-      '<section class="pt-stats" id="pt-j-stats">' +
-        '<div><div class="pt-stat-lbl">TOTAL TRADES</div><div class="pt-stat-val" id="pt-j-total">0</div></div>' +
-        '<div><div class="pt-stat-lbl">APPROVED</div><div class="pt-stat-val mint" id="pt-j-ok">0</div></div>' +
-        '<div><div class="pt-stat-lbl">BLOCKED</div><div class="pt-stat-val neg" id="pt-j-no">0</div></div>' +
-        '<div><div class="pt-stat-lbl">AVG R:R</div><div class="pt-stat-val gold" id="pt-j-rr">—</div></div>' +
-      "</section>" +
-      '<div class="pt-filters">' +
-        '<button type="button" class="pt-filter on" data-pt-filter="all">ALL</button>' +
-        '<button type="button" class="pt-filter" data-pt-filter="approved">APPROVED</button>' +
-        '<button type="button" class="pt-filter" data-pt-filter="blocked">BLOCKED</button>' +
-      "</div>" +
-      '<div class="pt-j-head"><span>TICKER</span><span>DIR</span><span>ENTRY</span><span>STOP</span><span>TARGET</span><span>SIZE</span><span>RISK</span><span>R:R</span><span>STATUS</span></div>' +
-      '<div id="pt-j-list"></div>'
-    );
-  }
-
   function readFormFromDom() {
     const ticker = document.getElementById("pt-ticker");
     const entry = document.getElementById("pt-entry");
@@ -852,9 +789,13 @@
   }
 
   function setView(next) {
-    view = next === "journal" ? "journal" : "desk";
+    if (next === "journal") {
+      openUnifiedJournal();
+      return;
+    }
+    view = "desk";
     render();
-    syncHash(view === "journal" ? "journal" : "desk");
+    syncHash("desk");
   }
 
   function onLog() {
@@ -870,7 +811,7 @@
     }
     const msg = result.computed.blocked
       ? "Logged as BLOCKED — score takes the hit"
-      : "Logged ✓ — mark WIN / LOSS / BE in the journal";
+      : "Logged ✓ — mark WIN / LOSS / BE in Journal";
     if (typeof global.showToast === "function") showToast(result.row.instr, msg);
     form.notes = "";
     const notes = document.getElementById("pt-notes");
@@ -900,11 +841,7 @@
         return;
       }
       if (e.target.closest("#pt-open-journal") || e.target.closest("#pt-view-all")) {
-        setView("journal");
-        return;
-      }
-      if (e.target.closest("#pt-back")) {
-        setView("desk");
+        openUnifiedJournal();
         return;
       }
       if (e.target.closest("#pt-exit")) {
@@ -928,18 +865,6 @@
         refreshLive();
         return;
       }
-      const filter = e.target.closest("[data-pt-filter]");
-      if (filter) {
-        journalFilter = filter.getAttribute("data-pt-filter") || "all";
-        renderJournalView();
-        return;
-      }
-      const out = e.target.closest("[data-pt-out]");
-      if (out) {
-        setOutcome(out.getAttribute("data-id"), out.getAttribute("data-pt-out"));
-        renderJournalView();
-        return;
-      }
     });
   }
 
@@ -949,13 +874,9 @@
     const rails = railsDraft || readRails();
     railsDraft = rails;
     el.classList.add("pt-root");
-    if (view === "journal") {
-      el.innerHTML = journalHTML();
-      renderJournalView();
-    } else {
-      el.innerHTML = deskHTML(rails);
-      refreshLive();
-    }
+    view = "desk";
+    el.innerHTML = deskHTML(rails);
+    refreshLive();
     bind(el);
   }
 
@@ -969,12 +890,22 @@
     try {
       if (/(?:^|[?&])pretrade=1(?:&|$)/.test(String(loc.search || ""))) return true;
       if (/(?:^|[?&])sizer=1(?:&|$)/.test(String(loc.search || ""))) return true;
-      if (/(?:^|[?&])(?:desk|pretrade)=journal(?:&|$)/.test(String(loc.search || ""))) return "journal";
     } catch (e) {}
     try {
       const hash = hashName(loc);
       if (hash === "pretrade" || hash === "sizer" || hash === "size") return true;
-      if (hash === "desk-journal" || hash === "pretrade-journal") return "journal";
+    } catch (e) {}
+    return false;
+  }
+
+  function wantsUnifiedJournal(loc) {
+    loc = loc || (global.location || {});
+    try {
+      if (/(?:^|[?&])(?:desk|pretrade)=journal(?:&|$)/.test(String(loc.search || ""))) return true;
+    } catch (e) {}
+    try {
+      const hash = hashName(loc);
+      if (hash === "desk-journal" || hash === "pretrade-journal" || hash === "journal") return true;
     } catch (e) {}
     return false;
   }
@@ -995,10 +926,26 @@
     try {
       const loc = global.location;
       if (!loc || !global.history || typeof history.replaceState !== "function") return;
-      const next = kind === "journal" ? "#desk-journal" : "#pretrade";
+      if (kind === "journal") return;
+      const next = "#pretrade";
       if (String(loc.hash || "") === next) return;
       history.replaceState(null, "", loc.pathname + (loc.search || "") + next);
     } catch (e) {}
+  }
+
+  function journalHash() {
+    try {
+      const loc = global.location;
+      if (!loc || !global.history || typeof history.replaceState !== "function") return;
+      const next = "#journal";
+      if (String(loc.hash || "") === next) return;
+      history.replaceState(null, "", loc.pathname + (loc.search || "") + next);
+    } catch (e) {}
+  }
+
+  function openUnifiedJournal() {
+    if (typeof global.switchPage === "function") global.switchPage("journal");
+    journalHash();
   }
 
   function prime(input) {
@@ -1017,12 +964,10 @@
     if (app) app.classList.add("desk-wide");
     const page = global.document && document.getElementById("page-sizer");
     if (page) page.classList.add("pt-live");
-    const gold = wantsGold();
-    if (gold === "journal") view = "journal";
-    else if (gold === true) view = "desk";
     railsDraft = readRails();
+    view = "desk";
     render();
-    syncHash(view === "journal" ? "journal" : "desk");
+    syncHash("desk");
   }
 
   function leave() {
@@ -1035,8 +980,11 @@
   }
 
   function open(which) {
-    if (which === "journal") view = "journal";
-    else if (which === "desk" || which === "gold") view = "desk";
+    if (which === "journal") {
+      openUnifiedJournal();
+      return;
+    }
+    if (which === "desk" || which === "gold") view = "desk";
     if (typeof global.switchPage === "function") global.switchPage("sizer");
     else enter();
   }
@@ -1046,6 +994,8 @@
     normalizeRails,
     computePlan,
     planStatusOf,
+    isPretradeRow,
+    filterJournalBook,
     todayRisked,
     rrOf,
     edgeFromTrades,
@@ -1053,12 +1003,15 @@
     logPlan,
     setOutcome,
     setView,
+    outcomeButtonsHtml: outcomeBtns,
     prime,
     render,
     enter,
     leave,
     open,
+    openUnifiedJournal,
     wantsGold,
+    wantsUnifiedJournal,
     wantsMarketDesk,
     wantsDesk: wantsGold,
     disciplineMix,

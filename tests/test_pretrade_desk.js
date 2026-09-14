@@ -22,7 +22,7 @@ const v = html.match(/var V = "(\d+)"/)[1];
 const cache = sw.match(/CACHE = "runnr-v(\d+)"/)[1];
 check("index.html V matches sw.js CACHE", v === cache);
 check("cache is 142+", Number(v) >= 142);
-check("pretrade.js is loaded", html.includes("js/pretrade.js?v=4"));
+check("pretrade.js is loaded", html.includes("js/pretrade.js?v=5"));
 check("pretrade.css is loaded", html.includes("css/pretrade.css?v=2"));
 check("gold mounts in pretrade-root, not desk-root hijack", html.includes('id="pretrade-root"') && src.includes('getElementById("pretrade-root")'));
 check("legacy CFD sizer stays in the page, hidden", html.includes("CFD / Forex Position Sizer") && html.includes('id="legacy-sizer"') && css.includes("#legacy-sizer{display:none"));
@@ -31,7 +31,7 @@ check("gold tokens stay on the desk", /--bg:\s*#080c12/.test(css) && /--gold:\s*
 check("two-column sizer is form + computed output", css.includes(".pt-sizer") && css.includes("grid-template-columns:minmax(0,1fr) minmax(220px,0.92fr)"));
 check("guardrails sit beside the sizer", css.includes(".pt-split") && css.includes("minmax(280px,0.9fr)"));
 check("blocked banner keeps numbers visible", src.includes("pt-blocked") && src.includes("✕ BLOCKED"));
-check("journal filters exist", src.includes('data-pt-filter="all"') && src.includes('data-pt-filter="approved"') && src.includes('data-pt-filter="blocked"'));
+check("unified journal filters exist", html.includes('data-journal-filter="all"') && html.includes('data-journal-filter="approved"') && html.includes('data-journal-filter="blocked"'));
 check("outcome buttons exist", src.includes('btn("win", "WIN")') && src.includes('btn("loss", "LOSS")') && src.includes('btn("be", "BE")') && src.includes('data-pt-out="reset"'));
 check("SAMPLE visitors can open the header terminal", css.includes("html.runnr-demo #header .header-desk-btn"));
 check("log job opens the gold sizer, not Terminal", /job\.id === 'log'[\s\S]{0,280}RunnrPretrade\.open/.test(src)
@@ -40,7 +40,7 @@ check("sizer switchPage enters pretrade", /key === 'sizer'[\s\S]*RunnrPretrade\.
 check("demo logs skip the journal cap", /if \(!draft\.isDemo && !canAddJournalTrade/.test(src));
 check("#desk stays the market terminal", /hash === "desk" \|\| hash === "terminal"/.test(src) && src.includes("wantsMarketDesk"));
 check("#pretrade and #sizer open gold", src.includes('hash === "pretrade"') && src.includes('hash === "sizer"'));
-check("#desk-journal still opens gold journal", src.includes('hash === "desk-journal"'));
+check("#desk-journal aliases to the unified journal", src.includes('hash === "desk-journal"') && src.includes("wantsUnifiedJournal") && src.includes("openUnifiedJournal"));
 
 function load() {
   const store = {};
@@ -134,6 +134,14 @@ check("desk discipline is approved / total plans", mix.approved === 1 && mix.blo
 const edge = PT.edgeFromTrades(ctx.window.S.trades);
 check("edge waits for marked outcomes", edge.hasOutcomes === true && edge.losses === 1);
 
+const factoryLeak = { id: 9, isDemo: true, instr: "BE", sizeOk: false, source: "manual" };
+const book = [factoryLeak].concat(ctx.window.S.trades);
+check("ALL journal keeps SAMPLE rows and plans", PT.filterJournalBook(book, "all").length === 3);
+check("APPROVED filter is pre-trade plans only", PT.filterJournalBook(book, "approved").map((t) => t.instr).join() === "AAPL");
+check("BLOCKED filter ignores SAMPLE size-fail rows", PT.filterJournalBook(book, "blocked").map((t) => t.instr).join() === "NVDA");
+check("plan rows expose WIN/LOSS/BE", PT.outcomeButtonsHtml(okLog.row).includes(">WIN<") && PT.outcomeButtonsHtml(okLog.row).includes(">LOSS<") && PT.outcomeButtonsHtml(okLog.row).includes(">BE<"));
+check("SAMPLE factory rows are not pre-trade plans", PT.isPretradeRow(factoryLeak) === false);
+
 const daily = PT.computePlan({
   ticker: "TSLA", dir: "long", entry: 100, stop: 90, target: 160,
 }, rails, ctx.window.S.trades, now);
@@ -150,11 +158,16 @@ check("#desk and ?desk=1 stay the market terminal", PT.wantsMarketDesk({ search:
 check("#desk is not gold", PT.wantsGold({ search: "", hash: "#desk" }) === false);
 check("#pretrade opens the gold desk", PT.wantsGold({ search: "?demo=1", hash: "#pretrade" }) === true);
 check("#sizer opens gold", PT.wantsGold({ search: "", hash: "#sizer" }) === true);
-check("#desk-journal opens the gold journal", PT.wantsGold({ search: "", hash: "#desk-journal" }) === "journal");
+check("#desk-journal is not a second gold journal", PT.wantsGold({ search: "", hash: "#desk-journal" }) === false);
+check("#desk-journal aliases to the unified journal", PT.wantsUnifiedJournal({ search: "", hash: "#desk-journal" }) === true);
+check("#pretrade-journal aliases to the unified journal", PT.wantsUnifiedJournal({ search: "", hash: "#pretrade-journal" }) === true);
+check("#journal is the unified book", PT.wantsUnifiedJournal({ search: "", hash: "#journal" }) === true);
 check("?pretrade=1 opens gold", PT.wantsGold({ search: "?demo=1&pretrade=1", hash: "" }) === true);
 
 ctx.switchPage = function (key) { ctx.switched = key; };
 PT.open();
 check("pretrade open() switches to sizer, not desk", ctx.switched === "sizer");
+PT.open("journal");
+check("pretrade open(journal) lands on the unified journal", ctx.switched === "journal");
 
 console.log("test_pretrade_desk: ok " + n);

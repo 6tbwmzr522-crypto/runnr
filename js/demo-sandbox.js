@@ -592,10 +592,15 @@
             global.routeDeskOrGold();
           } else {
             const PT = global.RunnrPretrade;
-            const gold = PT && typeof PT.wantsGold === "function" && PT.wantsGold();
-            if (gold && PT.open) PT.open(gold === "journal" ? "journal" : "desk");
-            else if (PT && typeof PT.wantsMarketDesk === "function" && PT.wantsMarketDesk() && global.RunnrDesk) {
-              RunnrDesk.open();
+            if (PT && typeof PT.wantsUnifiedJournal === "function" && PT.wantsUnifiedJournal()) {
+              if (PT.openUnifiedJournal) PT.openUnifiedJournal();
+              else if (typeof global.switchPage === "function") global.switchPage("journal");
+            } else {
+              const gold = PT && typeof PT.wantsGold === "function" && PT.wantsGold();
+              if (gold && PT.open) PT.open("desk");
+              else if (PT && typeof PT.wantsMarketDesk === "function" && PT.wantsMarketDesk() && global.RunnrDesk) {
+                RunnrDesk.open();
+              }
             }
           }
         } catch (e) {}

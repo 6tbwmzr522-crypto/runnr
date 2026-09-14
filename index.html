@@ -5,7 +5,7 @@
 <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
 <script>
 (function () {
-  var V = "142";
+  var V = "143";
   try {
     if (localStorage.getItem("runnr_app_v") !== V) {
       localStorage.setItem("runnr_app_v", V);
@@ -67,7 +67,7 @@
 <link rel="stylesheet" href="css/tokens.css?v=1">
 <link rel="stylesheet" href="css/layout.css?v=1">
 <link rel="stylesheet" href="css/components.css?v=2">
-<link rel="stylesheet" href="css/pages.css?v=5">
+<link rel="stylesheet" href="css/pages.css?v=6">
 <link rel="stylesheet" href="css/pretrade.css?v=2">
 </head>
 <body>
@@ -737,6 +737,11 @@
       <div id="journal-challenge-banner" class="journal-challenge-banner"></div>
       <p class="journal-weight-hint" data-i18n="journal.scoreHint">Synced = broker fill (full weight). Imported = CSV (high). Manual = self-logged (half). Same flags, different confidence.</p>
       <div id="journal-hint" style="display:none;margin-bottom:12px;padding:12px 14px;background:var(--accent-dim);border:1px solid var(--border);border-radius:var(--r-sm);font-size:12px;color:var(--text2);line-height:1.5"></div>
+      <div class="journal-filters" id="journal-filters" role="tablist" aria-label="Journal filters">
+        <button type="button" class="pt-filter on" data-journal-filter="all">ALL</button>
+        <button type="button" class="pt-filter" data-journal-filter="approved">APPROVED</button>
+        <button type="button" class="pt-filter" data-journal-filter="blocked">BLOCKED</button>
+      </div>
       <div id="journal-list"></div>
       <div id="journal-challenge-foot" class="journal-challenge-foot">Journal the breach that did not happen.</div>
     </div>
@@ -1875,11 +1880,11 @@
 <script src="js/csv-presets.js?v=4"></script>
 <script src="js/trade-limit.js?v=4"></script>
 <script src="js/desk-quiet.js?v=3"></script>
-<script src="js/demo-sandbox.js?v=6"></script>
+<script src="js/demo-sandbox.js?v=7"></script>
 <script src="js/sync.js?v=71"></script>
 <script src="js/desk-sessions.js?v=2"></script>
 <script src="js/desk.js?v=14"></script>
-<script src="js/pretrade.js?v=4"></script>
+<script src="js/pretrade.js?v=5"></script>
 <script src="js/wave.js?v=1"></script>
 <script src="js/shelf.js?v=4"></script>
 <script src="js/visit.js?v=1"></script>
@@ -1887,14 +1892,14 @@
 <script src="js/app-nav.js?v=4"></script>
 <script src="js/app-settings.js?v=1"></script>
 <script src="js/app-sizer.js?v=1"></script>
-<script src="js/app-journal.js?v=4"></script>
+<script src="js/app-journal.js?v=5"></script>
 <script src="js/app-watchlist.js?v=2"></script>
 <script src="js/app-quotes.js?v=1"></script>
 <script src="js/app-alerts.js?v=1"></script>
 <script src="js/app-portfolio.js?v=1"></script>
 <script src="js/app-sync-ui.js?v=1"></script>
 <script src="js/app-coach-page.js?v=1"></script>
-<script src="js/app-boot.js?v=4"></script>
+<script src="js/app-boot.js?v=5"></script>
 
 </body>
 </html>

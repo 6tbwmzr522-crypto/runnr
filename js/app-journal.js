@@ -4,6 +4,8 @@
  */
 // ── JOURNAL ────────────────────────────────────────────────────────────────
 var journalClickBound = false;
+var journalFilterBound = false;
+var journalBookFilter = 'all';
 
 function tradeId(v) {
   const n = Number(v);
@@ -38,11 +40,71 @@ function bindJournalClicks() {
   if (!list || journalClickBound) return;
   journalClickBound = true;
   list.addEventListener('click', (e) => {
-    if (e.target.closest('.te-del') || e.target.closest('.te-sym') || e.target.closest('.te-replay') || e.target.closest('.te-edit')) return;
+    const out = e.target.closest('[data-pt-out]');
+    if (out) {
+      e.preventDefault();
+      e.stopPropagation();
+      const PT = window.RunnrPretrade;
+      if (PT && typeof PT.setOutcome === 'function') {
+        PT.setOutcome(out.getAttribute('data-id'), out.getAttribute('data-pt-out'));
+      }
+      return;
+    }
+    if (e.target.closest('.te-del') || e.target.closest('.te-sym') || e.target.closest('.te-replay') || e.target.closest('.te-edit') || e.target.closest('.pt-out-row')) return;
     const row = e.target.closest('.trade-entry[data-trade-id]');
     if (!row || row.dataset.editable !== '1') return;
     openTradeEditor(row.dataset.tradeId);
   });
+}
+
+function bindJournalFilters() {
+  const bar = document.getElementById('journal-filters');
+  if (!bar || journalFilterBound) return;
+  journalFilterBound = true;
+  bar.addEventListener('click', (e) => {
+    const btn = e.target.closest('[data-journal-filter]');
+    if (!btn) return;
+    journalBookFilter = btn.getAttribute('data-journal-filter') || 'all';
+    renderJournal();
+  });
+}
+
+function paintJournalFilters() {
+  document.querySelectorAll('[data-journal-filter]').forEach((btn) => {
+    btn.classList.toggle('on', btn.getAttribute('data-journal-filter') === journalBookFilter);
+  });
+}
+
+function isPretradeJournalRow(t) {
+  const PT = window.RunnrPretrade;
+  if (PT && typeof PT.isPretradeRow === 'function') return PT.isPretradeRow(t);
+  return !!(t && (t.source === 'pretrade' || t.planStatus === 'approved' || t.planStatus === 'blocked'));
+}
+
+function journalRowsForFilter(trades, filter) {
+  const PT = window.RunnrPretrade;
+  if (PT && typeof PT.filterJournalBook === 'function') return PT.filterJournalBook(trades, filter);
+  const rows = (trades || []).filter((t) => t && !t.mergedAway);
+  const want = String(filter || 'all').toLowerCase();
+  if (want === 'approved') return rows.filter((t) => isPretradeJournalRow(t) && (t.planStatus === 'approved' || t.sizeOk !== false));
+  if (want === 'blocked') return rows.filter((t) => isPretradeJournalRow(t) && (t.planStatus === 'blocked' || t.sizeOk === false));
+  return rows;
+}
+window.journalRowsForFilter = journalRowsForFilter;
+
+function pretradeOutcomeHtml(t) {
+  const PT = window.RunnrPretrade;
+  if (!isPretradeJournalRow(t)) return '';
+  if (PT && typeof PT.outcomeButtonsHtml === 'function') return PT.outcomeButtonsHtml(t);
+  return '';
+}
+
+function pretradeStatusFlags(t) {
+  if (!isPretradeJournalRow(t)) return '';
+  const PT = window.RunnrPretrade;
+  const status = PT && typeof PT.planStatusOf === 'function' ? PT.planStatusOf(t) : (t.planStatus || (t.sizeOk === false ? 'blocked' : 'approved'));
+  if (status === 'blocked') return '<span class="flag flag-no">BLOCKED</span>';
+  return '<span class="flag flag-ok">APPROVED</span>';
 }
 
 function renderFreeTradeCounters() {
@@ -62,6 +124,8 @@ window.renderFreeTradeCounters = renderFreeTradeCounters;
 
 function renderJournal() {
   bindJournalClicks();
+  bindJournalFilters();
+  paintJournalFilters();
   renderJournalChallengeChrome();
   const list = document.getElementById('journal-list');
   const hint = document.getElementById('journal-hint');
@@ -112,38 +176,53 @@ function renderJournal() {
   }
   try { renderFreeTradeCounters(); } catch (e) {}
   renderT212JournalButton();
+  if (!list) return;
   if (!S.trades.length) {
     list.innerHTML = '<div class="empty-state"><div class="es-icon">📋</div>No trades yet. Import T212 / Alpaca on Sync or log a trade.</div>';
     return;
   }
   const wallAt = (window.RunnrDeskQuiet && RunnrDeskQuiet.INCOMPLETE_WALL_THRESHOLD) || 5;
-  const hideIncompleteWall = alpacaPending.length > wallAt && !showAllIncompleteFills;
+  const hideIncompleteWall = alpacaPending.length > wallAt && !showAllIncompleteFills && journalBookFilter === 'all';
+  const baseRows = journalRowsForFilter(S.trades, journalBookFilter);
   const journalRows = hideIncompleteWall
-    ? S.trades.filter(t => !(isBrokerFillTrade(t) && t.incomplete))
-    : S.trades;
+    ? baseRows.filter(t => !(isBrokerFillTrade(t) && t.incomplete))
+    : baseRows;
   const wallToggle = hideIncompleteWall
     ? `<button type="button" class="journal-show-all" onclick="toggleIncompleteFillWall(true)">Show all ${alpacaPending.length} incomplete fills</button>`
     : (alpacaPending.length > wallAt && showAllIncompleteFills
       ? `<button type="button" class="journal-show-all" onclick="toggleIncompleteFillWall(false)">Hide incomplete wall</button>`
       : '');
+  if (!journalRows.length) {
+    const emptyCopy = journalBookFilter === 'approved'
+      ? 'No approved plans in this book.'
+      : journalBookFilter === 'blocked'
+        ? 'No blocked plans in this book.'
+        : 'No trades yet. Import T212 / Alpaca on Sync or log a trade.';
+    list.innerHTML = (wallToggle ? wallToggle : '') + `<div class="empty-state"><div class="es-icon">📋</div>${emptyCopy}</div>`;
+    return;
+  }
   list.innerHTML = (wallToggle ? wallToggle : '') + journalRows.map(t => {
     try {
     const isFill = isBrokerFillTrade(t);
+    const isPlan = isPretradeJournalRow(t);
     const pnlStr = formatTradePnl(t, isFill);
     const pnlCls = Baron.isOpenTrade?.(t) ? '' : (resolveTradePnl(t) >= 0 ? 'pos' : 'neg');
     const stopFlag = t.incomplete && !t.challengeFail ? '<span class="flag flag-incomplete">Stop ?</span>' :
       (t.stopOk ? '<span class="flag flag-ok">✓ Stop</span>' : '<span class="flag flag-no">✗ Stop</span>');
-    const sizeFlag = t.challengeFail ? '<span class="flag flag-no">FAIL</span>' :
+    const sizeFlag = isPlan ? pretradeStatusFlags(t) : (t.challengeFail ? '<span class="flag flag-no">FAIL</span>' :
       (t.incomplete ? '<span class="flag flag-incomplete">Size ?</span>' :
-      (t.sizeOk ? '<span class="flag flag-ok">✓ Size</span>' : '<span class="flag flag-no">✗ Size</span>'));
+      (t.sizeOk ? '<span class="flag flag-ok">✓ Size</span>' : '<span class="flag flag-no">✗ Size</span>')));
     const fill = Number(t.fillPrice || t.entry || t.exit || 0);
     const priceLabel = fill > 0 ? `$${fill.toFixed(2)}` : 'price pending';
     const metaLine = isFill
       ? `<span>${t.date}</span><span>${t.dir === 'long' ? 'BUY' : 'SELL'} ${t.size} @ ${priceLabel}</span><span>${t.source === 't212' ? 'T212' : (t.source === 'ibkr' ? 'IBKR' : 'Alpaca')}</span>`
-      : `<span>${t.date}</span><span>${t.entry} → ${t.exit ?? 'open'}</span><span>${t.size} units</span>`;
+      : isPlan
+        ? `<span>${t.date}</span><span>${t.entry} → ${t.exit ?? 'open'}</span><span>stop ${t.stop ?? '—'}</span><span>${t.size} units</span>`
+        : `<span>${t.date}</span><span>${t.entry} → ${t.exit ?? 'open'}</span><span>${t.size} units</span>`;
     const editable = isTradeEditable(t);
     const editLabel = Baron.isOpenTrade?.(t) ? 'Close' : 'Edit';
-    return `<div class="trade-entry${editable ? ' trade-entry-editable' : ''}" data-trade-id="${t.id}" data-editable="${editable ? '1' : '0'}">
+    const outcomeRow = pretradeOutcomeHtml(t);
+    return `<div class="trade-entry${editable ? ' trade-entry-editable' : ''}${isPlan ? ' trade-entry-plan' : ''}" data-trade-id="${t.id}" data-editable="${editable ? '1' : '0'}">
       <div class="te-top">
         <div style="display:flex;align-items:center;gap:6px;min-width:0">
           <span class="te-sym" onclick="event.stopPropagation();openStockDetail('${quoteSymbolFromInstr(t.instr).replace(/'/g, "\\'")}')" title="Live price">${t.instr.length > 12 ? t.instr.slice(0, 10) + '…' : t.instr}</span>
@@ -157,6 +236,7 @@ function renderJournal() {
       </div>
       <div class="te-meta">${metaLine}</div>
       <div class="flags">${(t.isDemo || t.seed) ? '<span class="flag flag-ok demo-row-badge">SAMPLE</span>' : ''}${fillEvidenceBadgeHtml(t)}${stopFlag}${sizeFlag}${t.setup === 'fvg' ? '<span class="flag flag-ok">FVG</span>' : ''}${t.challengeFail ? '' : (t.incomplete?'<span class="flag flag-miss">Incomplete</span>':'')}</div>
+      ${outcomeRow}
       ${typeof DisciplineReplay !== 'undefined' && DisciplineReplay.canReplay(t, S, typeof Baron !== 'undefined' ? Baron : null) ? `<button type="button" class="te-replay te-replay-primary" onclick="openDisciplineReplay('${t.id}', event)">Replay Disciplined</button>` : ''}
       ${t.challengeNote ? `<div class="te-note">${escapeTeText(t.challengeNote)}</div>` : ''}
     </div>`;
