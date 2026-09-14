@@ -546,8 +546,15 @@
     return true;
   }
 
-  function showKeepScore() {
+  const DEFAULT_KEEP_COPY = "Save with email. SAMPLE stays SAMPLE — it never merges into a real book.";
+  const CAP_KEEP_COPY = "3 SAMPLE plans used — save with email to keep logging. SAMPLE stays SAMPLE — it never merges into a real book.";
+
+  function showKeepScore(opts) {
     if (isLoggedIn()) return false;
+    const copy = global.document && document.querySelector("#modal-sample-keep .sample-keep-copy");
+    if (copy) {
+      copy.textContent = (opts && opts.reason === "sample-log-cap") ? CAP_KEEP_COPY : DEFAULT_KEEP_COPY;
+    }
     const modal = global.document && document.getElementById("modal-sample-keep");
     if (modal && typeof global.openModal === "function") {
       global.openModal("modal-sample-keep");

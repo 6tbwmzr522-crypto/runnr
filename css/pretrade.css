@@ -123,6 +123,14 @@
   border:1px solid rgba(201,169,110,0.22);
   padding:14px 16px 16px;
 }
+.pt-sample-cap{
+  font-size:11px;
+  color:var(--text3);
+  letter-spacing:0.04em;
+  margin:-4px 0 12px;
+}
+.pt-sample-cap.capped{color:var(--gold)}
+.pt-sample-cap a{color:var(--gold)}
 .pt-sizer{
   display:grid;
   grid-template-columns:minmax(0,1fr) minmax(220px,0.92fr);

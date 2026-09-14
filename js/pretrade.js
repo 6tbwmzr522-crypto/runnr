@@ -13,6 +13,7 @@
     propDailyDDPct: 5,
     propMaxDDPct: 10,
   };
+  const SAMPLE_LOG_CAP = 3;
 
   let view = "desk";
   let form = { ticker: "AAPL", dir: "long", entry: "", stop: "", target: "", notes: "" };
@@ -99,6 +100,27 @@
   function isPretradeRow(t) {
     if (!t || t.mergedAway) return false;
     return t.source === "pretrade" || t.planStatus === "approved" || t.planStatus === "blocked";
+  }
+
+  function isSamplePretradeLog(t) {
+    if (!t || t.mergedAway) return false;
+    if (t.source !== "pretrade") return false;
+    return t.isDemo === true || t.seed === true;
+  }
+
+  function samplePretradeLogCount(trades) {
+    return (trades || []).filter(isSamplePretradeLog).length;
+  }
+
+  function sampleLogGate(trades) {
+    const used = samplePretradeLogCount(trades);
+    const remaining = Math.max(0, SAMPLE_LOG_CAP - used);
+    return {
+      used,
+      cap: SAMPLE_LOG_CAP,
+      remaining,
+      capped: used >= SAMPLE_LOG_CAP,
+    };
   }
 
   function planStatusOf(t) {
@@ -398,7 +420,12 @@
     const st = S();
     if (!Array.isArray(st.trades)) st.trades = [];
     const list = st.trades;
-    if (!sample && typeof global.canAddJournalTrade === "function" && !global.canAddJournalTrade(1)) {
+    if (sample) {
+      const gate = sampleLogGate(list);
+      if (gate.capped) {
+        return { ok: false, error: "sample-log-cap", computed, sampleGate: gate };
+      }
+    } else if (typeof global.canAddJournalTrade === "function" && !global.canAddJournalTrade(1)) {
       if (typeof global.openJournalLimitUpgrade === "function") global.openJournalLimitUpgrade();
       return { ok: false, error: "journal-limit", computed };
     }
@@ -445,7 +472,7 @@
     if (sample && global.RunnrDemoSandbox && typeof RunnrDemoSandbox.markAha === "function") {
       try { RunnrDemoSandbox.markAha("pretrade"); } catch (e) {}
     }
-    return { ok: true, row, computed };
+    return { ok: true, row, computed, sampleGate: sample ? sampleLogGate(list) : null };
   }
 
   function setOutcome(id, outcome) {
@@ -757,6 +784,7 @@
       '<div class="pt-split">' +
         '<section class="pt-panel" aria-label="Position sizer">' +
           '<div class="pt-sec-hd">POSITION SIZER</div>' +
+          '<div class="pt-sample-cap" id="pt-sample-cap" hidden></div>' +
           '<div class="pt-sizer">' +
             '<div class="pt-form">' +
               '<label class="pt-field"><span>TICKER</span><input id="pt-ticker" autocomplete="off" spellcheck="false" value="' + esc(form.ticker) + '"></label>' +
@@ -871,6 +899,7 @@
     renderOutput(c, rails);
     renderProgress(c, rails);
     renderRecent();
+    renderSampleCap();
   }
 
   function setView(next) {
@@ -883,12 +912,53 @@
     syncHash("desk");
   }
 
+  function showSampleCapWall() {
+    if (typeof global.showToast === "function") {
+      showToast("SAMPLE", "3 SAMPLE plans used — save with email to keep logging");
+    }
+    const SB = global.RunnrDemoSandbox;
+    if (SB && typeof SB.showKeepScore === "function") {
+      try { SB.showKeepScore({ reason: "sample-log-cap" }); } catch (e) {}
+    }
+  }
+
+  function renderSampleCap() {
+    const el = document.getElementById("pt-sample-cap");
+    const logBtn = document.getElementById("pt-log");
+    if (!el) return;
+    if (!isSampleDesk()) {
+      el.hidden = true;
+      if (logBtn) logBtn.textContent = "LOG TRADE";
+      return;
+    }
+    const gate = sampleLogGate(deskTrades());
+    el.hidden = false;
+    if (gate.capped) {
+      el.className = "pt-sample-cap capped";
+      el.innerHTML = '3 SAMPLE plans used — <a href="/login.html?keep=1">save with email</a> to keep logging';
+      if (logBtn) logBtn.textContent = "SAVE WITH EMAIL";
+    } else {
+      el.className = "pt-sample-cap";
+      el.textContent = "SAMPLE logs " + gate.used + " / " + gate.cap + " — sizing stays free";
+      if (logBtn) logBtn.textContent = "LOG TRADE";
+    }
+  }
+
   function onLog() {
     readFormFromDom();
     const rails = railsDraft || readRails();
+    if (isSampleDesk() && sampleLogGate(deskTrades()).capped) {
+      showSampleCapWall();
+      return;
+    }
     const result = logPlan(form, rails, deskTrades(), new Date());
     if (!result.ok) {
       if (result.error === "journal-limit") return;
+      if (result.error === "sample-log-cap") {
+        showSampleCapWall();
+        renderSampleCap();
+        return;
+      }
       if (typeof global.showToast === "function") {
         showToast("Sizer", result.error || "Add ticker, entry & stop first");
       }
@@ -900,6 +970,7 @@
     if (typeof global.showToast === "function") showToast(result.row.instr, msg);
     resetSizerFields();
     render();
+    if (result.sampleGate && result.sampleGate.capped) showSampleCapWall();
   }
 
   function resetSizerFields() {
@@ -1082,6 +1153,10 @@
 
   const api = {
     DEFAULT_RAILS,
+    SAMPLE_LOG_CAP,
+    samplePretradeLogCount,
+    sampleLogGate,
+    isSamplePretradeLog,
     normalizeRails,
     computePlan,
     planStatusOf,

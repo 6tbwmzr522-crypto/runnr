@@ -22,7 +22,7 @@ function check(name, cond) {
 const v = html.match(/var V = "(\d+)"/)[1];
 const cache = sw.match(/CACHE = "runnr-v(\d+)"/)[1];
 check("index.html V matches sw.js CACHE", v === cache);
-check("cache is 145+", Number(v) >= 145);
+check("cache is 146+", Number(v) >= 146);
 
 check("bottom-nav journal page is the book", html.includes('id="page-journal"') && html.includes("switchPage('journal')"));
 check("unified filters live on page-journal", /id="page-journal"[\s\S]*data-journal-filter="all"[\s\S]*data-journal-filter="approved"[\s\S]*data-journal-filter="blocked"/.test(html));
