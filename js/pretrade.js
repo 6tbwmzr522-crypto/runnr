@@ -139,6 +139,48 @@
     return todayRows(trades, now).reduce((s, t) => s + riskAmtOf(t), 0);
   }
 
+  function sameLevel(a, b) {
+    return Math.abs(num(a) - num(b)) < 1e-6;
+  }
+
+  function isDuplicatePlan(plan, trades, now) {
+    if (!plan || !plan.ticker || !(num(plan.size) > 0)) return false;
+    const ticker = String(plan.ticker).toUpperCase();
+    const dir = String(plan.dir || "long").toLowerCase();
+    const entry = num(plan.entry);
+    const stop = num(plan.stop);
+    const target = num(plan.target);
+    const size = num(plan.size);
+    return todayRows(trades, now).some((t) => {
+      if (!t) return false;
+      if (String(t.instr || "").toUpperCase() !== ticker) return false;
+      if (String(t.dir || "long").toLowerCase() !== dir) return false;
+      if (!sameLevel(t.entry, entry) || !sameLevel(t.stop, stop)) return false;
+      if (!sameLevel(t.target, target) || !sameLevel(t.size, size)) return false;
+      return true;
+    });
+  }
+
+  function progressState(c) {
+    const logged = Number(c && c.todayRisked) || 0;
+    const pending = (c && c.ready && Number(c.totalRisk) > 0) ? Number(c.totalRisk) : 0;
+    const projected = logged + pending;
+    const dailyCap = Number(c && c.maxDailyAmt) || 0;
+    const propDaily = Number(c && c.propDailyAmt) || 0;
+    const overDaily = dailyCap > 0 && projected > dailyCap + 0.009;
+    const overProp = propDaily > 0 && projected > propDaily + 0.009;
+    const loggedOver = dailyCap > 0 && logged > dailyCap + 0.009;
+    return {
+      logged,
+      pending,
+      projected,
+      dailyCap,
+      over: overDaily || overProp,
+      loggedOver,
+      within: !(overDaily || overProp),
+    };
+  }
+
   function computePlan(input, rails, trades, now) {
     const r = normalizeRails(rails);
     const dir = String((input && input.dir) || "long").toLowerCase() === "short" ? "short" : "long";
@@ -167,6 +209,7 @@
       maxRiskAmt, maxDailyAmt, propDailyAmt, propMaxAmt,
       todayRisked: todayAmt,
       todayCount,
+      duplicate: false,
     };
     if (!ticker || !(entry > 0) || !(stop > 0)) return base;
     const riskPerShare = Math.abs(entry - stop);
@@ -203,8 +246,12 @@
     if (totalRisk > maxRiskAmt + 0.009) reasons.push("Exceeds max risk per trade");
     if (todayAmt + totalRisk > maxDailyAmt + 0.009) reasons.push("Exceeds max daily loss limit");
     if (todayAmt + totalRisk > propDailyAmt + 0.009) reasons.push("Exceeds prop daily drawdown");
+    const ready = size > 0 && entry > 0 && stop > 0;
+    const duplicate = ready && isDuplicatePlan({
+      ticker, dir, entry, stop, target, size: Math.max(0, size),
+    }, trades, now);
     return Object.assign(base, {
-      ready: size > 0 && entry > 0 && stop > 0,
+      ready,
       size: Math.max(0, size),
       riskPerShare,
       totalRisk,
@@ -213,6 +260,7 @@
       rr,
       blocked: reasons.length > 0,
       reasons,
+      duplicate: !!duplicate,
     });
   }
 
@@ -507,26 +555,45 @@
     if (closed) closed.textContent = edge.closed + " CLOSED · " + edge.total + " TOTAL";
   }
 
-  function renderOutput(c, rails) {
-    const el = document.getElementById("pt-output");
-    if (!el) return;
+  function outputHTML(c, rails) {
     if (!c.ready && !(c.riskPerShare > 0)) {
-      el.innerHTML = '<div class="pt-output-empty">Enter trade parameters to compute</div>';
-      return;
+      return '<div class="pt-output-empty">Pending plan — enter ticker, entry &amp; stop</div>';
     }
     const rrCls = c.blocked || (c.rr > 0 && c.rr < (rails.minRR || 1.5)) ? "neg" : "gold";
-    const banner = c.blocked
-      ? '<div class="pt-blocked" role="status"><div class="pt-blocked-title">✕ BLOCKED</div>' +
+    const tk = c.ticker ? esc(c.ticker) : "this setup";
+    let banner = "";
+    if (c.duplicate) {
+      const extra = (c.reasons || []).map((r) => '<div class="pt-blocked-reason">⚠ ' + esc(r) + "</div>").join("");
+      banner =
+        '<div class="pt-already" role="status"><div class="pt-blocked-title">ALREADY LOGGED TODAY</div>' +
+        '<div class="pt-blocked-reason">' + tk + " is already in Recent Trades. This panel is a pending plan, not that fill.</div>" +
+        extra +
+        "</div>";
+    } else if (c.blocked) {
+      banner =
+        '<div class="pt-blocked" role="status"><div class="pt-blocked-title">✕ BLOCKED</div>' +
+        '<div class="pt-blocked-reason">This pending plan is not logged yet — Recent Trades is the book.</div>' +
         c.reasons.map((r) => '<div class="pt-blocked-reason">⚠ ' + esc(r) + "</div>").join("") +
-        "</div>"
-      : (c.ready ? '<div class="pt-cleared">APPROVED</div>' : "");
-    el.innerHTML =
+        "</div>";
+    } else if (c.ready) {
+      banner = '<div class="pt-cleared">PENDING · APPROVED — log to journal</div>';
+    }
+    return (
+      '<div class="pt-output-kicker">PENDING PLAN</div>' +
+      '<div class="pt-output-note">Computed size for the form — not a logged fill.</div>' +
       '<div class="pt-kv"><span>Position Size</span><strong class="mint">' + (c.size || 0) + " sh</strong></div>" +
       '<div class="pt-kv"><span>Risk / Share</span><strong>' + money(c.riskPerShare, rails.sym) + "</strong></div>" +
       '<div class="pt-kv"><span>Total Risk</span><strong class="neg">' + money(c.totalRisk, rails.sym) + "</strong></div>" +
       '<div class="pt-kv"><span>Reward</span><strong class="mint">' + money(c.rewardPerShare, rails.sym) + "</strong></div>" +
       '<div class="pt-kv"><span>R:R Ratio</span><strong class="' + rrCls + '">' + (c.rr ? c.rr.toFixed(2) + " : 1" : "—") + "</strong></div>" +
-      banner;
+      banner
+    );
+  }
+
+  function renderOutput(c, rails) {
+    const el = document.getElementById("pt-output");
+    if (!el) return;
+    el.innerHTML = outputHTML(c, rails);
   }
 
   function barWidth(used, cap) {
@@ -535,10 +602,17 @@
   }
 
   function renderProgress(c, rails) {
+    const prog = progressState(c);
     const today = document.getElementById("pt-prog-today");
+    const todaySub = document.getElementById("pt-prog-today-sub");
     const maxD = document.getElementById("pt-prog-max");
     const prop = document.getElementById("pt-prog-prop");
-    if (today) today.textContent = money(c.todayRisked, rails.sym);
+    if (today) today.textContent = money(prog.projected, rails.sym);
+    if (todaySub) {
+      todaySub.textContent = prog.pending > 0
+        ? money(prog.logged, rails.sym) + " logged + " + money(prog.pending, rails.sym) + " this plan"
+        : (prog.logged > 0 ? "logged today" : "");
+    }
     if (maxD) {
       maxD.innerHTML = money(c.maxDailyAmt, rails.sym) +
         '<span class="pt-muted">' + rails.maxDailyLossPct.toFixed(2) + "%</span>";
@@ -547,28 +621,38 @@
       prop.innerHTML = money(c.propMaxAmt, rails.sym) +
         '<span class="pt-muted">' + rails.propMaxDDPct.toFixed(2) + "%</span>";
     }
-    const pct = barWidth(c.todayRisked, c.maxDailyAmt);
+    const loggedPct = barWidth(prog.logged, c.maxDailyAmt);
+    const pendingPct = Math.max(0, Math.min(100 - loggedPct, barWidth(prog.pending, c.maxDailyAmt)));
+    const pct = barWidth(prog.projected, c.maxDailyAmt);
     const label = document.getElementById("pt-prog-pct");
-    if (label) label.textContent = pct.toFixed(0) + "% OF DAILY LIMIT";
+    if (label) {
+      label.textContent = pct.toFixed(0) + "% OF DAILY LIMIT" +
+        (prog.pending > 0 ? " INCL. THIS PLAN" : "");
+    }
     const fillToday = document.getElementById("pt-bar-today");
+    const fillPending = document.getElementById("pt-bar-pending");
     const fillMax = document.getElementById("pt-bar-max");
     const fillPropD = document.getElementById("pt-bar-propd");
     const fillPropM = document.getElementById("pt-bar-propm");
-    if (fillToday) fillToday.style.width = pct + "%";
+    if (fillToday) fillToday.style.width = loggedPct + "%";
+    if (fillPending) fillPending.style.width = pendingPct + "%";
     if (fillMax) fillMax.style.width = "100%";
     if (fillPropD) fillPropD.style.width = barWidth(c.propDailyAmt, c.propMaxAmt) + "%";
     if (fillPropM) fillPropM.style.width = "100%";
+    const capToday = document.getElementById("pt-cap-today");
     const capMax = document.getElementById("pt-cap-max");
     const capPropD = document.getElementById("pt-cap-propd");
     const capPropM = document.getElementById("pt-cap-propm");
+    if (capToday) capToday.textContent = money(prog.projected, rails.sym);
     if (capMax) capMax.textContent = money(c.maxDailyAmt, rails.sym);
     if (capPropD) capPropD.textContent = money(c.propDailyAmt, rails.sym);
     if (capPropM) capPropM.textContent = money(c.propMaxAmt, rails.sym);
     const within = document.getElementById("pt-within");
     if (within) {
-      const over = c.todayRisked > c.maxDailyAmt + 0.009;
-      within.textContent = over ? "OVER LIMIT" : "WITHIN LIMITS";
-      within.className = "pt-within" + (over ? " neg" : "");
+      within.textContent = prog.within
+        ? "WITHIN LIMITS"
+        : (prog.loggedOver ? "OVER LIMIT" : "WOULD EXCEED");
+      within.className = "pt-within" + (prog.within ? "" : " neg");
     }
     const derivedRisk = document.getElementById("pt-derived-risk");
     const derivedDaily = document.getElementById("pt-derived-daily");
@@ -689,7 +773,7 @@
                 '<button type="button" class="pt-log" id="pt-log">LOG TRADE</button>' +
               "</div>" +
             "</div>" +
-            '<div class="pt-output" id="pt-output"><div class="pt-output-empty">Enter trade parameters to compute</div></div>' +
+            '<div class="pt-output" id="pt-output"><div class="pt-output-empty">Pending plan — enter ticker, entry &amp; stop</div></div>' +
           "</div>" +
         "</section>" +
         '<section class="pt-panel" aria-label="Risk guardrails">' +
@@ -720,16 +804,16 @@
       '<section class="pt-panel pt-progress" aria-label="Daily loss progress">' +
         '<div class="pt-sec-hd"><span>DAILY LOSS PROGRESS</span><span class="pt-within" id="pt-within">WITHIN LIMITS</span></div>' +
         '<div class="pt-prog-stats">' +
-          '<div><div class="pt-stat-lbl">TODAY RISKED</div><div class="pt-stat-val neg" id="pt-prog-today"></div></div>' +
+          '<div><div class="pt-stat-lbl">TODAY + THIS PLAN</div><div class="pt-stat-val neg" id="pt-prog-today"></div><div class="pt-stat-sub" id="pt-prog-today-sub"></div></div>' +
           '<div><div class="pt-stat-lbl">MAX DAILY LOSS</div><div class="pt-stat-val gold" id="pt-prog-max"></div></div>' +
           '<div><div class="pt-stat-lbl">PROP MAX DD</div><div class="pt-stat-val gold" id="pt-prog-prop"></div></div>' +
         "</div>" +
         '<div class="pt-bars-hd"><span>PROGRESS VS DRAWDOWN LIMITS</span><span id="pt-prog-pct">0% OF DAILY LIMIT</span></div>' +
-        '<div class="pt-bar-row"><span>TODAY</span><div class="pt-bar"><i id="pt-bar-today"></i></div><em id="pt-cap-today"></em></div>' +
+        '<div class="pt-bar-row"><span>TODAY</span><div class="pt-bar stacked"><i id="pt-bar-today"></i><i id="pt-bar-pending" class="pending"></i></div><em id="pt-cap-today"></em></div>' +
         '<div class="pt-bar-row"><span>MAX DAILY</span><div class="pt-bar gold"><i id="pt-bar-max"></i></div><em id="pt-cap-max"></em></div>' +
         '<div class="pt-bar-row"><span>PROP DAILY</span><div class="pt-bar gold"><i id="pt-bar-propd"></i></div><em id="pt-cap-propd"></em></div>' +
         '<div class="pt-bar-row"><span>PROP MAX</span><div class="pt-bar gold"><i id="pt-bar-propm"></i></div><em id="pt-cap-propm"></em></div>' +
-        '<div class="pt-legend"><span class="swatch risk"></span> TODAY\'S RISK <span class="swatch cap"></span> DRAWDOWN LIMITS</div>' +
+        '<div class="pt-legend"><span class="swatch risk"></span> LOGGED TODAY <span class="swatch plan"></span> THIS PLAN <span class="swatch cap"></span> DRAWDOWN LIMITS</div>' +
       "</section>" +
       '<section class="pt-panel pt-recent" aria-label="Recent trades">' +
         '<div class="pt-sec-hd"><span>RECENT TRADES</span><button type="button" class="pt-text-btn" id="pt-view-all">view all →</button></div>' +
@@ -813,10 +897,16 @@
       ? "Logged as BLOCKED — score takes the hit"
       : "Logged ✓ — mark WIN / LOSS / BE in Journal";
     if (typeof global.showToast === "function") showToast(result.row.instr, msg);
+    resetSizerFields();
+    render();
+  }
+
+  function resetSizerFields() {
+    form.ticker = "";
+    form.entry = "";
+    form.stop = "";
+    form.target = "";
     form.notes = "";
-    const notes = document.getElementById("pt-notes");
-    if (notes) notes.value = "";
-    refreshLive();
   }
 
   function bind(el) {
@@ -995,8 +1085,12 @@
     computePlan,
     planStatusOf,
     isPretradeRow,
+    isDuplicatePlan,
     filterJournalBook,
     todayRisked,
+    progressState,
+    outputHTML,
+    resetSizerFields,
     rrOf,
     edgeFromTrades,
     applyOutcome,
