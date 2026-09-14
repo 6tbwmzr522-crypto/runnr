@@ -121,13 +121,13 @@
 
   function rrOf(t) {
     if (!t) return 0;
-    if (Number.isFinite(Number(t.rr)) && Number(t.rr) > 0) return Number(t.rr);
+    const target = num(t.target);
+    if (Number.isFinite(Number(t.rr)) && Number(t.rr) > 0 && target > 0) return Number(t.rr);
     const entry = num(t.entry);
     const stop = num(t.stop);
-    const target = num(t.target);
     const risk = Math.abs(entry - stop);
     const reward = Math.abs(target - entry);
-    if (!risk || !reward) return 0;
+    if (!(risk > 0) || !(target > 0) || !(reward > 0)) return 0;
     return reward / risk;
   }
 
@@ -416,6 +416,10 @@
     return (S().trades || []).filter((t) => t && !t.mergedAway);
   }
 
+  function planRows() {
+    return deskTrades().filter(isPretradeRow);
+  }
+
   function esc(s) {
     return String(s || "").replace(/[&<>"']/g, (c) => ({
       "&": "&amp;",
@@ -463,7 +467,7 @@
   function renderEdge() {
     const box = document.getElementById("pt-edge");
     if (!box) return;
-    const edge = edgeFromTrades(deskTrades());
+    const edge = edgeFromTrades(planRows());
     if (!edge.hasOutcomes) {
       box.hidden = true;
       return;
@@ -582,7 +586,7 @@
   function renderRecent() {
     const body = document.getElementById("pt-recent-body");
     if (!body) return;
-    const rows = recentRows();
+    const rows = planRows().slice(0, 8);
     const rails = railsDraft || readRails();
     if (!rows.length) {
       body.innerHTML = '<tr><td colspan="9" class="pt-empty">No plans yet. Size a trade and log it.</td></tr>';
@@ -619,7 +623,7 @@
 
   function renderJournalView() {
     const rails = railsDraft || readRails();
-    const all = deskTrades();
+    const all = planRows();
     const mix = disciplineMix(all);
     const edge = edgeFromTrades(all);
     const filtered = all.filter((t) => {
@@ -984,6 +988,7 @@
     computePlan,
     planStatusOf,
     todayRisked,
+    rrOf,
     edgeFromTrades,
     applyOutcome,
     logPlan,

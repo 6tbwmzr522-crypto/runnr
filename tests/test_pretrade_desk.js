@@ -21,8 +21,8 @@ function check(name, cond) {
 const v = html.match(/var V = "(\d+)"/)[1];
 const cache = sw.match(/CACHE = "runnr-v(\d+)"/)[1];
 check("index.html V matches sw.js CACHE", v === cache);
-check("cache is 140+", Number(v) >= 140);
-check("pretrade.js is loaded", html.includes("js/pretrade.js?v=2"));
+check("cache is 141+", Number(v) >= 141);
+check("pretrade.js is loaded", html.includes("js/pretrade.js?v=3"));
 check("pretrade.css is loaded", html.includes("css/pretrade.css?v=1"));
 check("desk still opens via RunnrDesk.open", html.includes('data-nav="desk" onclick="RunnrDesk.open()"'));
 check("gold tokens stay on the desk", /--bg:\s*#080c12/.test(css) && /--gold:\s*#C9A96E/.test(css));
@@ -137,6 +137,8 @@ const sampleToday = PT.todayRisked([
   { id: 1, isDemo: true, instr: "RACE", entry: 354, stop: 338, size: 28, dateKey: "2026-09-14" },
 ], now);
 check("SAMPLE factory rows do not eat today's pretrade budget", sampleToday === 0);
+
+check("factory rows without a target do not invent R:R", PT.rrOf({ instr: "RACE", entry: 354, stop: 338, size: 28 }) === 0);
 
 check("#desk and ?desk=1 open the terminal", PT.wantsDesk({ search: "?demo=1&desk=1", hash: "" }) === true);
 check("#desk-journal opens the gold journal", PT.wantsDesk({ search: "", hash: "#desk-journal" }) === "journal");
