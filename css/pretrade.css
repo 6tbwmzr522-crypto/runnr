@@ -366,6 +366,23 @@
 
 html.runnr-demo #header .header-desk-btn{display:inline-flex !important}
 
+#app.desk-wide #page-sizer.page{
+  padding:0;
+  min-height:0;
+  height:100%;
+  display:none;
+}
+#app.desk-wide #page-sizer.page.active{
+  display:flex;
+  flex-direction:column;
+  height:100%;
+  min-height:0;
+}
+#legacy-sizer{display:none !important}
+#pretrade-root{display:none;flex:1;min-height:0}
+#page-sizer.pt-live #pretrade-root,
+#page-sizer.active #pretrade-root{display:flex}
+
 @media (max-width:900px){
   .pt-split,.pt-sizer,.pt-rails,.pt-stats,.pt-edge-grid,.pt-prog-stats{grid-template-columns:1fr}
   .pt-stats > div,.pt-edge-grid > div{border-right:none;border-bottom:1px solid rgba(201,169,110,0.18)}

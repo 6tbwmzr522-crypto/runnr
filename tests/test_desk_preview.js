@@ -19,7 +19,7 @@ function check(name, cond) {
 const v = html.match(/var V = "(\d+)"/)[1];
 const cache = sw.match(/CACHE = "runnr-v(\d+)"/)[1];
 check("index.html V matches sw.js CACHE", v === cache);
-check("desk.js cache-busted", html.includes("js/desk.js?v=13"));
+check("desk.js cache-busted", html.includes("js/desk.js?v=14"));
 check("desk.css cache-busted", html.includes("css/desk.css?v=8"));
 
 check("open() does not requirePro-gate Terminal", !/requirePro\(\s*["']Terminal["']/.test(deskSrc));
@@ -30,6 +30,8 @@ check("upgrade CTA is on the desk, not the feature", deskSrc.includes("desk-prev
 check("sample heatmap label", deskSrc.includes("Sample heatmap"));
 check("watchlist heatmap stays for Pro", deskSrc.includes("Watchlist heatmap"));
 check("nav still opens RunnrDesk.open", html.includes('data-nav="desk" onclick="RunnrDesk.open()"'));
+check("Terminal enter does not hijack to pretrade", !deskSrc.includes("RunnrPretrade.enter"));
+check("Terminal leave does not own pretrade", !deskSrc.includes("RunnrPretrade.leave"));
 
 function loadDesk(opts) {
   const store = {};

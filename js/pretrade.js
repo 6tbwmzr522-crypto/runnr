@@ -431,7 +431,9 @@
   }
 
   function rootEl() {
-    return global.document && document.getElementById("desk-root");
+    const doc = global.document;
+    if (!doc) return null;
+    return doc.getElementById("pretrade-root") || doc.getElementById("desk-root");
   }
 
   function currentComputed() {
@@ -852,6 +854,7 @@
   function setView(next) {
     view = next === "journal" ? "journal" : "desk";
     render();
+    syncHash(view === "journal" ? "journal" : "desk");
   }
 
   function onLog() {
@@ -956,30 +959,86 @@
     bind(el);
   }
 
-  function enter() {
-    const app = global.document && document.getElementById("app");
-    if (app) app.classList.add("desk-wide");
-    const hash = String((global.location && location.hash) || "").toLowerCase();
-    if (hash.indexOf("journal") >= 0) view = "journal";
-    else view = "desk";
-    railsDraft = readRails();
-    render();
+  function hashName(loc) {
+    loc = loc || (global.location || {});
+    return String(loc.hash || "").replace(/^#/, "").split(/[/?&]/)[0].toLowerCase();
   }
 
-  function leave() {}
+  function wantsGold(loc) {
+    loc = loc || (global.location || {});
+    try {
+      if (/(?:^|[?&])pretrade=1(?:&|$)/.test(String(loc.search || ""))) return true;
+      if (/(?:^|[?&])sizer=1(?:&|$)/.test(String(loc.search || ""))) return true;
+      if (/(?:^|[?&])(?:desk|pretrade)=journal(?:&|$)/.test(String(loc.search || ""))) return "journal";
+    } catch (e) {}
+    try {
+      const hash = hashName(loc);
+      if (hash === "pretrade" || hash === "sizer" || hash === "size") return true;
+      if (hash === "desk-journal" || hash === "pretrade-journal") return "journal";
+    } catch (e) {}
+    return false;
+  }
 
-  function wantsDesk(loc) {
+  function wantsMarketDesk(loc) {
     loc = loc || (global.location || {});
     try {
       if (/(?:^|[?&])desk=1(?:&|$)/.test(String(loc.search || ""))) return true;
-      if (/(?:^|[?&])desk=journal(?:&|$)/.test(String(loc.search || ""))) return "journal";
     } catch (e) {}
     try {
-      const hash = String(loc.hash || "").replace(/^#/, "").split(/[/?&]/)[0].toLowerCase();
+      const hash = hashName(loc);
       if (hash === "desk" || hash === "terminal") return true;
-      if (hash === "desk-journal") return "journal";
     } catch (e) {}
     return false;
+  }
+
+  function syncHash(kind) {
+    try {
+      const loc = global.location;
+      if (!loc || !global.history || typeof history.replaceState !== "function") return;
+      const next = kind === "journal" ? "#desk-journal" : "#pretrade";
+      if (String(loc.hash || "") === next) return;
+      history.replaceState(null, "", loc.pathname + (loc.search || "") + next);
+    } catch (e) {}
+  }
+
+  function prime(input) {
+    if (!input) return form;
+    if (input.ticker) form.ticker = String(input.ticker).trim().toUpperCase();
+    if (input.dir) form.dir = String(input.dir).toLowerCase() === "short" ? "short" : "long";
+    if (input.entry != null && input.entry !== "") form.entry = String(input.entry);
+    if (input.stop != null && input.stop !== "") form.stop = String(input.stop);
+    if (input.target != null && input.target !== "") form.target = String(input.target);
+    if (input.notes != null) form.notes = String(input.notes);
+    return form;
+  }
+
+  function enter() {
+    const app = global.document && document.getElementById("app");
+    if (app) app.classList.add("desk-wide");
+    const page = global.document && document.getElementById("page-sizer");
+    if (page) page.classList.add("pt-live");
+    const gold = wantsGold();
+    if (gold === "journal") view = "journal";
+    else if (gold === true) view = "desk";
+    railsDraft = readRails();
+    render();
+    syncHash(view === "journal" ? "journal" : "desk");
+  }
+
+  function leave() {
+    const page = global.document && document.getElementById("page-sizer");
+    if (page) page.classList.remove("pt-live");
+    const deskPage = global.document && document.getElementById("page-desk");
+    if (deskPage && deskPage.classList.contains("active")) return;
+    const app = global.document && document.getElementById("app");
+    if (app) app.classList.remove("desk-wide");
+  }
+
+  function open(which) {
+    if (which === "journal") view = "journal";
+    else if (which === "desk" || which === "gold") view = "desk";
+    if (typeof global.switchPage === "function") global.switchPage("sizer");
+    else enter();
   }
 
   const api = {
@@ -994,10 +1053,14 @@
     logPlan,
     setOutcome,
     setView,
+    prime,
     render,
     enter,
     leave,
-    wantsDesk,
+    open,
+    wantsGold,
+    wantsMarketDesk,
+    wantsDesk: wantsGold,
     disciplineMix,
     isSampleDesk,
   };

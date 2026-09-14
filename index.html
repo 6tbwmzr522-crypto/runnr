@@ -5,7 +5,7 @@
 <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
 <script>
 (function () {
-  var V = "141";
+  var V = "142";
   try {
     if (localStorage.getItem("runnr_app_v") !== V) {
       localStorage.setItem("runnr_app_v", V);
@@ -68,7 +68,7 @@
 <link rel="stylesheet" href="css/layout.css?v=1">
 <link rel="stylesheet" href="css/components.css?v=2">
 <link rel="stylesheet" href="css/pages.css?v=5">
-<link rel="stylesheet" href="css/pretrade.css?v=1">
+<link rel="stylesheet" href="css/pretrade.css?v=2">
 </head>
 <body>
 <div id="app">
@@ -394,6 +394,8 @@
 
     <!-- ══ SIZER ══════════════════════════════════════════════════════════ -->
     <div class="page" id="page-sizer">
+      <div id="pretrade-root" class="desk-root"></div>
+      <div id="legacy-sizer">
       <div class="sizer-book-row">
         <div class="sizer-book-toggle" role="tablist" aria-label="Sizer book">
           <button type="button" id="sizer-book-personal" class="active" onclick="setChallengeBook(false)">Personal 1%</button>
@@ -703,6 +705,7 @@
         <button class="btn" id="opt-log-btn" onclick="saveLogFromSizer('options')">Log This Trade</button>
         <p class="free-trade-counter" data-free-trade-counter hidden></p>
         <button type="button" class="btn btn-ghost" id="opt-log-edit-btn" style="margin-top:8px;font-size:12px;width:100%" onclick="fillLogFromSizer('options')">Review or edit before saving</button>
+      </div>
       </div>
     </div>
 
@@ -1872,26 +1875,26 @@
 <script src="js/csv-presets.js?v=4"></script>
 <script src="js/trade-limit.js?v=4"></script>
 <script src="js/desk-quiet.js?v=3"></script>
-<script src="js/demo-sandbox.js?v=5"></script>
+<script src="js/demo-sandbox.js?v=6"></script>
 <script src="js/sync.js?v=71"></script>
 <script src="js/desk-sessions.js?v=2"></script>
-<script src="js/desk.js?v=13"></script>
-<script src="js/pretrade.js?v=3"></script>
+<script src="js/desk.js?v=14"></script>
+<script src="js/pretrade.js?v=4"></script>
 <script src="js/wave.js?v=1"></script>
 <script src="js/shelf.js?v=4"></script>
 <script src="js/visit.js?v=1"></script>
 <script src="js/app-state.js?v=1"></script>
-<script src="js/app-nav.js?v=3"></script>
+<script src="js/app-nav.js?v=4"></script>
 <script src="js/app-settings.js?v=1"></script>
 <script src="js/app-sizer.js?v=1"></script>
 <script src="js/app-journal.js?v=4"></script>
-<script src="js/app-watchlist.js?v=1"></script>
+<script src="js/app-watchlist.js?v=2"></script>
 <script src="js/app-quotes.js?v=1"></script>
 <script src="js/app-alerts.js?v=1"></script>
 <script src="js/app-portfolio.js?v=1"></script>
 <script src="js/app-sync-ui.js?v=1"></script>
 <script src="js/app-coach-page.js?v=1"></script>
-<script src="js/app-boot.js?v=3"></script>
+<script src="js/app-boot.js?v=4"></script>
 
 </body>
 </html>

@@ -51,8 +51,8 @@ function extractTopFn(src, name) {
 }
 const homeJobFn = extractTopFn(src, "runHomeJob") + extractTopFn(src, "focusSizerForNextTrade");
 check("Home job does not open Options Coach", !/switchOptCoachMode|opt-mode-|Options Coach/.test(homeJobFn));
-check("Home still sizes CFD by default", src.includes("function focusSizerForNextTrade")
-  && /focusSizerForNextTrade[\s\S]*cfd-instr/.test(src));
+check("Home still sizes via the gold desk", src.includes("function focusSizerForNextTrade")
+  && /focusSizerForNextTrade[\s\S]*cfd-instr|focusSizerForNextTrade[\s\S]*RunnrPretrade\.open/.test(src));
 check("no live options chain / Greeks scanner", !/options.?chain/i.test(coachSrc)
   && !/implied.?volatility|delta|theta|vega/i.test(coachSrc)
   && !/finnhub|yahoo.*option/i.test(coachSrc));
