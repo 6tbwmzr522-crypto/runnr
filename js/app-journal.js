@@ -537,6 +537,14 @@ function commitLog(draft) {
     patch.challengeFail = false;
     patch.challengeNote = '';
   }
+  if (draft.source) patch.source = draft.source;
+  if (draft.planStatus) patch.planStatus = draft.planStatus;
+  if (draft.notes) patch.notes = draft.notes;
+  if (draft.rr != null) patch.rr = draft.rr;
+  if (draft.riskAmt != null) patch.riskAmt = draft.riskAmt;
+  if (draft.isDemo) patch.isDemo = true;
+  if (draft.sampleOrigin) patch.sampleOrigin = draft.sampleOrigin;
+  if (draft.outcome) patch.outcome = draft.outcome;
   if (typeof Baron !== 'undefined' && Baron.isoDay && !S.editingTradeId) patch.dateKey = Baron.isoDay(new Date());
   if (S.editingTradeId) {
     const t = S.trades.find(x => tradeId(x.id) === tradeId(S.editingTradeId));
@@ -561,7 +569,7 @@ function commitLog(draft) {
     }
     S.editingTradeId = null;
   } else {
-    if (!canAddJournalTrade(1)) {
+    if (!draft.isDemo && !canAddJournalTrade(1)) {
       openJournalLimitUpgrade();
       return false;
     }

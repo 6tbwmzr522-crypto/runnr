@@ -71,7 +71,7 @@ function renderHomeJob() {
   const countable = window.RunnrTradeLimit
     ? RunnrTradeLimit.countJournalTradesForLimit(S.trades)
     : 0;
-  if (terminalLink) terminalLink.hidden = countable < 1;
+  if (terminalLink) terminalLink.hidden = countable < 1 && !demoDesk;
   if (title) title.textContent = job.title;
   if (sub) sub.textContent = job.sub;
   if (cta) {
@@ -86,6 +86,10 @@ window.renderHomeJob = renderHomeJob;
 function runHomeJob(job) {
   if (!job) return;
   if (job.id === 'log') {
+    if (window.RunnrDesk && window.RunnrPretrade) {
+      RunnrDesk.open();
+      return;
+    }
     switchPage('journal');
     if (typeof openLogModal === 'function') openLogModal('cfd');
     return;
