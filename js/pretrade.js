@@ -112,15 +112,34 @@
     return (trades || []).filter(isSamplePretradeLog).length;
   }
 
-  function sampleLogGate(trades) {
-    const used = samplePretradeLogCount(trades);
-    const remaining = Math.max(0, SAMPLE_LOG_CAP - used);
+  const SampleQuota = {
+    CAP: SAMPLE_LOG_CAP,
+    count: samplePretradeLogCount,
+    atCap: function (trades) {
+      if (!isSampleDesk()) return false;
+      return this.count(trades) >= this.CAP;
+    },
+    openWall: function () {
+      return showSampleCapWall();
+    },
+  };
+
+  function sampleQuota(trades) {
+    const count = SampleQuota.count(trades);
+    const remaining = Math.max(0, SampleQuota.CAP - count);
+    const atCap = count >= SampleQuota.CAP;
     return {
-      used,
-      cap: SAMPLE_LOG_CAP,
+      count,
+      used: count,
+      cap: SampleQuota.CAP,
       remaining,
-      capped: used >= SAMPLE_LOG_CAP,
+      atCap,
+      capped: atCap,
     };
+  }
+
+  function sampleLogGate(trades) {
+    return sampleQuota(trades);
   }
 
   function planStatusOf(t) {
@@ -233,7 +252,14 @@
       todayRisked: todayAmt,
       todayCount,
       duplicate: false,
+      sampleLocked: false,
     };
+    if (SampleQuota.atCap(trades)) {
+      base.sampleLocked = true;
+      base.blocked = true;
+      base.reasons = ["3 SAMPLE plans used — save with email to keep sizing & logging"];
+      return base;
+    }
     if (!ticker || !(entry > 0) || !(stop > 0)) return base;
     const riskPerShare = Math.abs(entry - stop);
     if (!(riskPerShare > 0)) {
@@ -412,20 +438,19 @@
 
   function logPlan(input, rails, trades, now) {
     const r = normalizeRails(rails);
-    const computed = computePlan(input, r, trades, now);
-    if (!computed.ticker || !(computed.entry > 0) || !(computed.stop > 0) || computed.size <= 0) {
-      return { ok: false, error: "Add ticker, entry, stop & size first", computed };
-    }
     const sample = isSampleDesk();
     const st = S();
     if (!Array.isArray(st.trades)) st.trades = [];
     const list = st.trades;
-    if (sample) {
-      const gate = sampleLogGate(list);
-      if (gate.capped) {
-        return { ok: false, error: "sample-log-cap", computed, sampleGate: gate };
-      }
-    } else if (typeof global.canAddJournalTrade === "function" && !global.canAddJournalTrade(1)) {
+    if (SampleQuota.atCap(list)) {
+      const computed = computePlan(input, r, list, now);
+      return { ok: false, error: "sample-log-cap", computed, sampleGate: sampleQuota(list) };
+    }
+    const computed = computePlan(input, r, list, now);
+    if (!computed.ticker || !(computed.entry > 0) || !(computed.stop > 0) || computed.size <= 0) {
+      return { ok: false, error: "Add ticker, entry, stop & size first", computed };
+    }
+    if (!sample && typeof global.canAddJournalTrade === "function" && !global.canAddJournalTrade(1)) {
       if (typeof global.openJournalLimitUpgrade === "function") global.openJournalLimitUpgrade();
       return { ok: false, error: "journal-limit", computed };
     }
@@ -584,6 +609,9 @@
   }
 
   function outputHTML(c, rails) {
+    if (c && c.sampleLocked) {
+      return '<div class="pt-output-empty pt-output-locked">3 SAMPLE plans used — <a href="/login.html?keep=1">save with email</a> to keep sizing &amp; logging</div>';
+    }
     if (!c.ready && !(c.riskPerShare > 0)) {
       return '<div class="pt-output-empty">Pending plan — enter ticker, entry &amp; stop</div>';
     }
@@ -913,33 +941,55 @@
   }
 
   function showSampleCapWall() {
+    if (!isSampleDesk()) return false;
     if (typeof global.showToast === "function") {
-      showToast("SAMPLE", "3 SAMPLE plans used — save with email to keep logging");
+      showToast("SAMPLE", "3 SAMPLE plans used — save with email to keep sizing & logging");
     }
     const SB = global.RunnrDemoSandbox;
     if (SB && typeof SB.showKeepScore === "function") {
       try { SB.showKeepScore({ reason: "sample-log-cap" }); } catch (e) {}
     }
+    return true;
+  }
+
+  function setSizerLocked(locked) {
+    const root = rootEl();
+    if (!root) return;
+    root.classList.toggle("pt-sample-locked", !!locked);
+    const allow = {
+      "pt-log": true,
+      "pt-open-journal": true,
+      "pt-view-all": true,
+      "pt-exit": true,
+    };
+    root.querySelectorAll("input, select, textarea, button").forEach((node) => {
+      if (allow[node.id] || node.closest(".pt-top") || node.closest(".pt-recent")) {
+        node.disabled = false;
+        return;
+      }
+      node.disabled = !!locked;
+    });
   }
 
   function renderSampleCap() {
     const el = document.getElementById("pt-sample-cap");
     const logBtn = document.getElementById("pt-log");
+    const locked = SampleQuota.atCap(deskTrades());
+    setSizerLocked(locked);
     if (!el) return;
     if (!isSampleDesk()) {
       el.hidden = true;
       if (logBtn) logBtn.textContent = "LOG TRADE";
       return;
     }
-    const gate = sampleLogGate(deskTrades());
     el.hidden = false;
-    if (gate.capped) {
+    if (locked) {
       el.className = "pt-sample-cap capped";
-      el.innerHTML = '3 SAMPLE plans used — <a href="/login.html?keep=1">save with email</a> to keep logging';
+      el.innerHTML = '3 SAMPLE plans used — <a href="/login.html?keep=1">save with email</a> to keep sizing &amp; logging';
       if (logBtn) logBtn.textContent = "SAVE WITH EMAIL";
     } else {
       el.className = "pt-sample-cap";
-      el.textContent = "SAMPLE logs " + gate.used + " / " + gate.cap + " — sizing stays free";
+      el.textContent = "SAMPLE logs " + SampleQuota.count(deskTrades()) + " / " + SampleQuota.CAP;
       if (logBtn) logBtn.textContent = "LOG TRADE";
     }
   }
@@ -947,15 +997,15 @@
   function onLog() {
     readFormFromDom();
     const rails = railsDraft || readRails();
-    if (isSampleDesk() && sampleLogGate(deskTrades()).capped) {
-      showSampleCapWall();
+    if (SampleQuota.atCap(deskTrades())) {
+      SampleQuota.openWall();
       return;
     }
     const result = logPlan(form, rails, deskTrades(), new Date());
     if (!result.ok) {
       if (result.error === "journal-limit") return;
       if (result.error === "sample-log-cap") {
-        showSampleCapWall();
+        SampleQuota.openWall();
         renderSampleCap();
         return;
       }
@@ -970,7 +1020,7 @@
     if (typeof global.showToast === "function") showToast(result.row.instr, msg);
     resetSizerFields();
     render();
-    if (result.sampleGate && result.sampleGate.capped) showSampleCapWall();
+    if (result.sampleGate && result.sampleGate.atCap) SampleQuota.openWall();
   }
 
   function resetSizerFields() {
@@ -1130,6 +1180,7 @@
     view = "desk";
     render();
     syncHash("desk");
+    if (SampleQuota.atCap(deskTrades())) SampleQuota.openWall();
   }
 
   function leave() {
@@ -1154,6 +1205,8 @@
   const api = {
     DEFAULT_RAILS,
     SAMPLE_LOG_CAP,
+    SampleQuota,
+    sampleQuota,
     samplePretradeLogCount,
     sampleLogGate,
     isSamplePretradeLog,
