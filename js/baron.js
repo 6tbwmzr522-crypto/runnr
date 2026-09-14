@@ -100,6 +100,8 @@ const Baron = {
 
   isOpenTrade(t) {
     if (!t || t.disciplineOnly) return false;
+    const outcome = String(t.outcome || "").toLowerCase();
+    if (outcome === "win" || outcome === "loss" || outcome === "be" || outcome === "breakeven") return false;
     const entry = parseFloat(t.entry ?? t.fillPrice);
     const exitRaw = t.exit ?? (t.dir === "short" ? t.fillPrice : null);
     if (exitRaw == null || exitRaw === "") return true;

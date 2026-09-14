@@ -17,7 +17,7 @@ function check(name, cond) {
 const v = html.match(/var V = "(\d+)"/)[1];
 const cache = sw.match(/CACHE = "runnr-v(\d+)"/)[1];
 check("index.html V matches sw.js CACHE", v === cache);
-check("baron.js cache-busted", html.includes("js/baron.js?v=31"));
+check("baron.js cache-busted", html.includes("js/baron.js?v=32"));
 check("personal book stays the default toggle", html.includes('id="sizer-book-personal"') && html.includes("Personal 1%"));
 check("challenge book toggle exists", html.includes('id="sizer-book-challenge"'));
 check("sizer reuses Trade Blocked gate", html.includes("id=\"cfd-challenge-gate\"") && html.includes("Trade Blocked"));

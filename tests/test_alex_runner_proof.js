@@ -23,7 +23,7 @@ const v = html.match(/var V = "(\d+)"/)[1];
 const cache = sw.match(/CACHE = "runnr-v(\d+)"/)[1];
 check("index.html V matches sw.js CACHE", v === cache);
 check("cache is 135+", Number(v) >= 135);
-check("demo-sandbox cache-bust", html.includes("js/demo-sandbox.js?v=4"));
+check("demo-sandbox cache-bust", html.includes("js/demo-sandbox.js?v=5"));
 check("onboarding cache-bust", html.includes("js/onboarding.js?v=37"));
 check("pages.css cache-bust", html.includes("css/pages.css?v=5"));
 

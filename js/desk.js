@@ -612,13 +612,17 @@ const RunnrDesk = (() => {
     if (timer) { clearInterval(timer); timer = null; }
     if (clockTimer) { clearInterval(clockTimer); clockTimer = null; }
     alive = true;
+    const app = document.getElementById("app");
+    if (app) app.classList.add("desk-wide");
+    if (window.RunnrPretrade && typeof RunnrPretrade.enter === "function") {
+      RunnrPretrade.enter();
+      return;
+    }
     if (isPreview()) {
       const allowed = new Set(universe());
       sectorRows.forEach((s) => { if (s && s.sym) allowed.add(s.sym); });
       if (!focus || !allowed.has(focus)) focus = universe()[0] || "SPY";
     }
-    const app = document.getElementById("app");
-    if (app) app.classList.add("desk-wide");
     render();
     refresh();
     timer = setInterval(refresh, 45000);
@@ -627,6 +631,9 @@ const RunnrDesk = (() => {
 
   function leave() {
     alive = false;
+    if (window.RunnrPretrade && typeof RunnrPretrade.leave === "function") {
+      RunnrPretrade.leave();
+    }
     const app = document.getElementById("app");
     if (app) app.classList.remove("desk-wide");
     if (timer) { clearInterval(timer); timer = null; }

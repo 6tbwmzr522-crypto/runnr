@@ -587,6 +587,13 @@
         markHeroDismissed();
         hideSampleHero();
         beacon("demo_view");
+        try {
+          const want = global.RunnrPretrade && typeof RunnrPretrade.wantsDesk === "function" && RunnrPretrade.wantsDesk();
+          if (want && global.RunnrDesk) {
+            if (want === "journal") RunnrPretrade.setView("journal");
+            RunnrDesk.open();
+          }
+        } catch (e) {}
       });
     }
     doc.querySelectorAll("#sample-hero [data-runnr-proof]").forEach((card) => {
