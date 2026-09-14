@@ -100,9 +100,8 @@ check("Home job function still reviews / replays / sizes",
   && /job\.id === 'review'/.test(homeJobFn)
   && /job\.id === 'replay'/.test(homeJobFn)
   && /focusSizerForNextTrade/.test(homeJobFn));
-check("Home still sizes CFD by default",
-  src.includes("function focusSizerForNextTrade")
-  && /focusSizerForNextTrade[\s\S]*cfd-instr/.test(homeJobFn));
+check("Home still sizes via the gold desk", src.includes("function focusSizerForNextTrade")
+  && /focusSizerForNextTrade[\s\S]*RunnrPretrade\.open/.test(homeJobFn));
 check("guest still hides Home job and Portfolio CTA",
   (css.includes("html.runnr-guest:not(.runnr-demo) #home-job-hero") || css.includes("html.runnr-guest #home-job-hero"))
   && css.includes("html.runnr-guest .port-cta-wrap"));

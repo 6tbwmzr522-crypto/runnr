@@ -582,6 +582,19 @@ window.previewWatchSymbolPrice = previewWatchSymbolPrice;
 function sizefromWatch(id) {
   const w = S.watchlist.find(w => w.id === id);
   if (!w) return;
+  if (window.RunnrPretrade && typeof RunnrPretrade.prime === 'function') {
+    RunnrPretrade.prime({
+      ticker: w.quoteSym || w.sym,
+      dir: w.dir,
+      entry: w.entry,
+      stop: w.stop,
+      target: w.target,
+    });
+    if (typeof RunnrPretrade.open === 'function') {
+      RunnrPretrade.open();
+      return;
+    }
+  }
   switchPage('sizer');
   setTimeout(() => {
     document.getElementById('cfd-instr').value = w.sym;

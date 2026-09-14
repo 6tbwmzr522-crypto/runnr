@@ -61,8 +61,8 @@ check("empty strip does not gate vanilla CFD size", /function calcCFD[\s\S]*if \
 
 const homeJobFn = extractTopFn(src, "runHomeJob") + extractTopFn(src, "focusSizerForNextTrade");
 check("Home job does not open FVG strip", !/fvg|FVG|cfd-fvg/.test(homeJobFn));
-check("Home still sizes CFD by default", src.includes("function focusSizerForNextTrade")
-  && /focusSizerForNextTrade[\s\S]*cfd-instr/.test(homeJobFn));
+check("Home still sizes via the gold desk", src.includes("function focusSizerForNextTrade")
+  && /focusSizerForNextTrade[\s\S]*RunnrPretrade\.open/.test(homeJobFn));
 check("Home job list is unchanged", src.includes("function runHomeJob")
   && !/job\.id === 'fvg'/.test(src));
 

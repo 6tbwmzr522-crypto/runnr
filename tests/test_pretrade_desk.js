@@ -21,9 +21,11 @@ function check(name, cond) {
 const v = html.match(/var V = "(\d+)"/)[1];
 const cache = sw.match(/CACHE = "runnr-v(\d+)"/)[1];
 check("index.html V matches sw.js CACHE", v === cache);
-check("cache is 141+", Number(v) >= 141);
-check("pretrade.js is loaded", html.includes("js/pretrade.js?v=3"));
-check("pretrade.css is loaded", html.includes("css/pretrade.css?v=1"));
+check("cache is 142+", Number(v) >= 142);
+check("pretrade.js is loaded", html.includes("js/pretrade.js?v=4"));
+check("pretrade.css is loaded", html.includes("css/pretrade.css?v=2"));
+check("gold mounts in pretrade-root, not desk-root hijack", html.includes('id="pretrade-root"') && src.includes('getElementById("pretrade-root")'));
+check("legacy CFD sizer stays in the page, hidden", html.includes("CFD / Forex Position Sizer") && html.includes('id="legacy-sizer"') && css.includes("#legacy-sizer{display:none"));
 check("desk still opens via RunnrDesk.open", html.includes('data-nav="desk" onclick="RunnrDesk.open()"'));
 check("gold tokens stay on the desk", /--bg:\s*#080c12/.test(css) && /--gold:\s*#C9A96E/.test(css));
 check("two-column sizer is form + computed output", css.includes(".pt-sizer") && css.includes("grid-template-columns:minmax(0,1fr) minmax(220px,0.92fr)"));
@@ -32,9 +34,13 @@ check("blocked banner keeps numbers visible", src.includes("pt-blocked") && src.
 check("journal filters exist", src.includes('data-pt-filter="all"') && src.includes('data-pt-filter="approved"') && src.includes('data-pt-filter="blocked"'));
 check("outcome buttons exist", src.includes('btn("win", "WIN")') && src.includes('btn("loss", "LOSS")') && src.includes('btn("be", "BE")') && src.includes('data-pt-out="reset"'));
 check("SAMPLE visitors can open the header terminal", css.includes("html.runnr-demo #header .header-desk-btn"));
-check("log job opens the pretrade desk", src.includes("RunnrPretrade") && /job\.id === 'log'[\s\S]*RunnrDesk\.open/.test(src));
+check("log job opens the gold sizer, not Terminal", /job\.id === 'log'[\s\S]{0,280}RunnrPretrade\.open/.test(src)
+  && !/job\.id === 'log'[\s\S]{0,280}RunnrDesk\.open/.test(src));
+check("sizer switchPage enters pretrade", /key === 'sizer'[\s\S]*RunnrPretrade\.enter/.test(src));
 check("demo logs skip the journal cap", /if \(!draft\.isDemo && !canAddJournalTrade/.test(src));
-check("#desk route is recognized", src.includes("hash === \"desk\"") || src.includes("hash === 'desk'"));
+check("#desk stays the market terminal", /hash === "desk" \|\| hash === "terminal"/.test(src) && src.includes("wantsMarketDesk"));
+check("#pretrade and #sizer open gold", src.includes('hash === "pretrade"') && src.includes('hash === "sizer"'));
+check("#desk-journal still opens gold journal", src.includes('hash === "desk-journal"'));
 
 function load() {
   const store = {};
@@ -140,7 +146,15 @@ check("SAMPLE factory rows do not eat today's pretrade budget", sampleToday === 
 
 check("factory rows without a target do not invent R:R", PT.rrOf({ instr: "RACE", entry: 354, stop: 338, size: 28 }) === 0);
 
-check("#desk and ?desk=1 open the terminal", PT.wantsDesk({ search: "?demo=1&desk=1", hash: "" }) === true);
-check("#desk-journal opens the gold journal", PT.wantsDesk({ search: "", hash: "#desk-journal" }) === "journal");
+check("#desk and ?desk=1 stay the market terminal", PT.wantsMarketDesk({ search: "?demo=1&desk=1", hash: "" }) === true);
+check("#desk is not gold", PT.wantsGold({ search: "", hash: "#desk" }) === false);
+check("#pretrade opens the gold desk", PT.wantsGold({ search: "?demo=1", hash: "#pretrade" }) === true);
+check("#sizer opens gold", PT.wantsGold({ search: "", hash: "#sizer" }) === true);
+check("#desk-journal opens the gold journal", PT.wantsGold({ search: "", hash: "#desk-journal" }) === "journal");
+check("?pretrade=1 opens gold", PT.wantsGold({ search: "?demo=1&pretrade=1", hash: "" }) === true);
+
+ctx.switchPage = function (key) { ctx.switched = key; };
+PT.open();
+check("pretrade open() switches to sizer, not desk", ctx.switched === "sizer");
 
 console.log("test_pretrade_desk: ok " + n);

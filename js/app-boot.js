@@ -290,15 +290,7 @@ function initApp() {
     if (RunnrSync.refreshBilling) RunnrSync.refreshBilling().catch(() => {}).then(showIntro);
     else setTimeout(showIntro, 200);
   }
-  try {
-    const landing = document.documentElement.classList.contains('runnr-sample-landing');
-    const want = !landing && window.RunnrPretrade && typeof RunnrPretrade.wantsDesk === 'function'
-      && RunnrPretrade.wantsDesk();
-    if (want) {
-      if (want === 'journal') RunnrPretrade.setView('journal');
-      if (window.RunnrDesk) RunnrDesk.open();
-    }
-  } catch (e) {}
+  try { routeDeskOrGold(); } catch (e) {}
   setTimeout(() => {
     try { startMarketFeedsIfAllowed(); } catch (e) {}
     if (window.RunnrSync?.isLoggedIn?.()) {
@@ -325,16 +317,24 @@ if (document.readyState === 'loading') {
 } else {
   try { initApp(); } catch (e) { console.warn('initApp', e); }
 }
-window.addEventListener('hashchange', () => {
-  try {
-    if (document.documentElement.classList.contains('runnr-sample-landing')) return;
-    const want = window.RunnrPretrade && RunnrPretrade.wantsDesk && RunnrPretrade.wantsDesk();
-    if (want && window.RunnrDesk) {
-      if (want === 'journal') RunnrPretrade.setView('journal');
-      else RunnrPretrade.setView('desk');
-      RunnrDesk.open();
+function routeDeskOrGold() {
+  if (document.documentElement.classList.contains('runnr-sample-landing')) return;
+  const PT = window.RunnrPretrade;
+  if (PT && typeof PT.wantsGold === 'function') {
+    const gold = PT.wantsGold();
+    if (gold) {
+      if (typeof PT.open === 'function') PT.open(gold === 'journal' ? 'journal' : 'desk');
+      return;
     }
-  } catch (e) {}
+  }
+  if (PT && typeof PT.wantsMarketDesk === 'function' && PT.wantsMarketDesk() && window.RunnrDesk) {
+    RunnrDesk.open();
+  }
+}
+window.routeDeskOrGold = routeDeskOrGold;
+
+window.addEventListener('hashchange', () => {
+  try { routeDeskOrGold(); } catch (e) {}
 });
 
 window.addEventListener('resize', () => {

@@ -176,7 +176,8 @@ check("primaryJob prefers review over replay", Q.primaryJob(pending.concat([miss
 check("home job logs first", src.includes("function runHomeJob") && /job\.id === 'log'/.test(src)
   && html.includes('id="home-job-terminal"'));
 check("Terminal link is de-emphasized until a countable trade", src.includes("terminalLink.hidden = countable < 1"));
-check("size job focuses the sizer", src.includes("function focusSizerForNextTrade") && /switchPage\('sizer'\)/.test(src));
+check("size job opens the gold sizer", src.includes("function focusSizerForNextTrade")
+  && /focusSizerForNextTrade[\s\S]*RunnrPretrade\.open/.test(src));
 check("no freemium/billing rewrite in quiet helper", !/FREE_TRADE_LIMIT|stripe|checkout/i.test(quietSrc));
 
 console.log("ok " + n);
