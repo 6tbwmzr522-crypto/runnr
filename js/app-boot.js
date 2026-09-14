@@ -320,10 +320,15 @@ if (document.readyState === 'loading') {
 function routeDeskOrGold() {
   if (document.documentElement.classList.contains('runnr-sample-landing')) return;
   const PT = window.RunnrPretrade;
+  if (PT && typeof PT.wantsUnifiedJournal === 'function' && PT.wantsUnifiedJournal()) {
+    if (typeof PT.openUnifiedJournal === 'function') PT.openUnifiedJournal();
+    else if (typeof switchPage === 'function') switchPage('journal');
+    return;
+  }
   if (PT && typeof PT.wantsGold === 'function') {
     const gold = PT.wantsGold();
     if (gold) {
-      if (typeof PT.open === 'function') PT.open(gold === 'journal' ? 'journal' : 'desk');
+      if (typeof PT.open === 'function') PT.open('desk');
       return;
     }
   }
