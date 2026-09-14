@@ -131,6 +131,20 @@
 }
 .pt-sample-cap.capped{color:var(--gold)}
 .pt-sample-cap a{color:var(--gold)}
+.pt-root.pt-sample-locked .pt-form .pt-field,
+.pt-root.pt-sample-locked .pt-form #pt-notes,
+.pt-root.pt-sample-locked .pt-rails{
+  opacity:0.42;
+  pointer-events:none;
+}
+.pt-output-locked{
+  color:var(--gold);
+  flex-direction:column;
+  gap:10px;
+  padding:18px 12px;
+  line-height:1.45;
+}
+.pt-output-locked a{color:var(--gold)}
 .pt-sizer{
   display:grid;
   grid-template-columns:minmax(0,1fr) minmax(220px,0.92fr);

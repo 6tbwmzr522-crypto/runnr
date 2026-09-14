@@ -21,9 +21,9 @@ function check(name, cond) {
 const v = html.match(/var V = "(\d+)"/)[1];
 const cache = sw.match(/CACHE = "runnr-v(\d+)"/)[1];
 check("index.html V matches sw.js CACHE", v === cache);
-check("cache is 146+", Number(v) >= 146);
-check("pretrade.js is loaded", html.includes("js/pretrade.js?v=8"));
-check("pretrade.css is loaded", html.includes("css/pretrade.css?v=4"));
+check("cache is 147+", Number(v) >= 147);
+check("pretrade.js is loaded", html.includes("js/pretrade.js?v=9"));
+check("pretrade.css is loaded", html.includes("css/pretrade.css?v=5"));
 check("gold mounts in pretrade-root, not desk-root hijack", html.includes('id="pretrade-root"') && src.includes('getElementById("pretrade-root")'));
 check("legacy CFD sizer stays in the page, hidden", html.includes("CFD / Forex Position Sizer") && html.includes('id="legacy-sizer"') && css.includes("#legacy-sizer{display:none"));
 check("desk still opens via RunnrDesk.open", html.includes('data-nav="desk" onclick="RunnrDesk.open()"'));
@@ -34,6 +34,7 @@ check("blocked banner keeps numbers visible", src.includes("pt-blocked") && src.
 check("computed output is labeled a pending plan", src.includes("PENDING PLAN") && src.includes("not a logged fill"));
 check("onLog resets sizer fields then re-renders", /function onLog[\s\S]*resetSizerFields\(\)[\s\S]*render\(\)/.test(src));
 check("SAMPLE gold logs cap at 3 then keep-score", src.includes("SAMPLE_LOG_CAP = 3") && src.includes("sample-log-cap") && src.includes("3 SAMPLE plans used"));
+check("shared SAMPLE quota helper locks log and sizer", src.includes("SampleQuota.atCap") && src.includes("SampleQuota.openWall") && src.includes("SampleQuota.count") && src.includes("pt-sample-locked"));
 check("unified journal filters exist", html.includes('data-journal-filter="all"') && html.includes('data-journal-filter="approved"') && html.includes('data-journal-filter="blocked"'));
 check("outcome buttons exist", src.includes('btn("win", "WIN")') && src.includes('btn("loss", "LOSS")') && src.includes('btn("be", "BE")') && src.includes('data-pt-out="reset"'));
 check("SAMPLE visitors can open the header terminal", css.includes("html.runnr-demo #header .header-desk-btn"));
@@ -229,23 +230,45 @@ const capNow = new Date("2026-09-14T15:00:00Z");
 function capPlan(i) {
   return { ticker: "T" + i, dir: "long", entry: 200, stop: 190, target: 230 };
 }
-check("factory SAMPLE rows are not gold logs", CPT.samplePretradeLogCount([
+const factoryBook = [
   { id: 1, isDemo: true, instr: "RACE", source: "manual" },
   { id: 2, isDemo: true, instr: "BE", seed: true },
-]) === 0);
-check("SAMPLE log cap is 3", CPT.SAMPLE_LOG_CAP === 3);
+];
+check("factory SAMPLE rows are not gold logs", CPT.samplePretradeLogCount(factoryBook) === 0);
+check("factory seeds do not trip the SAMPLE cap", CPT.SampleQuota.count(factoryBook) === 0 && CPT.SampleQuota.atCap(factoryBook) === false);
+const factorySize = CPT.computePlan(capPlan(1), capRails, factoryBook, capNow);
+check("factory seeds still size", factorySize.ready === true && factorySize.size > 0 && factorySize.sampleLocked !== true);
+check("SAMPLE log cap is 3", CPT.SAMPLE_LOG_CAP === 3 && CPT.SampleQuota.CAP === 3);
 for (let i = 1; i <= 3; i++) {
+  const before = CPT.computePlan(capPlan(i), capRails, capCtx.window.S.trades, capNow);
+  check("under 3 SAMPLE logs still sizes (" + i + ")", before.sampleLocked !== true && before.size > 0);
+  check("quota under cap before log " + i, CPT.SampleQuota.atCap(capCtx.window.S.trades) === false);
   const r = CPT.logPlan(capPlan(i), capRails, capCtx.window.S.trades, capNow);
   check("sample gold log " + i + " succeeds", r.ok === true && r.row.isDemo === true && r.row.source === "pretrade");
 }
 check("three SAMPLE pretrade logs counted", CPT.samplePretradeLogCount(capCtx.window.S.trades) === 3 && CPT.sampleLogGate(capCtx.window.S.trades).capped === true);
+check("shared helper is at cap after 3 logs", CPT.SampleQuota.count(capCtx.window.S.trades) === 3 && CPT.SampleQuota.atCap(capCtx.window.S.trades) === true);
 const fourth = CPT.logPlan(capPlan(4), capRails, capCtx.window.S.trades, capNow);
 check("fourth SAMPLE log hits the soft wall", fourth.ok === false && fourth.error === "sample-log-cap");
 check("fourth SAMPLE row was not journaled", CPT.samplePretradeLogCount(capCtx.window.S.trades) === 3);
-const stillSize = CPT.computePlan(capPlan(4), capRails, capCtx.window.S.trades, capNow);
-check("sizing stays free after SAMPLE cap", stillSize.ready === true && stillSize.size > 0);
+const lockedSize = CPT.computePlan(capPlan(4), capRails, capCtx.window.S.trades, capNow);
+check("compute/sizer is locked after 3 SAMPLE logs", lockedSize.sampleLocked === true && lockedSize.ready === false && lockedSize.size === 0);
+check("locked output is the keep-score wall, not a calculator", CPT.outputHTML(lockedSize, capRails).includes("keep sizing") && CPT.outputHTML(lockedSize, capRails).includes("/login.html?keep=1") && !CPT.outputHTML(lockedSize, capRails).includes("Position Size"));
+check("unified journal still lists the 3 SAMPLE plans", CPT.filterJournalBook(capCtx.window.S.trades, "all").length === 3);
+let walls = 0;
+capCtx.RunnrDemoSandbox = {
+  showKeepScore: function (opts) { walls += 1; capCtx.keepOpts = opts; return true; },
+};
+CPT.SampleQuota.openWall();
+check("quota openWall opens keep-score", walls === 1 && capCtx.keepOpts && capCtx.keepOpts.reason === "sample-log-cap");
+walls = 0;
+CPT.enter();
+check("next sizer visit opens the wall after 3 SAMPLE logs", walls === 1);
 capCtx.localStorage.setItem("runnr_api_token", "tok");
 capCtx.canAddJournalTrade = function () { return true; };
+check("signed-in skips SAMPLE cap", CPT.SampleQuota.atCap(capCtx.window.S.trades) === false);
+const signedSize = CPT.computePlan(capPlan(4), capRails, capCtx.window.S.trades, capNow);
+check("signed-in still sizes after 3 SAMPLE logs", signedSize.sampleLocked !== true && signedSize.size > 0);
 const signedIn = CPT.logPlan(capPlan(4), capRails, capCtx.window.S.trades, capNow);
 check("signed-in logs skip the SAMPLE cap", signedIn.ok === true && signedIn.row.isDemo !== true);
 

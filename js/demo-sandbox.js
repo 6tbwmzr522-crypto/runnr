@@ -547,7 +547,7 @@
   }
 
   const DEFAULT_KEEP_COPY = "Save with email. SAMPLE stays SAMPLE — it never merges into a real book.";
-  const CAP_KEEP_COPY = "3 SAMPLE plans used — save with email to keep logging. SAMPLE stays SAMPLE — it never merges into a real book.";
+  const CAP_KEEP_COPY = "3 SAMPLE plans used — save with email to keep sizing & logging. SAMPLE stays SAMPLE — it never merges into a real book.";
 
   function showKeepScore(opts) {
     if (isLoggedIn()) return false;
