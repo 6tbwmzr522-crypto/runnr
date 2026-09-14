@@ -21,8 +21,8 @@ function check(name, cond) {
 const v = html.match(/var V = "(\d+)"/)[1];
 const cache = sw.match(/CACHE = "runnr-v(\d+)"/)[1];
 check("index.html V matches sw.js CACHE", v === cache);
-check("cache is 139+", Number(v) >= 139);
-check("pretrade.js is loaded", html.includes("js/pretrade.js?v=1"));
+check("cache is 140+", Number(v) >= 140);
+check("pretrade.js is loaded", html.includes("js/pretrade.js?v=2"));
 check("pretrade.css is loaded", html.includes("css/pretrade.css?v=1"));
 check("desk still opens via RunnrDesk.open", html.includes('data-nav="desk" onclick="RunnrDesk.open()"'));
 check("gold tokens stay on the desk", /--bg:\s*#080c12/.test(css) && /--gold:\s*#C9A96E/.test(css));
