@@ -21,9 +21,9 @@ function check(name, cond) {
 const v = html.match(/var V = "(\d+)"/)[1];
 const cache = sw.match(/CACHE = "runnr-v(\d+)"/)[1];
 check("index.html V matches sw.js CACHE", v === cache);
-check("cache is 142+", Number(v) >= 142);
-check("pretrade.js is loaded", html.includes("js/pretrade.js?v=5"));
-check("pretrade.css is loaded", html.includes("css/pretrade.css?v=2"));
+check("cache is 146+", Number(v) >= 146);
+check("pretrade.js is loaded", html.includes("js/pretrade.js?v=8"));
+check("pretrade.css is loaded", html.includes("css/pretrade.css?v=4"));
 check("gold mounts in pretrade-root, not desk-root hijack", html.includes('id="pretrade-root"') && src.includes('getElementById("pretrade-root")'));
 check("legacy CFD sizer stays in the page, hidden", html.includes("CFD / Forex Position Sizer") && html.includes('id="legacy-sizer"') && css.includes("#legacy-sizer{display:none"));
 check("desk still opens via RunnrDesk.open", html.includes('data-nav="desk" onclick="RunnrDesk.open()"'));
@@ -31,6 +31,9 @@ check("gold tokens stay on the desk", /--bg:\s*#080c12/.test(css) && /--gold:\s*
 check("two-column sizer is form + computed output", css.includes(".pt-sizer") && css.includes("grid-template-columns:minmax(0,1fr) minmax(220px,0.92fr)"));
 check("guardrails sit beside the sizer", css.includes(".pt-split") && css.includes("minmax(280px,0.9fr)"));
 check("blocked banner keeps numbers visible", src.includes("pt-blocked") && src.includes("✕ BLOCKED"));
+check("computed output is labeled a pending plan", src.includes("PENDING PLAN") && src.includes("not a logged fill"));
+check("onLog resets sizer fields then re-renders", /function onLog[\s\S]*resetSizerFields\(\)[\s\S]*render\(\)/.test(src));
+check("SAMPLE gold logs cap at 3 then keep-score", src.includes("SAMPLE_LOG_CAP = 3") && src.includes("sample-log-cap") && src.includes("3 SAMPLE plans used"));
 check("unified journal filters exist", html.includes('data-journal-filter="all"') && html.includes('data-journal-filter="approved"') && html.includes('data-journal-filter="blocked"'));
 check("outcome buttons exist", src.includes('btn("win", "WIN")') && src.includes('btn("loss", "LOSS")') && src.includes('btn("be", "BE")') && src.includes('data-pt-out="reset"'));
 check("SAMPLE visitors can open the header terminal", css.includes("html.runnr-demo #header .header-desk-btn"));
@@ -163,6 +166,88 @@ check("#desk-journal aliases to the unified journal", PT.wantsUnifiedJournal({ s
 check("#pretrade-journal aliases to the unified journal", PT.wantsUnifiedJournal({ search: "", hash: "#pretrade-journal" }) === true);
 check("#journal is the unified book", PT.wantsUnifiedJournal({ search: "", hash: "#journal" }) === true);
 check("?pretrade=1 opens gold", PT.wantsGold({ search: "?demo=1&pretrade=1", hash: "" }) === true);
+
+const janis = load();
+janis.window.S.bal = 10000;
+janis.window.S.sym = "€";
+janis.window.S.pretrade = { maxRiskPct: 2, maxDailyLossPct: 5, minRR: 1.5, propDailyDDPct: 5, propMaxDDPct: 10 };
+const J = janis.RunnrPretrade;
+const jRails = J.normalizeRails(janis.window.S.pretrade, janis.window.S);
+const jNow = new Date("2026-09-14T12:00:00Z");
+const nbisIn = { ticker: "NBIS", dir: "long", entry: 207, stop: 198, target: 267 };
+const aaplIn = { ticker: "AAPL", dir: "long", entry: 200, stop: 190, target: 230 };
+
+const nbisPlan = J.computePlan(nbisIn, jRails, [], jNow);
+check("NBIS 207/198 sizes 22 shares at €198", nbisPlan.size === 22 && nbisPlan.totalRisk === 198 && nbisPlan.blocked === false);
+check("NBIS R:R is 6.67", Math.abs(nbisPlan.rr - 6.666666) < 1e-3);
+
+const nbisLog = J.logPlan(nbisIn, jRails, janis.window.S.trades, jNow);
+const aaplLog = J.logPlan(aaplIn, jRails, janis.window.S.trades, jNow);
+check("NBIS then AAPL both journal as APPROVED", nbisLog.ok && nbisLog.row.planStatus === "approved" && aaplLog.ok && aaplLog.row.planStatus === "approved");
+check("todayRisked is 198+200=398", Math.abs(J.todayRisked(janis.window.S.trades, jNow) - 398) < 0.01);
+
+const ghost = J.computePlan(nbisIn, jRails, janis.window.S.trades, jNow);
+check("leftover NBIS is still a new third trade in the math", ghost.blocked === true && ghost.totalRisk === 198 && ghost.todayRisked === 398);
+check("daily-cap reasons stay on the third plan", ghost.reasons.some((r) => /daily loss/i.test(r)) && ghost.reasons.some((r) => /prop daily/i.test(r)));
+check("duplicate pending is flagged without changing the block math", ghost.duplicate === true && ghost.blocked === true);
+
+const ghostNoTarget = J.computePlan({ ticker: "NBIS", dir: "long", entry: 207, stop: 198 }, jRails, janis.window.S.trades, jNow);
+check("empty target still counts as already logged when the rest matches", ghostNoTarget.duplicate === true && ghostNoTarget.blocked === true);
+check("empty-target duplicate copy is already logged, not ✕ BLOCKED", J.outputHTML(ghostNoTarget, jRails).includes("ALREADY LOGGED TODAY") && !J.outputHTML(ghostNoTarget, jRails).includes("✕ BLOCKED"));
+
+const ghostProg = J.progressState(ghost);
+check("progress includes pending plan risk", Math.abs(ghostProg.logged - 398) < 0.01 && Math.abs(ghostProg.pending - 198) < 0.01 && Math.abs(ghostProg.projected - 596) < 0.01);
+check("within is false when this plan would breach", ghostProg.within === false && ghostProg.loggedOver === false);
+
+const ghostHtml = J.outputHTML(ghost, jRails);
+check("pending output is labeled PENDING PLAN", ghostHtml.includes("PENDING PLAN") && ghostHtml.includes("not a logged fill"));
+check("duplicate copy leads instead of ✕ BLOCKED", ghostHtml.includes("ALREADY LOGGED TODAY") && !ghostHtml.includes("✕ BLOCKED"));
+check("duplicate copy does not contradict the logged fill", ghostHtml.includes("already in Recent Trades") && ghostHtml.includes("pending plan"));
+
+J.prime(Object.assign({ notes: "keep dir" }, nbisIn));
+J.resetSizerFields();
+const cleared = J.prime();
+check("reset keeps direction", cleared.dir === "long");
+check("reset clears ticker/entry/stop/target/notes", cleared.ticker === "" && cleared.entry === "" && cleared.stop === "" && cleared.target === "" && cleared.notes === "");
+
+const afterClear = J.computePlan(cleared, jRails, janis.window.S.trades, jNow);
+const afterProg = J.progressState(afterClear);
+check("cleared form is not a ready pending plan", afterClear.ready === false && afterClear.blocked === false);
+check("progress without pending is logged-only within limits", afterProg.pending === 0 && Math.abs(afterProg.logged - 398) < 0.01 && afterProg.within === true);
+check("cleared output is empty pending, not BLOCKED vs APPROVED", J.outputHTML(afterClear, jRails).includes("Pending plan") && !J.outputHTML(afterClear, jRails).includes("✕ BLOCKED") && !J.outputHTML(afterClear, jRails).includes("APPROVED"));
+
+const tsla = J.computePlan({ ticker: "TSLA", dir: "long", entry: 100, stop: 90, target: 160 }, jRails, janis.window.S.trades, jNow);
+check("a new ticker is blocked without the duplicate flag", tsla.blocked === true && tsla.duplicate === false);
+const tslaHtml = J.outputHTML(tsla, jRails);
+check("new blocked plan says pending, not a logged fill", tslaHtml.includes("✕ BLOCKED") && tslaHtml.includes("not logged yet") && tslaHtml.includes("PENDING PLAN"));
+check("new blocked plan still shows the numbers", tslaHtml.includes("Position Size") && tslaHtml.includes(String(tsla.size)));
+
+const capCtx = load();
+const CPT = capCtx.RunnrPretrade;
+const capRails = CPT.normalizeRails(capCtx.window.S.pretrade, capCtx.window.S);
+const capNow = new Date("2026-09-14T15:00:00Z");
+function capPlan(i) {
+  return { ticker: "T" + i, dir: "long", entry: 200, stop: 190, target: 230 };
+}
+check("factory SAMPLE rows are not gold logs", CPT.samplePretradeLogCount([
+  { id: 1, isDemo: true, instr: "RACE", source: "manual" },
+  { id: 2, isDemo: true, instr: "BE", seed: true },
+]) === 0);
+check("SAMPLE log cap is 3", CPT.SAMPLE_LOG_CAP === 3);
+for (let i = 1; i <= 3; i++) {
+  const r = CPT.logPlan(capPlan(i), capRails, capCtx.window.S.trades, capNow);
+  check("sample gold log " + i + " succeeds", r.ok === true && r.row.isDemo === true && r.row.source === "pretrade");
+}
+check("three SAMPLE pretrade logs counted", CPT.samplePretradeLogCount(capCtx.window.S.trades) === 3 && CPT.sampleLogGate(capCtx.window.S.trades).capped === true);
+const fourth = CPT.logPlan(capPlan(4), capRails, capCtx.window.S.trades, capNow);
+check("fourth SAMPLE log hits the soft wall", fourth.ok === false && fourth.error === "sample-log-cap");
+check("fourth SAMPLE row was not journaled", CPT.samplePretradeLogCount(capCtx.window.S.trades) === 3);
+const stillSize = CPT.computePlan(capPlan(4), capRails, capCtx.window.S.trades, capNow);
+check("sizing stays free after SAMPLE cap", stillSize.ready === true && stillSize.size > 0);
+capCtx.localStorage.setItem("runnr_api_token", "tok");
+capCtx.canAddJournalTrade = function () { return true; };
+const signedIn = CPT.logPlan(capPlan(4), capRails, capCtx.window.S.trades, capNow);
+check("signed-in logs skip the SAMPLE cap", signedIn.ok === true && signedIn.row.isDemo !== true);
 
 ctx.switchPage = function (key) { ctx.switched = key; };
 PT.open();
