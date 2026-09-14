@@ -190,6 +190,10 @@ check("leftover NBIS is still a new third trade in the math", ghost.blocked === 
 check("daily-cap reasons stay on the third plan", ghost.reasons.some((r) => /daily loss/i.test(r)) && ghost.reasons.some((r) => /prop daily/i.test(r)));
 check("duplicate pending is flagged without changing the block math", ghost.duplicate === true && ghost.blocked === true);
 
+const ghostNoTarget = J.computePlan({ ticker: "NBIS", dir: "long", entry: 207, stop: 198 }, jRails, janis.window.S.trades, jNow);
+check("empty target still counts as already logged when the rest matches", ghostNoTarget.duplicate === true && ghostNoTarget.blocked === true);
+check("empty-target duplicate copy is already logged, not ✕ BLOCKED", J.outputHTML(ghostNoTarget, jRails).includes("ALREADY LOGGED TODAY") && !J.outputHTML(ghostNoTarget, jRails).includes("✕ BLOCKED"));
+
 const ghostProg = J.progressState(ghost);
 check("progress includes pending plan risk", Math.abs(ghostProg.logged - 398) < 0.01 && Math.abs(ghostProg.pending - 198) < 0.01 && Math.abs(ghostProg.projected - 596) < 0.01);
 check("within is false when this plan would breach", ghostProg.within === false && ghostProg.loggedOver === false);

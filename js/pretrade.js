@@ -156,7 +156,8 @@
       if (String(t.instr || "").toUpperCase() !== ticker) return false;
       if (String(t.dir || "long").toLowerCase() !== dir) return false;
       if (!sameLevel(t.entry, entry) || !sameLevel(t.stop, stop)) return false;
-      if (!sameLevel(t.target, target) || !sameLevel(t.size, size)) return false;
+      if (target > 0 && !sameLevel(t.target, target)) return false;
+      if (!sameLevel(t.size, size)) return false;
       return true;
     });
   }
