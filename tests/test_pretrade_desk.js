@@ -21,8 +21,8 @@ function check(name, cond) {
 const v = html.match(/var V = "(\d+)"/)[1];
 const cache = sw.match(/CACHE = "runnr-v(\d+)"/)[1];
 check("index.html V matches sw.js CACHE", v === cache);
-check("cache is 144+", Number(v) >= 144);
-check("pretrade.js is loaded", html.includes("js/pretrade.js?v=6"));
+check("cache is 145+", Number(v) >= 145);
+check("pretrade.js is loaded", html.includes("js/pretrade.js?v=7"));
 check("pretrade.css is loaded", html.includes("css/pretrade.css?v=3"));
 check("gold mounts in pretrade-root, not desk-root hijack", html.includes('id="pretrade-root"') && src.includes('getElementById("pretrade-root")'));
 check("legacy CFD sizer stays in the page, hidden", html.includes("CFD / Forex Position Sizer") && html.includes('id="legacy-sizer"') && css.includes("#legacy-sizer{display:none"));
