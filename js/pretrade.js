@@ -494,8 +494,8 @@
     if (typeof global.renderJournal === "function") global.renderJournal();
     if (typeof global.updateHomeStats === "function") global.updateHomeStats();
     if (typeof global.renderCoachPage === "function") global.renderCoachPage();
-    if (sample && global.RunnrDemoSandbox && typeof RunnrDemoSandbox.markAha === "function") {
-      try { RunnrDemoSandbox.markAha("pretrade"); } catch (e) {}
+    if (sample && global.RunnrDemoSandbox && typeof RunnrDemoSandbox.onSampleScored === "function") {
+      try { RunnrDemoSandbox.onSampleScored(row, { reason: "pretrade" }); } catch (e) {}
     }
     return { ok: true, row, computed, sampleGate: sample ? sampleLogGate(list) : null };
   }

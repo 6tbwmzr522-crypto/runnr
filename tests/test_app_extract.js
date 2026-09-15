@@ -33,7 +33,7 @@ const appFiles = [
 appFiles.forEach((f) => {
   const pin = f === "js/app-journal.js" ? "?v=5"
     : f === "js/app-nav.js" ? "?v=4"
-    : f === "js/app-boot.js" ? "?v=5"
+    : f === "js/app-boot.js" ? "?v=6"
     : f === "js/app-watchlist.js" ? "?v=2"
     : "?v=1";
   check(f + " is loaded with cache-bust", html.includes(f + pin));

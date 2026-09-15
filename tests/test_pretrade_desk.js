@@ -22,7 +22,7 @@ const v = html.match(/var V = "(\d+)"/)[1];
 const cache = sw.match(/CACHE = "runnr-v(\d+)"/)[1];
 check("index.html V matches sw.js CACHE", v === cache);
 check("cache is 147+", Number(v) >= 147);
-check("pretrade.js is loaded", html.includes("js/pretrade.js?v=9"));
+check("pretrade.js is loaded", html.includes("js/pretrade.js?v=10"));
 check("pretrade.css is loaded", html.includes("css/pretrade.css?v=5"));
 check("gold mounts in pretrade-root, not desk-root hijack", html.includes('id="pretrade-root"') && src.includes('getElementById("pretrade-root")'));
 check("legacy CFD sizer stays in the page, hidden", html.includes("CFD / Forex Position Sizer") && html.includes('id="legacy-sizer"') && css.includes("#legacy-sizer{display:none"));
@@ -34,6 +34,7 @@ check("blocked banner keeps numbers visible", src.includes("pt-blocked") && src.
 check("computed output is labeled a pending plan", src.includes("PENDING PLAN") && src.includes("not a logged fill"));
 check("onLog resets sizer fields then re-renders", /function onLog[\s\S]*resetSizerFields\(\)[\s\S]*render\(\)/.test(src));
 check("SAMPLE gold logs cap at 3 then keep-score", src.includes("SAMPLE_LOG_CAP = 3") && src.includes("sample-log-cap") && src.includes("3 SAMPLE plans used"));
+check("first SAMPLE gold log notifies keep-score aha", src.includes("onSampleScored"));
 check("shared SAMPLE quota helper locks log and sizer", src.includes("SampleQuota.atCap") && src.includes("SampleQuota.openWall") && src.includes("SampleQuota.count") && src.includes("pt-sample-locked"));
 check("unified journal filters exist", html.includes('data-journal-filter="all"') && html.includes('data-journal-filter="approved"') && html.includes('data-journal-filter="blocked"'));
 check("outcome buttons exist", src.includes('btn("win", "WIN")') && src.includes('btn("loss", "LOSS")') && src.includes('btn("be", "BE")') && src.includes('data-pt-out="reset"'));

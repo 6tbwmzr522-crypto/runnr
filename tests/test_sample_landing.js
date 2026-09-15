@@ -17,6 +17,8 @@ const replaySrc = fs.readFileSync(path.join(root, "js/discipline-replay.js"), "u
 const journalSrc = fs.readFileSync(path.join(root, "js/app-journal.js"), "utf8");
 const navSrc = fs.readFileSync(path.join(root, "js/app-nav.js"), "utf8");
 const onboardingSrc = fs.readFileSync(path.join(root, "js/onboarding.js"), "utf8");
+const pretradeSrc = fs.readFileSync(path.join(root, "js/pretrade.js"), "utf8");
+const bootSrc = fs.readFileSync(path.join(root, "js/app-boot.js"), "utf8");
 const stats = fs.readFileSync(path.join(root, "stats.html"), "utf8");
 const login = fs.readFileSync(path.join(root, "login.html"), "utf8");
 const sampleAlias = fs.readFileSync(path.join(root, "sample/index.html"), "utf8");
@@ -32,8 +34,8 @@ const v = html.match(/var V = "(\d+)"/)[1];
 const cache = sw.match(/CACHE = "runnr-v(\d+)"/)[1];
 check("index.html V matches sw.js CACHE", v === cache);
 check("cache is 139+", Number(v) >= 139);
-check("demo-sandbox cache-bust", html.includes("js/demo-sandbox.js?v=9"));
-check("pages.css cache-bust", html.includes("css/pages.css?v=6"));
+check("demo-sandbox cache-bust", html.includes("js/demo-sandbox.js?v=10"));
+check("pages.css cache-bust", html.includes("css/pages.css?v=7"));
 
 check("bio URL is documented on stats", stats.includes("https://runnr.fyi/?demo=1") && stats.includes("tiktok-bio-url"));
 check("stats does not point TikTok bio at login.html", /TikTok bio[\s\S]{0,400}login\.html/.test(stats) === false || /not login\.html/.test(stats));
@@ -148,8 +150,50 @@ const sampleJob = Q.primaryJob(book, guest, bio.Baron);
 check("demo desk job is Score this trade", sampleJob.id === "sample-score" && sampleJob.cta === "Score this trade" && sampleJob.tradeId === row.id);
 
 check("saveLog notifies SAMPLE aha", journalSrc.includes("onSampleScored"));
+check("gold logPlan notifies SAMPLE aha", pretradeSrc.includes("onSampleScored"));
 check("nav runs sample-score job", navSrc.includes("sample-score") && navSrc.includes("openScoreTrade"));
 check("onboarding skips wizard on sample aliases", onboardingSrc.includes("queryForce") && onboardingSrc.includes('get("demo") === "1"'));
 check("keep-score href is email not broker", SB.KEEP_HREF === "/login.html?keep=1");
+check("keep-score lock CSS hides dismiss", css.includes("sample-keep-locked") && css.includes("sample-keep-dismiss"));
+check("closeModal holds sealed SAMPLE keep-score", bootSrc.includes("shouldHoldKeepScore") && bootSrc.includes("modal-sample-keep"));
+check("score CTA source does not open the journal editor", /function openScoreTrade[\s\S]*function onSampleScored/.test(sandboxSrc) && !/function openScoreTrade[\s\S]*openTradeEditor/.test(sandboxSrc));
+
+const primed = SB.sampleScorePrime({ trades: book, watchlist: SB.factoryWatchlist() });
+check("score CTA primes AAPL from the SAMPLE row", primed.ticker === "AAPL" && Number(primed.entry) === 198 && Number(primed.stop) === 194 && primed.dir === "long");
+
+const gold = loadSandbox({ search: "?demo=1", pathname: "/", hash: "", href: "http://localhost/?demo=1" });
+gold.S = { trades: book, watchlist: SB.factoryWatchlist(), bal: 10000, risk: 1, sym: "€" };
+gold.opened = [];
+gold.primed = null;
+gold.journalEditor = false;
+gold.page = "";
+gold.RunnrPretrade = {
+  prime(input) { gold.primed = input; return input; },
+  open(which) { gold.opened.push(which || "desk"); },
+};
+gold.openTradeEditor = function () { gold.journalEditor = true; };
+gold.switchPage = function (k) { gold.page = k; };
+const openedGold = gold.RunnrDemoSandbox.openScoreTrade(gold.S);
+check("Home/hero Score this trade opens the gold sizer", openedGold === true && gold.opened[0] === "desk");
+check("gold sizer is primed with AAPL SAMPLE numbers", gold.primed && gold.primed.ticker === "AAPL" && Number(gold.primed.entry) === 198 && Number(gold.primed.stop) === 194);
+check("Score this trade does not open the journal editor", gold.journalEditor === false && gold.page !== "journal");
+check("opening the gold sizer does not seal yet", gold.RunnrDemoSandbox.hasSeal() !== true);
+
+check("seal starts off", SB.hasSeal() !== true);
+const scoredGuest = loadSandbox({ search: "?demo=1", pathname: "/", hash: "", href: "http://localhost/?demo=1" });
+scoredGuest.S = { trades: book, watchlist: SB.factoryWatchlist(), bal: 10000, risk: 1, sym: "€" };
+const goldRow = { id: 99, isDemo: true, source: "pretrade", instr: "AAPL", incomplete: false };
+check("first SAMPLE gold log seals the guest", scoredGuest.RunnrDemoSandbox.onSampleScored(goldRow, { prompt: false }) === true);
+check("seal persists after gold log", scoredGuest.RunnrDemoSandbox.hasSeal() === true && scoredGuest.RunnrDemoSandbox.hasAha() === true);
+check("sealed guest holds keep-score", scoredGuest.RunnrDemoSandbox.shouldHoldKeepScore() === true);
+scoredGuest.RunnrDemoSandbox.hideKeepScore();
+check("hideKeepScore cannot drop the seal", scoredGuest.RunnrDemoSandbox.hasSeal() === true && scoredGuest.RunnrDemoSandbox.shouldHoldKeepScore() === true);
+
+check("signed-in score does not seal", signed.RunnrDemoSandbox.onSampleScored(goldRow) === false);
+check("signed-in does not hold keep-score", signed.RunnrDemoSandbox.shouldHoldKeepScore() === false);
+
+const realGuest = loadSandbox({ search: "?demo=1", pathname: "/", hash: "", href: "http://localhost/?demo=1" });
+realGuest.localStorage.setItem("runnr_sample_seal_v1", "1");
+check("real book does not hold keep-score", realGuest.RunnrDemoSandbox.shouldHoldKeepScore(real) === false);
 
 console.log("test_sample_landing: ok " + n);
