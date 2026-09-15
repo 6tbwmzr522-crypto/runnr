@@ -150,7 +150,7 @@
   function looksLikeTicker(raw) {
     const s = String(raw || "").trim().toUpperCase();
     if (!s || /\s/.test(s)) return false;
-    return /^[A-Z]{1,6}(?:[.\-][A-Z0-9]{1,4})?$/.test(s);
+    return /^[A-Z]{2,6}(?:[.\-][A-Z0-9]{1,4})?$/.test(s);
   }
 
   function fmtQuotePx(n) {

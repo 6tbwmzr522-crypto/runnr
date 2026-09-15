@@ -284,7 +284,7 @@ check("pretrade open(journal) lands on the unified journal", ctx.switched === "j
 
 check("ticker debounce is 450ms", PT.TICKER_DEBOUNCE_MS === 450);
 check("AAPL NBIS EURUSD look like tickers", PT.looksLikeTicker("AAPL") && PT.looksLikeTicker("nbis") && PT.looksLikeTicker("EURUSD") && PT.looksLikeTicker("BMW.DE"));
-check("spaces and empty are not tickers", PT.looksLikeTicker("AAPL CFD") === false && PT.looksLikeTicker("") === false && PT.looksLikeTicker("to the moon") === false);
+check("spaces and empty are not tickers", PT.looksLikeTicker("AAPL CFD") === false && PT.looksLikeTicker("") === false && PT.looksLikeTicker("to the moon") === false && PT.looksLikeTicker("A") === false && PT.looksLikeTicker("GM") === true);
 check("empty entry autofills from last", PT.shouldAutofillEntry("", "", "AAPL") === true);
 check("primed SAMPLE entry is not overwritten", PT.shouldAutofillEntry("198", "", "AAPL") === false);
 check("quoted entry follows a new ticker", PT.shouldAutofillEntry("188.42", "AAPL", "NBIS") === true);
