@@ -150,6 +150,8 @@ html.runnr-sample-landing #sample-hero,#sample-hero.open{display:flex}
 .sample-hero-inner{max-width:430px;margin:0 auto;width:100%;flex:1;overflow-y:auto;padding:24px 20px calc(24px + var(--safe-bottom))}
 .sample-keep-copy{font-size:14px;color:var(--text2);line-height:1.5;margin:0 0 16px}
 #modal-sample-keep .btn{margin-bottom:10px}
+#modal-sample-keep.sample-keep-locked .modal-close,
+#modal-sample-keep.sample-keep-locked #sample-keep-dismiss{display:none}
 html.runnr-show-hook #onboarding-overlay,#onboarding-overlay.hook-mode{max-width:none;margin:0;width:100%}
 html.runnr-show-hook .ob-top,html.runnr-show-hook .ob-content,#onboarding-overlay.hook-mode .ob-top,#onboarding-overlay.hook-mode .ob-content{max-width:430px;margin-left:auto;margin-right:auto;width:100%}
 .ob-top{padding:16px 20px;display:flex;align-items:center;justify-content:space-between;border-bottom:1px solid var(--border);flex-shrink:0}

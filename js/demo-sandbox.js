@@ -13,6 +13,7 @@
   const AHA_KEY = "runnr_sample_aha_v1";
   const HERO_KEY = "runnr_sample_hero_v1";
   const KEEP_KEY = "runnr_sample_keep_v1";
+  const SEAL_KEY = "runnr_sample_seal_v1";
   const BIO_URL = "https://runnr.fyi/?demo=1";
   const ALIAS_PATH = "/sample";
   const KEEP_HREF = "/login.html?keep=1";
@@ -425,6 +426,23 @@
     return storageGet(global.localStorage, AHA_KEY) === "1";
   }
 
+  function hasSeal() {
+    return storageGet(global.localStorage, SEAL_KEY) === "1";
+  }
+
+  function shouldHoldKeepScore(state) {
+    if (isLoggedIn()) return false;
+    if (!hasSeal()) return false;
+    const s = state || global.S;
+    if (s && looksLikeRealBook(s)) return false;
+    return true;
+  }
+
+  function markSeal() {
+    storageSet(global.localStorage, SEAL_KEY, "1");
+    markAha("score");
+  }
+
   function heroDismissed() {
     return storageGet(global.sessionStorage, HERO_KEY) === "done";
   }
@@ -494,47 +512,67 @@
     return true;
   }
 
+  function sampleTicker(t) {
+    return String((t && (t.instr || t.sym)) || "AAPL").replace(/\s*CFD\s*$/i, "").trim().toUpperCase() || "AAPL";
+  }
+
+  function sampleWatchFor(state, t) {
+    const ticker = sampleTicker(t);
+    const wl = ((state && state.watchlist) || []).length ? state.watchlist : factoryWatchlist();
+    return wl.find((w) => w && String(w.sym || "").toUpperCase() === ticker) || null;
+  }
+
+  function sampleScorePrime(state) {
+    const book = state || global.S;
+    const t = firstIncompleteSample(book);
+    const watch = sampleWatchFor(book, t || { instr: "AAPL" });
+    const src = t || watch || { instr: "AAPL", dir: "long", entry: 198, stop: 194, target: 214 };
+    return {
+      ticker: sampleTicker(src),
+      dir: src.dir || (watch && watch.dir) || "long",
+      entry: src.entry != null && src.entry !== "" ? src.entry : (watch && watch.entry),
+      stop: src.stop != null && src.stop !== "" ? src.stop : (watch && watch.stop),
+      target: src.target != null && src.target !== "" ? src.target : (watch && watch.target),
+    };
+  }
+
+  function openGoldSizer(primeInput) {
+    const PT = global.RunnrPretrade;
+    if (PT && typeof PT.prime === "function" && primeInput) {
+      try { PT.prime(primeInput); } catch (e) {}
+    }
+    if (PT && typeof PT.open === "function") {
+      try { PT.open("desk"); return true; } catch (e) {}
+    }
+    if (typeof global.switchPage === "function") {
+      try { global.switchPage("sizer"); return true; } catch (e) {}
+    }
+    return false;
+  }
+
   function openScoreTrade(state) {
     markHeroDismissed();
     hideSampleHero();
     const book = state || global.S;
     try {
-      if (book && !firstIncompleteSample(book) && !isLoggedIn() && !looksLikeRealBook(book)) {
-        apply(book, { force: true });
-        if (typeof global.persist === "function") global.persist();
+      if (book && !isLoggedIn() && !looksLikeRealBook(book)) {
+        if (!firstIncompleteSample(book) || demoTradeCount(book) < MIN_BOOK) {
+          apply(book, { force: true });
+          if (typeof global.persist === "function") global.persist();
+        }
       }
     } catch (e) {}
-    const t = firstIncompleteSample(book);
-    if (!t) {
-      markAha("proof");
-      showKeepScore();
-      return false;
-    }
-    function openRow() {
-      try {
-        if (typeof global.switchPage === "function") global.switchPage("journal");
-        if (typeof global.openTradeEditor === "function") global.openTradeEditor(t.id);
-        const title = global.document && document.querySelector("#modal-log .modal-title");
-        if (title) {
-          title.innerHTML = "Score this trade · " + (t.instr || "SAMPLE") +
-            ' <button class="modal-close" onclick="closeModal(\'modal-log\')">✕</button>';
-        }
-      } catch (e) {}
-    }
-    openRow();
-    try {
-      if (global.setTimeout) global.setTimeout(openRow, 60);
-    } catch (e) {}
+    const primed = sampleScorePrime(book);
     beacon("demo_score_trade");
-    return true;
+    return openGoldSizer(primed);
   }
 
   function onSampleScored(trade, opts) {
     if (isLoggedIn()) return false;
     if (!isDemoState(global.S)) return false;
     if (trade && !isDemoTrade(trade)) return false;
-    markAha("score");
-    if (!opts || opts.prompt !== false) showKeepScore();
+    markSeal();
+    showKeepScore({ reason: (opts && opts.reason) || "score" });
     return true;
   }
 
@@ -546,8 +584,22 @@
     return true;
   }
 
-  const DEFAULT_KEEP_COPY = "Save with email. SAMPLE stays SAMPLE — it never merges into a real book.";
+  const DEFAULT_KEEP_COPY = "Save with email to start your 7-day trial. SAMPLE stays SAMPLE — it never merges into a real book.";
   const CAP_KEEP_COPY = "3 SAMPLE plans used — save with email to keep sizing & logging. SAMPLE stays SAMPLE — it never merges into a real book.";
+
+  function paintKeepLock(modal) {
+    const el = modal || (global.document && document.getElementById("modal-sample-keep"));
+    if (!el) return false;
+    const locked = shouldHoldKeepScore();
+    if (el.classList && typeof el.classList.toggle === "function") {
+      el.classList.toggle("sample-keep-locked", locked);
+    }
+    const closeBtn = el.querySelector ? el.querySelector(".modal-close") : null;
+    if (closeBtn) closeBtn.hidden = !!locked;
+    const dismiss = global.document && document.getElementById("sample-keep-dismiss");
+    if (dismiss) dismiss.hidden = !!locked;
+    return locked;
+  }
 
   function showKeepScore(opts) {
     if (isLoggedIn()) return false;
@@ -556,6 +608,7 @@
       copy.textContent = (opts && opts.reason === "sample-log-cap") ? CAP_KEEP_COPY : DEFAULT_KEEP_COPY;
     }
     const modal = global.document && document.getElementById("modal-sample-keep");
+    paintKeepLock(modal);
     if (modal && typeof global.openModal === "function") {
       global.openModal("modal-sample-keep");
       return true;
@@ -568,12 +621,17 @@
   }
 
   function hideKeepScore() {
+    if (shouldHoldKeepScore()) {
+      showKeepScore();
+      return false;
+    }
     const modal = global.document && document.getElementById("modal-sample-keep");
     if (modal && typeof global.closeModal === "function") {
       global.closeModal("modal-sample-keep");
-      return;
+      return true;
     }
     if (modal) modal.classList.remove("open");
+    return true;
   }
 
   function bindSampleHero() {
@@ -629,7 +687,12 @@
     const dismiss = doc.getElementById("sample-keep-dismiss");
     if (dismiss && !dismiss.dataset.sampleBound) {
       dismiss.dataset.sampleBound = "1";
-      dismiss.addEventListener("click", function () {
+      dismiss.addEventListener("click", function (ev) {
+        if (shouldHoldKeepScore()) {
+          if (ev && ev.preventDefault) ev.preventDefault();
+          showKeepScore();
+          return;
+        }
         hideKeepScore();
       });
     }
@@ -651,6 +714,7 @@
       hideSampleHero();
     }
     paintChrome(state || global.S);
+    if (shouldHoldKeepScore(state || global.S)) showKeepScore();
   }
 
   function beacon(event) {
@@ -687,6 +751,7 @@
     KEEP_HREF,
     AHA_KEY,
     HERO_KEY,
+    SEAL_KEY,
     factoryTrades,
     factoryWatchlist,
     classicSeeds,
@@ -709,8 +774,12 @@
     paintProof,
     bindProof,
     hasAha,
+    hasSeal,
     markAha,
+    markSeal,
+    shouldHoldKeepScore,
     firstIncompleteSample,
+    sampleScorePrime,
     openScoreTrade,
     onSampleScored,
     onProofViewed,

@@ -23,7 +23,7 @@ const appCss = [
   "css/pages.css",
 ];
 appCss.forEach((f) => {
-  const pin = f === "css/pages.css" ? "?v=6" : f === "css/components.css" ? "?v=2" : "?v=1";
+  const pin = f === "css/pages.css" ? "?v=7" : f === "css/components.css" ? "?v=2" : "?v=1";
   check(f + " is loaded with cache-bust", html.includes(f + pin));
   check(f + " is in the stylesheet list", stylesheets.includes(f));
 });
@@ -36,7 +36,7 @@ check("extracted sheets follow desk.css in original order",
   && stylesheets.indexOf("css/pages.css") === 4);
 check("legal.css is not loaded on the app page", !stylesheets.includes("css/legal.css"));
 check("pretrade.css loads after pages.css", stylesheets.indexOf("css/pretrade.css") === stylesheets.indexOf("css/pages.css") + 1);
-check("pretrade.css is cache-busted", html.includes("css/pretrade.css?v=5"));
+check("pretrade.css is cache-busted", html.includes("css/pretrade.css?v=6"));
 check("no giant inline style block remains", !/<style[\s>]/.test(html));
 check("index.html is under 160KB after css extract", Buffer.byteLength(html) < 160000);
 

@@ -11,6 +11,9 @@ function openModal(id) {
   document.body.style.overflow = 'hidden';
 }
 function closeModal(id) {
+  if (id === 'modal-sample-keep' && window.RunnrDemoSandbox && typeof RunnrDemoSandbox.shouldHoldKeepScore === 'function' && RunnrDemoSandbox.shouldHoldKeepScore()) {
+    return;
+  }
   document.getElementById(id)?.classList.remove('open');
   if (!document.querySelector('.modal-overlay.open')) document.body.style.overflow = '';
   if (id === 'modal-log' && !advancingIncompleteReview) reviewingIncompleteQueue = false;

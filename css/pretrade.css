@@ -172,6 +172,17 @@
   outline:none;
 }
 .pt-field input:focus,.pt-field select:focus,.pt-log-row input:focus{border-color:var(--gold)}
+.pt-quote{
+  margin:6px 0 0;
+  font-size:11px;
+  letter-spacing:0.04em;
+  line-height:1.35;
+  color:var(--text3);
+  min-height:14px;
+}
+.pt-quote.live{color:var(--accent)}
+.pt-quote.stale{color:var(--gold)}
+.pt-quote.err,.pt-quote.load{color:var(--text3)}
 .pt-dir{display:grid;grid-template-columns:1fr 1fr;gap:0;border:1px solid rgba(201,169,110,0.22)}
 .pt-dir-btn{
   background:transparent;
