@@ -22,8 +22,8 @@ const v = html.match(/var V = "(\d+)"/)[1];
 const cache = sw.match(/CACHE = "runnr-v(\d+)"/)[1];
 check("index.html V matches sw.js CACHE", v === cache);
 check("cache is 147+", Number(v) >= 147);
-check("pretrade.js is loaded", html.includes("js/pretrade.js?v=10"));
-check("pretrade.css is loaded", html.includes("css/pretrade.css?v=5"));
+check("pretrade.js is loaded", html.includes("js/pretrade.js?v=11"));
+check("pretrade.css is loaded", html.includes("css/pretrade.css?v=6"));
 check("gold mounts in pretrade-root, not desk-root hijack", html.includes('id="pretrade-root"') && src.includes('getElementById("pretrade-root")'));
 check("legacy CFD sizer stays in the page, hidden", html.includes("CFD / Forex Position Sizer") && html.includes('id="legacy-sizer"') && css.includes("#legacy-sizer{display:none"));
 check("desk still opens via RunnrDesk.open", html.includes('data-nav="desk" onclick="RunnrDesk.open()"'));
@@ -34,6 +34,9 @@ check("blocked banner keeps numbers visible", src.includes("pt-blocked") && src.
 check("computed output is labeled a pending plan", src.includes("PENDING PLAN") && src.includes("not a logged fill"));
 check("onLog resets sizer fields then re-renders", /function onLog[\s\S]*resetSizerFields\(\)[\s\S]*render\(\)/.test(src));
 check("SAMPLE gold logs cap at 3 then keep-score", src.includes("SAMPLE_LOG_CAP = 3") && src.includes("sample-log-cap") && src.includes("3 SAMPLE plans used"));
+check("gold sizer reuses public Yahoo/Finnhub quotes", pretradeSrc.includes("fetchYahooChart") && pretradeSrc.includes("livePriceFromChart") && !/polygon|alphavantage|twelvedata/i.test(pretradeSrc));
+check("gold sizer does not invent estimated fills", pretradeSrc.includes("estimated") && pretradeSrc.includes("Quote unavailable"));
+check("ticker input is debounced before quote fetch", pretradeSrc.includes("TICKER_DEBOUNCE_MS = 450") && pretradeSrc.includes("scheduleQuote"));
 check("first SAMPLE gold log notifies keep-score aha", src.includes("onSampleScored"));
 check("shared SAMPLE quota helper locks log and sizer", src.includes("SampleQuota.atCap") && src.includes("SampleQuota.openWall") && src.includes("SampleQuota.count") && src.includes("pt-sample-locked"));
 check("unified journal filters exist", html.includes('data-journal-filter="all"') && html.includes('data-journal-filter="approved"') && html.includes('data-journal-filter="blocked"'));
@@ -278,5 +281,28 @@ PT.open();
 check("pretrade open() switches to sizer, not desk", ctx.switched === "sizer");
 PT.open("journal");
 check("pretrade open(journal) lands on the unified journal", ctx.switched === "journal");
+
+check("ticker debounce is 450ms", PT.TICKER_DEBOUNCE_MS === 450);
+check("AAPL NBIS EURUSD look like tickers", PT.looksLikeTicker("AAPL") && PT.looksLikeTicker("nbis") && PT.looksLikeTicker("EURUSD") && PT.looksLikeTicker("BMW.DE"));
+check("spaces and empty are not tickers", PT.looksLikeTicker("AAPL CFD") === false && PT.looksLikeTicker("") === false && PT.looksLikeTicker("to the moon") === false);
+check("empty entry autofills from last", PT.shouldAutofillEntry("", "", "AAPL") === true);
+check("primed SAMPLE entry is not overwritten", PT.shouldAutofillEntry("198", "", "AAPL") === false);
+check("quoted entry follows a new ticker", PT.shouldAutofillEntry("188.42", "AAPL", "NBIS") === true);
+
+const liveFill = PT.quoteAutofill("", "", "AAPL", { price: 188.42, stale: false });
+check("live quote fills ENTRY only", liveFill.fillEntry === true && liveFill.entry === "188.42" && liveFill.hint.status === "live" && /quote/i.test(liveFill.hint.text));
+const primedKeep = PT.quoteAutofill("198", "", "AAPL", { price: 188.42, stale: false });
+check("live quote does not clobber a primed entry", primedKeep.fillEntry === false && primedKeep.entry === "198" && primedKeep.hint.status === "live");
+const staleFill = PT.quoteAutofill("", "", "NBIS", { price: 22.5, stale: true });
+check("stale quote still fills and labels delayed", staleFill.fillEntry === true && staleFill.hint.status === "stale" && /delayed/i.test(staleFill.hint.text));
+const miss = PT.quoteAutofill("", "", "ZZZZ", null);
+check("failed quote does not invent a price", miss.fillEntry !== true && !miss.entry && miss.hint.status === "err");
+const fake = PT.quoteAutofill("", "", "AAPL", { price: 12.34, estimated: true });
+check("estimated watchlist fallback is not used as entry", fake.fillEntry !== true && fake.hint.status === "err");
+const withStop = PT.quoteAutofill("", "", "AAPL", { price: 100, stop: 90, target: 130 });
+check("quote never writes stop or target", withStop.fillEntry === true && withStop.entry === "100.00" && withStop.stop == null && withStop.target == null);
+
+const stillLogs = PT.logPlan({ ticker: "MSFT", dir: "long", entry: 400, stop: 390, target: 430 }, rails, ctx.window.S.trades, now);
+check("logging is not blocked when quotes fail", stillLogs.ok === true);
 
 console.log("test_pretrade_desk: ok " + n);

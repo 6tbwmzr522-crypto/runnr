@@ -14,10 +14,15 @@
     propMaxDDPct: 10,
   };
   const SAMPLE_LOG_CAP = 3;
+  const TICKER_DEBOUNCE_MS = 450;
 
   let view = "desk";
   let form = { ticker: "AAPL", dir: "long", entry: "", stop: "", target: "", notes: "" };
   let railsDraft = null;
+  let quoteTimer = null;
+  let quoteSeq = 0;
+  let entryQuotedFor = "";
+  let quoteState = { status: "", text: "", price: 0 };
 
   function S() {
     return global.S || (global.window && global.window.S) || {};
@@ -140,6 +145,119 @@
 
   function sampleLogGate(trades) {
     return sampleQuota(trades);
+  }
+
+  function looksLikeTicker(raw) {
+    const s = String(raw || "").trim().toUpperCase();
+    if (!s || /\s/.test(s)) return false;
+    return /^[A-Z]{1,6}(?:[.\-][A-Z0-9]{1,4})?$/.test(s);
+  }
+
+  function fmtQuotePx(n) {
+    const x = Number(n);
+    if (!Number.isFinite(x) || x <= 0) return "";
+    if (x >= 10) return (Math.round(x * 100) / 100).toFixed(2);
+    if (x >= 1) return (Math.round(x * 10000) / 10000).toFixed(4);
+    return String(Math.round(x * 100000) / 100000);
+  }
+
+  function shouldAutofillEntry(entryValue, quotedFor, ticker) {
+    const current = String(entryValue == null ? "" : entryValue).trim();
+    if (!current) return true;
+    if (quotedFor) return true;
+    return false;
+  }
+
+  function quoteAutofill(entryValue, quotedFor, ticker, data) {
+    const price = data && Number(data.price);
+    const ok = Number.isFinite(price) && price > 0 && !(data && data.estimated);
+    const hint = !ok
+      ? { status: "err", text: "Quote unavailable — type entry", price: 0 }
+      : {
+          status: data.stale ? "stale" : "live",
+          text: (data.stale ? "Last " : "Live last ") + fmtQuotePx(price) + (data.stale ? " · delayed" : " · quote"),
+          price: price,
+        };
+    const fill = ok && shouldAutofillEntry(entryValue, quotedFor, ticker);
+    return {
+      fillEntry: fill,
+      entry: fill ? fmtQuotePx(price) : entryValue,
+      quotedFor: fill ? String(ticker || "").toUpperCase() : quotedFor,
+      hint: hint,
+    };
+  }
+
+  function paintQuoteHint() {
+    const el = global.document && document.getElementById("pt-quote");
+    if (!el) return;
+    el.className = "pt-quote" + (quoteState.status ? " " + quoteState.status : "");
+    el.textContent = quoteState.text || "";
+    el.hidden = !quoteState.text;
+  }
+
+  async function fetchSizerQuote(ticker) {
+    const key = String(ticker || "").trim().toUpperCase();
+    let resolved = key;
+    if (typeof global.resolveQuoteSymbol === "function") {
+      try { resolved = (await global.resolveQuoteSymbol(key)) || key; } catch (e) {}
+    }
+    if (typeof global.fetchYahooChart === "function") {
+      const json = await global.fetchYahooChart(resolved, "1m", "1d");
+      if (typeof global.livePriceFromChart === "function") {
+        return global.livePriceFromChart(json, key, resolved);
+      }
+    }
+    if (typeof global.fetchLivePrice === "function") {
+      const data = await global.fetchLivePrice(key, resolved);
+      if (data && data.estimated) return null;
+      return data || null;
+    }
+    return null;
+  }
+
+  function applySizerQuote(ticker, data) {
+    const next = quoteAutofill(form.entry, entryQuotedFor, ticker, data);
+    quoteState = next.hint;
+    paintQuoteHint();
+    if (!next.fillEntry) return next;
+    form.entry = next.entry;
+    entryQuotedFor = next.quotedFor;
+    const entryEl = global.document && document.getElementById("pt-entry");
+    if (entryEl) entryEl.value = next.entry;
+    refreshLive();
+    return next;
+  }
+
+  function scheduleQuote(raw) {
+    if (quoteTimer && typeof global.clearTimeout === "function") global.clearTimeout(quoteTimer);
+    quoteTimer = null;
+    const key = String(raw || "").trim().toUpperCase();
+    if (!looksLikeTicker(key)) {
+      quoteState = { status: "", text: "", price: 0 };
+      paintQuoteHint();
+      return;
+    }
+    const run = function () { requestQuote(key); };
+    if (typeof global.setTimeout !== "function") {
+      run();
+      return;
+    }
+    quoteTimer = global.setTimeout(run, TICKER_DEBOUNCE_MS);
+  }
+
+  function requestQuote(key) {
+    const ticker = String(key || "").trim().toUpperCase();
+    if (!looksLikeTicker(ticker)) return;
+    const seq = ++quoteSeq;
+    quoteState = { status: "load", text: "Fetching last…", price: 0 };
+    paintQuoteHint();
+    Promise.resolve(fetchSizerQuote(ticker)).then(function (data) {
+      if (seq !== quoteSeq) return;
+      applySizerQuote(ticker, data);
+    }).catch(function () {
+      if (seq !== quoteSeq) return;
+      applySizerQuote(ticker, null);
+    });
   }
 
   function planStatusOf(t) {
@@ -815,7 +933,7 @@
           '<div class="pt-sample-cap" id="pt-sample-cap" hidden></div>' +
           '<div class="pt-sizer">' +
             '<div class="pt-form">' +
-              '<label class="pt-field"><span>TICKER</span><input id="pt-ticker" autocomplete="off" spellcheck="false" value="' + esc(form.ticker) + '"></label>' +
+              '<label class="pt-field"><span>TICKER</span><input id="pt-ticker" autocomplete="off" spellcheck="false" value="' + esc(form.ticker) + '"><p class="pt-quote' + (quoteState.status ? " " + quoteState.status : "") + '" id="pt-quote"' + (quoteState.text ? "" : " hidden") + ">" + esc(quoteState.text || "") + "</p></label>" +
               '<div class="pt-field"><span>DIRECTION</span>' +
                 '<div class="pt-dir">' +
                   '<button type="button" class="pt-dir-btn' + (longOn ? " on" : "") + '" data-pt-dir="long">↑ LONG</button>' +
@@ -1029,6 +1147,8 @@
     form.stop = "";
     form.target = "";
     form.notes = "";
+    entryQuotedFor = "";
+    quoteState = { status: "", text: "", price: 0 };
   }
 
   function bind(el) {
@@ -1036,6 +1156,13 @@
     el.dataset.ptBound = "1";
     el.addEventListener("input", (e) => {
       if (!e.target.closest(".pt-root")) return;
+      if (e.target.id === "pt-ticker") scheduleQuote(e.target.value);
+      if (e.target.id === "pt-entry") {
+        readFormFromDom();
+        if (quoteState.price && String(form.entry || "").trim() !== fmtQuotePx(quoteState.price)) {
+          entryQuotedFor = "";
+        }
+      }
       refreshLive();
     });
     el.addEventListener("change", (e) => {
@@ -1090,6 +1217,7 @@
     el.innerHTML = deskHTML(rails);
     refreshLive();
     bind(el);
+    paintQuoteHint();
   }
 
   function hashName(loc) {
@@ -1179,6 +1307,7 @@
     railsDraft = readRails();
     view = "desk";
     render();
+    scheduleQuote(form.ticker);
     syncHash("desk");
     if (SampleQuota.atCap(deskTrades())) SampleQuota.openWall();
   }
@@ -1205,6 +1334,7 @@
   const api = {
     DEFAULT_RAILS,
     SAMPLE_LOG_CAP,
+    TICKER_DEBOUNCE_MS,
     SampleQuota,
     sampleQuota,
     samplePretradeLogCount,
@@ -1239,6 +1369,11 @@
     wantsDesk: wantsGold,
     disciplineMix,
     isSampleDesk,
+    looksLikeTicker,
+    shouldAutofillEntry,
+    quoteAutofill,
+    fmtQuotePx,
+    scheduleQuote,
   };
 
   global.RunnrPretrade = api;
