@@ -22,8 +22,8 @@ const v = html.match(/var V = "(\d+)"/)[1];
 const cache = sw.match(/CACHE = "runnr-v(\d+)"/)[1];
 check("index.html V matches sw.js CACHE", v === cache);
 check("cache is 147+", Number(v) >= 147);
-check("pretrade.js is loaded", html.includes("js/pretrade.js?v=14"));
-check("pretrade.css is loaded", html.includes("css/pretrade.css?v=7"));
+check("pretrade.js is loaded", html.includes("js/pretrade.js?v=15"));
+check("pretrade.css is loaded", html.includes("css/pretrade.css?v=8"));
 check("gold mounts in pretrade-root, not desk-root hijack", html.includes('id="pretrade-root"') && src.includes('getElementById("pretrade-root")'));
 check("legacy CFD sizer stays in the page, hidden", html.includes("CFD / Forex Position Sizer") && html.includes('id="legacy-sizer"') && css.includes("#legacy-sizer{display:none"));
 check("desk still opens via RunnrDesk.open", html.includes('data-nav="desk" onclick="RunnrDesk.open()"'));
@@ -45,7 +45,7 @@ check("shared SAMPLE quota helper locks log and sizer", src.includes("SampleQuot
 check("unified journal filters exist", html.includes('data-journal-filter="all"') && html.includes('data-journal-filter="approved"') && html.includes('data-journal-filter="blocked"'));
 check("outcome buttons exist", src.includes('btn("win", "WIN")') && src.includes('btn("loss", "LOSS")') && src.includes('btn("be", "BE")') && src.includes('data-pt-out="reset"'));
 check("process chips exist on pending plan", src.includes('btn("followed", "Followed")') && src.includes('btn("leaked", "Leaked")') && src.includes('btn("skipped", "Skipped")') && src.includes("data-pt-process"));
-check("cooldown module is loaded", html.includes("js/cooldown.js?v=1"));
+check("cooldown module is loaded", html.includes("js/cooldown.js?v=2"));
 check("SAMPLE visitors can open the header terminal", css.includes("html.runnr-demo #header .header-desk-btn"));
 check("log job opens the gold sizer, not Terminal", /job\.id === 'log'[\s\S]{0,280}RunnrPretrade\.open/.test(src)
   && !/job\.id === 'log'[\s\S]{0,280}RunnrDesk\.open/.test(src));

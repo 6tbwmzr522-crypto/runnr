@@ -5,7 +5,7 @@
 <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
 <script>
 (function () {
-  var V = "152";
+  var V = "153";
   try {
     if (localStorage.getItem("runnr_app_v") !== V) {
       localStorage.setItem("runnr_app_v", V);
@@ -68,7 +68,7 @@
 <link rel="stylesheet" href="css/layout.css?v=1">
 <link rel="stylesheet" href="css/components.css?v=2">
 <link rel="stylesheet" href="css/pages.css?v=8">
-<link rel="stylesheet" href="css/pretrade.css?v=7">
+<link rel="stylesheet" href="css/pretrade.css?v=8">
 </head>
 <body>
 <div id="app">
@@ -1704,11 +1704,12 @@
 
 <div class="modal-overlay" id="modal-cooldown" onclick="closeModalOutside(event,'modal-cooldown')">
   <div class="modal cooldown-sheet" onclick="event.stopPropagation()">
-    <div class="modal-title">Sit on hands <button class="modal-close" onclick="closeModal('modal-cooldown')">✕</button></div>
-    <p class="cooldown-copy" id="cooldown-copy">Three logged losses in a row. Sit on hands for 15 minutes.</p>
-    <p class="cooldown-timer" id="cooldown-timer"></p>
-    <button type="button" class="btn" id="cooldown-wait">I'll wait</button>
-    <button type="button" class="btn btn-ghost" id="cooldown-override">Trade anyway — log broke cool-down</button>
+    <h2 class="cooldown-title">SIT ON HANDS</h2>
+    <p class="cooldown-copy" id="cooldown-copy">Two losses in a row. Cool-down 15 min so revenge size doesn't sneak in.</p>
+    <p class="cooldown-timer" id="cooldown-timer">15:00 left</p>
+    <button type="button" class="cooldown-stay" id="cooldown-wait">Stay flat</button>
+    <button type="button" class="cooldown-override" id="cooldown-override">Override anyway (logs as broke cool-down)</button>
+    <p class="cooldown-foot">SAMPLE warns softly · signed-in books can lock sizing</p>
   </div>
 </div>
 
@@ -1883,8 +1884,8 @@
 <script src="js/sync.js?v=71"></script>
 <script src="js/desk-sessions.js?v=2"></script>
 <script src="js/desk.js?v=14"></script>
-<script src="js/cooldown.js?v=1"></script>
-<script src="js/pretrade.js?v=14"></script>
+<script src="js/cooldown.js?v=2"></script>
+<script src="js/pretrade.js?v=15"></script>
 <script src="js/wave.js?v=1"></script>
 <script src="js/shelf.js?v=4"></script>
 <script src="js/visit.js?v=1"></script>

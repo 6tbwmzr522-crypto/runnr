@@ -6,9 +6,11 @@
 (function (global) {
   "use strict";
 
-  const LOSS_STREAK = 3;
+  const LOSS_STREAK = 2;
   const COOLDOWN_MS = 15 * 60 * 1000;
   const MODAL_ID = "modal-cooldown";
+  const COPY = "Two losses in a row. Cool-down 15 min so revenge size doesn't sneak in.";
+  let tickTimer = null;
 
   function S() {
     return global.S || (global.window && global.window.S) || {};
@@ -176,20 +178,38 @@
     return inspect(st.trades, t, st);
   }
 
-  function copyFor(view) {
-    const mins = view && view.minutes ? view.minutes : 15;
-    if (view && view.mode === "soft") {
-      return "Three logged losses in a row. SAMPLE warning — sit on hands for " +
-        mins + " minutes. You can still size.";
-    }
-    return "Three logged losses in a row. Sit on hands for " + mins +
-      " minutes. Override still logs “broke cool-down”.";
+  function formatLeft(ms) {
+    const total = Math.max(0, Math.ceil((Number(ms) || 0) / 1000));
+    const m = Math.floor(total / 60);
+    const s = total % 60;
+    return String(m).padStart(2, "0") + ":" + String(s).padStart(2, "0") + " left";
+  }
+
+  function copyFor() {
+    return COPY;
   }
 
   function timerLabel(view) {
-    if (!view || !view.active) return "";
-    if (view.minutes <= 1) return "About a minute left";
-    return view.minutes + " minutes left";
+    if (!view) return formatLeft(COOLDOWN_MS);
+    if (!view.active && !(view.remainingMs > 0)) return formatLeft(0);
+    return formatLeft(view.remainingMs);
+  }
+
+  function stopTick() {
+    if (tickTimer && typeof global.clearInterval === "function") {
+      global.clearInterval(tickTimer);
+    }
+    tickTimer = null;
+  }
+
+  function startTick() {
+    stopTick();
+    if (typeof global.setInterval !== "function") return;
+    tickTimer = global.setInterval(function () {
+      const view = inspect();
+      paintSheet(view);
+      if (!view.active) stopTick();
+    }, 1000);
   }
 
   function paintSheet(view) {
@@ -203,15 +223,13 @@
     if (copy) copy.textContent = copyFor(view);
     if (timer) {
       timer.textContent = timerLabel(view);
-      timer.hidden = !view || !view.active;
+      timer.hidden = false;
     }
     if (overrideBtn) {
       overrideBtn.hidden = false;
-      overrideBtn.textContent = view && view.mode === "soft"
-        ? "Keep sizing — warning only"
-        : "Trade anyway — log broke cool-down";
+      overrideBtn.textContent = "Override anyway (logs as broke cool-down)";
     }
-    if (waitBtn) waitBtn.textContent = "I'll wait";
+    if (waitBtn) waitBtn.textContent = "Stay flat";
     if (modal) modal.classList.toggle("cooldown-soft", !!(view && view.mode === "soft"));
     return true;
   }
@@ -230,6 +248,7 @@
   }
 
   function closeSheet() {
+    stopTick();
     if (typeof global.closeModal === "function") {
       global.closeModal(MODAL_ID);
       return true;
@@ -242,7 +261,9 @@
   function showSheet(trades, now, state) {
     const view = inspect(trades, now, state);
     paintSheet(view);
-    return openModal();
+    const opened = openModal();
+    if (view && view.active) startTick();
+    return opened;
   }
 
   function afterOutcome(trades, now, state) {
@@ -273,7 +294,7 @@
         override(Date.now());
         closeSheet();
         if (typeof global.showToast === "function") {
-          showToast("Cool-down", mode() === "soft" ? "SAMPLE warning noted" : "Broke cool-down — logged");
+          showToast("Cool-down", mode() === "soft" ? "SAMPLE warning — still able to size" : "Broke cool-down — logged");
         }
       }
     });
@@ -292,6 +313,7 @@
     override,
     copyFor,
     timerLabel,
+    formatLeft,
     paintSheet,
     showSheet,
     afterOutcome,

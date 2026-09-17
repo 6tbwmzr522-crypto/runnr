@@ -567,13 +567,13 @@
         '" data-pt-process="' + val + '" data-id="' + id + '">' + label + "</button>";
     };
     return '<div class="pt-process">' +
-      '<div class="pt-process-lbl">HOW DID YOU RUN IT?</div>' +
+      '<div class="pt-process-lbl">HOW DID IT GO?</div>' +
       '<div class="pt-process-row">' +
         btn("followed", "Followed") +
         btn("leaked", "Leaked") +
         btn("skipped", "Skipped") +
       "</div>" +
-      '<div class="pt-process-hint">One tap journals it. Notes stay optional.</div>' +
+      '<div class="pt-process-hint">One tap. Notes optional.</div>' +
     "</div>";
   }
 
@@ -859,7 +859,7 @@
         c.reasons.map((r) => '<div class="pt-blocked-reason">⚠ ' + esc(r) + "</div>").join("") +
         "</div>";
     } else if (c.ready) {
-      banner = '<div class="pt-cleared">PENDING · APPROVED — tap Followed / Leaked / Skipped</div>';
+      banner = '<div class="pt-cleared">PENDING · APPROVED — log to journal</div>';
     }
     const attach = matchingProcessRow(c, deskTrades());
     const selected = processOf(attach) || (tickerKey(c.ticker) && tickerKey(lastProcess.ticker) === tickerKey(c.ticker) ? lastProcess.flag : "");
