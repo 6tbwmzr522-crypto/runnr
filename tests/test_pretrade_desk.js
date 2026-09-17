@@ -22,7 +22,7 @@ const v = html.match(/var V = "(\d+)"/)[1];
 const cache = sw.match(/CACHE = "runnr-v(\d+)"/)[1];
 check("index.html V matches sw.js CACHE", v === cache);
 check("cache is 147+", Number(v) >= 147);
-check("pretrade.js is loaded", html.includes("js/pretrade.js?v=11"));
+check("pretrade.js is loaded", html.includes("js/pretrade.js?v=12"));
 check("pretrade.css is loaded", html.includes("css/pretrade.css?v=6"));
 check("gold mounts in pretrade-root, not desk-root hijack", html.includes('id="pretrade-root"') && src.includes('getElementById("pretrade-root")'));
 check("legacy CFD sizer stays in the page, hidden", html.includes("CFD / Forex Position Sizer") && html.includes('id="legacy-sizer"') && css.includes("#legacy-sizer{display:none"));
@@ -38,6 +38,7 @@ check("gold sizer reuses public Yahoo/Finnhub quotes", pretradeSrc.includes("fet
 check("gold sizer does not invent estimated fills", pretradeSrc.includes("estimated") && pretradeSrc.includes("Quote unavailable"));
 check("ticker input is debounced before quote fetch", pretradeSrc.includes("TICKER_DEBOUNCE_MS = 450") && pretradeSrc.includes("scheduleQuote"));
 check("first SAMPLE gold log notifies keep-score aha", src.includes("onSampleScored"));
+check("first SAMPLE gold score notifies keep-score aha", src.includes("onGoldScored") && src.includes("maybeSealGoldScore"));
 check("shared SAMPLE quota helper locks log and sizer", src.includes("SampleQuota.atCap") && src.includes("SampleQuota.openWall") && src.includes("SampleQuota.count") && src.includes("pt-sample-locked"));
 check("unified journal filters exist", html.includes('data-journal-filter="all"') && html.includes('data-journal-filter="approved"') && html.includes('data-journal-filter="blocked"'));
 check("outcome buttons exist", src.includes('btn("win", "WIN")') && src.includes('btn("loss", "LOSS")') && src.includes('btn("be", "BE")') && src.includes('data-pt-out="reset"'));
@@ -260,11 +261,15 @@ check("compute/sizer is locked after 3 SAMPLE logs", lockedSize.sampleLocked ===
 check("locked output is the keep-score wall, not a calculator", CPT.outputHTML(lockedSize, capRails).includes("keep sizing") && CPT.outputHTML(lockedSize, capRails).includes("/login.html?keep=1") && !CPT.outputHTML(lockedSize, capRails).includes("Position Size"));
 check("unified journal still lists the 3 SAMPLE plans", CPT.filterJournalBook(capCtx.window.S.trades, "all").length === 3);
 let walls = 0;
+let seals = 0;
 capCtx.RunnrDemoSandbox = {
   showKeepScore: function (opts) { walls += 1; capCtx.keepOpts = opts; return true; },
+  markSeal: function () { seals += 1; },
+  onGoldScored: function () { return false; },
 };
 CPT.SampleQuota.openWall();
 check("quota openWall opens keep-score", walls === 1 && capCtx.keepOpts && capCtx.keepOpts.reason === "sample-log-cap");
+check("quota openWall seals as a backstop", seals === 1);
 walls = 0;
 CPT.enter();
 check("next sizer visit opens the wall after 3 SAMPLE logs", walls === 1);
@@ -304,5 +309,21 @@ check("quote never writes stop or target", withStop.fillEntry === true && withSt
 
 const stillLogs = PT.logPlan({ ticker: "MSFT", dir: "long", entry: 400, stop: 390, target: 430 }, rails, ctx.window.S.trades, now);
 check("logging is not blocked when quotes fail", stillLogs.ok === true);
+
+const goldSeal = load();
+let goldScoreHits = 0;
+goldSeal.RunnrDemoSandbox = {
+  onGoldScored: function (c, opts) {
+    goldScoreHits += 1;
+    goldSeal.goldOpts = opts;
+    goldSeal.goldPlan = c;
+    return true;
+  },
+};
+const readyGold = goldSeal.RunnrPretrade.computePlan({
+  ticker: "AAPL", dir: "long", entry: 200, stop: 190, target: 230,
+}, rails, [], now);
+check("maybeSealGoldScore forwards the first ready gold score", goldSeal.RunnrPretrade.maybeSealGoldScore(readyGold) === true && goldScoreHits === 1 && goldSeal.goldOpts.reason === "score" && goldSeal.goldOpts.delayMs === 900 && goldSeal.goldPlan.ready === true);
+check("maybeSealGoldScore no-ops without a score hook", PT.maybeSealGoldScore(readyGold) === false);
 
 console.log("test_pretrade_desk: ok " + n);

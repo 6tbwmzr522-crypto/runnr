@@ -1046,6 +1046,14 @@
     renderProgress(c, rails);
     renderRecent();
     renderSampleCap();
+    maybeSealGoldScore(c);
+  }
+
+  function maybeSealGoldScore(c) {
+    if (!isSampleDesk()) return false;
+    const SB = global.RunnrDemoSandbox;
+    if (!SB || typeof SB.onGoldScored !== "function") return false;
+    try { return !!SB.onGoldScored(c, { reason: "score", delayMs: 900 }); } catch (e) { return false; }
   }
 
   function setView(next) {
@@ -1064,6 +1072,9 @@
       showToast("SAMPLE", "3 SAMPLE plans used — save with email to keep sizing & logging");
     }
     const SB = global.RunnrDemoSandbox;
+    if (SB && typeof SB.markSeal === "function") {
+      try { SB.markSeal(); } catch (e) {}
+    }
     if (SB && typeof SB.showKeepScore === "function") {
       try { SB.showKeepScore({ reason: "sample-log-cap" }); } catch (e) {}
     }
@@ -1342,6 +1353,7 @@
     isSamplePretradeLog,
     normalizeRails,
     computePlan,
+    maybeSealGoldScore,
     planStatusOf,
     isPretradeRow,
     isDuplicatePlan,
