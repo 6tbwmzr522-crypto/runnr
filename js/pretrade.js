@@ -758,7 +758,8 @@
       '<div class="pt-kv"><span>Position Size</span><strong class="mint">' + (c.size || 0) + " sh</strong></div>" +
       '<div class="pt-kv"><span>Risk / Share</span><strong>' + money(c.riskPerShare, rails.sym) + "</strong></div>" +
       '<div class="pt-kv"><span>Total Risk</span><strong class="neg">' + money(c.totalRisk, rails.sym) + "</strong></div>" +
-      '<div class="pt-kv"><span>Reward</span><strong class="mint">' + money(c.rewardPerShare, rails.sym) + "</strong></div>" +
+      '<div class="pt-kv"><span>Reward / Share</span><strong class="mint">' + money(c.rewardPerShare, rails.sym) + "</strong></div>" +
+      '<div class="pt-kv"><span>Total Reward</span><strong class="mint">' + money(c.totalReward, rails.sym) + "</strong></div>" +
       '<div class="pt-kv"><span>R:R Ratio</span><strong class="' + rrCls + '">' + (c.rr ? c.rr.toFixed(2) + " : 1" : "—") + "</strong></div>" +
       banner
     );
