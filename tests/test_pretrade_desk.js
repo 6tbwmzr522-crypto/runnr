@@ -22,7 +22,7 @@ const v = html.match(/var V = "(\d+)"/)[1];
 const cache = sw.match(/CACHE = "runnr-v(\d+)"/)[1];
 check("index.html V matches sw.js CACHE", v === cache);
 check("cache is 147+", Number(v) >= 147);
-check("pretrade.js is loaded", html.includes("js/pretrade.js?v=12"));
+check("pretrade.js is loaded", html.includes("js/pretrade.js?v=13"));
 check("pretrade.css is loaded", html.includes("css/pretrade.css?v=6"));
 check("gold mounts in pretrade-root, not desk-root hijack", html.includes('id="pretrade-root"') && src.includes('getElementById("pretrade-root")'));
 check("legacy CFD sizer stays in the page, hidden", html.includes("CFD / Forex Position Sizer") && html.includes('id="legacy-sizer"') && css.includes("#legacy-sizer{display:none"));
@@ -32,6 +32,8 @@ check("two-column sizer is form + computed output", css.includes(".pt-sizer") &&
 check("guardrails sit beside the sizer", css.includes(".pt-split") && css.includes("minmax(280px,0.9fr)"));
 check("blocked banner keeps numbers visible", src.includes("pt-blocked") && src.includes("✕ BLOCKED"));
 check("computed output is labeled a pending plan", src.includes("PENDING PLAN") && src.includes("not a logged fill"));
+check("pending plan labels reward per share, not a bare Reward", src.includes("Reward / Share") && src.includes("c.rewardPerShare") && !src.includes("<span>Reward</span>"));
+check("pending plan shows total reward beside total risk", src.includes("Total Reward") && src.includes("c.totalReward"));
 check("onLog resets sizer fields then re-renders", /function onLog[\s\S]*resetSizerFields\(\)[\s\S]*render\(\)/.test(src));
 check("SAMPLE gold logs cap at 3 then keep-score", src.includes("SAMPLE_LOG_CAP = 3") && src.includes("sample-log-cap") && src.includes("3 SAMPLE plans used"));
 check("gold sizer reuses public Yahoo/Finnhub quotes", pretradeSrc.includes("fetchYahooChart") && pretradeSrc.includes("livePriceFromChart") && !/polygon|alphavantage|twelvedata/i.test(pretradeSrc));
@@ -103,6 +105,11 @@ const aapl = PT.computePlan({
 }, rails, [], now);
 check("2% of 50k sizes 100 shares at $10 risk", aapl.size === 100 && aapl.totalRisk === 1000);
 check("AAPL 3R plan is approved", aapl.ready === true && aapl.blocked === false && Math.abs(aapl.rr - 3) < 1e-9);
+check("AAPL totalReward is size times reward per share", aapl.totalReward === 3000 && aapl.rewardPerShare === 30);
+const aaplHtml = PT.outputHTML(aapl, rails);
+check("approved plan labels Reward / Share", aaplHtml.includes("Reward / Share") && aaplHtml.includes("Risk / Share"));
+check("approved plan shows Total Reward", aaplHtml.includes("Total Reward") && aaplHtml.includes("Total Risk"));
+check("approved plan has no bare Reward label", !/<span>Reward<\/span>/.test(aaplHtml));
 
 const nvidia = PT.computePlan({
   ticker: "NVDA", dir: "long", entry: 220, stop: 210, target: 231,
@@ -207,6 +214,7 @@ check("within is false when this plan would breach", ghostProg.within === false 
 
 const ghostHtml = J.outputHTML(ghost, jRails);
 check("pending output is labeled PENDING PLAN", ghostHtml.includes("PENDING PLAN") && ghostHtml.includes("not a logged fill"));
+check("ghost plan still labels reward per share", ghostHtml.includes("Reward / Share") && ghostHtml.includes("Total Reward") && !/<span>Reward<\/span>/.test(ghostHtml));
 check("duplicate copy leads instead of ✕ BLOCKED", ghostHtml.includes("ALREADY LOGGED TODAY") && !ghostHtml.includes("✕ BLOCKED"));
 check("duplicate copy does not contradict the logged fill", ghostHtml.includes("already in Recent Trades") && ghostHtml.includes("pending plan"));
 
