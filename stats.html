@@ -128,14 +128,50 @@
   <p><code id="tiktok-bio-url">https://runnr.fyi/?demo=1</code></p>
   <p class="lead">Aliases: <code>https://runnr.fyi/sample</code> · <code>https://runnr.fyi/#sample</code>. First screen: “Discipline, not P&amp;L” · Alex Runner SAMPLE chrome · Score this trade (AAPL CFD Apr 10). Signup only after that aha.</p>
 
+  <h2>Guest SAMPLE funnel</h2>
+  <p class="lead" id="guest-funnel-note">SAMPLE beacons from logged-out visitors (visit → aha → score → email wall → CTA). Visit uniques ≠ accounts.</p>
+  <p class="status" id="guest-funnel-status">Loading guest funnel…</p>
+  <div class="kpis">
+    <div class="kpi">
+      <div class="label">demo_view</div>
+      <div class="num" id="guest-demo-view">—</div>
+      <p class="hint" id="guest-demo-view-total">Today · SAMPLE land</p>
+    </div>
+    <div class="kpi">
+      <div class="label">demo_aha</div>
+      <div class="num" id="guest-demo-aha">—</div>
+      <p class="hint" id="guest-demo-aha-total">Today · proof viewed</p>
+    </div>
+    <div class="kpi">
+      <div class="label">demo_score_trade</div>
+      <div class="num" id="guest-demo-score">—</div>
+      <p class="hint" id="guest-demo-score-total">Today · scored a SAMPLE trade</p>
+    </div>
+    <div class="kpi">
+      <div class="label">email_wall shown / locked</div>
+      <div class="num" id="guest-email-wall">—</div>
+      <p class="hint" id="guest-email-wall-total">Today · keep-score modal</p>
+    </div>
+    <div class="kpi">
+      <div class="label">demo_cta_start</div>
+      <div class="num" id="guest-demo-cta">—</div>
+      <p class="hint" id="guest-demo-cta-total">Today · clicked start free</p>
+    </div>
+    <div class="kpi">
+      <div class="label">users_created_today</div>
+      <div class="num" id="guest-users-created">—</div>
+      <p class="hint">New accounts today (UTC)</p>
+    </div>
+  </div>
+
   <h2>Signed-in funnel</h2>
   <p class="lead" id="funnel-note">How many accounts have a synced journal vs visit uniques. Guests who never sign in cannot be counted.</p>
   <p class="status" id="funnel-status">Loading funnel…</p>
   <div class="kpis">
     <div class="kpi">
-      <div class="label">Users</div>
+      <div class="label">Signed-in accounts (not visits)</div>
       <div class="num" id="funnel-users">—</div>
-      <p class="hint">Rows in users</p>
+      <p class="hint">Rows in users — not visit uniques</p>
     </div>
     <div class="kpi">
       <div class="label">With synced state</div>
@@ -293,7 +329,31 @@
         if (funnel.note) {
           var noteEl = document.getElementById("funnel-note");
           if (noteEl) noteEl.textContent = funnel.note;
+          var guestNote = document.getElementById("guest-funnel-note");
+          if (guestNote) guestNote.textContent = funnel.note;
         }
+        var todayEv = funnel.guest_events_today || {};
+        var totalEv = funnel.guest_events_totals || {};
+        function guestHint(id, key, label) {
+          var el = document.getElementById(id);
+          if (el) el.textContent = "Today · total " + fmt(totalEv[key] || 0) + (label ? " · " + label : "");
+        }
+        setText("guest-demo-view", fmt(todayEv.demo_view));
+        setText("guest-demo-aha", fmt(todayEv.demo_aha));
+        setText("guest-demo-score", fmt(todayEv.demo_score_trade));
+        setText("guest-email-wall", fmt(todayEv.email_wall_shown) + " / " + fmt(todayEv.email_wall_locked));
+        setText("guest-demo-cta", fmt(todayEv.demo_cta_start));
+        setText("guest-users-created", fmt(funnel.users_created_today));
+        guestHint("guest-demo-view-total", "demo_view", "SAMPLE land");
+        guestHint("guest-demo-aha-total", "demo_aha", "proof viewed");
+        guestHint("guest-demo-score-total", "demo_score_trade", "scored");
+        var wallEl = document.getElementById("guest-email-wall-total");
+        if (wallEl) {
+          wallEl.textContent = "Today · totals " + fmt(totalEv.email_wall_shown || 0) + " shown / " + fmt(totalEv.email_wall_locked || 0) + " locked";
+        }
+        guestHint("guest-demo-cta-total", "demo_cta_start", "start free");
+        var guestStatus = document.getElementById("guest-funnel-status");
+        if (guestStatus) guestStatus.textContent = "Guest SAMPLE funnel · UTC today";
         setText("funnel-users", fmt(funnel.users_total));
         setText("funnel-state", fmt(funnel.users_with_state));
         setText("funnel-ge1", fmt(funnel.users_with_trades_ge_1));
