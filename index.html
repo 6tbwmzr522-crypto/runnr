@@ -5,7 +5,7 @@
 <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
 <script>
 (function () {
-  var V = "150";
+  var V = "151";
   try {
     if (localStorage.getItem("runnr_app_v") !== V) {
       localStorage.setItem("runnr_app_v", V);
@@ -67,7 +67,7 @@
 <link rel="stylesheet" href="css/tokens.css?v=1">
 <link rel="stylesheet" href="css/layout.css?v=1">
 <link rel="stylesheet" href="css/components.css?v=2">
-<link rel="stylesheet" href="css/pages.css?v=7">
+<link rel="stylesheet" href="css/pages.css?v=8">
 <link rel="stylesheet" href="css/pretrade.css?v=6">
 </head>
 <body>
@@ -148,19 +148,12 @@
               <div><span>Size leak</span><strong class="runnr-proof-dn" data-proof="leak">—</strong></div>
             </div>
             <p class="runnr-proof-note">Illustrative demo book — not a customer testimonial, not live AUM.</p>
-            <div class="runnr-proof-actions">
-              <a class="btn runnr-proof-cta-start" href="/login.html">Start free · 7-day trial</a>
-              <a class="btn btn-ghost runnr-proof-cta-desk" href="/?demo=1">Open SAMPLE desk</a>
-            </div>
-            <p class="runnr-proof-brand">runnr.fyi</p>
           </article>
         </div>
-        <p class="ob-hook-price">Start free · 7-day trial · then €19/month or €190/year</p>
         <div class="ob-hook-actions">
-          <a class="btn" id="home-start-free" href="/login.html">Start free</a>
-          <a class="btn btn-ghost" id="home-view-sample" href="/?demo=1">View sample</a>
-          <a class="ob-hook-secondary" href="/report/">Score one trade</a>
+          <a class="btn home-score-one runnr-proof-cta-desk" id="home-score-one" href="/?demo=1">Score one trade</a>
         </div>
+        <p class="ob-hook-price">Start free · 7-day trial · then €19/month or €190/year</p>
       </div>
 
       <div class="home-job-hero" id="home-job-hero" hidden>
@@ -1461,11 +1454,6 @@
           <div><span>Size leak</span><strong class="runnr-proof-dn" data-proof="leak">—</strong></div>
         </div>
         <p class="runnr-proof-note">Illustrative demo book — not a customer testimonial, not live AUM.</p>
-        <div class="runnr-proof-actions">
-          <a class="btn runnr-proof-cta-start" href="/login.html">Start free · 7-day trial</a>
-          <a class="btn btn-ghost runnr-proof-cta-desk" href="/?demo=1">Open SAMPLE desk</a>
-        </div>
-        <p class="runnr-proof-brand">runnr.fyi</p>
       </article>
       <dl class="ob-hook-pills">
         <div class="ob-hook-pill"><dt>Sizer</dt><dd>Account, risk %, and a stop</dd></div>
@@ -1880,7 +1868,7 @@
 <script src="js/csv-presets.js?v=4"></script>
 <script src="js/trade-limit.js?v=4"></script>
 <script src="js/desk-quiet.js?v=3"></script>
-<script src="js/demo-sandbox.js?v=12"></script>
+<script src="js/demo-sandbox.js?v=13"></script>
 <script src="js/sync.js?v=71"></script>
 <script src="js/desk-sessions.js?v=2"></script>
 <script src="js/desk.js?v=14"></script>

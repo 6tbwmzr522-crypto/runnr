@@ -34,7 +34,7 @@ check("home job secondary links are quiet text", html.includes('class="home-job-
   && html.includes("switchPage('coach')"));
 check("guest landing hides the job hero", css.includes("html.runnr-guest:not(.runnr-demo) #home-job-hero") || css.includes("html.runnr-guest #home-job-hero"));
 check("logged-out hook video still present", html.includes('id="intro-overlay"') && html.includes("/media/runnr-how-it-works.mp4"));
-check("logged-out landing card kept", html.includes('id="home-landing"') && html.includes('id="home-start-free"'));
+check("logged-out landing card kept", html.includes('id="home-landing"') && html.includes('id="home-score-one"'));
 
 check("Replay journal button uses primary class", src.includes('class="te-replay te-replay-primary"'));
 check("Replay primary CSS is a full-width mint button", css.includes(".te-replay.te-replay-primary")

@@ -26,7 +26,7 @@ check("hook Terminal pill is look-without-paying", html.includes("Session clocks
 check("not-a-broker kicker", html.includes("You do not trade here"));
 check("primary CTA", html.includes('id="ob-hook-start"') && html.includes("Start free"));
 check("sample is secondary", html.includes('id="ob-hook-enter">View sample'));
-check("Alex Runner SAMPLE proof on first paint", html.includes("Alex Runner") && html.includes("Open SAMPLE desk") && html.includes("not a customer testimonial"));
+check("Alex Runner SAMPLE proof on first paint", html.includes("Alex Runner") && html.includes("not a customer testimonial") && html.includes("Score one trade"));
 check("report secondary", html.includes('href="/report/"') && html.includes("Score one trade"));
 check("pricing copy", html.includes("Start free · 7-day trial · then €19/month or €190/year"));
 check("sample disclaimer", html.includes("Sample journal is labeled SAMPLE. Those numbers are not yours."));

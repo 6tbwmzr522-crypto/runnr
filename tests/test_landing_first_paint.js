@@ -17,7 +17,7 @@ const v = html.match(/var V = "(\d+)"/)[1];
 const cache = sw.match(/CACHE = "runnr-v(\d+)"/)[1];
 check("index.html V matches sw.js CACHE", v === cache);
 check("onboarding cache-bust", html.includes("js/onboarding.js?v=37"));
-check("demo sandbox is loaded", html.includes("js/demo-sandbox.js?v=11"));
+check("demo sandbox is loaded", html.includes("js/demo-sandbox.js?v=13"));
 check("demo chrome is persistent on the guest desk", html.includes('id="demo-chrome"') && html.includes('id="demo-chrome-cta"') && html.includes("SAMPLE · not your book"));
 check("demo=1 skips the first-paint hook", html.includes("demo=1") && /runnr_hook_v1[\s\S]*demo=1|demo=1[\s\S]*runnr_hook_v1/.test(html));
 
@@ -27,7 +27,7 @@ const hook = html.slice(hookStart, hookEnd);
 check("hook headline is its own h2", /<h2>Trading discipline, not a broker<\/h2>/.test(hook));
 const hero = hook.slice(hook.indexOf('class="ob-hero"'), hook.indexOf('data-runnr-proof'));
 check("80% is not in the hook hero", !/80%/.test(hero));
-check("hook shows Alex Runner SAMPLE proof", hook.includes("Alex Runner") && hook.includes("SAMPLE") && hook.includes("Open SAMPLE desk") && hook.includes('href="/?demo=1"'));
+check("hook shows Alex Runner SAMPLE proof", hook.includes("Alex Runner") && hook.includes("SAMPLE") && hook.includes("not a customer testimonial"));
 check("hook has one Start free CTA", (hook.match(/Start free/g) || []).length >= 1);
 check("hook Start free goes to login", hook.includes('id="ob-hook-start"') && hook.includes('href="/login.html"'));
 check("hook does not duplicate Sign in blocks", !/card-title[^>]*>Sign in/.test(hook) && (hook.match(/>Sign in</g) || []).length === 0);
@@ -41,7 +41,7 @@ check("hook hides the desk", css.includes("html.runnr-show-hook #app{visibility:
 check("overlay is full viewport", css.includes("#onboarding-overlay{position:fixed;inset:0;width:100%") && css.includes("max-width:none"));
 check("guest header drops smashed Terminal+balance", css.includes("html.runnr-guest #header .header-desk-btn") && css.includes("html.runnr-guest .header-bal-settings"));
 
-check("home landing card has pricing + Start free", html.includes('id="home-landing"') && html.includes('id="home-start-free"') && html.includes("Start free · 7-day trial · then €19/month or €190/year"));
+check("home landing card has pricing + Score one trade", html.includes('id="home-landing"') && html.includes('id="home-score-one"') && html.includes("Start free · 7-day trial · then €19/month or €190/year"));
 check("signed-in desktop hides the guest landing card", css.includes("#page-home .home-frame > .home-landing-card{display:none}")
   && css.includes("html.runnr-guest #page-home .home-frame > .home-landing-card{display:flex}"));
 check("SAMPLE desk hides the guest landing card", css.includes("html.runnr-demo .home-landing-card")
