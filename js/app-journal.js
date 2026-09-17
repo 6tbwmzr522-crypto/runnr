@@ -50,7 +50,27 @@ function bindJournalClicks() {
       }
       return;
     }
-    if (e.target.closest('.te-del') || e.target.closest('.te-sym') || e.target.closest('.te-replay') || e.target.closest('.te-edit') || e.target.closest('.pt-out-row')) return;
+    const proc = e.target.closest('[data-pt-process]');
+    if (proc) {
+      e.preventDefault();
+      e.stopPropagation();
+      const PT = window.RunnrPretrade;
+      if (PT && typeof PT.applyProcessFlag === 'function') {
+        const id = proc.getAttribute('data-id');
+        const flag = proc.getAttribute('data-pt-process');
+        const t = (S.trades || []).find(x => String(x.id) === String(id));
+        if (t) {
+          PT.applyProcessFlag(t, flag);
+          persist();
+          renderJournal();
+          updateHomeStats();
+        } else if (typeof PT.journalProcess === 'function') {
+          PT.journalProcess(flag);
+        }
+      }
+      return;
+    }
+    if (e.target.closest('.te-del') || e.target.closest('.te-sym') || e.target.closest('.te-replay') || e.target.closest('.te-edit') || e.target.closest('.pt-out-row') || e.target.closest('.pt-process')) return;
     const row = e.target.closest('.trade-entry[data-trade-id]');
     if (!row || row.dataset.editable !== '1') return;
     openTradeEditor(row.dataset.tradeId);
@@ -95,7 +115,18 @@ window.journalRowsForFilter = journalRowsForFilter;
 function pretradeOutcomeHtml(t) {
   const PT = window.RunnrPretrade;
   if (!isPretradeJournalRow(t)) return '';
-  if (PT && typeof PT.outcomeButtonsHtml === 'function') return PT.outcomeButtonsHtml(t);
+  const process = PT && typeof PT.processButtonsHtml === 'function' && !PT.processOf(t)
+    ? PT.processButtonsHtml(t)
+    : '';
+  const outcomes = PT && typeof PT.outcomeButtonsHtml === 'function' ? PT.outcomeButtonsHtml(t) : '';
+  return process + outcomes;
+}
+
+function processFlagHtml(t) {
+  const flag = String((t && t.processFlag) || '').toLowerCase();
+  if (flag === 'followed') return '<span class="flag flag-ok">Followed</span>';
+  if (flag === 'leaked') return '<span class="flag flag-no">Leaked</span>';
+  if (flag === 'skipped') return '<span class="flag flag-miss">Skipped</span>';
   return '';
 }
 
@@ -235,7 +266,7 @@ function renderJournal() {
         </div>
       </div>
       <div class="te-meta">${metaLine}</div>
-      <div class="flags">${(t.isDemo || t.seed) ? '<span class="flag flag-ok demo-row-badge">SAMPLE</span>' : ''}${fillEvidenceBadgeHtml(t)}${stopFlag}${sizeFlag}${t.setup === 'fvg' ? '<span class="flag flag-ok">FVG</span>' : ''}${t.challengeFail ? '' : (t.incomplete?'<span class="flag flag-miss">Incomplete</span>':'')}</div>
+      <div class="flags">${(t.isDemo || t.seed) ? '<span class="flag flag-ok demo-row-badge">SAMPLE</span>' : ''}${fillEvidenceBadgeHtml(t)}${processFlagHtml(t)}${stopFlag}${sizeFlag}${t.setup === 'fvg' ? '<span class="flag flag-ok">FVG</span>' : ''}${t.challengeFail ? '' : (t.incomplete?'<span class="flag flag-miss">Incomplete</span>':'')}${t.brokeCooldown ? '<span class="flag flag-no">Broke cool-down</span>' : ''}</div>
       ${outcomeRow}
       ${typeof DisciplineReplay !== 'undefined' && DisciplineReplay.canReplay(t, S, typeof Baron !== 'undefined' ? Baron : null) ? `<button type="button" class="te-replay te-replay-primary" onclick="openDisciplineReplay('${t.id}', event)">Replay Disciplined</button>` : ''}
       ${t.challengeNote ? `<div class="te-note">${escapeTeText(t.challengeNote)}</div>` : ''}

@@ -478,6 +478,105 @@
     return String((t && t.outcome) || "").toLowerCase();
   }
 
+  let lastProcess = { id: null, flag: "", ticker: "" };
+
+  function tickerKey(raw) {
+    return String(raw || "").replace(/\s*CFD\s*$/i, "").trim().toUpperCase();
+  }
+
+  function processOf(t) {
+    const p = String((t && t.processFlag) || "").toLowerCase();
+    if (p === "followed" || p === "leaked" || p === "skipped") return p;
+    return "";
+  }
+
+  function applyProcessFlag(t, flag) {
+    if (!t) return t;
+    const want = String(flag || "").toLowerCase();
+    if (want !== "followed" && want !== "leaked" && want !== "skipped") return t;
+    t.processFlag = want;
+    t.incomplete = false;
+    if (want === "followed") {
+      t.stopOk = true;
+      t.sizeOk = planStatusOf(t) === "blocked" ? false : true;
+    } else if (want === "leaked") {
+      if (t.stopOk !== false) t.stopOk = true;
+      t.sizeOk = false;
+    }
+    lastProcess = { id: t.id, flag: want, ticker: tickerKey(t.instr) };
+    return t;
+  }
+
+  function matchingProcessRow(computed, trades) {
+    const ticker = tickerKey(computed && computed.ticker);
+    if (!ticker) return null;
+    const list = trades || [];
+    const openPlan = list.find((t) => (
+      t && isPretradeRow(t) && tickerKey(t.instr) === ticker && !processOf(t)
+    ));
+    if (openPlan) return openPlan;
+    return list.find((t) => (
+      t && (t.isDemo === true || t.seed === true) && t.incomplete && tickerKey(t.instr) === ticker
+    )) || null;
+  }
+
+  function notifyProcessLogged(row, attached) {
+    if (typeof global.persist === "function") global.persist();
+    if (typeof global.renderJournal === "function") global.renderJournal();
+    if (typeof global.updateHomeStats === "function") global.updateHomeStats();
+    if (typeof global.renderCoachPage === "function") global.renderCoachPage();
+    if (isSampleDesk() && global.RunnrDemoSandbox && typeof RunnrDemoSandbox.onSampleScored === "function") {
+      try { RunnrDemoSandbox.onSampleScored(row, { reason: attached ? "process" : "pretrade" }); } catch (e) {}
+    }
+  }
+
+  function journalProcess(flag, input, rails, trades, now) {
+    const want = String(flag || "").toLowerCase();
+    if (want !== "followed" && want !== "leaked" && want !== "skipped") {
+      return { ok: false, error: "bad-flag" };
+    }
+    const st = S();
+    if (!Array.isArray(st.trades)) st.trades = [];
+    const list = st.trades;
+    const r = normalizeRails(rails || railsDraft || readRails());
+    const computed = computePlan(input || form, r, list, now || new Date());
+    const attach = matchingProcessRow(computed, list);
+    if (attach) {
+      applyProcessFlag(attach, want);
+      notifyProcessLogged(attach, true);
+      return { ok: true, row: attach, attached: true, computed: computed };
+    }
+    if (!computed.ready && !(computed.size > 0 && computed.entry > 0 && computed.stop > 0)) {
+      return { ok: false, error: "Add ticker, entry & stop first", computed: computed };
+    }
+    const logged = logPlan(input || form, r, list, now || new Date());
+    if (!logged.ok) return logged;
+    applyProcessFlag(logged.row, want);
+    if (typeof global.persist === "function") global.persist();
+    if (typeof global.renderJournal === "function") global.renderJournal();
+    if (typeof global.updateHomeStats === "function") global.updateHomeStats();
+    return { ok: true, row: logged.row, attached: false, computed: logged.computed };
+  }
+
+  function processButtonsHtml(t, opts) {
+    const selected = processOf(t) || (opts && opts.selected) || lastProcess.flag || "";
+    const id = t && t.id != null ? esc(String(t.id)) : "pending";
+    const btn = (val, label) => {
+      const on = selected === val;
+      return '<button type="button" class="pt-process-btn ' + val + (on ? " on" : "") +
+        '" data-pt-process="' + val + '" data-id="' + id + '">' + label + "</button>";
+    };
+    return '<div class="pt-process">' +
+      '<div class="pt-process-lbl">HOW DID YOU RUN IT?</div>' +
+      '<div class="pt-process-row">' +
+        btn("followed", "Followed") +
+        btn("leaked", "Leaked") +
+        btn("skipped", "Skipped") +
+      "</div>" +
+      '<div class="pt-process-hint">One tap journals it. Notes stay optional.</div>' +
+    "</div>";
+  }
+
   function edgeFromTrades(trades) {
     const closed = (trades || []).filter((t) => {
       const o = outcomeOf(t);
@@ -606,6 +705,13 @@
     if (typeof global.DisciplineReplay !== "undefined" && DisciplineReplay.stampTrade) {
       DisciplineReplay.stampTrade(row, st, global.Baron || null);
     }
+    const CD = global.RunnrCooldown;
+    if (CD && typeof CD.shouldBlockLog === "function" && CD.shouldBlockLog(list, now instanceof Date ? now.getTime() : Date.now())) {
+      if (typeof CD.showSheet === "function") {
+        try { CD.showSheet(list, now instanceof Date ? now.getTime() : Date.now()); } catch (e) {}
+      }
+      return { ok: false, error: "cooldown", computed: computed };
+    }
     list.unshift(row);
     st.trades = list;
     if (typeof global.persist === "function") global.persist();
@@ -627,6 +733,9 @@
     if (typeof global.renderJournal === "function") global.renderJournal();
     if (typeof global.updateHomeStats === "function") global.updateHomeStats();
     if (typeof global.renderCoachPage === "function") global.renderCoachPage();
+    if (global.RunnrCooldown && typeof RunnrCooldown.afterOutcome === "function") {
+      try { RunnrCooldown.afterOutcome(st.trades, Date.now()); } catch (e) {}
+    }
     return true;
   }
 
@@ -750,8 +859,13 @@
         c.reasons.map((r) => '<div class="pt-blocked-reason">⚠ ' + esc(r) + "</div>").join("") +
         "</div>";
     } else if (c.ready) {
-      banner = '<div class="pt-cleared">PENDING · APPROVED — log to journal</div>';
+      banner = '<div class="pt-cleared">PENDING · APPROVED — tap Followed / Leaked / Skipped</div>';
     }
+    const attach = matchingProcessRow(c, deskTrades());
+    const selected = processOf(attach) || (tickerKey(c.ticker) && tickerKey(lastProcess.ticker) === tickerKey(c.ticker) ? lastProcess.flag : "");
+    const chips = (c.ready || c.blocked || c.duplicate)
+      ? processButtonsHtml(attach, { selected: selected })
+      : "";
     return (
       '<div class="pt-output-kicker">PENDING PLAN</div>' +
       '<div class="pt-output-note">Computed size for the form — not a logged fill.</div>' +
@@ -761,7 +875,8 @@
       '<div class="pt-kv"><span>Reward / Share</span><strong class="mint">' + money(c.rewardPerShare, rails.sym) + "</strong></div>" +
       '<div class="pt-kv"><span>Total Reward</span><strong class="mint">' + money(c.totalReward, rails.sym) + "</strong></div>" +
       '<div class="pt-kv"><span>R:R Ratio</span><strong class="' + rrCls + '">' + (c.rr ? c.rr.toFixed(2) + " : 1" : "—") + "</strong></div>" +
-      banner
+      banner +
+      chips
     );
   }
 
@@ -1134,6 +1249,7 @@
     const result = logPlan(form, rails, deskTrades(), new Date());
     if (!result.ok) {
       if (result.error === "journal-limit") return;
+      if (result.error === "cooldown") return;
       if (result.error === "sample-log-cap") {
         SampleQuota.openWall();
         renderSampleCap();
@@ -1146,11 +1262,65 @@
     }
     const msg = result.computed.blocked
       ? "Logged as BLOCKED — score takes the hit"
-      : "Logged ✓ — mark WIN / LOSS / BE in Journal";
+      : "Logged ✓ — tap Followed / Leaked / Skipped";
     if (typeof global.showToast === "function") showToast(result.row.instr, msg);
     resetSizerFields();
     render();
     if (result.sampleGate && result.sampleGate.atCap) SampleQuota.openWall();
+  }
+
+  function onProcessChip(btn) {
+    if (!btn) return false;
+    const flag = btn.getAttribute("data-pt-process");
+    const id = btn.getAttribute("data-id");
+    if (id && id !== "pending") {
+      const st = S();
+      const t = (st.trades || []).find((x) => String(x.id) === String(id));
+      if (t) {
+        applyProcessFlag(t, flag);
+        notifyProcessLogged(t, true);
+        if (typeof global.showToast === "function") {
+          const label = String(flag || "").charAt(0).toUpperCase() + String(flag || "").slice(1);
+          showToast(t.instr || "Journal", label);
+        }
+        if (view === "desk") refreshLive();
+        return true;
+      }
+    }
+    readFormFromDom();
+    const rails = railsDraft || readRails();
+    const result = journalProcess(flag, form, rails, deskTrades(), new Date());
+    if (!result.ok) {
+      if (result.error === "cooldown" || result.error === "journal-limit") return false;
+      if (result.error === "sample-log-cap") {
+        SampleQuota.openWall();
+        renderSampleCap();
+        return false;
+      }
+      if (typeof global.showToast === "function") {
+        showToast("Sizer", result.error || "Add ticker, entry & stop first");
+      }
+      return false;
+    }
+    const label = String(flag || "").charAt(0).toUpperCase() + String(flag || "").slice(1);
+    if (typeof global.showToast === "function") {
+      showToast(result.row.instr || "Journal", label + (result.attached ? " · saved" : " · journaled"));
+    }
+    if (view === "desk") refreshLive();
+    return true;
+  }
+
+  function bindProcessClicks() {
+    const doc = global.document;
+    if (!doc || doc.documentElement.dataset.ptProcessBound === "1") return;
+    doc.documentElement.dataset.ptProcessBound = "1";
+    doc.addEventListener("click", function (e) {
+      const btn = e.target && e.target.closest && e.target.closest("[data-pt-process]");
+      if (!btn) return;
+      if (btn.closest && btn.closest(".pt-root")) return;
+      e.preventDefault();
+      onProcessChip(btn);
+    });
   }
 
   function resetSizerFields() {
@@ -1201,6 +1371,13 @@
       }
       if (e.target.closest("#pt-log")) {
         onLog();
+        return;
+      }
+      const proc = e.target.closest("[data-pt-process]");
+      if (proc) {
+        e.preventDefault();
+        e.stopPropagation();
+        onProcessChip(proc);
         return;
       }
       if (e.target.closest("#pt-rails-reset")) {
@@ -1321,6 +1498,7 @@
     render();
     scheduleQuote(form.ticker);
     syncHash("desk");
+    bindProcessClicks();
     if (SampleQuota.atCap(deskTrades())) SampleQuota.openWall();
   }
 
@@ -1367,6 +1545,11 @@
     edgeFromTrades,
     applyOutcome,
     logPlan,
+    journalProcess,
+    applyProcessFlag,
+    processOf,
+    processButtonsHtml,
+    matchingProcessRow,
     setOutcome,
     setView,
     outcomeButtonsHtml: outcomeBtns,
@@ -1390,4 +1573,5 @@
   };
 
   global.RunnrPretrade = api;
+  bindProcessClicks();
 })(typeof window !== "undefined" ? window : globalThis);
