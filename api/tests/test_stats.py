@@ -79,6 +79,59 @@ def test_visitor_cleanup_not_on_every_hit():
     assert leftover is None
 
 
+def test_hit_records_allowlisted_funnel_event():
+    init_db()
+    with get_db() as conn:
+        before_pv = conn.execute(
+            "SELECT COALESCE(SUM(pageviews), 0) AS n FROM site_stats_days"
+        ).fetchone()["n"]
+        before_ev = conn.execute(
+            "SELECT COALESCE(SUM(count), 0) AS n FROM site_funnel_events WHERE event = 'demo_view'"
+        ).fetchone()["n"]
+    with TestClient(app) as client:
+        res = client.post("/api/v1/stats/hit?e=demo_view")
+        assert res.status_code == 204
+    with get_db() as conn:
+        after_pv = conn.execute(
+            "SELECT COALESCE(SUM(pageviews), 0) AS n FROM site_stats_days"
+        ).fetchone()["n"]
+        after_ev = conn.execute(
+            "SELECT COALESCE(SUM(count), 0) AS n FROM site_funnel_events WHERE event = 'demo_view'"
+        ).fetchone()["n"]
+    assert after_pv == before_pv + 1
+    assert after_ev == before_ev + 1
+
+
+def test_hit_ignores_unknown_event_but_counts_pageview():
+    init_db()
+    with get_db() as conn:
+        before_pv = conn.execute(
+            "SELECT COALESCE(SUM(pageviews), 0) AS n FROM site_stats_days"
+        ).fetchone()["n"]
+        before_rows = conn.execute(
+            "SELECT COALESCE(SUM(count), 0) AS n FROM site_funnel_events"
+        ).fetchone()["n"]
+    with TestClient(app) as client:
+        res = client.post("/api/v1/stats/hit?e=not_a_real_event")
+        assert res.status_code == 204
+        res = client.post("/api/v1/stats/hit?e=" + ("x" * 200))
+        assert res.status_code == 204
+    with get_db() as conn:
+        after_pv = conn.execute(
+            "SELECT COALESCE(SUM(pageviews), 0) AS n FROM site_stats_days"
+        ).fetchone()["n"]
+        after_rows = conn.execute(
+            "SELECT COALESCE(SUM(count), 0) AS n FROM site_funnel_events"
+        ).fetchone()["n"]
+        bad = conn.execute(
+            "SELECT 1 FROM site_funnel_events WHERE event = 'not_a_real_event'"
+        ).fetchone()
+    assert after_pv == before_pv + 2
+    assert after_rows == before_rows
+    assert bad is None
+
+
+
 def test_get_stats_requires_auth():
     with TestClient(app) as client:
         res = client.get("/api/v1/stats")
@@ -127,6 +180,9 @@ def test_stats_html_is_gated():
     assert "Bearer" in html
     assert "/api/v1/admin/funnel" in html
     assert "Signed-in funnel" in html
+    assert "Guest SAMPLE funnel" in html
+    assert "email_wall" in html
+    assert "Signed-in accounts (not visits)" in html
     assert "never sign in" in html
 
 
@@ -211,6 +267,12 @@ def test_funnel_counts_signed_in_journals():
         assert data["users_in_local_trial"] >= 1
         assert data["users_trial_expired"] >= 1
         assert "never sign in" in data["note"]
+        assert "guest events are SAMPLE beacons" in data["note"]
+        assert "guest_events_today" in data
+        assert "guest_events_totals" in data
+        assert "users_created_today" in data
+        assert "demo_view" in data["guest_events_today"]
+        assert isinstance(data["users_created_today"], int)
         assert "0" in data["trade_count_histogram"]
         assert res.headers.get("cache-control") == "no-store"
 
