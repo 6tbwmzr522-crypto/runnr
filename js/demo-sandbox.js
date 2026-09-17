@@ -10,6 +10,11 @@
   const REV = 1;
   const MIN_BOOK = 12;
   const VIEW_KEY = "runnr_demo_viewed";
+  const WALL_KEY = "runnr_email_wall_beacon_v1";
+  let emailWallBeaconSent = false;
+  try {
+    if (global.sessionStorage && sessionStorage.getItem(WALL_KEY) === "1") emailWallBeaconSent = true;
+  } catch (e) {}
   const AHA_KEY = "runnr_sample_aha_v1";
   const HERO_KEY = "runnr_sample_hero_v1";
   const KEEP_KEY = "runnr_sample_keep_v1";
@@ -645,15 +650,22 @@
     }
     const modal = global.document && document.getElementById("modal-sample-keep");
     paintKeepLock(modal);
+    let opened = false;
     if (modal && typeof global.openModal === "function") {
       global.openModal("modal-sample-keep");
-      return true;
-    }
-    if (modal) {
+      opened = true;
+    } else if (modal) {
       modal.classList.add("open");
-      return true;
+      opened = true;
     }
-    return false;
+    if (opened && !emailWallBeaconSent) {
+      emailWallBeaconSent = true;
+      try {
+        if (global.sessionStorage) sessionStorage.setItem(WALL_KEY, "1");
+      } catch (e) {}
+      beacon(shouldHoldKeepScore() ? "email_wall_locked" : "email_wall_shown");
+    }
+    return opened;
   }
 
   function hideKeepScore() {
