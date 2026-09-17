@@ -14,7 +14,7 @@ from fastapi.responses import JSONResponse
 from app.auth import get_current_user
 from app.config import settings
 from app.db import get_db
-from app.funnel import build_funnel
+from app.funnel import FUNNEL_EVENT_SET, build_funnel
 
 router = APIRouter(tags=["stats"])
 
@@ -31,6 +31,7 @@ STATS_VIEWER_EMAILS = frozenset(
 _HASH_KEEP_DAYS = 2
 _UA_MAX = 512
 _IP_MAX = 64
+_EVENT_MAX = 64
 # Old visitor-hash rows are only needed for same-day uniques. Sweep at most
 # once per process every few hours so /stats/hit stays a cheap write.
 _CLEANUP_INTERVAL_S = 6 * 3600
@@ -87,7 +88,20 @@ def maybe_cleanup_old_visitors(conn, cutoff: str) -> bool:
         return True
 
 
-def record_hit(ip: str, user_agent: str, secret: str) -> None:
+
+def normalize_funnel_event(raw: str | None) -> str | None:
+    """Allowlisted SAMPLE funnel beacons only; unknown / overlong are ignored."""
+    if raw is None:
+        return None
+    name = str(raw).strip()
+    if not name or len(name) > _EVENT_MAX:
+        return None
+    if name not in FUNNEL_EVENT_SET:
+        return None
+    return name
+
+
+def record_hit(ip: str, user_agent: str, secret: str, event: str | None = None) -> None:
     day = utc_day()
     digest = visitor_hash(ip, day, user_agent, secret)
     cutoff = (datetime.now(timezone.utc) - timedelta(days=_HASH_KEEP_DAYS)).strftime("%Y-%m-%d")
@@ -113,6 +127,15 @@ def record_hit(ip: str, user_agent: str, secret: str) -> None:
                 "UPDATE site_stats_days SET uniques = uniques + 1 WHERE day = ?",
                 (day,),
             )
+        if event:
+            conn.execute(
+                """
+                INSERT INTO site_funnel_events (day, event, count)
+                VALUES (?, ?, 1)
+                ON CONFLICT(day, event) DO UPDATE SET count = count + 1
+                """,
+                (day, event),
+            )
         maybe_cleanup_old_visitors(conn, cutoff)
 
 
@@ -127,11 +150,12 @@ def require_stats_viewer(user: dict = Depends(get_current_user)) -> dict:
 
 
 @router.post("/stats/hit", status_code=204)
-def stats_hit(request: Request):
+def stats_hit(request: Request, e: str | None = None):
     if dnt_enabled(request):
         return Response(status_code=204)
     ua = (request.headers.get("user-agent") or "")[:_UA_MAX]
-    record_hit(client_ip(request), ua, settings.runnr_secret_key)
+    event = normalize_funnel_event(e)
+    record_hit(client_ip(request), ua, settings.runnr_secret_key, event=event)
     return Response(status_code=204)
 
 

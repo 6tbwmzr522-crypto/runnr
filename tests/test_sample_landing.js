@@ -34,9 +34,12 @@ const v = html.match(/var V = "(\d+)"/)[1];
 const cache = sw.match(/CACHE = "runnr-v(\d+)"/)[1];
 check("index.html V matches sw.js CACHE", v === cache);
 check("cache is 139+", Number(v) >= 139);
-check("demo-sandbox cache-bust", html.includes("js/demo-sandbox.js?v=11"));
+check("demo-sandbox cache-bust", html.includes("js/demo-sandbox.js?v=12"));
 check("pages.css cache-bust", html.includes("css/pages.css?v=7"));
 
+check("stats Guest SAMPLE funnel section", stats.includes("Guest SAMPLE funnel") && stats.includes("email_wall") && stats.includes("guest-demo-view"));
+check("stats clarifies signed-in accounts are not visits", stats.includes("Signed-in accounts (not visits)"));
+check("sandbox beacons email wall on keep-score open", sandboxSrc.includes("email_wall_shown") && sandboxSrc.includes("email_wall_locked") && sandboxSrc.includes("WALL_KEY"));
 check("bio URL is documented on stats", stats.includes("https://runnr.fyi/?demo=1") && stats.includes("tiktok-bio-url"));
 check("stats does not point TikTok bio at login.html", /TikTok bio[\s\S]{0,400}login\.html/.test(stats) === false || /not login\.html/.test(stats));
 check("stats lists /sample and #sample aliases", stats.includes("https://runnr.fyi/sample") && stats.includes("https://runnr.fyi/#sample"));
