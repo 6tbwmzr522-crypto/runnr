@@ -145,6 +145,7 @@ def init_db() -> None:
         _migrate_auth_tokens(conn)
         _migrate_checkout_tickets(conn)
         _migrate_site_stats(conn)
+        _migrate_funnel_events(conn)
         _migrate_meta(conn)
         _migrate_oauth_identities(conn)
         _migrate_local_trial(conn)
@@ -175,6 +176,20 @@ def _migrate_users_billing(conn: sqlite3.Connection) -> None:
     # Existing accounts are grandfathered as verified
     if "email_verified" not in cols:
         conn.execute("UPDATE users SET email_verified = 1 WHERE email_verified IS NULL")
+
+
+
+def _migrate_funnel_events(conn: sqlite3.Connection) -> None:
+    conn.execute(
+        """
+        CREATE TABLE IF NOT EXISTS site_funnel_events (
+          day TEXT NOT NULL,
+          event TEXT NOT NULL,
+          count INTEGER NOT NULL DEFAULT 0,
+          PRIMARY KEY (day, event)
+        )
+        """
+    )
 
 
 def _migrate_site_stats(conn: sqlite3.Connection) -> None:
