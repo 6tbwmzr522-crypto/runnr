@@ -23,9 +23,9 @@ const v = html.match(/var V = "(\d+)"/)[1];
 const cache = sw.match(/CACHE = "runnr-v(\d+)"/)[1];
 check("index.html V matches sw.js CACHE", v === cache);
 check("cache is 135+", Number(v) >= 135);
-check("demo-sandbox cache-bust", html.includes("js/demo-sandbox.js?v=11"));
+check("demo-sandbox cache-bust", html.includes("js/demo-sandbox.js?v=13"));
 check("onboarding cache-bust", html.includes("js/onboarding.js?v=37"));
-check("pages.css cache-bust", html.includes("css/pages.css?v=7"));
+check("pages.css cache-bust", html.includes("css/pages.css?v=8"));
 
 const hookStart = html.indexOf('id="onboarding-overlay"');
 const hookEnd = html.indexOf('id="intro-overlay"');
@@ -37,20 +37,25 @@ check("80% is not hardcoded in the hook hero", !/80%/.test(hero));
 check("hook proof card is present", hook.includes('data-runnr-proof') && hook.includes("Alex Runner") && hook.includes("SAMPLE"));
 check("hook proof story", hook.includes("Stops held, size leaked."));
 check("hook proof is not a testimonial", hook.includes("not a customer testimonial") && hook.includes("not live AUM"));
-check("hook proof has SAMPLE desk CTA", hook.includes('href="/?demo=1"') && hook.includes("Open SAMPLE desk"));
-check("hook proof has trial CTA", hook.includes("Start free · 7-day trial") && hook.includes('class="btn runnr-proof-cta-start"'));
-check("hook proof brands runnr.fyi", hook.includes("runnr.fyi"));
+check("hook proof has no duplicate SAMPLE/trial buttons", !hook.includes("Open SAMPLE desk") && !hook.includes("runnr-proof-cta-start") && !hook.includes("runnr-proof-cta-desk"));
+check("hook trial stays below the proof as copy + Start free", hook.includes("Start free · 7-day trial · then €19/month or €190/year") && hook.includes('id="ob-hook-start"'));
+check("SAMPLE hero still brands runnr.fyi", hook.includes('id="sample-hero"') && hook.includes("runnr.fyi"));
 check("hook static proof does not invent the score", !/80%/.test(hook) && !/2,528/.test(hook) && !/1,190/.test(hook));
 
 const landing = html.slice(html.indexOf('id="home-landing"'), html.indexOf('id="home-job-hero"'));
 check("landing proof card is present", landing.includes('data-runnr-proof') && landing.includes("Alex Runner ·") && landing.includes("SAMPLE"));
-check("landing View sample opens the desk", landing.includes('id="home-view-sample"') && landing.includes('href="/?demo=1"'));
+check("landing SAMPLE path is Score one trade", landing.includes('id="home-score-one"') && landing.includes("Score one trade") && landing.includes('href="/?demo=1"'));
+check("landing has no second Start free button", !landing.includes('id="home-start-free"') && !landing.includes("runnr-proof-cta-start"));
+check("landing has no second View sample / Open SAMPLE desk", !landing.includes('id="home-view-sample"') && !landing.includes("Open SAMPLE desk") && !landing.includes("View sample"));
+check("landing proof does not print runnr.fyi under the card", !landing.includes("runnr.fyi"));
+check("landing trial is quiet copy", landing.includes("Start free · 7-day trial · then €19/month or €190/year"));
 check("no fake trader count", !/700 traders/i.test(html) && !/700 traders/i.test(sandboxSrc));
 check("no fake quote marks as testimonials", !/“I (cut|saved|made)/i.test(html) && !/&quot;I (cut|saved|made)/i.test(html));
 
 check("js hook still has Start free + View sample", ob.includes('id="ob-hook-start"') && ob.includes("Start free") && ob.includes("View sample"));
 check("renderHook injects proofCardHtml", ob.includes("proofCardHtml") && ob.includes("paintProof"));
 check("proof CSS is mobile-first stacked CTAs", css.includes(".runnr-proof-actions") && css.includes(".runnr-proof-brand") && css.includes("grid-template-columns:1fr 1fr"));
+check("home Score one trade is the loud SAMPLE path", css.includes(".home-landing-card .home-score-one{font-size:16px"));
 check("demo desk does not repeat the landing proof card", css.includes("html.runnr-demo #page-home .home-frame > .home-landing-card{display:none !important}"));
 check("proof ring uses engine pct var", css.includes("--proof-pct"));
 
@@ -157,7 +162,7 @@ check("proof P&L matches CoachEngine", proof.discPnl === metrics.discPnl && proo
 check("Alex Runner SAMPLE labels", proof.name === "Alex Runner" && proof.badge === "SAMPLE" && /SAMPLE/.test(proof.kicker));
 check("story is stops held, size leaked", /stops held,\s*size leaked/i.test(proof.story));
 check("disclaimer forbids testimonial/AUM reading", /not a customer testimonial/i.test(proof.disclaimer) && /not live AUM/i.test(proof.disclaimer));
-check("proof CTAs", proof.deskHref === "/?demo=1" && proof.trialHref === "/login.html" && /7-day trial/.test(proof.trialLabel));
+check("proof CTAs", proof.deskHref === "/?demo=1" && proof.deskLabel === "Score one trade" && proof.trialHref === "/login.html" && /7-day trial/.test(proof.trialLabel));
 check("loud brand", proof.brand === "runnr.fyi");
 check("expected sandbox band", proof.overall >= 78 && proof.overall <= 85 && proof.tier === "Consistent Runner");
 check("expected sandbox split", proof.stopPct === 95 && proof.sizePct === 71);
@@ -167,7 +172,7 @@ check("leak label is size leaks", proof.leakLabel === "size leaks");
 
 const markup = SB.proofCardHtml();
 check("markup is SAMPLE-labelled", markup.includes("Alex Runner") && markup.includes("SAMPLE") && markup.includes("not a customer testimonial"));
-check("markup CTAs", markup.includes('href="/?demo=1"') && markup.includes("Open SAMPLE desk") && markup.includes("Start free · 7-day trial") && markup.includes("runnr.fyi"));
+check("markup has no duplicate CTAs or brand line", !markup.includes("Open SAMPLE desk") && !markup.includes("Start free") && !markup.includes("runnr.fyi") && !markup.includes("runnr-proof-actions"));
 check("markup does not hard-code engine numbers", !/80%/.test(markup) && !/2,528/.test(markup) && !/1,190/.test(markup));
 check("markup placeholders wait for paintProof", markup.includes('data-proof="overall">—') && markup.includes('data-proof="disc">—'));
 

@@ -304,7 +304,7 @@
       deskHref: "/?demo=1",
       trialHref: "/login.html",
       trialLabel: "Start free · 7-day trial",
-      deskLabel: "Open SAMPLE desk",
+      deskLabel: "Score one trade",
       overall: score.overall,
       overallLabel: Number.isFinite(Number(score.overall)) && score.tradeCount
         ? Math.round(score.overall) + "%"
@@ -349,11 +349,6 @@
           '<div><span>Size leak</span><strong class="runnr-proof-dn" data-proof="leak">—</strong></div>' +
         '</div>' +
         '<p class="runnr-proof-note">Illustrative demo book — not a customer testimonial, not live AUM.</p>' +
-        '<div class="runnr-proof-actions">' +
-          '<a class="btn runnr-proof-cta-start" href="/login.html">Start free · 7-day trial</a>' +
-          '<a class="btn btn-ghost runnr-proof-cta-desk" href="/?demo=1">Open SAMPLE desk</a>' +
-        '</div>' +
-        '<p class="runnr-proof-brand">runnr.fyi</p>' +
       '</article>'
     );
   }
