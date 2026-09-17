@@ -34,7 +34,7 @@ const v = html.match(/var V = "(\d+)"/)[1];
 const cache = sw.match(/CACHE = "runnr-v(\d+)"/)[1];
 check("index.html V matches sw.js CACHE", v === cache);
 check("cache is 139+", Number(v) >= 139);
-check("demo-sandbox cache-bust", html.includes("js/demo-sandbox.js?v=10"));
+check("demo-sandbox cache-bust", html.includes("js/demo-sandbox.js?v=11"));
 check("pages.css cache-bust", html.includes("css/pages.css?v=7"));
 
 check("bio URL is documented on stats", stats.includes("https://runnr.fyi/?demo=1") && stats.includes("tiktok-bio-url"));
@@ -151,6 +151,8 @@ check("demo desk job is Score this trade", sampleJob.id === "sample-score" && sa
 
 check("saveLog notifies SAMPLE aha", journalSrc.includes("onSampleScored"));
 check("gold logPlan notifies SAMPLE aha", pretradeSrc.includes("onSampleScored"));
+check("gold live score notifies SAMPLE aha", pretradeSrc.includes("onGoldScored") && pretradeSrc.includes("maybeSealGoldScore"));
+check("3-plan cap wall also seals", /function showSampleCapWall[\s\S]*markSeal/.test(pretradeSrc));
 check("nav runs sample-score job", navSrc.includes("sample-score") && navSrc.includes("openScoreTrade"));
 check("onboarding skips wizard on sample aliases", onboardingSrc.includes("queryForce") && onboardingSrc.includes('get("demo") === "1"'));
 check("keep-score href is email not broker", SB.KEEP_HREF === "/login.html?keep=1");
@@ -180,16 +182,44 @@ check("Score this trade does not open the journal editor", gold.journalEditor ==
 check("opening the gold sizer does not seal yet", gold.RunnrDemoSandbox.hasSeal() !== true);
 
 check("seal starts off", SB.hasSeal() !== true);
+check("pending gold plan is not a score", SB.isReadyGoldScore({ ready: false, size: 0, entry: 0, stop: 0 }) === false);
+check("sample-locked plan is not a gold score", SB.isReadyGoldScore({ ready: false, size: 0, sampleLocked: true }) === false);
+check("ready gold plan is a score", SB.isReadyGoldScore({ ready: true, size: 25, entry: 198, stop: 194 }) === true);
+check("blocked-but-sized gold plan is still a score", SB.isReadyGoldScore({ ready: true, blocked: true, size: 100, entry: 220, stop: 210 }) === true);
+
+const skipped = loadSandbox({ search: "?demo=1", pathname: "/", hash: "", href: "http://localhost/?demo=1" });
+skipped.sessionStorage.setItem("runnr_sample_hero_v1", "done");
+check("hero skip is not the aha seal", skipped.RunnrDemoSandbox.hasSeal() !== true && skipped.RunnrDemoSandbox.hasAha() === false);
+check("hero skip source does not seal", /sample-hero-skip[\s\S]*markHeroDismissed/.test(sandboxSrc) && !/sample-hero-skip[\s\S]{0,400}markSeal/.test(sandboxSrc));
+
 const scoredGuest = loadSandbox({ search: "?demo=1", pathname: "/", hash: "", href: "http://localhost/?demo=1" });
 scoredGuest.S = { trades: book, watchlist: SB.factoryWatchlist(), bal: 10000, risk: 1, sym: "€" };
-const goldRow = { id: 99, isDemo: true, source: "pretrade", instr: "AAPL", incomplete: false };
-check("first SAMPLE gold log seals the guest", scoredGuest.RunnrDemoSandbox.onSampleScored(goldRow, { prompt: false }) === true);
-check("seal persists after gold log", scoredGuest.RunnrDemoSandbox.hasSeal() === true && scoredGuest.RunnrDemoSandbox.hasAha() === true);
-check("sealed guest holds keep-score", scoredGuest.RunnrDemoSandbox.shouldHoldKeepScore() === true);
+check("pending compute does not seal", scoredGuest.RunnrDemoSandbox.onGoldScored({ ready: false, size: 0 }) === false);
+check("first SAMPLE gold score seals the guest", scoredGuest.RunnrDemoSandbox.onGoldScored({ ready: true, size: 25, entry: 198, stop: 194 }, { reason: "score" }) === true);
+check("seal persists after gold score", scoredGuest.RunnrDemoSandbox.hasSeal() === true && scoredGuest.RunnrDemoSandbox.hasAha() === true);
+check("sealed guest holds keep-score after gold score", scoredGuest.RunnrDemoSandbox.shouldHoldKeepScore() === true);
 scoredGuest.RunnrDemoSandbox.hideKeepScore();
-check("hideKeepScore cannot drop the seal", scoredGuest.RunnrDemoSandbox.hasSeal() === true && scoredGuest.RunnrDemoSandbox.shouldHoldKeepScore() === true);
+check("hideKeepScore cannot drop a gold-score seal", scoredGuest.RunnrDemoSandbox.hasSeal() === true && scoredGuest.RunnrDemoSandbox.shouldHoldKeepScore() === true);
+check("later gold scores stay sealed without dropping the hold", scoredGuest.RunnrDemoSandbox.onGoldScored({ ready: true, size: 10, entry: 100, stop: 90 }) === true && scoredGuest.RunnrDemoSandbox.shouldHoldKeepScore() === true);
+
+const delayed = loadSandbox({ search: "?demo=1", pathname: "/", hash: "", href: "http://localhost/?demo=1" });
+delayed.S = { trades: book, watchlist: SB.factoryWatchlist(), bal: 10000, risk: 1, sym: "€" };
+const delays = [];
+delayed.setTimeout = function (fn, ms) { delays.push(ms); delayed.queuedKeep = fn; return 1; };
+check("first gold score can delay the wall paint", delayed.RunnrDemoSandbox.onGoldScored({ ready: true, size: 25, entry: 198, stop: 194 }, { delayMs: 900 }) === true);
+check("delay does not wait to seal", delayed.RunnrDemoSandbox.hasSeal() === true && delays[0] === 900 && delayed.RunnrDemoSandbox.shouldHoldKeepScore() === true);
+
+const loggedGuest = loadSandbox({ search: "?demo=1", pathname: "/", hash: "", href: "http://localhost/?demo=1" });
+loggedGuest.S = { trades: book, watchlist: SB.factoryWatchlist(), bal: 10000, risk: 1, sym: "€" };
+const goldRow = { id: 99, isDemo: true, source: "pretrade", instr: "AAPL", incomplete: false };
+check("first SAMPLE gold log seals the guest", loggedGuest.RunnrDemoSandbox.onSampleScored(goldRow, { prompt: false }) === true);
+check("seal persists after gold log", loggedGuest.RunnrDemoSandbox.hasSeal() === true && loggedGuest.RunnrDemoSandbox.hasAha() === true);
+check("sealed guest holds keep-score", loggedGuest.RunnrDemoSandbox.shouldHoldKeepScore() === true);
+loggedGuest.RunnrDemoSandbox.hideKeepScore();
+check("hideKeepScore cannot drop the seal", loggedGuest.RunnrDemoSandbox.hasSeal() === true && loggedGuest.RunnrDemoSandbox.shouldHoldKeepScore() === true);
 
 check("signed-in score does not seal", signed.RunnrDemoSandbox.onSampleScored(goldRow) === false);
+check("signed-in gold compute does not seal", signed.RunnrDemoSandbox.onGoldScored({ ready: true, size: 25, entry: 198, stop: 194 }) === false);
 check("signed-in does not hold keep-score", signed.RunnrDemoSandbox.shouldHoldKeepScore() === false);
 
 const realGuest = loadSandbox({ search: "?demo=1", pathname: "/", hash: "", href: "http://localhost/?demo=1" });

@@ -438,6 +438,15 @@
     return true;
   }
 
+  function isReadyGoldScore(computed) {
+    if (!computed || computed.sampleLocked) return false;
+    if (computed.ready) return true;
+    const size = Number(computed.size) || 0;
+    const entry = Number(computed.entry) || 0;
+    const stop = Number(computed.stop) || 0;
+    return size > 0 && entry > 0 && stop > 0;
+  }
+
   function markSeal() {
     storageSet(global.localStorage, SEAL_KEY, "1");
     markAha("score");
@@ -573,6 +582,33 @@
     if (trade && !isDemoTrade(trade)) return false;
     markSeal();
     showKeepScore({ reason: (opts && opts.reason) || "score" });
+    return true;
+  }
+
+  /**
+   * First ready gold-sizer score (computed size / R:R / blocked).
+   * Distinct from opening the sizer and from the skippable SAMPLE hero.
+   * LOG TRADE still seals via onSampleScored.
+   */
+  function onGoldScored(computed, opts) {
+    if (isLoggedIn()) return false;
+    if (!isDemoState(global.S)) return false;
+    if (!isReadyGoldScore(computed)) return false;
+    const first = !hasSeal();
+    markSeal();
+    if (first) {
+      const reason = (opts && opts.reason) || "score";
+      const delay = opts && Number.isFinite(Number(opts.delayMs)) ? Math.max(0, Number(opts.delayMs)) : 0;
+      const show = function () {
+        if (isLoggedIn()) return;
+        showKeepScore({ reason: reason });
+      };
+      if (delay > 0 && typeof global.setTimeout === "function") {
+        global.setTimeout(show, delay);
+      } else {
+        show();
+      }
+    }
     return true;
   }
 
@@ -778,10 +814,12 @@
     markAha,
     markSeal,
     shouldHoldKeepScore,
+    isReadyGoldScore,
     firstIncompleteSample,
     sampleScorePrime,
     openScoreTrade,
     onSampleScored,
+    onGoldScored,
     onProofViewed,
     showKeepScore,
     hideKeepScore,
