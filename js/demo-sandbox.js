@@ -643,6 +643,14 @@
     if (copy) {
       copy.textContent = (opts && opts.reason === "sample-log-cap") ? CAP_KEEP_COPY : DEFAULT_KEEP_COPY;
     }
+    const processHost = global.document && document.getElementById("sample-keep-process");
+    if (processHost) {
+      const PT = global.RunnrPretrade;
+      if (PT && typeof PT.processButtonsHtml === "function") {
+        processHost.innerHTML = PT.processButtonsHtml(null);
+        processHost.hidden = false;
+      }
+    }
     const modal = global.document && document.getElementById("modal-sample-keep");
     paintKeepLock(modal);
     let opened = false;

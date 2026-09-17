@@ -34,7 +34,7 @@ const v = html.match(/var V = "(\d+)"/)[1];
 const cache = sw.match(/CACHE = "runnr-v(\d+)"/)[1];
 check("index.html V matches sw.js CACHE", v === cache);
 check("cache is 139+", Number(v) >= 139);
-check("demo-sandbox cache-bust", html.includes("js/demo-sandbox.js?v=13"));
+check("demo-sandbox cache-bust", html.includes("js/demo-sandbox.js?v=14"));
 check("pages.css cache-bust", html.includes("css/pages.css?v=8"));
 
 check("stats Guest SAMPLE funnel section", stats.includes("Guest SAMPLE funnel") && stats.includes("email_wall") && stats.includes("guest-demo-view"));
@@ -58,6 +58,7 @@ check("hero primary CTA is Score this trade", hero.includes('id="sample-score-ct
 check("hero does not lead with Sign up or Connect broker", !/Sign up/.test(hero) && !/Connect broker/.test(hero) && !/href="\/login\.html"/.test(hero) && !/Alpaca/.test(hero) && !/T212/.test(hero));
 check("hero proof does not invent score/P&amp;L", !/80%/.test(hero) && !/2,528/.test(hero) && !/2,503/.test(hero) && !/1,190/.test(hero));
 check("keep-score sheet is gated after aha", html.includes('id="modal-sample-keep"') && html.includes("Keep this score — save with email") && html.includes("/login.html?keep=1"));
+check("keep-score hosts one-tap process chips", html.includes('id="sample-keep-process"') && sandboxSrc.includes("processButtonsHtml"));
 check("keep-score does not lead with Alpaca/T212", !/Alpaca|T212|Trading 212/.test(html.slice(html.indexOf('id="modal-sample-keep"'), html.indexOf('id="modal-share"'))));
 check("login keep=1 copy", login.includes("keep=1") && login.includes("Keep this score — save with email"));
 check("TikTok CTA copy points at SAMPLE URL", html.includes("runnr.fyi/?demo=1") && /TikTok bio is[\s\S]*demo=1/.test(html));
