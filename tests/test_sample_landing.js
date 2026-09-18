@@ -34,8 +34,8 @@ const v = html.match(/var V = "(\d+)"/)[1];
 const cache = sw.match(/CACHE = "runnr-v(\d+)"/)[1];
 check("index.html V matches sw.js CACHE", v === cache);
 check("cache is 139+", Number(v) >= 139);
-check("demo-sandbox cache-bust", html.includes("js/demo-sandbox.js?v=14"));
-check("pages.css cache-bust", html.includes("css/pages.css?v=8"));
+check("demo-sandbox cache-bust", html.includes("js/demo-sandbox.js?v=15"));
+check("pages.css cache-bust", html.includes("css/pages.css?v=9"));
 
 check("stats Guest SAMPLE funnel section", stats.includes("Guest SAMPLE funnel") && stats.includes("email_wall") && stats.includes("guest-demo-view"));
 check("stats clarifies signed-in accounts are not visits", stats.includes("Signed-in accounts (not visits)"));
@@ -57,10 +57,11 @@ check("hero shows Alex Runner SAMPLE", hero.includes("Alex Runner") && hero.incl
 check("hero primary CTA is Score this trade", hero.includes('id="sample-score-cta"') && hero.includes("Score this trade"));
 check("hero does not lead with Sign up or Connect broker", !/Sign up/.test(hero) && !/Connect broker/.test(hero) && !/href="\/login\.html"/.test(hero) && !/Alpaca/.test(hero) && !/T212/.test(hero));
 check("hero proof does not invent score/P&amp;L", !/80%/.test(hero) && !/2,528/.test(hero) && !/2,503/.test(hero) && !/1,190/.test(hero));
-check("keep-score sheet is gated after aha", html.includes('id="modal-sample-keep"') && html.includes("Keep this score — save with email") && html.includes("/login.html?keep=1"));
+check("keep-score sheet is gated after aha", html.includes('id="modal-sample-keep"') && html.includes("Keep this score — 7 days free") && html.includes("/login.html?keep=1"));
+check("keep-score copy says nothing bills automatically", html.includes("nothing bills automatically") && html.includes("Like it? Subscribe after") && sandboxSrc.includes("nothing bills automatically"));
 check("keep-score hosts one-tap process chips", html.includes('id="sample-keep-process"') && sandboxSrc.includes("processButtonsHtml"));
 check("keep-score does not lead with Alpaca/T212", !/Alpaca|T212|Trading 212/.test(html.slice(html.indexOf('id="modal-sample-keep"'), html.indexOf('id="modal-share"'))));
-check("login keep=1 copy", login.includes("keep=1") && login.includes("Keep this score — save with email"));
+check("login keep=1 copy", login.includes("keep=1") && login.includes("Keep this score — 7 days free") && login.includes("nothing bills automatically"));
 check("TikTok CTA copy points at SAMPLE URL", html.includes("runnr.fyi/?demo=1") && /TikTok bio is[\s\S]*demo=1/.test(html));
 
 function freshCtx(loc) {
@@ -161,6 +162,7 @@ check("nav runs sample-score job", navSrc.includes("sample-score") && navSrc.inc
 check("onboarding skips wizard on sample aliases", onboardingSrc.includes("queryForce") && onboardingSrc.includes('get("demo") === "1"'));
 check("keep-score href is email not broker", SB.KEEP_HREF === "/login.html?keep=1");
 check("keep-score lock CSS hides dismiss", css.includes("sample-keep-locked") && css.includes("sample-keep-dismiss"));
+check("keep-score overlay is a light dim not a lockout", /#modal-sample-keep\{[^}]*rgba\(4,6,10,0\.46\)/.test(css.replace(/\s+/g, "")) && /#modal-sample-keep\{[^}]*backdrop-filter:blur\(2px\)/.test(css.replace(/\s+/g, "")));
 check("closeModal holds sealed SAMPLE keep-score", bootSrc.includes("shouldHoldKeepScore") && bootSrc.includes("modal-sample-keep"));
 check("score CTA source does not open the journal editor", /function openScoreTrade[\s\S]*function onSampleScored/.test(sandboxSrc) && !/function openScoreTrade[\s\S]*openTradeEditor/.test(sandboxSrc));
 

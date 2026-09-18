@@ -25,12 +25,12 @@ function check(name, cond) {
 const v = html.match(/var V = "(\d+)"/)[1];
 const cache = sw.match(/CACHE = "runnr-v(\d+)"/)[1];
 check("index.html V matches sw.js CACHE", v === cache);
-check("cache is 153+", Number(v) >= 153);
+check("cache is 155+", Number(v) >= 155);
 check("cooldown.js is loaded before pretrade", html.indexOf("js/cooldown.js?v=2") < html.indexOf("js/pretrade.js?v=15"));
 check("cool-down sheet markup exists", html.includes('id="modal-cooldown"') && html.includes("SIT ON HANDS") && html.includes("Stay flat") && html.includes("Override anyway (logs as broke cool-down)"));
 check("cool-down copy is two losses", html.includes("Two losses in a row") && html.includes("SAMPLE warns softly"));
 check("keep-score hosts process chips", html.includes('id="sample-keep-process"'));
-check("keep-score email CTA still present", html.includes("Keep this score — save with email") && html.includes("/login.html?keep=1"));
+check("keep-score email CTA still present", html.includes("Keep this score — 7 days free") && html.includes("/login.html?keep=1"));
 check("process chips are Followed/Leaked/Skipped", src.includes('btn("followed", "Followed")') && src.includes('btn("leaked", "Leaked")') && src.includes('btn("skipped", "Skipped")') && src.includes("HOW DID IT GO?"));
 check("process caption matches mockup", src.includes("One tap. Notes optional."));
 check("WIN/LOSS/BE stay on the journal path", src.includes('btn("win", "WIN")') && src.includes('btn("loss", "LOSS")'));
