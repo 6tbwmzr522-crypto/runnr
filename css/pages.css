@@ -147,7 +147,7 @@ html.runnr-sample-landing #onboarding-overlay{display:none !important}
 #sample-hero{position:fixed;inset:0;width:100%;height:100%;background:var(--bg);z-index:500;display:none;flex-direction:column;max-width:none;margin:0}
 html.runnr-sample-landing #sample-hero,#sample-hero.open{display:flex}
 .sample-hero-top{padding:16px 20px;display:flex;align-items:center;justify-content:space-between;border-bottom:1px solid var(--border);flex-shrink:0;max-width:430px;margin:0 auto;width:100%}
-.sample-hero-inner{max-width:430px;margin:0 auto;width:100%;flex:1;overflow-y:auto;padding:24px 20px calc(24px + var(--safe-bottom))}
+.sample-hero-inner{max-width:430px;margin:0 auto;width:100%;flex:1;overflow-y:auto;padding:24px 20px calc(24px + var(--safe-bottom));display:flex;flex-direction:column;justify-content:center}
 .sample-keep-copy{font-size:14px;color:var(--text2);line-height:1.5;margin:0 0 16px}
 #modal-sample-keep{
   background:rgba(4,6,10,0.46);

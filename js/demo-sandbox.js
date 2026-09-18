@@ -247,7 +247,7 @@
         cta.hidden = true;
       } else {
         cta.hidden = false;
-        cta.textContent = "Keep this score — 7 days free";
+        cta.textContent = "Keep this score";
         cta.setAttribute("href", KEEP_HREF);
       }
     } else if (cta) {
@@ -620,7 +620,9 @@
     return true;
   }
 
-  const DEFAULT_KEEP_COPY = "Use Runnr free for 7 days. Your email just saves this score and your trial entries — nothing bills automatically. Like it? Subscribe after. SAMPLE stays SAMPLE — it never merges into a real book.";
+  // Wall bait is saved score + weekly discipline report. Share already draws the in-app weekly card;
+  // emailed weekly-report delivery is still future work — do not weaken this copy.
+  const DEFAULT_KEEP_COPY = "Your score: ready. Email keeps it — plus the weekly report that shows undisciplined P&L vs the clean one.";
   const CAP_KEEP_COPY = "3 SAMPLE plans used — save with email to keep sizing & logging. SAMPLE stays SAMPLE — it never merges into a real book.";
 
   function paintKeepLock(modal) {
