@@ -34,8 +34,8 @@ const v = html.match(/var V = "(\d+)"/)[1];
 const cache = sw.match(/CACHE = "runnr-v(\d+)"/)[1];
 check("index.html V matches sw.js CACHE", v === cache);
 check("cache is 139+", Number(v) >= 139);
-check("demo-sandbox cache-bust", html.includes("js/demo-sandbox.js?v=15"));
-check("pages.css cache-bust", html.includes("css/pages.css?v=9"));
+check("demo-sandbox cache-bust", html.includes("js/demo-sandbox.js?v=16"));
+check("pages.css cache-bust", html.includes("css/pages.css?v=10"));
 
 check("stats Guest SAMPLE funnel section", stats.includes("Guest SAMPLE funnel") && stats.includes("email_wall") && stats.includes("guest-demo-view"));
 check("stats clarifies signed-in accounts are not visits", stats.includes("Signed-in accounts (not visits)"));
@@ -52,16 +52,18 @@ check("sample landing skips the signup hook", /runnr-sample-landing[\s\S]*runnr_
 const heroStart = html.indexOf('id="sample-hero"');
 check("SAMPLE hero markup exists", heroStart > 0);
 const hero = html.slice(heroStart, html.indexOf('id="intro-overlay"'));
-check("hero headline is discipline not P&L", /Discipline, not P&amp;L/.test(hero));
-check("hero shows Alex Runner SAMPLE", hero.includes("Alex Runner") && hero.includes("SAMPLE"));
-check("hero primary CTA is Score this trade", hero.includes('id="sample-score-cta"') && hero.includes("Score this trade"));
-check("hero does not lead with Sign up or Connect broker", !/Sign up/.test(hero) && !/Connect broker/.test(hero) && !/href="\/login\.html"/.test(hero) && !/Alpaca/.test(hero) && !/T212/.test(hero));
-check("hero proof does not invent score/P&amp;L", !/80%/.test(hero) && !/2,528/.test(hero) && !/2,503/.test(hero) && !/1,190/.test(hero));
-check("keep-score sheet is gated after aha", html.includes('id="modal-sample-keep"') && html.includes("Keep this score — 7 days free") && html.includes("/login.html?keep=1"));
-check("keep-score copy says nothing bills automatically", html.includes("nothing bills automatically") && html.includes("Like it? Subscribe after") && sandboxSrc.includes("nothing bills automatically"));
+check("hero headline is skip the stop", /They get paid when you skip the stop/.test(hero));
+check("hero body is slip + weekly report bait", hero.includes("See your slip on one trade") && hero.includes("weekly discipline report"));
+check("hero primary CTA is Score a trade", hero.includes('id="sample-score-cta"') && hero.includes("Score a trade"));
+check("hero is one-screen pitch without proof card", !hero.includes("data-runnr-proof") && !/Sign up/.test(hero) && !/Connect broker/.test(hero) && !/href="\/login\.html"/.test(hero) && !/Alpaca/.test(hero) && !/T212/.test(hero));
+check("hero does not invent score/P&amp;L", !/80%/.test(hero) && !/2,528/.test(hero) && !/2,503/.test(hero) && !/1,190/.test(hero));
+check("keep-score sheet is gated after aha", html.includes('id="modal-sample-keep"') && html.includes("Keep my score") && html.includes("/login.html?keep=1"));
+check("keep-score heading stays Keep this score", /id="modal-sample-keep"[\s\S]*Keep this score/.test(html));
+check("keep-score copy is score + weekly report bait", html.includes("Your score: ready.") && html.includes("undisciplined P&amp;L vs the clean one") && sandboxSrc.includes("undisciplined P&L vs the clean one"));
+check("keep-score supersedes Option A auto-bill copy", !html.includes("nothing bills automatically") && !html.includes("Use Runnr free for 7 days") && !html.includes("Keep this score — 7 days free") && !sandboxSrc.includes("nothing bills automatically"));
 check("keep-score hosts one-tap process chips", html.includes('id="sample-keep-process"') && sandboxSrc.includes("processButtonsHtml"));
 check("keep-score does not lead with Alpaca/T212", !/Alpaca|T212|Trading 212/.test(html.slice(html.indexOf('id="modal-sample-keep"'), html.indexOf('id="modal-share"'))));
-check("login keep=1 copy", login.includes("keep=1") && login.includes("Keep this score — 7 days free") && login.includes("nothing bills automatically"));
+check("login keep=1 copy", login.includes("keep=1") && login.includes("Your score: ready.") && login.includes("weekly report") && login.includes("undisciplined P&L vs the clean one"));
 check("TikTok CTA copy points at SAMPLE URL", html.includes("runnr.fyi/?demo=1") && /TikTok bio is[\s\S]*demo=1/.test(html));
 
 function freshCtx(loc) {
@@ -182,9 +184,9 @@ gold.RunnrPretrade = {
 gold.openTradeEditor = function () { gold.journalEditor = true; };
 gold.switchPage = function (k) { gold.page = k; };
 const openedGold = gold.RunnrDemoSandbox.openScoreTrade(gold.S);
-check("Home/hero Score this trade opens the gold sizer", openedGold === true && gold.opened[0] === "desk");
+check("Home/hero Score a trade opens the gold sizer", openedGold === true && gold.opened[0] === "desk");
 check("gold sizer is primed with AAPL SAMPLE numbers", gold.primed && gold.primed.ticker === "AAPL" && Number(gold.primed.entry) === 198 && Number(gold.primed.stop) === 194);
-check("Score this trade does not open the journal editor", gold.journalEditor === false && gold.page !== "journal");
+check("Score a trade does not open the journal editor", gold.journalEditor === false && gold.page !== "journal");
 check("opening the gold sizer does not seal yet", gold.RunnrDemoSandbox.hasSeal() !== true);
 
 check("seal starts off", SB.hasSeal() !== true);
