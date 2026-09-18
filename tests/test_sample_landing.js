@@ -35,7 +35,7 @@ const cache = sw.match(/CACHE = "runnr-v(\d+)"/)[1];
 check("index.html V matches sw.js CACHE", v === cache);
 check("cache is 139+", Number(v) >= 139);
 check("demo-sandbox cache-bust", html.includes("js/demo-sandbox.js?v=15"));
-check("pages.css cache-bust", html.includes("css/pages.css?v=8"));
+check("pages.css cache-bust", html.includes("css/pages.css?v=9"));
 
 check("stats Guest SAMPLE funnel section", stats.includes("Guest SAMPLE funnel") && stats.includes("email_wall") && stats.includes("guest-demo-view"));
 check("stats clarifies signed-in accounts are not visits", stats.includes("Signed-in accounts (not visits)"));
@@ -162,6 +162,7 @@ check("nav runs sample-score job", navSrc.includes("sample-score") && navSrc.inc
 check("onboarding skips wizard on sample aliases", onboardingSrc.includes("queryForce") && onboardingSrc.includes('get("demo") === "1"'));
 check("keep-score href is email not broker", SB.KEEP_HREF === "/login.html?keep=1");
 check("keep-score lock CSS hides dismiss", css.includes("sample-keep-locked") && css.includes("sample-keep-dismiss"));
+check("keep-score overlay is a light dim not a lockout", /#modal-sample-keep\{[^}]*rgba\(4,6,10,0\.46\)/.test(css.replace(/\s+/g, "")) && /#modal-sample-keep\{[^}]*backdrop-filter:blur\(2px\)/.test(css.replace(/\s+/g, "")));
 check("closeModal holds sealed SAMPLE keep-score", bootSrc.includes("shouldHoldKeepScore") && bootSrc.includes("modal-sample-keep"));
 check("score CTA source does not open the journal editor", /function openScoreTrade[\s\S]*function onSampleScored/.test(sandboxSrc) && !/function openScoreTrade[\s\S]*openTradeEditor/.test(sandboxSrc));
 

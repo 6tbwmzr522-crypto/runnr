@@ -149,6 +149,11 @@ html.runnr-sample-landing #sample-hero,#sample-hero.open{display:flex}
 .sample-hero-top{padding:16px 20px;display:flex;align-items:center;justify-content:space-between;border-bottom:1px solid var(--border);flex-shrink:0;max-width:430px;margin:0 auto;width:100%}
 .sample-hero-inner{max-width:430px;margin:0 auto;width:100%;flex:1;overflow-y:auto;padding:24px 20px calc(24px + var(--safe-bottom))}
 .sample-keep-copy{font-size:14px;color:var(--text2);line-height:1.5;margin:0 0 16px}
+#modal-sample-keep{
+  background:rgba(4,6,10,0.46);
+  backdrop-filter:blur(2px);
+  -webkit-backdrop-filter:blur(2px);
+}
 #modal-sample-keep .btn{margin-bottom:10px}
 #modal-sample-keep.sample-keep-locked .modal-close,
 #modal-sample-keep.sample-keep-locked #sample-keep-dismiss{display:none}
