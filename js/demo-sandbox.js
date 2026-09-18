@@ -247,7 +247,7 @@
         cta.hidden = true;
       } else {
         cta.hidden = false;
-        cta.textContent = "Keep this score — save with email";
+        cta.textContent = "Keep this score — 7 days free";
         cta.setAttribute("href", KEEP_HREF);
       }
     } else if (cta) {
@@ -620,7 +620,7 @@
     return true;
   }
 
-  const DEFAULT_KEEP_COPY = "Save with email to start your 7-day trial. SAMPLE stays SAMPLE — it never merges into a real book.";
+  const DEFAULT_KEEP_COPY = "Use Runnr free for 7 days. Your email just saves this score and your trial entries — nothing bills automatically. Like it? Subscribe after. SAMPLE stays SAMPLE — it never merges into a real book.";
   const CAP_KEEP_COPY = "3 SAMPLE plans used — save with email to keep sizing & logging. SAMPLE stays SAMPLE — it never merges into a real book.";
 
   function paintKeepLock(modal) {
