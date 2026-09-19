@@ -151,9 +151,13 @@ async function askCoachFree() {
   if (!(await requirePro('Coach'))) return;
   const input = document.getElementById('coach-free-ask');
   const q = (input?.value || '').trim();
-  if (!q) return;
+  if (!q) {
+    if (input && typeof input.focus === 'function') input.focus();
+    return;
+  }
   const ans = CoachEngine.answerQuestion(S.trades, q, S.sym, S.bal, S.risk);
   const ansEl = document.getElementById('coach-answer');
+  if (!ansEl) return;
   ansEl.textContent = ans;
   ansEl.style.display = 'block';
   ansEl.scrollIntoView({ behavior: 'smooth', block: 'nearest' });

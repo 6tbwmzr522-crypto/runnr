@@ -5,7 +5,7 @@
 <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
 <script>
 (function () {
-  var V = "156";
+  var V = "157";
   try {
     if (localStorage.getItem("runnr_app_v") !== V) {
       localStorage.setItem("runnr_app_v", V);
@@ -66,8 +66,8 @@
 <link rel="stylesheet" href="css/desk.css?v=8">
 <link rel="stylesheet" href="css/tokens.css?v=1">
 <link rel="stylesheet" href="css/layout.css?v=1">
-<link rel="stylesheet" href="css/components.css?v=2">
-<link rel="stylesheet" href="css/pages.css?v=10">
+<link rel="stylesheet" href="css/components.css?v=3">
+<link rel="stylesheet" href="css/pages.css?v=11">
 <link rel="stylesheet" href="css/pretrade.css?v=8">
 </head>
 <body>
@@ -842,10 +842,10 @@
           <div class="badge" style="cursor:pointer;color:var(--text2)" onclick="askCoach(this)">Long vs short edge?</div>
           <div class="badge" style="cursor:pointer;color:var(--text2)" onclick="askCoach(this)">How's my streak?</div>
         </div>
-        <div style="display:flex;gap:8px;margin-bottom:10px">
-          <input id="coach-free-ask" type="text" placeholder="Ask in your own words…" style="flex:1;min-width:0" onkeydown="if(event.key==='Enter'){event.preventDefault();askCoachFree()}">
-          <button type="button" class="btn btn-sm" onclick="askCoachFree()">Ask</button>
-        </div>
+        <form class="coach-ask-row" onsubmit="event.preventDefault();askCoachFree();return false;">
+          <input id="coach-free-ask" class="coach-free-ask" type="text" autocomplete="off" enterkeyhint="send" placeholder="Ask in your own words…">
+          <button type="submit" class="btn btn-sm">Ask</button>
+        </form>
         <div id="coach-answer" style="display:none;background:var(--surface2);border-radius:var(--r-sm);padding:12px;font-size:13px;color:var(--text2);line-height:1.55"></div>
       </div>
 
@@ -1487,13 +1487,13 @@
   </div>
 </div>
 
-<div id="intro-overlay" aria-hidden="true" role="dialog" aria-modal="true" aria-label="How Runnr works">
+<div id="intro-overlay" class="intro-parked" hidden aria-hidden="true" role="dialog" aria-modal="true" aria-label="How Runnr works">
   <div class="intro-card">
     <div class="intro-top">
       <div class="intro-kicker">How Runnr works</div>
       <button type="button" id="intro-skip">Skip</button>
     </div>
-    <video id="intro-video" src="/media/runnr-how-it-works.mp4" muted playsinline webkit-playsinline preload="metadata" controlslist="nodownload"></video>
+    <video id="intro-video" src="/media/runnr-how-it-works.mp4" muted playsinline webkit-playsinline preload="none" controlslist="nodownload"></video>
     <button type="button" id="intro-unmute">Tap to unmute</button>
     <p id="intro-missing" hidden>Walkthrough file is not on this branch yet — skip to the desk. Parent: drop <code>runnr-how-it-works-vo.mp4</code> onto <code>media/runnr-how-it-works.mp4</code>.</p>
   </div>
@@ -1696,6 +1696,7 @@
     <p class="sample-keep-copy">Your score: ready. Email keeps it — plus the weekly report that shows undisciplined P&amp;L vs the clean one.</p>
     <div id="sample-keep-process" class="sample-keep-process" hidden></div>
     <a class="btn" data-sample-keep-cta href="/login.html?keep=1">Keep my score</a>
+    <p class="sample-keep-login">Already have an account? <a href="/login.html">Log in</a></p>
     <button type="button" class="btn btn-ghost" id="sample-keep-dismiss">Not now</button>
   </div>
 </div>
@@ -1853,7 +1854,7 @@
 <script src="js/options-coach.js?v=1"></script>
 <script src="js/fvg-retrace.js?v=1"></script>
 <script src="js/onboarding.js?v=37"></script>
-<script src="js/intro.js?v=1"></script>
+<script src="js/intro.js?v=2"></script>
 <script src="js/csv-presets.js?v=4"></script>
 <script src="js/trade-limit.js?v=4"></script>
 <script src="js/desk-quiet.js?v=3"></script>
@@ -1871,12 +1872,12 @@
 <script src="js/app-settings.js?v=1"></script>
 <script src="js/app-sizer.js?v=1"></script>
 <script src="js/app-journal.js?v=6"></script>
-<script src="js/app-watchlist.js?v=2"></script>
+<script src="js/app-watchlist.js?v=3"></script>
 <script src="js/app-quotes.js?v=1"></script>
 <script src="js/app-alerts.js?v=1"></script>
 <script src="js/app-portfolio.js?v=1"></script>
 <script src="js/app-sync-ui.js?v=1"></script>
-<script src="js/app-coach-page.js?v=1"></script>
+<script src="js/app-coach-page.js?v=2"></script>
 <script src="js/app-boot.js?v=6"></script>
 
 </body>

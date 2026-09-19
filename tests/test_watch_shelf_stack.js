@@ -42,4 +42,15 @@ check("mobile track stays a horizontal scroller", /@media/.test(css)
   && /\.watch-shelf-track\{display:flex;gap:8px;overflow-x:auto/.test(css));
 check("quiet desk still hides the shelf", css.includes("html.runnr-quiet .home-watch-shelf"));
 
+const commRule = d.match(/#page-home \.home-frame > \.home-commodities-card,\s*#page-home \.home-frame > \.home-markets-card,\s*#page-home \.home-frame > \.home-brokers-card\{([^}]+)\}/);
+check("desktop market/broker cards share the watch-shelf content-size fix", !!commRule);
+check("market/broker height is content-sized", /height:\s*auto/.test(commRule[1]));
+check("market/broker min-height is min-content", /min-height:\s*min-content/.test(commRule[1]));
+
+const gridRule = d.match(/#page-home \.market-grid\{([^}]+)\}/);
+check("desktop market-grid rule exists", !!gridRule);
+check("market-grid does not flex-grow into a collapsed row", /flex:\s*0 0 auto/.test(gridRule[1]));
+check("market-grid min-height is min-content", /min-height:\s*min-content/.test(gridRule[1]));
+check("market-grid no longer uses flex:1 min-height:0", !/flex:\s*1/.test(gridRule[1]) && !/min-height:\s*0/.test(gridRule[1]));
+
 console.log("ok " + n);

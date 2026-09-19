@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import json
+import math
 import re
 import time
 from urllib.error import HTTPError
@@ -103,6 +104,25 @@ def ai_key_configured() -> bool:
     return bool((settings.openai_api_key or "").strip())
 
 
+def price_bucket(price: float | None) -> str:
+    """Round live price to 2 significant figures so cache follows the print."""
+    if price is None:
+        return ""
+    try:
+        p = float(price)
+    except (TypeError, ValueError):
+        return ""
+    if not math.isfinite(p):
+        return ""
+    if p == 0:
+        return "0"
+    sign = 1 if p > 0 else -1
+    ap = abs(p)
+    exp = math.floor(math.log10(ap))
+    factor = 10 ** (1 - exp)
+    return f"{sign * round(ap * factor) / factor:g}"
+
+
 def _openai_remark(
     symbol: str,
     headlines: list[dict],
@@ -111,6 +131,7 @@ def _openai_remark(
     entry: float | None = None,
     stop: float | None = None,
     target: float | None = None,
+    price: float | None = None,
 ) -> tuple[str | None, str | None]:
     key = (settings.openai_api_key or "").strip()
     if not key:
@@ -118,9 +139,10 @@ def _openai_remark(
 
     lines = "\n".join(f"- {h['title']}" for h in headlines[:4])
     setup = ""
-    if any(v is not None for v in (entry, stop, target)):
+    if any(v is not None for v in (entry, stop, target, price)):
         setup = (
             f"\nTrader setup: {direction or 'long'} | "
+            f"now {price if price is not None else '—'} | "
             f"entry {entry or '—'} | stop {stop or '—'} | target {target or '—'}"
         )
 
@@ -134,6 +156,8 @@ Rules:
 - Max 120 characters
 - One sentence, plain English
 - Focus on what matters for the trade idea now
+- Tie the remark to the current price versus the setup when a live print is given
+- Do not quote a stale entry as if it were the live print
 - No hype, no emojis, no "you" or "I"
 - Do not mention "headlines" or "news"
 """
@@ -192,11 +216,12 @@ def build_market_brief(
     entry: float | None = None,
     stop: float | None = None,
     target: float | None = None,
+    price: float | None = None,
     refresh: bool = False,
 ) -> dict:
     sym = normalize_yahoo_symbol(symbol)
     ai_on = ai_key_configured()
-    cache_key = f"{sym}|{direction}|{entry}|{stop}|{target}|ai={ai_on}"
+    cache_key = f"{sym}|{direction}|{entry}|{stop}|{target}|px={price_bucket(price)}|ai={ai_on}"
     now = time.time()
     if refresh:
         from app.config import settings
@@ -224,6 +249,7 @@ def build_market_brief(
         entry=entry,
         stop=stop,
         target=target,
+        price=price,
     )
     if ai:
         result = {
@@ -233,6 +259,8 @@ def build_market_brief(
             "source": "openai",
             "headline": headlines[0]["title"] if headlines else None,
             "ai_enabled": True,
+            "price": price,
+            "generated_at": int(now),
         }
     else:
         remark = headline_remark(headlines, sym)
@@ -244,6 +272,8 @@ def build_market_brief(
             "headline": remark or None,
             "ai_enabled": ai_on,
             "ai_error": ai_error if ai_on else None,
+            "price": price,
+            "generated_at": int(now),
         }
 
     _CACHE[cache_key] = (now, result)

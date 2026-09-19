@@ -20,9 +20,11 @@ function check(name, cond) {
 const v = html.match(/var V = "(\d+)"/)[1];
 const cache = sw.match(/CACHE = "runnr-v(\d+)"/)[1];
 check("index.html V matches sw.js CACHE", v === cache);
-check("intro.js cache-busted", html.includes("js/intro.js?v=1"));
+check("intro.js cache-busted", html.includes("js/intro.js?v=2"));
 check("intro overlay markup", html.includes('id="intro-overlay"') && html.includes('id="intro-skip"'));
 check("intro video path", html.includes("/media/runnr-how-it-works.mp4") && introSrc.includes("/media/runnr-how-it-works.mp4"));
+check("intro overlay is parked in markup", /id="intro-overlay"[^>]*hidden/.test(html) && html.includes("intro-parked"));
+check("intro video does not preload", html.includes('id="intro-video"') && html.includes('preload="none"'));
 check("pages deploys media folder", pages.includes("media"));
 check("public hook is a different overlay", html.includes('id="onboarding-overlay"'));
 check("logged-out hook copy has no walkthrough video", !html.slice(html.indexOf('id="onboarding-overlay"'), html.indexOf("ob-hook-report")).includes("intro-video"));
@@ -40,7 +42,7 @@ function loadIntro(opts) {
     add(c) { this.items.add(c); overlay.className = [...this.items].join(" "); },
     remove(c) { this.items.delete(c); overlay.className = [...this.items].join(" "); },
     contains(c) { return this.items.has(c); },
-  }, setAttribute() {}, getAttribute() { return ""; } };
+  }, setAttribute() {}, getAttribute() { return ""; }, removeAttribute() {} };
   const video = { muted: true, src: "", paused: true, dataset: {},
     setAttribute() {}, getAttribute(k) { return k === "src" ? this.src : ""; },
     play() { this.paused = false; return Promise.resolve(); },
@@ -73,10 +75,18 @@ function loadIntro(opts) {
 const unsigned = loadIntro({ RunnrSync: { isLoggedIn: () => false } });
 check("logged-out home does not show intro", unsigned.I.shouldShow({}) === false);
 
+const parked = loadIntro({ RunnrSync: { isLoggedIn: () => true, introSeen: () => false } });
+check("intro walkthrough is parked", parked.I.ENABLED === false);
+check("parked intro never wants overlay", parked.I.shouldShow({}) === false);
+parked.I.maybeShow({});
+check("parked intro does not open", parked.overlay.classList.contains("open") === false);
+check("parked intro does not autoplay", parked.video.paused === true);
+
 const first = loadIntro({ RunnrSync: { isLoggedIn: () => true, introSeen: () => false } });
-check("first signed-in visit wants overlay", first.I.shouldShow({}) === true);
+first.I.ENABLED = true;
+check("first signed-in visit wants overlay when enabled", first.I.shouldShow({}) === true);
 first.I.maybeShow({});
-check("overlay opens on first signed-in home", first.overlay.classList.contains("open"));
+check("overlay opens on first signed-in home when enabled", first.overlay.classList.contains("open"));
 first.I.skip({ introWalkthroughSeen: false });
 check("skip writes localStorage", first.store.runnr_intro_v1 === "done");
 check("skip closes overlay", first.overlay.classList.contains("open") === false);

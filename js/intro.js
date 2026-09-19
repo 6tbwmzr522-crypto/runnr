@@ -3,6 +3,8 @@ const RunnrIntro = {
   KEY: "runnr_intro_v1",
   VIDEO: "/media/runnr-how-it-works.mp4",
   VIDEO_ALT: "/media/runnr-how-it-works-vo.mp4",
+  // Parked: VO pauses are too long. Flip to true after Janis retunes the cut.
+  ENABLED: false,
 
   localSeen() {
     try {
@@ -24,6 +26,7 @@ const RunnrIntro = {
   },
 
   shouldShow(state) {
+    if (!this.ENABLED) return false;
     if (!this.isLoggedIn()) return false;
     if (this.localSeen()) return false;
     if (this.profileSeen(state)) return false;
@@ -50,9 +53,14 @@ const RunnrIntro = {
   },
 
   open() {
+    if (!this.ENABLED) {
+      this.close();
+      return false;
+    }
     const overlay = typeof document !== "undefined" ? document.getElementById("intro-overlay") : null;
     if (!overlay) return false;
     overlay.classList.add("open");
+    overlay.removeAttribute("hidden");
     overlay.setAttribute("aria-hidden", "false");
     const video = document.getElementById("intro-video");
     if (video) {
@@ -70,10 +78,12 @@ const RunnrIntro = {
     const overlay = typeof document !== "undefined" ? document.getElementById("intro-overlay") : null;
     if (!overlay) return;
     overlay.classList.remove("open");
+    overlay.setAttribute("hidden", "");
     overlay.setAttribute("aria-hidden", "true");
     const video = document.getElementById("intro-video");
     if (video) {
       try { video.pause(); } catch (e) {}
+      try { video.removeAttribute("autoplay"); } catch (e) {}
     }
   },
 

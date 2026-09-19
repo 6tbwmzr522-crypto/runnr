@@ -313,9 +313,10 @@ def market_brief(
     entry: float | None = None,
     stop: float | None = None,
     target: float | None = None,
+    price: float | None = None,
     refresh: bool = False,
 ):
-    """Recent headline or AI one-liner for watchlist context (cached ~10m)."""
+    """Recent headline or AI one-liner for watchlist context (cached ~10m, keyed by live price)."""
     try:
         result = build_market_brief(
             symbol,
@@ -323,6 +324,7 @@ def market_brief(
             entry=entry,
             stop=stop,
             target=target,
+            price=price,
             refresh=refresh,
         )
         meta = result.pop("_runnr", None) or {}
