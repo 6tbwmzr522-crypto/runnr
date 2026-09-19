@@ -19,8 +19,8 @@ function check(name, cond) {
 const v = html.match(/var V = "(\d+)"/)[1];
 const cache = sw.match(/CACHE = "runnr-v(\d+)"/)[1];
 check("index.html V matches sw.js CACHE", v === cache);
-check("desk.js cache-busted", html.includes("js/desk.js?v=14"));
-check("desk.css cache-busted", html.includes("css/desk.css?v=8"));
+check("desk.js cache-busted", html.includes("js/desk.js?v=15"));
+check("desk.css cache-busted", html.includes("css/desk.css?v=9"));
 
 check("open() does not requirePro-gate Terminal", !/requirePro\(\s*["']Terminal["']/.test(deskSrc));
 check("preview universe is public ETFs", deskSrc.includes('PREVIEW_UNIVERSE = ["SPY", "QQQ", "GLD", "SLV", "USO", "AAPL"]'));

@@ -19,7 +19,8 @@ const RunnrDesk = (() => {
   const PREF_KEY = "runnr_desk_chart";
   const TFS = ["15m", "1H", "1D", "1W"];
   const MAS = [9, 20, 50, 200];
-  const MA_COLORS = { 9: "#7eb8e8", 20: "#C9A96E", 50: "rgba(245,242,236,0.45)", 200: "#E8C97A" };
+  const DISPLAY_BARS = 60;
+  const MA_COLORS = { 9: "#7eb8e8", 20: "#C9A96E", 50: "#E8C97A", 200: "#e85d6f" };
   const DEFAULT_PREFS = { tf: "1D", ma: { 9: false, 20: true, 50: true, 200: false } };
 
   function isPersonalDesk() {
@@ -193,8 +194,24 @@ const RunnrDesk = (() => {
     return out;
   }
 
+  function displayBars(series) {
+    return (series || []).slice(-DISPLAY_BARS);
+  }
+
+  function maOverlay(series, maPrefs) {
+    const full = series || [];
+    const shown = displayBars(full);
+    const offset = full.length - shown.length;
+    return MAS.filter((period) => maPrefs && maPrefs[period]).map((period) => ({
+      n: period,
+      color: MA_COLORS[period] || "#C9A96E",
+      arr: sma(full, period).slice(offset),
+    }));
+  }
+
   function drawChart(canvas, series) {
-    if (!canvas || !series.length) return;
+    const shown = displayBars(series);
+    if (!canvas || !shown.length) return;
     const dpr = window.devicePixelRatio || 1;
     const w = canvas.clientWidth || 320;
     const h = canvas.clientHeight || 220;
@@ -206,7 +223,7 @@ const RunnrDesk = (() => {
 
     const UP = "#00e5a0";
     const DN = "#e85d6f";
-    const n = series.length;
+    const n = shown.length;
     const padL = 8;
     const padR = 46;
     const padT = 8;
@@ -217,13 +234,13 @@ const RunnrDesk = (() => {
     const plotW = Math.max(40, w - padL - padR);
     const slot = plotW / n;
     const bodyW = Math.max(2, Math.min(7, slot * 0.62));
-    const maLines = MAS.filter((n) => prefs.ma[n]).map((n) => ({ n, arr: sma(series, n) }));
+    const maLines = maOverlay(series, prefs.ma);
     const lvls = levelsFor(focus);
 
     let lo = Infinity;
     let hi = -Infinity;
     let vmax = 0;
-    series.forEach((b, i) => {
+    shown.forEach((b, i) => {
       const o = b.o != null ? b.o : b.c;
       const hh = b.h != null ? b.h : Math.max(o, b.c);
       const ll = b.l != null ? b.l : Math.min(o, b.c);
@@ -266,7 +283,7 @@ const RunnrDesk = (() => {
       ctx.fillText(val.toFixed(val >= 100 ? 1 : 2), w - padR + 5, y);
     }
 
-    series.forEach((b, i) => {
+    shown.forEach((b, i) => {
       const o = b.o != null ? b.o : b.c;
       const c = b.c;
       const hh = b.h != null ? b.h : Math.max(o, c);
@@ -300,7 +317,7 @@ const RunnrDesk = (() => {
       ctx.lineWidth = width;
       ctx.stroke();
     }
-    maLines.forEach((m) => strokeMa(m.arr, MA_COLORS[m.n] || "#C9A96E", m.n === 20 ? 1.5 : 1.2));
+    maLines.forEach((m) => strokeMa(m.arr, m.color, m.n === 200 ? 1.6 : m.n === 20 ? 1.5 : 1.2));
 
     lvls.forEach((lv) => {
       const y = yPrice(lv.v);
@@ -321,7 +338,7 @@ const RunnrDesk = (() => {
     });
 
     const volTop = padT + priceH + gap;
-    series.forEach((b, i) => {
+    shown.forEach((b, i) => {
       const o = b.o != null ? b.o : b.c;
       const up = b.c >= o;
       const vh = vmax ? ((b.v || 0) / vmax) * volH : 0;
@@ -335,7 +352,7 @@ const RunnrDesk = (() => {
     ctx.textBaseline = "top";
     let lx = padL;
     maLines.forEach((m) => {
-      ctx.fillStyle = MA_COLORS[m.n] || "#C9A96E";
+      ctx.fillStyle = m.color;
       ctx.fillText("MA" + m.n, lx, padT);
       lx += 40;
     });
@@ -417,8 +434,9 @@ const RunnrDesk = (() => {
     ).join("");
     const stdBit =
       `<button type="button" class="desk-chip desk-chip-std${isStandard(prefs) ? " on" : ""}" data-desk-std="1" title="1D · MA20 · MA50">Runnr</button>`;
-    const lastBar = bars[bars.length - 1];
-    const firstBar = bars[0];
+    const shown = displayBars(bars);
+    const lastBar = shown[shown.length - 1];
+    const firstBar = shown[0];
     const sectorHit = sectorRows.find((s) => s.sym === focus);
     const focusLabel = sectorHit ? focus + " · " + sectorHit.name : (focus || "—");
     const lvls = levelsFor(focus);
@@ -467,7 +485,7 @@ const RunnrDesk = (() => {
       `<div class="desk-chart-box"><canvas id="desk-chart" style="width:100%;height:100%"></canvas></div>` +
       `<div class="desk-chart-meta">${
         lastBar
-          ? `${bars.length} ${prefs.tf} ${firstBar.d} → ${lastBar.d} · O ${fmt(lastBar.o ?? lastBar.c, 2)} H ${fmt(lastBar.h ?? lastBar.c, 2)} L ${fmt(lastBar.l ?? lastBar.c, 2)} C ${fmt(lastBar.c, 2)}` +
+          ? `${shown.length} ${prefs.tf} ${firstBar.d} → ${lastBar.d} · O ${fmt(lastBar.o ?? lastBar.c, 2)} H ${fmt(lastBar.h ?? lastBar.c, 2)} L ${fmt(lastBar.l ?? lastBar.c, 2)} C ${fmt(lastBar.c, 2)}` +
             (focusRow ? ` · ${fmtPct(focusRow.chgPct)} today` : "") +
             " · " + (MAS.filter((n) => prefs.ma[n]).map((n) => "MA" + n).join(" · ") || "no MA") +
             (lvNote ? " · " + lvNote : "")
@@ -651,6 +669,13 @@ const RunnrDesk = (() => {
     window.switchPage("desk");
   }
 
-  return { open, enter, leave, refresh, isPreview };
+  return {
+    open,
+    enter,
+    leave,
+    refresh,
+    isPreview,
+    _test: { sma, displayBars, maOverlay, MA_COLORS, DISPLAY_BARS, MAS },
+  };
 })();
 window.RunnrDesk = RunnrDesk;
