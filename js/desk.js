@@ -20,7 +20,7 @@ const RunnrDesk = (() => {
   const TFS = ["15m", "1H", "1D", "1W"];
   const MAS = [9, 20, 50, 200];
   const DISPLAY_BARS = 60;
-  const MA_COLORS = { 9: "#7eb8e8", 20: "#C9A96E", 50: "#E8C97A", 200: "#e85d6f" };
+  const MA_COLORS = { 9: "#b5a0d4", 20: "#7eb8e8", 50: "#E8C97A", 200: "#e85d6f" };
   const DEFAULT_PREFS = { tf: "1D", ma: { 9: false, 20: true, 50: true, 200: false } };
 
   function isPersonalDesk() {
@@ -200,6 +200,12 @@ const RunnrDesk = (() => {
 
   function maLabels(p) {
     return MAS.filter((n) => p.ma[n]).map((n) => "MA" + n).join(" · ") || "no MA";
+  }
+
+  function maLabelMarkup(p) {
+    const bits = MAS.filter((n) => p.ma[n]);
+    if (!bits.length) return "no MA";
+    return bits.map((n) => `<span class="desk-ma-lab" data-n="${n}">MA${n}</span>`).join(" · ");
   }
 
   function maOverlay(series, maPrefs) {
@@ -491,7 +497,7 @@ const RunnrDesk = (() => {
         lastBar
           ? `${shown.length} ${prefs.tf} ${firstBar.d} → ${lastBar.d} · O ${fmt(lastBar.o ?? lastBar.c, 2)} H ${fmt(lastBar.h ?? lastBar.c, 2)} L ${fmt(lastBar.l ?? lastBar.c, 2)} C ${fmt(lastBar.c, 2)}` +
             (focusRow ? ` · ${fmtPct(focusRow.chgPct)} today` : "") +
-            " · " + maLabels(prefs) +
+            ` · <span class="desk-ma-status">${maLabelMarkup(prefs)}</span>` +
             (lvNote ? " · " + lvNote : "")
           : "Loading chart…"
       }</div>` +
@@ -535,10 +541,8 @@ const RunnrDesk = (() => {
         });
         const std = el.querySelector("[data-desk-std]");
         if (std) std.classList.toggle("on", isStandard(prefs));
-        const meta = el.querySelector(".desk-chart-meta");
-        if (meta) {
-          meta.textContent = meta.textContent.replace(/(?: · MA\d+)+|(?: · no MA)/, " · " + maLabels(prefs));
-        }
+        const status = el.querySelector(".desk-ma-status");
+        if (status) status.innerHTML = maLabelMarkup(prefs);
         const c = document.getElementById("desk-chart");
         if (c) drawChart(c, bars);
       });
@@ -683,7 +687,7 @@ const RunnrDesk = (() => {
     leave,
     refresh,
     isPreview,
-    _test: { sma, displayBars, maOverlay, maLabels, MA_COLORS, DISPLAY_BARS, MAS, drawChart },
+    _test: { sma, displayBars, maOverlay, maLabels, maLabelMarkup, MA_COLORS, DISPLAY_BARS, MAS, drawChart },
   };
 })();
 window.RunnrDesk = RunnrDesk;
