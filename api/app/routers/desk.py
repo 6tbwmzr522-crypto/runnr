@@ -37,13 +37,17 @@ SECTOR_ETFS = [
     ("XLRE", "RE"),
 ]
 
-# Alpaca timeframe, lookback days, yahoo interval, yahoo range
+# Alpaca timeframe, lookback days, yahoo interval, yahoo range.
+# Lookbacks cover SMA(200) warmup plus the 60-bar display window.
 BAR_TF = {
-    "15m": ("15Min", 4, "15m", "5d"),
-    "1H": ("1Hour", 10, "60m", "1mo"),
-    "1D": ("1Day", 130, "1d", "3mo"),
-    "1W": ("1Week", 400, "1wk", "2y"),
+    "15m": ("15Min", 10, "15m", "10d"),
+    "1H": ("1Hour", 50, "60m", "3mo"),
+    "1D": ("1Day", 500, "1d", "2y"),
+    "1W": ("1Week", 2000, "1wk", "5y"),
 }
+DISPLAY_BARS = 60
+MA_WARMUP_BARS = 199  # SMA(200) needs 199 prior closes on the first visible bar
+CHART_KEEP = DISPLAY_BARS + MA_WARMUP_BARS
 
 
 def _now_iso() -> str:
@@ -339,7 +343,7 @@ def desk_bars(
                     "symbols": sym,
                     "timeframe": alpaca_tf,
                     "start": start,
-                    "limit": "100",
+                    "limit": "1000",
                     "adjustment": "split",
                     "sort": "asc",
                 },
@@ -401,7 +405,7 @@ def desk_bars(
     payload = {
         "symbol": sym,
         "timeframe": tf,
-        "bars": bars[-60:],
+        "bars": bars[-CHART_KEEP:],
         "source": source,
         "asof": _now_iso(),
     }

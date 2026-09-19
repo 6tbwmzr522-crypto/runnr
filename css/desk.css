@@ -351,6 +351,26 @@
   border-color:var(--gold);
   background:var(--gold-dim);
 }
+.desk-chip[data-desk-ma="9"].on{
+  color:#7eb8e8;
+  border-color:#7eb8e8;
+  background:rgba(126,184,232,0.12);
+}
+.desk-chip[data-desk-ma="20"].on{
+  color:#C9A96E;
+  border-color:#C9A96E;
+  background:var(--gold-dim);
+}
+.desk-chip[data-desk-ma="50"].on{
+  color:#E8C97A;
+  border-color:#E8C97A;
+  background:rgba(232,201,122,0.12);
+}
+.desk-chip[data-desk-ma="200"].on{
+  color:#e85d6f;
+  border-color:#e85d6f;
+  background:var(--red-dim);
+}
 .desk-chip-std.on{
   color:var(--accent);
   border-color:rgba(0,229,160,0.45);

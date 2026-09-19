@@ -8,6 +8,9 @@ const RunnrWave = (() => {
     { key: "tilt", color: "#ff4d6d", amp: 0.78, wobble: 1.4 },
   ];
 
+  // Was 0.12 (~8s full sweep). 0.04 is 3× slower so spikes and waves stay readable.
+  const PLAY_RATE = 0.04;
+
   let playing = false;
   let cursor = 1;
   let raf = 0;
@@ -242,7 +245,7 @@ const RunnrWave = (() => {
     if (!lastTs) lastTs = ts;
     const dt = Math.min(0.05, (ts - lastTs) / 1000);
     lastTs = ts;
-    cursor += dt * 0.12;
+    cursor += dt * PLAY_RATE;
     if (cursor >= 1) {
       cursor = 1;
       playing = false;
@@ -288,6 +291,6 @@ const RunnrWave = (() => {
     paintUi();
   }
 
-  return { render, toggle, scrub, pause, play, paintUi, onResize, model: () => model };
+  return { render, toggle, scrub, pause, play, paintUi, onResize, model: () => model, PLAY_RATE };
 })();
 window.RunnrWave = RunnrWave;
