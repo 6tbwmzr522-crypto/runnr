@@ -129,6 +129,49 @@ check("status markup colors MA20 and MA50",
 check("toggle handler refreshes chart meta", deskSrc.includes("maLabelMarkup(prefs)")
   && deskSrc.includes("desk-ma-status"));
 
+function mockCanvas() {
+  const strokes = [];
+  const labels = [];
+  const ctx = {
+    strokeStyle: "",
+    fillStyle: "",
+    lineWidth: 1,
+    font: "",
+    textAlign: "",
+    textBaseline: "",
+    setTransform() {},
+    clearRect() {},
+    beginPath() {},
+    moveTo() {},
+    lineTo() {},
+    stroke() { strokes.push(String(this.strokeStyle)); },
+    fill() {},
+    fillRect() {},
+    fillText(text) {
+      if (String(text).startsWith("MA")) labels.push({ text: String(text), color: String(this.fillStyle) });
+    },
+    setLineDash() {},
+  };
+  return {
+    clientWidth: 320,
+    clientHeight: 220,
+    width: 0,
+    height: 0,
+    getContext: () => ctx,
+    strokes,
+    labels,
+  };
+}
+
+const canvas = mockCanvas();
+T.drawChart(canvas, long);
+check("default chart strokes MA20 cyan and MA50 gold",
+  canvas.strokes.includes("#7eb8e8") && canvas.strokes.includes("#E8C97A")
+  && !canvas.strokes.includes("#C9A96E"));
+check("default chart labels MA20 cyan and MA50 gold",
+  canvas.labels.some((l) => l.text === "MA20" && l.color === "#7eb8e8")
+  && canvas.labels.some((l) => l.text === "MA50" && l.color === "#E8C97A"));
+
 const W = loadWave();
 check("exported play rate is 0.04", W.PLAY_RATE === 0.04);
 check("full sweep is ~25s at 0.04", Math.abs(1 / W.PLAY_RATE - 25) < 0.01);
