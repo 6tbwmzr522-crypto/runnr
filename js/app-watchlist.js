@@ -25,6 +25,10 @@ function selectWatch(id) {
   renderWatchlist();
   const panel = document.getElementById('watchlist-detail');
   if (panel) panel.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+  const selected = S.watchlist.find((x) => watchId(x.id) === watchId(S.selectedWatchId));
+  if (selected && !watchRemark(selected) && !watchBriefFresh(selected)) {
+    refreshWatchBriefForItem(selected.id);
+  }
 }
 window.selectWatch = selectWatch;
 
@@ -47,23 +51,55 @@ function remarkModeLabel(mode) {
   return '';
 }
 
-function renderRemarkHtml(w) {
-  const r = getDisplayRemark(w);
-  if (r) {
-    const badge = r.mode !== 'user' ? `<span class="remark-src">${remarkModeLabel(r.mode)}</span>` : '';
-    return `<div class="wcr-remark">${escHtml(r.text)}${badge}</div>`;
-  }
-  if (!watchRemark(w)) {
-    return `<div class="wcr-remark" style="font-style:normal;color:var(--text3)">⟳ Fetching market read…</div>`;
-  }
-  return '';
-}
-
-var WATCH_BRIEF_MS = 15 * 60 * 1000; // refresh market remarks every 15m
+var WATCH_BRIEF_MS = 3 * 60 * 1000; // refresh with the live feed, not a one-shot cache
+var WATCH_BRIEF_PRICE_PCT = 0.75; // invalidate when the print moves ~1%
 var watchBriefRunning = false;
 
+function watchLivePrice(w) {
+  const prices = typeof liveprices !== 'undefined' ? liveprices : {};
+  const lp = w && prices[w.sym];
+  const price = lp && Number(lp.price);
+  return Number.isFinite(price) && price > 0 ? price : 0;
+}
+
+function watchBriefPriceDrift(w) {
+  const live = watchLivePrice(w);
+  const stored = Number(w && w.autoRemarkPrice);
+  if (!live) return false;
+  if (!Number.isFinite(stored) || stored <= 0) return true;
+  return Math.abs(live - stored) / stored * 100 >= WATCH_BRIEF_PRICE_PCT;
+}
+
 function watchBriefFresh(w) {
-  return !!(w.autoRemark && w.autoRemarkAt && Date.now() - w.autoRemarkAt < WATCH_BRIEF_MS);
+  if (!w || !w.autoRemark || !w.autoRemarkAt) return false;
+  if (Date.now() - w.autoRemarkAt >= WATCH_BRIEF_MS) return false;
+  if (watchBriefPriceDrift(w)) return false;
+  return true;
+}
+
+function watchBriefStale(w) {
+  return !!(w && w.autoRemark && !watchBriefFresh(w));
+}
+
+function renderRemarkHtml(w) {
+  const r = getDisplayRemark(w);
+  const loading = !!(w && w.autoRemarkLoading);
+  if (loading && !r) {
+    return `<div class="wcr-remark wcr-remark-loading">⟳ Fetching market read…</div>`;
+  }
+  if (r) {
+    const stale = r.mode !== 'user' && watchBriefStale(w);
+    let badge = '';
+    if (r.mode !== 'user') {
+      const extra = loading ? ' · refreshing' : (stale ? ' · stale' : '');
+      badge = `<span class="remark-src${stale ? ' stale' : ''}">${remarkModeLabel(r.mode)}${extra}</span>`;
+    }
+    return `<div class="wcr-remark${stale ? ' stale' : ''}">${escHtml(r.text)}${badge}</div>`;
+  }
+  if (!watchRemark(w)) {
+    return `<div class="wcr-remark wcr-remark-loading">⟳ Fetching market read…</div>`;
+  }
+  return '';
 }
 
 async function fetchWatchBriefForItem(w, force) {
@@ -71,32 +107,45 @@ async function fetchWatchBriefForItem(w, force) {
   if (!force && watchBriefFresh(w)) return;
   const base = (typeof RunnrSync !== 'undefined' ? RunnrSync.apiBase() : 'https://api.runnr.fyi');
   const sym = quoteSymbolFromInstr(w.sym);
+  const live = watchLivePrice(w);
   const params = new URLSearchParams();
   if (w.dir) params.set('direction', w.dir);
   if (w.entry) params.set('entry', String(w.entry));
   if (w.stop) params.set('stop', String(w.stop));
   if (w.target) params.set('target', String(w.target));
+  if (live) params.set('price', String(live));
   if (force) params.set('refresh', '1');
   const qs = params.toString();
   const url = base + '/api/v1/quotes/' + encodeURIComponent(sym) + '/brief' + (qs ? '?' + qs : '');
-  const res = await fetchWithTimeout(url, 15000);
-  if (!res.ok) throw new Error('brief failed');
-  const data = await res.json();
-  if (data?.remark) {
-    w.autoRemark = data.remark;
-    w.autoRemarkMode = data.mode || 'headline';
-    w.autoRemarkAt = Date.now();
-    persist();
+  w.autoRemarkLoading = true;
+  try {
+    const res = await fetchWithTimeout(url, 15000);
+    if (!res.ok) throw new Error('brief failed');
+    const data = await res.json();
+    if (data?.remark) {
+      w.autoRemark = data.remark;
+      w.autoRemarkMode = data.mode || 'headline';
+      w.autoRemarkAt = Date.now();
+      const priced = Number(data.price);
+      w.autoRemarkPrice = live || (Number.isFinite(priced) && priced > 0 ? priced : w.autoRemarkPrice);
+      delete w.autoRemarkLoading;
+      persist();
+    }
+  } finally {
+    delete w.autoRemarkLoading;
   }
 }
 
 async function refreshWatchBriefs(force) {
   if (watchBriefRunning) return;
-  const batch = S.watchlist.filter(w => !watchRemark(w) && (force || !watchBriefFresh(w)));
+  const batch = S.watchlist.filter(w => !watchRemark(w) && !w.autoRemarkLoading && (force || !watchBriefFresh(w)));
   if (!batch.length) return;
   watchBriefRunning = true;
-  await Promise.allSettled(batch.slice(0, 8).map(w => fetchWatchBriefForItem(w, !!force)));
-  watchBriefRunning = false;
+  try {
+    await Promise.allSettled(batch.slice(0, 8).map(w => fetchWatchBriefForItem(w, !!force)));
+  } finally {
+    watchBriefRunning = false;
+  }
   if (document.getElementById('page-watchlist')?.classList.contains('active')) renderWatchlist();
 }
 
@@ -104,11 +153,12 @@ async function refreshWatchBriefForItem(id, e) {
   if (e) { e.stopPropagation(); e.preventDefault(); }
   const w = S.watchlist.find(x => watchId(x.id) === watchId(id));
   if (!w || watchRemark(w)) return;
-  delete w.autoRemark;
-  delete w.autoRemarkAt;
-  delete w.autoRemarkMode;
+  w.autoRemarkLoading = true;
   renderWatchlist();
-  await fetchWatchBriefForItem(w, true);
+  try {
+    await fetchWatchBriefForItem(w, true);
+  } catch (err) { /* keep last remark; stale badge stays */ }
+  delete w.autoRemarkLoading;
   renderWatchlist();
 }
 window.refreshWatchBriefForItem = refreshWatchBriefForItem;
@@ -249,11 +299,17 @@ function renderWatchDetailCard(w) {
   const needsLevels = !w.entry || !w.stop || !w.target || w.needsLevels;
   const thesis = watchRemark(w);
   const display = getDisplayRemark(w);
-  const remarkBlock = thesis
-    ? `<div class="wds-thesis">${escHtml(thesis)}</div>`
-    : display
-      ? `<div class="wds-thesis">${escHtml(display.text)}<span class="remark-src">${remarkModeLabel(display.mode)}</span></div>`
-      : `<div class="wds-thesis" style="border-top:none;padding-top:0;color:var(--text3);font-style:normal;font-family:var(--font-body);font-size:11px">⟳ Pulling market read…</div>`;
+  const loading = !!w.autoRemarkLoading;
+  const stale = !thesis && watchBriefStale(w);
+  let remarkBlock;
+  if (thesis) {
+    remarkBlock = `<div class="wds-thesis">${escHtml(thesis)}</div>`;
+  } else if (display) {
+    const extra = loading ? ' · refreshing' : (stale ? ' · stale' : '');
+    remarkBlock = `<div class="wds-thesis">${escHtml(display.text)}<span class="remark-src${stale ? ' stale' : ''}">${remarkModeLabel(display.mode)}${extra}</span></div>`;
+  } else {
+    remarkBlock = `<div class="wds-thesis" style="border-top:none;padding-top:0;color:var(--text3);font-style:normal;font-family:var(--font-body);font-size:11px">⟳ Pulling market read…</div>`;
+  }
   return `<div class="watch-detail-slim watch-detail-panel" id="wi-${w.id}">
     <div class="live-price-row" id="lp-row-${w.id}">
       ${lp && lp.price ? renderLivePriceRow(lp, w) : '<span class="lp-loading">⟳ Fetching price…</span>'}
@@ -270,7 +326,7 @@ function renderWatchDetailCard(w) {
       <button onclick="event.stopPropagation();sizefromWatch(${w.id})" style="background:var(--accent-dim);color:var(--accent)">→ Size it</button>
       <button onclick="event.stopPropagation();openStockDetail('${w.sym}')" style="background:var(--surface3);color:var(--text2);border:1px solid var(--border)">Chart</button>
       <button onclick="event.stopPropagation();openWatchEditor(${w.id})" style="background:transparent;color:var(--text3);border:1px solid var(--border)">${thesis ? 'Edit remark' : '+ Remark'}</button>
-      ${!thesis ? `<button onclick="event.stopPropagation();refreshWatchBriefForItem(${w.id}, event)" style="background:transparent;color:var(--text3);border:1px solid var(--border)">↻ AI read</button>` : ''}
+      ${!thesis ? `<button onclick="event.stopPropagation();refreshWatchBriefForItem(${w.id}, event)" style="background:transparent;color:var(--text3);border:1px solid var(--border)">${loading ? '⟳ AI read' : '↻ AI read'}</button>` : ''}
     </div>
     ${remarkBlock}
     ${needsLevels && !thesis && !display ? `<div class="wds-thesis" style="border-top:none;padding-top:0;color:var(--amber);font-style:normal;font-family:var(--font-body);font-size:11px">Set entry, stop &amp; target — add your own remark anytime.</div>` : ''}

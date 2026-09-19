@@ -35,7 +35,7 @@ const cache = sw.match(/CACHE = "runnr-v(\d+)"/)[1];
 check("index.html V matches sw.js CACHE", v === cache);
 check("cache is 139+", Number(v) >= 139);
 check("demo-sandbox cache-bust", html.includes("js/demo-sandbox.js?v=16"));
-check("pages.css cache-bust", html.includes("css/pages.css?v=10"));
+check("pages.css cache-bust", html.includes("css/pages.css?v=11"));
 
 check("stats Guest SAMPLE funnel section", stats.includes("Guest SAMPLE funnel") && stats.includes("email_wall") && stats.includes("guest-demo-view"));
 check("stats clarifies signed-in accounts are not visits", stats.includes("Signed-in accounts (not visits)"));
@@ -58,6 +58,8 @@ check("hero primary CTA is Score a trade", hero.includes('id="sample-score-cta"'
 check("hero is one-screen pitch without proof card", !hero.includes("data-runnr-proof") && !/Sign up/.test(hero) && !/Connect broker/.test(hero) && !/href="\/login\.html"/.test(hero) && !/Alpaca/.test(hero) && !/T212/.test(hero));
 check("hero does not invent score/P&amp;L", !/80%/.test(hero) && !/2,528/.test(hero) && !/2,503/.test(hero) && !/1,190/.test(hero));
 check("keep-score sheet is gated after aha", html.includes('id="modal-sample-keep"') && html.includes("Keep my score") && html.includes("/login.html?keep=1"));
+check("keep-score offers returning-user login", /Already have an account\?[\s\S]*href="\/login\.html"/.test(html.slice(html.indexOf('id="modal-sample-keep"'), html.indexOf('id="modal-share"'))));
+check("returning-user login is not keep=1 bait", /href="\/login\.html"(?!\?keep=1)/.test(html.slice(html.indexOf('id="modal-sample-keep"'), html.indexOf('id="modal-share"'))));
 check("keep-score heading stays Keep this score", /id="modal-sample-keep"[\s\S]*Keep this score/.test(html));
 check("keep-score copy is score + weekly report bait", html.includes("Your score: ready.") && html.includes("undisciplined P&amp;L vs the clean one") && sandboxSrc.includes("undisciplined P&L vs the clean one"));
 check("keep-score supersedes Option A auto-bill copy", !html.includes("nothing bills automatically") && !html.includes("Use Runnr free for 7 days") && !html.includes("Keep this score — 7 days free") && !sandboxSrc.includes("nothing bills automatically"));
