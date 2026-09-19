@@ -198,6 +198,10 @@ const RunnrDesk = (() => {
     return (series || []).slice(-DISPLAY_BARS);
   }
 
+  function maLabels(p) {
+    return MAS.filter((n) => p.ma[n]).map((n) => "MA" + n).join(" · ") || "no MA";
+  }
+
   function maOverlay(series, maPrefs) {
     const full = series || [];
     const shown = displayBars(full);
@@ -487,7 +491,7 @@ const RunnrDesk = (() => {
         lastBar
           ? `${shown.length} ${prefs.tf} ${firstBar.d} → ${lastBar.d} · O ${fmt(lastBar.o ?? lastBar.c, 2)} H ${fmt(lastBar.h ?? lastBar.c, 2)} L ${fmt(lastBar.l ?? lastBar.c, 2)} C ${fmt(lastBar.c, 2)}` +
             (focusRow ? ` · ${fmtPct(focusRow.chgPct)} today` : "") +
-            " · " + (MAS.filter((n) => prefs.ma[n]).map((n) => "MA" + n).join(" · ") || "no MA") +
+            " · " + maLabels(prefs) +
             (lvNote ? " · " + lvNote : "")
           : "Loading chart…"
       }</div>` +
@@ -531,6 +535,10 @@ const RunnrDesk = (() => {
         });
         const std = el.querySelector("[data-desk-std]");
         if (std) std.classList.toggle("on", isStandard(prefs));
+        const meta = el.querySelector(".desk-chart-meta");
+        if (meta) {
+          meta.textContent = meta.textContent.replace(/(?: · MA\d+)+|(?: · no MA)/, " · " + maLabels(prefs));
+        }
         const c = document.getElementById("desk-chart");
         if (c) drawChart(c, bars);
       });
@@ -675,7 +683,7 @@ const RunnrDesk = (() => {
     leave,
     refresh,
     isPreview,
-    _test: { sma, displayBars, maOverlay, MA_COLORS, DISPLAY_BARS, MAS },
+    _test: { sma, displayBars, maOverlay, maLabels, MA_COLORS, DISPLAY_BARS, MAS, drawChart },
   };
 })();
 window.RunnrDesk = RunnrDesk;

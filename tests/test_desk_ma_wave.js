@@ -21,7 +21,7 @@ function check(name, cond) {
 const v = html.match(/var V = "(\d+)"/)[1];
 const cache = sw.match(/CACHE = "runnr-v(\d+)"/)[1];
 check("index.html V matches sw.js CACHE", v === cache);
-check("desk.js cache-busted", html.includes("js/desk.js?v=15"));
+check("desk.js cache-busted", html.includes("js/desk.js?v=16"));
 check("desk.css cache-busted", html.includes("css/desk.css?v=9"));
 check("wave.js cache-busted", html.includes("js/wave.js?v=2"));
 
@@ -106,6 +106,9 @@ check("MA200 plots across the 60-session window with warmup",
   ma200.arr.every((v) => v != null && Number.isFinite(v)));
 check("MA50 and MA200 colors stay distinct", ma50.color === "#E8C97A" && ma200.color === "#e85d6f");
 check("displayBars keeps last 60", T.displayBars(long).length === 60);
+check("status labels list toggled MAs", T.maLabels({ ma: { 50: true, 200: true } }) === "MA50 · MA200");
+check("toggle handler refreshes chart meta", deskSrc.includes("maLabels(prefs)")
+  && deskSrc.includes('.desk-chart-meta'));
 
 const W = loadWave();
 check("exported play rate is 0.04", W.PLAY_RATE === 0.04);
