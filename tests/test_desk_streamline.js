@@ -43,8 +43,7 @@ check("offerDisciplineReplay is wired after saveLog", src.includes("function off
   && /function saveLog[\s\S]*offerDisciplineReplay/.test(src));
 
 check("quiet mode hides shelf / wave / institutional / terminal chrome",
-  css.includes("html.runnr-quiet .nav-advanced")
-  && css.includes("html.runnr-quiet .port-wave-card")
+  css.includes("html.runnr-quiet .port-wave-card")
   && css.includes("html.runnr-quiet .coach-institutional-block")
   && css.includes("html.runnr-quiet .header-desk-btn")
   && css.includes("html.runnr-quiet .home-watch-shelf"));
@@ -53,15 +52,19 @@ check("quiet mode keeps score card visible for the log unlock",
   && !css.includes("html.runnr-quiet #page-home .card.highlight-card")
   && html.includes('id="home-discipline-card"')
   && html.includes('id="disc-unlock-note"'));
-check("More nav exists and is hidden until quiet", html.includes('data-nav="more"')
-  && html.includes("onclick=\"expandDeskMore()\"")
-  && css.includes(".nav-btn-more{display:none}")
-  && css.includes("html.runnr-quiet .nav-btn-more{display:flex}"));
-check("sizer and journal stay in the primary nav",
+check("More nav is a permanent phone tab that opens the sheet", html.includes('data-nav="more"')
+  && html.includes("onclick=\"toggleMoreSheet()\"")
+  && css.includes(".nav-btn-more{display:flex}")
+  && css.includes(".nav-phone-more{display:none}")
+  && /@media \(min-width:1024px\)[\s\S]*\.nav-btn-more,#more-sheet\{display:none !important\}/.test(css));
+check("sizer journal and coach stay in the primary nav",
   /onclick="switchPage\('sizer'\)"/.test(html)
   && /onclick="switchPage\('journal'\)"/.test(html)
+  && /data-nav="coach"/.test(html)
   && !/nav-advanced"[^>]*switchPage\('sizer'\)/.test(html)
-  && !/nav-advanced"[^>]*switchPage\('journal'\)/.test(html));
+  && !/nav-advanced"[^>]*switchPage\('journal'\)/.test(html)
+  && !/nav-advanced"[^>]*switchPage\('coach'\)/.test(html)
+  && !/nav-advanced[^>]*data-nav="coach"/.test(html));
 
 check("journal calm class and progress copy exist", css.includes("journal-hint-calm")
   && css.includes("journal-incomplete-progress")
