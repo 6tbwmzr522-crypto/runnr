@@ -35,7 +35,7 @@ const cache = sw.match(/CACHE = "runnr-v(\d+)"/)[1];
 check("index.html V matches sw.js CACHE", v === cache);
 check("cache is 139+", Number(v) >= 139);
 check("demo-sandbox cache-bust", html.includes("js/demo-sandbox.js?v=16"));
-check("pages.css cache-bust", html.includes("css/pages.css?v=11"));
+check("pages.css cache-bust", html.includes("css/pages.css?v=12"));
 
 check("stats Guest SAMPLE funnel section", stats.includes("Guest SAMPLE funnel") && stats.includes("email_wall") && stats.includes("guest-demo-view"));
 check("stats clarifies signed-in accounts are not visits", stats.includes("Signed-in accounts (not visits)"));

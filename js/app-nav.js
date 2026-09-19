@@ -4,7 +4,10 @@
  */
 // ── NAVIGATION ─────────────────────────────────────────────────────────────
 var pageMap = { home:'page-home', sizer:'page-sizer', journal:'page-journal', coach:'page-coach', portfolio:'page-portfolio', watchlist:'page-watchlist', sync:'page-sync', crypto:'page-crypto', desk:'page-desk', shelf:'page-shelf' };
-var navIdx  = { home:0, sizer:1, watchlist:2, journal:3, coach:4, portfolio:5 };
+/* Phone More destinations are not #nav buttons. Highlight More while those pages are open. */
+var PHONE_MORE_PAGES = { watchlist: 1, portfolio: 1, shelf: 1 };
+var DESKTOP_NAV_MQ = '(min-width: 1024px)';
+var currentNavKey = 'home';
 var portPeriod = 'all';
 
 function refreshPortfolioIfVisible() {
@@ -45,10 +48,101 @@ function applyQuietDesk() {
 }
 window.applyQuietDesk = applyQuietDesk;
 
-function expandDeskMore() {
-  if (window.RunnrDeskQuiet) RunnrDeskQuiet.expandMore();
-  applyQuietDesk();
+function isDesktopShell() {
+  try {
+    return !!(window.matchMedia && window.matchMedia(DESKTOP_NAV_MQ).matches);
+  } catch (e) {
+    return false;
+  }
 }
+
+function isPhoneMorePage(key) {
+  return !!PHONE_MORE_PAGES[key];
+}
+
+function moreSheetEl() {
+  return document.getElementById('more-sheet');
+}
+
+function isMoreSheetOpen() {
+  const el = moreSheetEl();
+  return !!(el && el.classList.contains('open') && !el.hidden);
+}
+
+function paintNavActive(key) {
+  const page = key || currentNavKey;
+  const highlightMore = !isDesktopShell() && (isMoreSheetOpen() || isPhoneMorePage(page));
+  document.querySelectorAll('#nav .nav-btn').forEach((b) => {
+    const nav = b.getAttribute('data-nav');
+    const on = highlightMore ? nav === 'more' : nav === page;
+    b.classList.toggle('active', !!on);
+  });
+}
+
+function moreNavBtn() {
+  return document.querySelector('#nav .nav-btn-more');
+}
+
+function syncMoreAria() {
+  const btn = moreNavBtn();
+  if (btn) btn.setAttribute('aria-expanded', isMoreSheetOpen() ? 'true' : 'false');
+}
+
+function openMoreSheet() {
+  if (isDesktopShell()) return;
+  const el = moreSheetEl();
+  if (!el) return;
+  el.hidden = false;
+  el.classList.add('open');
+  el.setAttribute('aria-hidden', 'false');
+  syncMoreAria();
+  paintNavActive(currentNavKey);
+}
+
+function closeMoreSheet() {
+  const el = moreSheetEl();
+  if (!el) return;
+  el.classList.remove('open');
+  el.hidden = true;
+  el.setAttribute('aria-hidden', 'true');
+  syncMoreAria();
+  paintNavActive(currentNavKey);
+}
+
+function toggleMoreSheet() {
+  if (isMoreSheetOpen()) closeMoreSheet();
+  else openMoreSheet();
+}
+
+function expandDeskMore() {
+  toggleMoreSheet();
+}
+
+function bindMoreSheetGestures() {
+  const panel = document.getElementById('more-sheet-panel');
+  if (!panel || panel.dataset.bound === '1') return;
+  panel.dataset.bound = '1';
+  let startY = 0;
+  panel.addEventListener('touchstart', function (e) {
+    startY = e.touches && e.touches[0] ? e.touches[0].clientY : 0;
+  }, { passive: true });
+  panel.addEventListener('touchend', function (e) {
+    const y = e.changedTouches && e.changedTouches[0] ? e.changedTouches[0].clientY : startY;
+    if (y - startY > 56) closeMoreSheet();
+  }, { passive: true });
+}
+
+document.addEventListener('keydown', function (e) {
+  if (e.key === 'Escape' && isMoreSheetOpen()) closeMoreSheet();
+});
+bindMoreSheetGestures();
+
+window.isDesktopShell = isDesktopShell;
+window.isPhoneMorePage = isPhoneMorePage;
+window.paintNavActive = paintNavActive;
+window.openMoreSheet = openMoreSheet;
+window.closeMoreSheet = closeMoreSheet;
+window.toggleMoreSheet = toggleMoreSheet;
 window.expandDeskMore = expandDeskMore;
 
 function renderHomeJob() {
@@ -133,9 +227,11 @@ function startMarketFeedsIfAllowed() {
 }
 
 function switchPage(key) {
+  currentNavKey = key;
+  closeMoreSheet();
   document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
   document.getElementById(pageMap[key] || 'page-home').classList.add('active');
-  document.querySelectorAll('.nav-btn').forEach((b,i) => b.classList.toggle('active', i === (navIdx[key] ?? -1) || b.dataset.nav === key));
+  paintNavActive(key);
   if (key === 'journal') renderJournal();
   if (key === 'sizer') {
     renderChallengePanel();
@@ -179,3 +275,4 @@ function switchPage(key) {
     RunnrPretrade.leave();
   }
 }
+window.switchPage = switchPage;

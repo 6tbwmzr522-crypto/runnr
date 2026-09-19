@@ -306,7 +306,6 @@ html.runnr-quiet #home-coach-banner,
 html.runnr-quiet #incomplete-banner,
 html.runnr-quiet .home-analyse-btn,
 html.runnr-quiet .header-desk-btn,
-html.runnr-quiet .nav-advanced,
 html.runnr-quiet .port-wave-card,
 html.runnr-quiet .coach-institutional-block,
 html.runnr-quiet #page-home .stat-grid{display:none !important}
@@ -322,8 +321,8 @@ html.runnr-quiet #page-home .stat-grid{display:none !important}
 .home-job-link-terminal[hidden]{display:none}
 #share-locked{padding:18px 8px 8px;text-align:center}
 #share-locked p{font-size:14px;color:var(--text2);line-height:1.5;margin:0 0 14px}
-html.runnr-quiet .nav-btn-more{display:flex}
-.nav-btn-more{display:none}
+.nav-btn-more{display:flex}
+.nav-phone-more{display:none}
 html:not(.runnr-guest) #incomplete-banner{display:none !important}
 html:not(.runnr-guest) #home-coach-banner{display:none !important}
 .home-footer-links{display:flex;flex-wrap:wrap;justify-content:center;gap:8px 14px;margin:10px 0 8px;font-size:12px}
@@ -387,6 +386,21 @@ html:not(.runnr-guest) #home-coach-banner{display:none !important}
 #sync-inline-auth .btn,#sync-reset-auth .btn{min-height:44px;width:100%}
 .nav-desktop-only{display:none}
 
+/* ── PHONE MORE SHEET — Watch / Portfolio / Shelf. Terminal stays desktop. ── */
+#more-sheet{position:absolute;inset:0;z-index:12;display:none}
+#more-sheet.open{display:block}
+#more-sheet[hidden]{display:none !important}
+.more-sheet-backdrop{position:absolute;inset:0;width:100%;height:100%;border:none;padding:0;margin:0;background:rgba(4,6,10,0.58);cursor:pointer}
+.more-sheet-panel{position:absolute;left:0;right:0;bottom:calc(52px + var(--safe-bottom));background:var(--surface);border:1px solid var(--border-strong);border-bottom:none;border-radius:16px 16px 0 0;padding:8px 14px 16px;box-shadow:0 -16px 40px rgba(0,0,0,0.4)}
+.more-sheet-handle{width:36px;height:3px;border-radius:99px;background:rgba(201,169,110,0.35);margin:2px auto 10px}
+.more-sheet-title{font-family:var(--font-head);font-size:22px;font-weight:400;color:var(--text);text-align:center;margin:0 0 2px}
+.more-sheet-hint{font-size:11px;color:var(--text3);text-align:center;margin:0 0 12px}
+.more-sheet-row{width:100%;display:flex;align-items:center;gap:12px;padding:14px 12px;margin:0 0 8px;border:none;border-radius:10px;background:var(--surface2);color:var(--gold);font-family:var(--font-body);font-size:15px;font-weight:400;cursor:pointer;text-align:left}
+.more-sheet-row:last-child{margin-bottom:0}
+.more-sheet-row svg:first-child{width:20px;height:20px;flex-shrink:0}
+.more-sheet-row span{flex:1;color:var(--gold)}
+.more-sheet-chevron{width:16px;height:16px;flex-shrink:0;opacity:0.7}
+
 /* ── DESKTOP SHELL — Mac / wide window. Phone stays the 430px journal. ── */
 @media (min-width:1024px){
   #app{
@@ -431,6 +445,8 @@ html:not(.runnr-guest) #home-coach-banner{display:none !important}
   .nav-btn span{font-size:11px;letter-spacing:0.12em}
   .nav-btn svg{width:18px;height:18px}
   .nav-desktop-only{display:flex}
+  .nav-phone-more{display:flex}
+  .nav-btn-more,#more-sheet{display:none !important}
   #header .header-desk-btn{display:none}
   #header{grid-area:header;padding:14px 28px 12px}
   #header .logo{font-size:26px}
