@@ -23,7 +23,7 @@ const v = html.match(/var V = "(\d+)"/)[1];
 const cache = sw.match(/CACHE = "runnr-v(\d+)"/)[1];
 check("index.html V matches sw.js CACHE", v === cache);
 check("cache is 166+", Number(v) >= 166);
-check("intro.js cache-busted", html.includes("js/intro.js?v=4"));
+check("intro.js cache-busted", html.includes("js/intro.js?v=5"));
 check("intro overlay markup", html.includes('id="intro-overlay"') && html.includes('id="intro-skip"'));
 check("intro video is the email-wall cut", html.includes("/media/runnr-intro-email-wall.mp4") && introSrc.includes("/media/runnr-intro-email-wall.mp4"));
 check("intro poster is in the repo path", html.includes("/media/runnr-intro-email-wall.jpg") && introSrc.includes("/media/runnr-intro-email-wall.jpg"));
@@ -33,7 +33,9 @@ check("intro overlay starts hidden", /id="intro-overlay"[^>]*hidden/.test(html))
 check("intro overlay is not parked", !html.includes("intro-parked"));
 check("skip copy is skip to save your score", html.includes("Skip to save your score") && introSrc.includes("Skip to save your score"));
 check("tap for sound copy", html.includes("Tap for sound") && introSrc.includes("Tap for sound"));
-check("keep-score has replay", html.includes('id="sample-keep-replay"') && html.includes("Watch how Runnr works"));
+check("keep-score has no replay", !html.includes('id="sample-keep-replay"') && !html.slice(html.indexOf('id="modal-sample-keep"'), html.indexOf('id="modal-share"')).includes("Watch how Runnr works"));
+check("landing has quiet watch", html.includes('id="sample-hero-watch"') && html.includes("Watch how Runnr works"));
+check("replay does not reopen the keep-score wall", introSrc.includes("playBeforeKeepScore(null") && !introSrc.includes("showKeepScore({ skipIntro: true })"));
 check("pages deploys media folder", pages.includes("media"));
 check("readme says email-wall not social", mediaReadme.includes("email wall") && mediaReadme.includes("not") && /Instagram|TikTok/.test(mediaReadme));
 check("public hook is a different overlay", html.includes('id="onboarding-overlay"'));
@@ -149,6 +151,10 @@ const replay = loadIntro({
 });
 check("localStorage seen-state does not replay by default", replay.I.shouldPlayBeforeKeepScore({}) === false);
 check("force replay still plays", replay.I.shouldPlayBeforeKeepScore({ force: true }) === true);
+replay.ctx.RunnrDemoSandbox = { showKeepScore() { replay.ctx.wallOpened = true; return true; } };
+check("landing replay opens the video", replay.I.replay() === true && replay.overlay.classList.contains("open") === true);
+replay.I.finish({});
+check("landing replay does not reopen keep-score", replay.ctx.wallOpened !== true);
 check("?intro=1 replays", loadIntro({
   store: { runnr_intro_v1: "done" },
   location: { search: "?intro=1", hash: "" },

@@ -221,14 +221,8 @@ const RunnrIntro = {
   },
 
   replay() {
-    const reopenWall = () => {
-      try {
-        if (typeof RunnrDemoSandbox !== "undefined" && typeof RunnrDemoSandbox.showKeepScore === "function") {
-          RunnrDemoSandbox.showKeepScore({ skipIntro: true });
-        }
-      } catch (e) {}
-    };
-    return this.playBeforeKeepScore(reopenWall, { force: true, replay: true });
+    // Landing / ?intro=1 replay only. Do not reopen the keep-score wall mid-OAuth.
+    return this.playBeforeKeepScore(null, { force: true, replay: true });
   },
 
   maybeShow(state) {

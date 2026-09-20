@@ -185,12 +185,11 @@ html.runnr-sample-landing #sample-hero,#sample-hero.open{display:flex}
   border:1px solid #000;
 }
 #modal-sample-keep .sample-keep-apple:hover{background:#111}
-.sample-keep-login{margin:0 0 8px;text-align:center;font-size:12px;color:var(--text3);line-height:1.4}
+.sample-keep-login{margin:0 0 12px;text-align:center;font-size:12px;color:var(--text3);line-height:1.4}
 .sample-keep-login a{color:var(--gold);text-decoration:none;border-bottom:1px solid rgba(201,169,110,0.35)}
 .sample-keep-login a:hover{border-bottom-color:var(--gold)}
-.sample-keep-email{margin:0 0 12px;text-align:center;font-size:12px;line-height:1.4}
-.sample-keep-email a{color:var(--text3);text-decoration:underline;text-underline-offset:2px}
-.sample-keep-email a:hover{color:var(--text2)}
+.sample-keep-login a[data-sample-keep-cta]{color:var(--text3);border-bottom-color:transparent;text-decoration:underline;text-underline-offset:2px}
+.sample-keep-login a[data-sample-keep-cta]:hover{color:var(--text2);border-bottom-color:transparent}
 html.runnr-show-hook #onboarding-overlay,#onboarding-overlay.hook-mode{max-width:none;margin:0;width:100%}
 html.runnr-show-hook .ob-top,html.runnr-show-hook .ob-content,#onboarding-overlay.hook-mode .ob-top,#onboarding-overlay.hook-mode .ob-content{max-width:430px;margin-left:auto;margin-right:auto;width:100%}
 .ob-top{padding:16px 20px;display:flex;align-items:center;justify-content:space-between;border-bottom:1px solid var(--border);flex-shrink:0}
@@ -399,7 +398,8 @@ html:not(.runnr-guest) #home-coach-banner{display:none !important}
 .shelf-focus.empty{color:var(--text2);border-color:var(--border)}
 .shelf-seed{display:inline-block;margin-left:6px;font-size:9px;letter-spacing:0.12em;text-transform:uppercase;color:var(--gold);border:1px solid var(--border-strong);border-radius:3px;padding:1px 4px;vertical-align:middle}
 .shelf-card.has-focus{outline:1px solid var(--gold);outline-offset:1px}
-.sample-keep-replay{display:block;width:100%;margin:0 0 10px;padding:8px 4px;background:none;border:none;color:var(--gold);font-size:12px;letter-spacing:0.06em;text-transform:uppercase;cursor:pointer;font-family:inherit;text-align:center}
+.sample-hero-watch{display:block;width:100%;margin:10px 0 0;padding:8px 4px;background:none;border:none;color:var(--text3);font-size:12px;letter-spacing:0.04em;cursor:pointer;font-family:inherit;text-align:center}
+.sample-hero-watch:hover{color:var(--gold)}
 .oauth-row{display:flex;flex-direction:column;gap:8px;margin:0 0 14px}
 .oauth-btn{display:block;width:100%;padding:13px 14px;border-radius:8px;border:1px solid var(--border);background:var(--surface2);color:var(--text);font-size:14px;font-weight:600;text-align:center;text-decoration:none;cursor:pointer;font-family:inherit}
 .oauth-btn.apple{background:#111;color:#fff;border-color:#222}

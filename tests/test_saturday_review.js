@@ -93,7 +93,8 @@ check("askCoachFree still requires Pro", /async function askCoachFree[\s\S]{0,16
 const keep = html.slice(html.indexOf('id="modal-sample-keep"'), html.indexOf('id="modal-share"'));
 check("keep-score bait CTA stays", keep.includes("Continue with Google") && keep.includes("Continue with Apple") && keep.includes("/login.html?keep=1") && keep.includes("Keep this score") && keep.includes("Use email instead"));
 check("keep-score returning login is secondary", keep.includes("Already have an account?") && keep.includes('href="/login.html"'));
-check("keep-score chips host stays", keep.includes('id="sample-keep-process"'));
+check("keep-score has no chips host", !keep.includes('id="sample-keep-process"') && !keep.includes("HOW DID IT GO?"));
+check("keep-score has no Watch CTA", !keep.includes("Watch how Runnr works") && !keep.includes("sample-keep-replay"));
 check("keep-score light scrim stays", /#modal-sample-keep\{[^}]*rgba\(4,6,10,0\.46\)/.test(css.replace(/\s+/g, "")));
 
 check("intro stays in the tree", html.includes('id="intro-overlay"') && html.includes("/media/runnr-intro-email-wall.mp4"));

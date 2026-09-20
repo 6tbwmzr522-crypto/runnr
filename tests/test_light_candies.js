@@ -29,13 +29,13 @@ check("cache is 156+", Number(v) >= 156);
 check("cooldown.js is loaded before pretrade", html.indexOf("js/cooldown.js?v=2") < html.indexOf("js/pretrade.js?v=18"));
 check("cool-down sheet markup exists", html.includes('id="modal-cooldown"') && html.includes("SIT ON HANDS") && html.includes("Stay flat") && html.includes("Override anyway (logs as broke cool-down)"));
 check("cool-down copy is two losses", html.includes("Two losses in a row") && html.includes("SAMPLE warns softly"));
-check("keep-score hosts process chips", html.includes('id="sample-keep-process"'));
+check("keep-score does not host process chips", !html.includes('id="sample-keep-process"') && !sandboxSrc.includes("sample-keep-process"));
 check("keep-score email fallback still present", html.includes("Use email instead") && html.includes("/login.html?keep=1"));
 check("process chips are Followed/Leaked/Skipped", src.includes('btn("followed", "Followed")') && src.includes('btn("leaked", "Leaked")') && src.includes('btn("skipped", "Skipped")') && src.includes("HOW DID IT GO?"));
 check("process caption matches mockup", src.includes("One tap. Notes optional."));
 check("WIN/LOSS/BE stay on the journal path", src.includes('btn("win", "WIN")') && src.includes('btn("loss", "LOSS")'));
 check("journal reuses process chips", journalSrc.includes("processButtonsHtml") && journalSrc.includes("processFlagHtml") && journalSrc.includes("data-pt-process"));
-check("SAMPLE keep-score paints process chips", sandboxSrc.includes("sample-keep-process") && sandboxSrc.includes("processButtonsHtml"));
+check("SAMPLE desk still paints process chips", pretradeSrc.includes("processButtonsHtml") && src.includes("HOW DID IT GO?"));
 check("cool-down uses journal outcomes not broker fills", cooldownSrc.includes("consecutiveLoggedLosses") && cooldownSrc.includes("loggedOutcome") && !/alpaca|fillPrice/i.test(cooldownSrc));
 check("SAMPLE is soft and signed-in is hard", cooldownSrc.includes('return "soft"') && cooldownSrc.includes('return "hard"') && cooldownSrc.includes("isLoggedIn"));
 

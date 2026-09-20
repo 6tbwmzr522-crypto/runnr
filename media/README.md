@@ -6,7 +6,7 @@
 
 This clip replaces the old parked signed-in homepage walkthrough. It is **not** for Instagram/TikTok. Homepage autoplay stays off (`RunnrIntro.ENABLED=false`).
 
-The four-beat chip tour (if present) stays optional via `?tour=1` — do not force chips + video on the first email wall. Replay the video with `?intro=1` or **Watch how Runnr works** on the keep-score sheet.
+The four-beat chip tour (if present) stays optional via `?tour=1` — do not force chips + video on the first email wall. Replay the video with `?intro=1` or the quiet **Watch how Runnr works** link on the SAMPLE landing. Do not put Watch on the keep-score wall.
 
 Fallback: `/media/runnr-how-it-works.mp4`.
 
