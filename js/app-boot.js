@@ -193,16 +193,32 @@ function initApp() {
   try { window.RunnrIntro?.bind?.(); } catch (e) {}
   try { window.RunnrTour?.bind?.(); } catch (e) {}
   const params = new URLSearchParams(location.search);
+  const keepOAuthReturn = (() => {
+    try {
+      if (window.RunnrDemoSandbox && typeof RunnrDemoSandbox.keepOAuthPending === 'function' && RunnrDemoSandbox.keepOAuthPending()) {
+        return true;
+      }
+    } catch (e) {}
+    return params.get('demo') === '1';
+  })();
+  function resumeKeepOrHome() {
+    if (keepOAuthReturn && window.RunnrDemoSandbox && typeof RunnrDemoSandbox.resumeAfterKeepAuth === 'function') {
+      RunnrDemoSandbox.resumeAfterKeepAuth();
+      return;
+    }
+    switchPage('home');
+  }
   if (params.get('oauth')) {
     const code = params.get('oauth');
-    history.replaceState(null, '', location.pathname + location.hash);
+    const keepSearch = keepOAuthReturn || params.get('demo') === '1' ? '?demo=1' : '';
+    history.replaceState(null, '', location.pathname + keepSearch + location.hash);
     window._runnrAuthPending = true;
     RunnrSync.consumeOAuthCode(code)
       .then((data) => {
         rememberVerificationSent(data);
         renderHeaderSyncPill();
         applyGuestShell();
-        switchPage('home');
+        resumeKeepOrHome();
         try { updateHomeStats(); renderHomePreviews(); renderHomeBrokerPreview(); } catch (err) {}
         return RunnrSync.syncProfileState()
           .then((profile) => {
@@ -216,6 +232,10 @@ function initApp() {
         return RunnrSync.refreshBilling?.();
       })
       .then(() => {
+        if (keepOAuthReturn) {
+          try { window.RunnrDemoSandbox?.resumeAfterKeepAuth?.(); } catch (err) {}
+          return;
+        }
         try { window.RunnrIntro?.maybeShow?.(S); } catch (err) {}
         try { window.RunnrTour?.maybeShow?.(S); } catch (err) {}
       })
@@ -272,10 +292,11 @@ function initApp() {
     }
   }
   if (/[?&]signedin=1/.test(location.search) && window.RunnrSync?.isLoggedIn?.()) {
-    history.replaceState(null, '', location.pathname + location.hash);
+    const keepSearch = keepOAuthReturn || params.get('demo') === '1' ? '?demo=1' : '';
+    history.replaceState(null, '', location.pathname + keepSearch + location.hash);
     renderHeaderSyncPill();
     applyGuestShell();
-    switchPage('home');
+    resumeKeepOrHome();
     try { updateHomeStats(); renderHomePreviews(); renderHomeBrokerPreview(); } catch (e) {}
     RunnrSync.syncProfileState()
       .then((profile) => {

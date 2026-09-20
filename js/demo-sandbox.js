@@ -10,11 +10,10 @@
   const REV = 1;
   const MIN_BOOK = 12;
   const VIEW_KEY = "runnr_demo_viewed";
-  const WALL_KEY = "runnr_email_wall_beacon_v1";
-  let emailWallBeaconSent = false;
-  try {
-    if (global.sessionStorage && sessionStorage.getItem(WALL_KEY) === "1") emailWallBeaconSent = true;
-  } catch (e) {}
+  const WALL_SHOWN_KEY = "runnr_email_wall_shown_v1";
+  const WALL_LOCKED_KEY = "runnr_email_wall_locked_v1";
+  const WALL_OAUTH_KEY = "runnr_email_wall_oauth_v1";
+  const WALL_CONVERTED_KEY = "runnr_email_wall_converted_v1";
   const AHA_KEY = "runnr_sample_aha_v1";
   const HERO_KEY = "runnr_sample_hero_v1";
   const KEEP_KEY = "runnr_sample_keep_v1";
@@ -22,6 +21,8 @@
   const BIO_URL = "https://runnr.fyi/?demo=1";
   const ALIAS_PATH = "/sample";
   const KEEP_HREF = "/login.html?keep=1";
+  const KEEP_RETURN = "/?demo=1";
+  const KEEP_OAUTH_POPUP = "/login.html?keep=1&oauth_popup=1";
 
   function snap(at) {
     return { risk: 1, bal: 10000, at: at || "2026-04-15T00:00:00.000Z", sym: "€" };
@@ -248,7 +249,7 @@
       } else {
         cta.hidden = false;
         cta.textContent = "Keep this score";
-        cta.setAttribute("href", KEEP_HREF);
+        cta.setAttribute("href", "#keep-score");
       }
     } else if (cta) {
       cta.hidden = !demo;
@@ -260,8 +261,10 @@
     const cta = global.document && document.getElementById("demo-chrome-cta");
     if (cta && !cta.dataset.demoBound) {
       cta.dataset.demoBound = "1";
-      cta.addEventListener("click", function () {
+      cta.addEventListener("click", function (ev) {
+        if (ev && ev.preventDefault) ev.preventDefault();
         beacon("demo_cta_start");
+        showKeepScore({ reason: "chrome" });
       });
     }
     paintProof();
@@ -635,10 +638,162 @@
     return true;
   }
 
-  // Wall bait is saved score + weekly discipline report. Share already draws the in-app weekly card;
-  // emailed weekly-report delivery is still future work — do not weaken this copy.
-  const DEFAULT_KEEP_COPY = "Your score: ready. Email keeps it — plus the weekly report that shows undisciplined P&L vs the clean one.";
-  const CAP_KEEP_COPY = "3 SAMPLE plans used — save with email to keep sizing & logging. SAMPLE stays SAMPLE — it never merges into a real book.";
+  // Wall bait is saved score + weekly discipline report. Quiet 7-day / no auto-bill line
+  // stays under the copy so TikTok guests do not think one-tap OAuth starts a paid plan.
+  const DEFAULT_KEEP_COPY = "Your score: ready. Save it — plus the weekly report that shows undisciplined P&L vs the clean one.";
+  const CAP_KEEP_COPY = "3 SAMPLE plans used — save your score to keep sizing & logging. SAMPLE stays SAMPLE — it never merges into a real book.";
+
+  function onceSessionFlag(key, fn) {
+    try {
+      if (global.sessionStorage && sessionStorage.getItem(key) === "1") return false;
+      if (global.sessionStorage) sessionStorage.setItem(key, "1");
+    } catch (e) {}
+    if (typeof fn === "function") fn();
+    return true;
+  }
+
+  function fireEmailWallBeacons(locked) {
+    // Always record shown first. Locked is a later hold — never fire locked without shown.
+    onceSessionFlag(WALL_SHOWN_KEY, function () {
+      beacon("email_wall_shown");
+    });
+    if (locked) {
+      onceSessionFlag(WALL_LOCKED_KEY, function () {
+        beacon("email_wall_locked");
+      });
+    }
+    return true;
+  }
+
+  function keepOAuthHref(provider, nextPath) {
+    const Sync = global.RunnrSync;
+    const next = nextPath || KEEP_RETURN;
+    if (Sync && typeof Sync.oauthStartUrl === "function") {
+      return Sync.oauthStartUrl(provider, next);
+    }
+    const p = provider === "apple" ? "apple" : "google";
+    return "https://api.runnr.fyi/api/v1/auth/oauth/" + p + "/start?next=" + encodeURIComponent(next);
+  }
+
+  function paintKeepOAuth() {
+    const google = global.document && document.getElementById("sample-keep-google");
+    const apple = global.document && document.getElementById("sample-keep-apple");
+    if (google) google.setAttribute("href", keepOAuthHref("google", KEEP_RETURN));
+    if (apple) apple.setAttribute("href", keepOAuthHref("apple", KEEP_RETURN));
+    return !!(google && apple);
+  }
+
+  function persistKeepBook() {
+    try {
+      if (typeof global.persist === "function") global.persist();
+    } catch (e) {}
+  }
+
+  function markKeepOAuth(provider) {
+    const val = provider === "apple" ? "apple" : (provider === "google" ? "google" : "1");
+    storageSet(global.sessionStorage, WALL_OAUTH_KEY, val);
+    storageSet(global.localStorage, WALL_OAUTH_KEY, val);
+  }
+
+  function keepOAuthPending() {
+    return storageGet(global.sessionStorage, WALL_OAUTH_KEY) === "google"
+      || storageGet(global.sessionStorage, WALL_OAUTH_KEY) === "apple"
+      || storageGet(global.sessionStorage, WALL_OAUTH_KEY) === "1"
+      || storageGet(global.localStorage, WALL_OAUTH_KEY) === "google"
+      || storageGet(global.localStorage, WALL_OAUTH_KEY) === "apple"
+      || storageGet(global.localStorage, WALL_OAUTH_KEY) === "1";
+  }
+
+  function clearKeepOAuth() {
+    try { if (global.sessionStorage) sessionStorage.removeItem(WALL_OAUTH_KEY); } catch (e) {}
+    try { if (global.localStorage) localStorage.removeItem(WALL_OAUTH_KEY); } catch (e) {}
+  }
+
+  function noteKeepOAuthStart(provider) {
+    persistKeepBook();
+    markKeepOAuth(provider);
+    beacon("email_wall_oauth_start");
+    return keepOAuthHref(provider, KEEP_RETURN);
+  }
+
+  function watchKeepOAuthPopup(popup) {
+    if (!popup || typeof global.addEventListener !== "function") return false;
+    let done = false;
+    const origin = (global.location && global.location.origin) || "";
+    function finish() {
+      if (done) return;
+      done = true;
+      try { global.removeEventListener("message", onMsg); } catch (e) {}
+      try { if (timer && typeof global.clearInterval === "function") global.clearInterval(timer); } catch (e2) {}
+      resumeAfterKeepAuth();
+    }
+    function onMsg(ev) {
+      try {
+        if (origin && ev.origin !== origin) return;
+        if (!ev.data || ev.data.type !== "runnr-oauth-done") return;
+      } catch (e) {
+        return;
+      }
+      try { popup.close(); } catch (e2) {}
+      finish();
+    }
+    global.addEventListener("message", onMsg);
+    const timer = typeof global.setInterval === "function"
+      ? global.setInterval(function () {
+        try {
+          if (popup.closed) finish();
+        } catch (e) {}
+      }, 400)
+      : null;
+    return true;
+  }
+
+  function canUseOAuthPopup() {
+    try {
+      const ua = String((global.navigator && navigator.userAgent) || "");
+      if (/TikTok|Instagram|FBAN|FBAV|Line\/|Twitter|Bytedance/i.test(ua)) return false;
+      if (/iPhone|iPad|Android/i.test(ua)) return false;
+      if (global.matchMedia && global.matchMedia("(max-width: 800px)").matches) return false;
+    } catch (e) {}
+    return typeof global.open === "function";
+  }
+
+  function startKeepOAuth(provider, ev) {
+    const p = provider === "apple" ? "apple" : "google";
+    noteKeepOAuthStart(p);
+    let popup = null;
+    try {
+      if (canUseOAuthPopup()) {
+        popup = global.open(keepOAuthHref(p, KEEP_OAUTH_POPUP), "runnr_oauth", "popup=yes,width=480,height=720");
+      }
+    } catch (e) {}
+    if (popup && !popup.closed) {
+      if (ev && ev.preventDefault) ev.preventDefault();
+      watchKeepOAuthPopup(popup);
+      return "popup";
+    }
+    const link = ev && ev.currentTarget;
+    if (link && link.setAttribute) {
+      link.setAttribute("href", keepOAuthHref(p, KEEP_RETURN));
+    }
+    return "redirect";
+  }
+
+  function resumeAfterKeepAuth() {
+    if (!isLoggedIn()) return false;
+    onceSessionFlag(WALL_CONVERTED_KEY, function () {
+      beacon("email_wall_converted");
+    });
+    clearKeepOAuth();
+    try { hideKeepScore(); } catch (e) {}
+    try {
+      if (typeof global.applyGuestShell === "function") global.applyGuestShell();
+    } catch (e) {}
+    try {
+      if (typeof global.routeDeskOrGold === "function") global.routeDeskOrGold();
+    } catch (e) {}
+    return true;
+  }
 
   function paintKeepLock(modal) {
     const el = modal || (global.document && document.getElementById("modal-sample-keep"));
@@ -698,6 +853,7 @@
     }
     const modal = global.document && document.getElementById("modal-sample-keep");
     paintKeepLock(modal);
+    paintKeepOAuth();
     let opened = false;
     if (modal && typeof global.openModal === "function") {
       global.openModal("modal-sample-keep");
@@ -706,13 +862,7 @@
       modal.classList.add("open");
       opened = true;
     }
-    if (opened && !emailWallBeaconSent) {
-      emailWallBeaconSent = true;
-      try {
-        if (global.sessionStorage) sessionStorage.setItem(WALL_KEY, "1");
-      } catch (e) {}
-      beacon(shouldHoldKeepScore() ? "email_wall_locked" : "email_wall_shown");
-    }
+    if (opened) fireEmailWallBeacons(shouldHoldKeepScore());
     return opened;
   }
 
@@ -806,7 +956,15 @@
       if (el.dataset.sampleBound) return;
       el.dataset.sampleBound = "1";
       el.addEventListener("click", function () {
+        persistKeepBook();
         beacon("demo_cta_start");
+      });
+    });
+    doc.querySelectorAll("[data-sample-keep-oauth]").forEach((el) => {
+      if (el.dataset.sampleBound) return;
+      el.dataset.sampleBound = "1";
+      el.addEventListener("click", function (ev) {
+        startKeepOAuth(el.getAttribute("data-sample-keep-oauth"), ev);
       });
     });
   }
@@ -855,6 +1013,8 @@
     BIO_URL,
     ALIAS_PATH,
     KEEP_HREF,
+    KEEP_RETURN,
+    KEEP_OAUTH_POPUP,
     AHA_KEY,
     HERO_KEY,
     SEAL_KEY,
@@ -893,6 +1053,16 @@
     onProofViewed,
     showKeepScore,
     hideKeepScore,
+    fireEmailWallBeacons,
+    keepOAuthHref,
+    paintKeepOAuth,
+    keepOAuthPending,
+    markKeepOAuth,
+    clearKeepOAuth,
+    noteKeepOAuthStart,
+    startKeepOAuth,
+    canUseOAuthPopup,
+    resumeAfterKeepAuth,
     tourWantsChipPath,
     shouldShowSampleHero,
     bootSampleLanding,

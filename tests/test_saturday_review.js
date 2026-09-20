@@ -91,7 +91,7 @@ check("custom coach questions get a data answer", typeof custom === "string" && 
 check("askCoachFree still requires Pro", /async function askCoachFree[\s\S]{0,160}requirePro\(\s*['"]Coach['"]\)/.test(coachPageSrc));
 
 const keep = html.slice(html.indexOf('id="modal-sample-keep"'), html.indexOf('id="modal-share"'));
-check("keep-score bait CTA stays", keep.includes("Keep my score") && keep.includes("/login.html?keep=1") && keep.includes("Keep this score"));
+check("keep-score bait CTA stays", keep.includes("Continue with Google") && keep.includes("Continue with Apple") && keep.includes("/login.html?keep=1") && keep.includes("Keep this score") && keep.includes("Use email instead"));
 check("keep-score returning login is secondary", keep.includes("Already have an account?") && keep.includes('href="/login.html"'));
 check("keep-score chips host stays", keep.includes('id="sample-keep-process"'));
 check("keep-score light scrim stays", /#modal-sample-keep\{[^}]*rgba\(4,6,10,0\.46\)/.test(css.replace(/\s+/g, "")));

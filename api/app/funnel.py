@@ -10,6 +10,9 @@ from app.db import get_db
 from app.trade_limit import existing_countable_from_state_json
 from app.trial import local_trial_is_active, utc_now
 
+# Guest SAMPLE keep-score wall: shown first, locked only after a hold,
+# oauth_start on Google/Apple tap, converted after account/OAuth complete.
+# Never record locked without shown.
 FUNNEL_EVENTS = (
     "demo_view",
     "demo_aha",
@@ -17,6 +20,8 @@ FUNNEL_EVENTS = (
     "demo_cta_start",
     "email_wall_shown",
     "email_wall_locked",
+    "email_wall_oauth_start",
+    "email_wall_converted",
 )
 FUNNEL_EVENT_SET = frozenset(FUNNEL_EVENTS)
 
