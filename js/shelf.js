@@ -175,10 +175,15 @@ const RunnrShelf = (() => {
     { id: "energy", label: "Energy" },
   ];
 
+  const MAG7 = ["AAPL", "MSFT", "NVDA", "AMZN", "GOOGL", "GOOG", "META", "TSLA"];
+  const AAPL_SEED = { sym: "AAPL", name: "Apple", shrs: 250000, value: 50e6, seed: true };
+  const AAPL_SEED_BOOKS = ["situational", "pershing", "appaloosa"];
+
   let tab = "shelf";
   let selectedId = "situational";
   let sleeve = "all";
   let pulling = false;
+  let focusTicker = "";
 
   function esc(s) {
     return String(s || "").replace(/[&<>"']/g, (c) => ({
@@ -188,6 +193,31 @@ const RunnrShelf = (() => {
 
   function bookOf(id) {
     return BOOKS.find((b) => b.id === id) || BOOKS[0];
+  }
+
+  function booksFor(sym) {
+    const key = normSym(sym);
+    if (!key) return [];
+    return BOOKS.filter((b) => (b.holdings || []).some((h) => h.sym === key));
+  }
+
+  function mag7Books() {
+    const set = new Set(MAG7);
+    return BOOKS.filter((b) => (b.holdings || []).some((h) => set.has(h.sym)));
+  }
+
+  function seedMag7Aapl() {
+    const aapl = booksFor("AAPL");
+    const mag = mag7Books();
+    if (aapl.length >= 2 && mag.length) return aapl;
+    AAPL_SEED_BOOKS.forEach((id) => {
+      const book = BOOKS.find((b) => b.id === id);
+      if (!book) return;
+      if ((book.holdings || []).some((h) => h.sym === "AAPL")) return;
+      book.holdings = book.holdings || [];
+      book.holdings.push(Object.assign({}, AAPL_SEED));
+    });
+    return booksFor("AAPL");
   }
 
   function normSym(s) {
@@ -380,12 +410,14 @@ const RunnrShelf = (() => {
       const live = liveBookPct(b);
       const on = b.id === selectedId;
       const shared = sharedRow(b, yours);
-      const cls = "shelf-card" + (on ? " on" : "") + (live.pct != null && live.pct < 0 ? " down" : "");
+      const holdsFocus = focusTicker && b.holdings.some((h) => h.sym === focusTicker);
+      const cls = "shelf-card" + (on ? " on" : "") + (live.pct != null && live.pct < 0 ? " down" : "") + (holdsFocus ? " has-focus" : "");
       return `<button type="button" class="${cls}" data-book="${esc(b.id)}">
         <div class="sc-name">${esc(b.short)}</div>
         <div class="sc-mgr">${esc(b.manager)}</div>
         <div class="sc-pct ${live.pct == null ? "" : live.pct >= 0 ? "up" : "dn"}">${esc(pct(live.pct))}</div>
         ${shared ? `<div class="sc-you">You hold ${esc(shared.holding.sym)}</div>` : ""}
+        ${holdsFocus && (!shared || shared.holding.sym !== focusTicker) ? `<div class="sc-you">Keeps ${esc(focusTicker)}</div>` : ""}
       </button>`;
     }).join("")}</div>`;
   }
@@ -410,11 +442,12 @@ const RunnrShelf = (() => {
       const youTag = you
         ? `<span class="shelf-you">${youPnl == null ? "WATCH" : "YOU " + money(youPnl)}</span>`
         : "";
+      const seedTag = h.seed ? `<span class="shelf-seed">DEMO</span>` : "";
       const chgCls = chg == null ? "" : chg >= 0 ? "up" : "dn";
       const dayCls = day == null ? "" : day >= 0 ? "up" : "dn";
       return `<tr>
         <td>
-          <div class="shelf-issuer">${esc(h.sym)} ${youTag}</div>
+          <div class="shelf-issuer">${esc(h.sym)} ${youTag}${seedTag}</div>
           <div class="shelf-filer">${esc(h.name)}</div>
         </td>
         <td class="shelf-num">${m ? esc(fmtLast(last)) : "—"}</td>
@@ -479,9 +512,19 @@ const RunnrShelf = (() => {
     <div class="shelf-footnote">Discretion maps your flags: SOLE = stop and size confirmed, SHARED = one flag missed, DFND = defined / needs levels, OTR = other.</div>`;
   }
 
+  function focusBanner() {
+    if (!focusTicker) return "";
+    const hits = booksFor(focusTicker);
+    if (!hits.length) {
+      return `<div class="shelf-focus empty">Shelf fills as books sync — Mag 7 shows up first.</div>`;
+    }
+    return `<div class="shelf-focus">${esc(focusTicker)} · ${hits.length} book${hits.length === 1 ? "" : "s"} keep this name</div>`;
+  }
+
   function paint() {
     const el = document.getElementById("shelf-root") || document.getElementById("shelf-blotter");
     if (!el) return;
+    seedMag7Aapl();
     const book = bookOf(selectedId);
     const yours = yourBook();
     const tabs = `<div class="shelf-tabs">
@@ -495,6 +538,7 @@ const RunnrShelf = (() => {
     } else {
       el.innerHTML = `<div class="shelf-kicker">The Shelf · live marks</div>
         <h3 class="shelf-title">Where you stand</h3>
+        ${focusBanner()}
         ${standHtml(book, yours)}
         ${tabs}
         ${cardsHtml(yours)}
@@ -521,6 +565,32 @@ const RunnrShelf = (() => {
     pullMarks(bookOf(selectedId)).then(paint).then(() => pullMarks().then(paint));
   }
 
-  return { render, paint, books: () => BOOKS, yourBook, sharedRow, liveBookPct, select(id) { selectedId = id; sleeve = "all"; render(); } };
+  function showTicker(sym) {
+    seedMag7Aapl();
+    focusTicker = normSym(sym) || "AAPL";
+    tab = "shelf";
+    const hits = booksFor(focusTicker);
+    if (hits.length) selectedId = hits[0].id;
+    sleeve = "all";
+    render();
+    return hits;
+  }
+
+  seedMag7Aapl();
+
+  return {
+    render,
+    paint,
+    books: () => BOOKS,
+    booksFor,
+    mag7Books,
+    seedMag7Aapl,
+    showTicker,
+    MAG7,
+    yourBook,
+    sharedRow,
+    liveBookPct,
+    select(id) { selectedId = id; sleeve = "all"; render(); },
+  };
 })();
 window.RunnrShelf = RunnrShelf;
