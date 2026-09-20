@@ -1,5 +1,5 @@
 #!/usr/bin/env node
-/** SAMPLE trend-day size gate: chip before Size, multiplier map, skip log, ET clock, tour/intro stay out. */
+/** Trend-day size gate: chip before Size, auto SPY/QQQ hygiene, skip log, ET clock. */
 "use strict";
 
 const fs = require("fs");
@@ -23,12 +23,14 @@ function check(name, cond) {
 const v = html.match(/var V = "(\d+)"/)[1];
 const cache = sw.match(/CACHE = "runnr-v(\d+)"/)[1];
 check("index.html V matches sw.js CACHE", v === cache);
-check("cache is 168+", Number(v) >= 168);
-check("trend-day.js is cache-busted", html.includes("js/trend-day.js?v=2"));
+check("cache is 169+", Number(v) >= 169);
+check("trend-day.js is cache-busted", html.includes("js/trend-day.js?v=3"));
 check("trend-day loads after tour and intro", html.indexOf("js/intro.js") < html.indexOf("js/trend-day.js") && html.indexOf("js/tour.js") < html.indexOf("js/trend-day.js"));
 check("trend-day loads before pretrade", html.indexOf("js/trend-day.js") < html.indexOf("js/pretrade.js"));
 check("pretrade cache-bust bumped", html.includes("js/pretrade.js?v=18"));
-check("pretrade.css cache-bust bumped", html.includes("css/pretrade.css?v=9"));
+check("pretrade.css cache-bust bumped", html.includes("css/pretrade.css?v=10"));
+check("auto is labeled SPY/QQQ, not Ripster", trendSrc.includes("Auto · SPY/QQQ") && !/ripster/i.test(trendSrc));
+check("auto snapshot key is isolated from the book key", trendSrc.includes('AUTO_KEY = "runnr_trend_day_auto_v1"'));
 check("overlay markup sits on the Size page", html.includes('id="trend-day-overlay"') && html.includes('id="trend-day-chip"') && html.includes('id="page-sizer"'));
 check("overlay starts hidden", /id="trend-day-overlay"[^>]*hidden/.test(html));
 check("copy is Trend day check", trendSrc.includes("Trend day check") && trendSrc.includes("Sit if 0–1 · half at 2 · full at 3–4"));
@@ -37,7 +39,7 @@ check("no Ripster / EMA / cloud branding", !/ripster|ema cloud|ichimoku/i.test(t
 check("localStorage key is runnr_trend_day_v1", trendSrc.includes('KEY = "runnr_trend_day_v1"') && trendSrc.includes("storageKey") && trendSrc.includes("bookScope"));
 check("signed-in books are not SAMPLE-gated", !/function shouldShowChip[\s\S]*isSampleDesk\(\)\s*return false/.test(trendSrc.replace(/\n/g, " ")) && !pretradeSrc.includes("if (!isSampleDesk()) return null;"));
 check("clock is America/New_York", trendSrc.includes("America/New_York") && !/Berlin|Europe\/Berlin/.test(trendSrc));
-check("gold chip chrome lives in pretrade.css", css.includes("#trend-day-chip") && css.includes("pt-trend-gate") && css.includes(".td-cta"));
+check("gold chip chrome lives in pretrade.css", css.includes("#trend-day-chip") && css.includes("pt-trend-gate") && css.includes(".td-cta") && css.includes(".td-auto"));
 check("pretrade applies the gate multiplier", pretradeSrc.includes("trendDayGate") && pretradeSrc.includes("trendDayMult"));
 check("skip persists on the plan", pretradeSrc.includes("sized without trend-day gate") && pretradeSrc.includes("row.trendDay"));
 check("tour still opens Size", tourSrc.includes("openSizer") && tourSrc.includes('id === "size"'));
@@ -93,7 +95,9 @@ function load(opts) {
       get length() { return Object.keys(store).length; },
       key(i) { return Object.keys(store)[i] || null; },
     },
-    location: o.location || { search: "?demo=1", hash: "" },
+    location: o.location || { search: o.search || "?demo=1", hash: "" },
+    fetch: o.fetch || function () { return Promise.reject(new Error("no fetch")); },
+    Promise,
     document: {
       documentElement: { classList: fakeClassList(o.htmlClass || []), dataset: {} },
       getElementById(id) { return els[id] || null; },
@@ -280,4 +284,173 @@ const out = load();
 const outHtml = out.RunnrTrendDay.chipHTML(out.RunnrTrendDay.todayRecord(sat), out.RunnrTrendDay.clockOf(sat));
 check("weekend chip is optional, not Berlin", outHtml.includes("Outside RTH — gate is optional") && !/Berlin/.test(outHtml));
 
-console.log("test_trend_day: " + n + " checks ok");
+const rules = load();
+const Auto = rules.RunnrTrendDay;
+const demo = Auto.demoSnapshot(friScore);
+check("demo fixture is a Friday 4/4 full-size tape", demo.date === "2026-09-18" && demo.score === 4 && demo.band === "full" && demo.sides.SPY === "up" && demo.sides.QQQ === "up");
+check("check 1 — stamp outside first-hour range", demo.checks[0] === true && demo.levels.SPY.stamp === 570 && demo.levels.SPY.firstHourHigh === 568 && demo.levels.SPY.firstHourLow === 564);
+check("check 2 — stamp broke premarket high", demo.checks[1] === true && demo.levels.SPY.pmHigh === 567 && demo.levels.SPY.pmLow === 562);
+check("check 3 — stamp cleared yesterday high", demo.checks[2] === true && demo.levels.SPY.ydayHigh === 565 && demo.levels.SPY.ydayLow === 560);
+check("check 4 — SPY and QQQ both up", demo.checks[3] === true);
+
+const inside = Auto.evaluateLevels(
+  { stamp: 566, firstHourHigh: 568, firstHourLow: 564, pmHigh: 570, pmLow: 560, ydayHigh: 575, ydayLow: 550 },
+  { stamp: 490, firstHourHigh: 491, firstHourLow: 488, pmHigh: 495, pmLow: 480, ydayHigh: 500, ydayLow: 470 }
+);
+check("inside all ranges is 0 / sit", inside.score === 0 && inside.band === "sit" && inside.sides.SPY === "flat" && inside.checks.every((x) => x === false));
+
+const onlyOrb = Auto.evaluateLevels(
+  { stamp: 569, firstHourHigh: 568, firstHourLow: 564, pmHigh: 575, pmLow: 550, ydayHigh: 580, ydayLow: 550 },
+  { stamp: 490, firstHourHigh: 491, firstHourLow: 488, pmHigh: 495, pmLow: 480, ydayHigh: 500, ydayLow: 470 }
+);
+check("only ORB break scores 1 / sit", onlyOrb.checks[0] === true && onlyOrb.score === 1 && onlyOrb.band === "sit" && onlyOrb.sides.SPY === "up" && onlyOrb.sides.QQQ === "flat" && onlyOrb.checks[3] === false);
+
+const onlyPm = Auto.evaluateLevels(
+  { stamp: 566, firstHourHigh: 568, firstHourLow: 564, pmHigh: 565, pmLow: 560, ydayHigh: 580, ydayLow: 550 },
+  { stamp: 490, firstHourHigh: 491, firstHourLow: 488, pmHigh: 495, pmLow: 480, ydayHigh: 500, ydayLow: 470 }
+);
+check("only premarket break scores 1", onlyPm.checks[1] === true && onlyPm.score === 1 && onlyPm.checks[0] === false && onlyPm.checks[2] === false);
+
+const onlyYday = Auto.evaluateLevels(
+  { stamp: 566, firstHourHigh: 568, firstHourLow: 564, pmHigh: 570, pmLow: 560, ydayHigh: 565, ydayLow: 550 },
+  { stamp: 490, firstHourHigh: 491, firstHourLow: 488, pmHigh: 495, pmLow: 480, ydayHigh: 500, ydayLow: 470 }
+);
+check("only yesterday break scores 1", onlyYday.checks[2] === true && onlyYday.score === 1 && onlyYday.sides.SPY === "up");
+
+const bothDown = Auto.evaluateLevels(
+  { stamp: 550, firstHourHigh: 568, firstHourLow: 564, pmHigh: 567, pmLow: 562, ydayHigh: 565, ydayLow: 560 },
+  { stamp: 470, firstHourHigh: 491, firstHourLow: 488, pmHigh: 488, pmLow: 483, ydayHigh: 485, ydayLow: 480 }
+);
+check("both down is full size + peers", bothDown.score === 4 && bothDown.sides.SPY === "down" && bothDown.sides.QQQ === "down" && bothDown.checks[3] === true);
+
+const disagree = Auto.evaluateLevels(
+  { stamp: 570, firstHourHigh: 568, firstHourLow: 564, pmHigh: 567, pmLow: 562, ydayHigh: 565, ydayLow: 560 },
+  { stamp: 470, firstHourHigh: 491, firstHourLow: 488, pmHigh: 488, pmLow: 483, ydayHigh: 485, ydayLow: 480 }
+);
+check("SPY up + QQQ down fails peers", disagree.sides.SPY === "up" && disagree.sides.QQQ === "down" && disagree.checks[3] === false && disagree.score === 3);
+
+const orbWins = Auto.evaluateLevels(
+  { stamp: 556, firstHourHigh: 555, firstHourLow: 550, pmHigh: 570, pmLow: 540, ydayHigh: 570, ydayLow: 560 },
+  { stamp: 490, firstHourHigh: 491, firstHourLow: 488, pmHigh: 495, pmLow: 480, ydayHigh: 500, ydayLow: 470 }
+);
+check("first-hour break beats yesterday for side", orbWins.sides.SPY === "up" && orbWins.checks[0] === true && orbWins.checks[2] === true);
+
+const missing = Auto.evaluateLevels(
+  { stamp: 570, firstHourHigh: null, firstHourLow: null, pmHigh: null, pmLow: null, ydayHigh: 565, ydayLow: 560 },
+  { stamp: 493, firstHourHigh: 491, firstHourLow: 488, pmHigh: 488, pmLow: 483, ydayHigh: 485, ydayLow: 480 }
+);
+check("missing first-hour / PM levels do not pass those checks", missing.checks[0] === false && missing.checks[1] === false && missing.checks[2] === true);
+
+check("weekend is not auto-eligible", Auto.autoEligible(Auto.clockOf(sat)) === false);
+check("Friday 10:10 is auto-eligible", Auto.autoEligible(Auto.clockOf(friScore)) === true);
+check("Friday 9:45 is not auto-eligible yet", Auto.autoEligible(Auto.clockOf(friBefore)) === false);
+check("Friday after hours is auto-eligible so the stamp can lock", Auto.autoEligible(Auto.clockOf(friOutside)) === true);
+
+const autoChip = load();
+autoChip.RunnrTrendDay.resetForTests();
+const filled = autoChip.RunnrTrendDay.applyAutoSnapshot(demo, friScore);
+check("auto snapshot prefills 4/4 and Apply full size", filled.score === 4 && filled.source === "auto" && filled.autoChecks[0] === true);
+const filledHtml = autoChip.RunnrTrendDay.chipHTML(filled, autoChip.RunnrTrendDay.clockOf(friScore));
+check("chip names Auto · SPY/QQQ", filledHtml.includes("Auto · SPY/QQQ") && filledHtml.includes("Apply full size"));
+const flipped = autoChip.RunnrTrendDay.onCheck(3, friScore);
+check("manual flip marks mixed source", flipped.source === "mixed" && flipped.userEdited === true && flipped.checks[3] === false && flipped.score === 3);
+const mixedHtml = autoChip.RunnrTrendDay.chipHTML(flipped, autoChip.RunnrTrendDay.clockOf(friScore));
+check("edited chip keeps Auto · SPY/QQQ · edited", mixedHtml.includes("Auto · SPY/QQQ · edited"));
+const appliedMixed = autoChip.RunnrTrendDay.apply({}, friScore);
+check("apply persists mixed for Coach", appliedMixed.source === "mixed" && autoChip.RunnrTrendDay.planMeta(friScore).source === "mixed");
+check("stamp mentions edited", /edited/.test(autoChip.RunnrTrendDay.stampHTML(appliedMixed)));
+
+const autoApply = load({ withPretrade: true });
+autoApply.RunnrTrendDay.resetForTests();
+autoApply.RunnrTrendDay.applyAutoSnapshot(demo, friScore);
+const autoRec = autoApply.RunnrTrendDay.apply({}, friScore);
+check("untouched auto apply stores source auto", autoRec.source === "auto" && autoApply.RunnrTrendDay.planMeta(friScore).source === "auto");
+check("auto apply still multiplies size", autoApply.RunnrPretrade.computePlan({ ticker: "AAPL", dir: "long", entry: 200, stop: 190, target: 230 }, rails, [], friScore).size === 100);
+
+const skipAuto = load();
+skipAuto.RunnrTrendDay.resetForTests();
+skipAuto.RunnrTrendDay.applyAutoSnapshot(demo, friScore);
+const skippedAuto = skipAuto.RunnrTrendDay.skip("user", friScore);
+check("skip still works after auto fill", skippedAuto.skipped === true && skipAuto.RunnrTrendDay.riskMultiplier(friScore) === 1 && skipAuto.RunnrTrendDay.shouldShowChip(friScore) === false);
+
+const lockAuto = load();
+lockAuto.RunnrTrendDay.resetForTests();
+const firstSnap = lockAuto.RunnrTrendDay.applyAutoSnapshot(Object.assign({}, demo, { locked: true }), friAfter);
+const later = lockAuto.RunnrTrendDay.evaluateLevels(
+  { stamp: 500, firstHourHigh: 568, firstHourLow: 564, pmHigh: 567, pmLow: 562, ydayHigh: 565, ydayLow: 560 },
+  { stamp: 400, firstHourHigh: 491, firstHourLow: 488, pmHigh: 488, pmLow: 483, ydayHigh: 485, ydayLow: 480 }
+);
+lockAuto.RunnrTrendDay.applyAutoSnapshot(Object.assign({}, later, { date: "2026-09-18", locked: true, checks: later.checks }), friAfter);
+check("after 10:30 user-unedited auto can refresh only via hydrate cache, not by clobbering edits", firstSnap.score === 4);
+lockAuto.RunnrTrendDay.onCheck(0, friAfter);
+const editedLock = lockAuto.RunnrTrendDay.applyAutoSnapshot(Object.assign({}, later, { date: "2026-09-18", locked: true, checks: later.checks }), friAfter);
+check("user override survives a second auto snapshot", editedLock.userEdited === true && editedLock.checks[0] === false && editedLock.source === "mixed");
+
+const isoStore = {};
+const iso = load({ store: isoStore, withPretrade: true });
+iso.RunnrTrendDay.resetForTests();
+iso.RunnrTrendDay.applyAutoSnapshot(demo, friScore);
+iso.RunnrTrendDay.apply({}, friScore);
+const isoSigned = load({ loggedIn: true, email: "janis@example.com", store: isoStore, withPretrade: true });
+check("auto apply on SAMPLE does not fill the signed-in book", isoSigned.RunnrTrendDay.shouldShowChip(friScore) === true && isoSigned.RunnrTrendDay.todayRecord(friScore).source === "");
+isoSigned.RunnrTrendDay.applyAutoSnapshot(demo, friScore);
+check("both books can hold auto without clobber",
+  /"source":"auto"/.test(String(isoStore["runnr_trend_day_v1:sample"] || ""))
+  && /"source":"auto"/.test(String(isoStore["runnr_trend_day_v1:janis@example.com"] || ""))
+  && !!isoStore["runnr_trend_day_auto_v1"]);
+
+const weekendAuto = load({ location: { search: "?demo=1", hash: "" } });
+weekendAuto.RunnrTrendDay.resetForTests();
+check("Sunday without fixture does not auto-fill", weekendAuto.RunnrTrendDay.autoEligible(weekendAuto.RunnrTrendDay.clockOf(sat)) === false);
+
+(async function () {
+  const tdfix = load({ location: { search: "?demo=1&tdfix=1", hash: "" } });
+  tdfix.RunnrTrendDay.resetForTests();
+  const rec = await tdfix.RunnrTrendDay.hydrateAuto(sat);
+  check("?tdfix=1 dry-run prefills Sunday from the Friday fixture", rec && rec.score === 4 && rec.autoFixture === true && rec.source === "auto");
+  const fixHtml = tdfix.RunnrTrendDay.chipHTML(rec, tdfix.RunnrTrendDay.clockOf(sat));
+  check("fixture chip stays optional + labeled", fixHtml.includes("Outside RTH — gate is optional") && fixHtml.includes("Auto · SPY/QQQ · fixture"));
+
+  let fetches = 0;
+  const fail = load({
+    fetch() {
+      fetches += 1;
+      return Promise.resolve({ ok: false, json: async () => ({}) });
+    },
+  });
+  fail.RunnrTrendDay.resetForTests();
+  const failed = await fail.RunnrTrendDay.hydrateAuto(friScore);
+  check("feed fail leaves an empty manual chip", failed.score === 0 && failed.autoError === "Auto unavailable" && failed.checks.every((x) => x === false));
+  const failHtml = fail.RunnrTrendDay.chipHTML(failed, fail.RunnrTrendDay.clockOf(friScore));
+  check("feed fail is a quiet Auto unavailable line", failHtml.includes("Auto unavailable") && failHtml.includes("Apply sit") && failHtml.includes("Skip — size without gate"));
+  check("feed fail still allows Size", fail.RunnrTrendDay.shouldShowChip(friScore) === true && fetches >= 1);
+
+  const live = load({
+    fetch(url) {
+      const href = String(url || "");
+      if (href.indexOf("/api/v1/quotes/trend-day") >= 0) {
+        return Promise.resolve({
+          ok: true,
+          json: async () => ({
+            date: "2026-09-18",
+            eligible: true,
+            locked: false,
+            checks: demo.checks,
+            levels: demo.levels,
+            sides: demo.sides,
+            stampAt: demo.stampAt,
+          }),
+        });
+      }
+      return Promise.reject(new Error("unexpected " + href));
+    },
+  });
+  live.RunnrTrendDay.resetForTests();
+  const liveRec = await live.RunnrTrendDay.hydrateAuto(friScore);
+  check("RTH hydrate prefills from /quotes/trend-day", liveRec.score === 4 && liveRec.source === "auto" && liveRec.autoError === "");
+
+  console.log("test_trend_day: " + n + " checks ok");
+})().catch((err) => {
+  console.error(err && err.stack ? err.stack : err);
+  process.exit(1);
+});

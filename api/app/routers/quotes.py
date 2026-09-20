@@ -12,6 +12,7 @@ from app.config import settings
 from app.finnhub import quote_as_yahoo_chart
 from app.market_brief import build_market_brief
 from app.quote_cache import fear_greed_cache, quote_cache
+from app import trend_day as trend_day_mod
 
 router = APIRouter()
 
@@ -30,6 +31,7 @@ class QuoteBatchRequest(BaseModel):
     symbols: list[str] = Field(..., min_length=1)
     interval: str = "1m"
     range: str = "1d"
+    includePrePost: bool = False
 
 
 def _mark_fetch_fail(key: str) -> None:
@@ -67,15 +69,24 @@ def _attach_meta(payload: dict, status: str, age: float | None, source: str = "y
     return out
 
 
-def _fetch_chart(symbol: str, interval: str, range_: str) -> dict:
+def _fetch_chart(symbol: str, interval: str, range_: str, include_prepost: bool = False) -> dict:
     sym = url_quote(symbol, safe="")
+    extra = "&includePrePost=true" if include_prepost else ""
     url = (
         f"https://query1.finance.yahoo.com/v8/finance/chart/{sym}"
-        f"?interval={interval}&range={range_}"
+        f"?interval={interval}&range={range_}{extra}"
     )
     req = Request(url, headers={"User-Agent": "Runnr/0.1"})
     with urlopen(req, timeout=12) as resp:
         return json.loads(resp.read().decode())
+
+
+def _call_fetch_chart(symbol: str, interval: str, range_: str, include_prepost: bool = False) -> dict:
+    """Tolerate 3-arg test doubles that do not accept include_prepost."""
+    try:
+        return _fetch_chart(symbol, interval, range_, include_prepost)
+    except TypeError:
+        return _fetch_chart(symbol, interval, range_)
 
 
 def _fetch_json(url: str, headers: dict | None = None) -> dict:
@@ -112,10 +123,15 @@ def _load_fear_greed() -> dict:
     }
 
 
-def _load_quote(symbol: str, interval: str, range_: str) -> tuple[dict, str]:
+def _quote_cache_key(symbol: str, interval: str, range_: str, include_prepost: bool = False) -> str:
+    base = f"{symbol}|{interval}|{range_}"
+    return f"{base}|pp" if include_prepost else base
+
+
+def _load_quote(symbol: str, interval: str, range_: str, include_prepost: bool = False) -> tuple[dict, str]:
     """Yahoo first; Finnhub for 1m/5d-or-1d when Yahoo fails."""
     try:
-        return _fetch_chart(symbol, interval, range_), "yahoo"
+        return _call_fetch_chart(symbol, interval, range_, include_prepost), "yahoo"
     except Exception as exc:
         fh_key = (settings.finnhub_api_key or "").strip()
         if fh_key and interval in ("1m", "5m") and range_ in ("1d", "5d"):
@@ -125,9 +141,16 @@ def _load_quote(symbol: str, interval: str, range_: str) -> tuple[dict, str]:
         raise exc
 
 
-def _fetch_and_cache(cache_key: str, symbol: str, interval: str, range_: str, ttl: float) -> dict:
+def _fetch_and_cache(
+    cache_key: str,
+    symbol: str,
+    interval: str,
+    range_: str,
+    ttl: float,
+    include_prepost: bool = False,
+) -> dict:
     try:
-        data, source = _load_quote(symbol, interval, range_)
+        data, source = _load_quote(symbol, interval, range_, include_prepost)
     except Exception:
         _mark_fetch_fail(cache_key)
         raise
@@ -138,12 +161,17 @@ def _fetch_and_cache(cache_key: str, symbol: str, interval: str, range_: str, tt
     return stored
 
 
-def resolve_quote(symbol: str, interval: str, range_: str) -> tuple[dict, str, float | None, str]:
+def resolve_quote(
+    symbol: str,
+    interval: str,
+    range_: str,
+    include_prepost: bool = False,
+) -> tuple[dict, str, float | None, str]:
     """Fresh hit, stale-while-revalidate, or singleflight fetch.
 
     Returns (payload_with__runnr, cache_status, age_s, source).
     """
-    cache_key = f"{symbol}|{interval}|{range_}"
+    cache_key = _quote_cache_key(symbol, interval, range_, include_prepost)
     ttl = float(settings.quote_cache_ttl)
     stale_ttl = float(settings.quote_stale_ttl)
     cached, status, age = quote_cache.lookup(cache_key)
@@ -164,7 +192,7 @@ def resolve_quote(symbol: str, interval: str, range_: str) -> tuple[dict, str, f
         if _can_refresh(cache_key):
             quote_cache.flight.start_background(
                 cache_key,
-                lambda: _fetch_and_cache(cache_key, symbol, interval, range_, ttl),
+                lambda: _fetch_and_cache(cache_key, symbol, interval, range_, ttl, include_prepost),
             )
         source = str(cached.get(_SOURCE_KEY) or "yahoo")
         return _attach_meta(cached, "swr", age, source), "swr", age, source
@@ -172,7 +200,7 @@ def resolve_quote(symbol: str, interval: str, range_: str) -> tuple[dict, str, f
     try:
         stored = quote_cache.flight.do(
             cache_key,
-            lambda: _fetch_and_cache(cache_key, symbol, interval, range_, ttl),
+            lambda: _fetch_and_cache(cache_key, symbol, interval, range_, ttl, include_prepost),
         )
     except Exception as exc:
         if cached:
@@ -207,15 +235,25 @@ def _clean_batch_symbols(raw: list[str] | str) -> list[str]:
     return out
 
 
-def _safe_resolve(symbol: str, interval: str, range_: str) -> tuple[str, dict | None, str, dict | None]:
+def _safe_resolve(
+    symbol: str,
+    interval: str,
+    range_: str,
+    include_prepost: bool = False,
+) -> tuple[str, dict | None, str, dict | None]:
     try:
-        payload, status, _age, _source = resolve_quote(symbol, interval, range_)
+        payload, status, _age, _source = resolve_quote(symbol, interval, range_, include_prepost)
         return symbol, payload, status, None
     except HTTPException as exc:
         return symbol, None, "error", {"status": exc.status_code, "detail": str(exc.detail)}
 
 
-def resolve_quote_batch(symbols: list[str], interval: str, range_: str) -> tuple[dict, dict, str]:
+def resolve_quote_batch(
+    symbols: list[str],
+    interval: str,
+    range_: str,
+    include_prepost: bool = False,
+) -> tuple[dict, dict, str]:
     cleaned = _clean_batch_symbols(symbols)
     if not cleaned:
         raise HTTPException(status_code=400, detail="No symbols")
@@ -227,10 +265,10 @@ def resolve_quote_batch(symbols: list[str], interval: str, range_: str) -> tuple
     statuses: list[str] = []
     workers = min(_BATCH_WORKERS, len(cleaned))
     if workers == 1:
-        rows = [_safe_resolve(cleaned[0], interval, range_)]
+        rows = [_safe_resolve(cleaned[0], interval, range_, include_prepost)]
     else:
         with ThreadPoolExecutor(max_workers=workers) as pool:
-            rows = list(pool.map(lambda s: _safe_resolve(s, interval, range_), cleaned))
+            rows = list(pool.map(lambda s: _safe_resolve(s, interval, range_, include_prepost), cleaned))
     for symbol, payload, status, err in rows:
         statuses.append(status)
         if payload is not None:
@@ -243,8 +281,14 @@ def resolve_quote_batch(symbols: list[str], interval: str, range_: str) -> tuple
     return quotes, errors, cache_status
 
 
-def _batch_payload(symbols: list[str], interval: str, range_: str, response: Response) -> dict:
-    quotes, errors, cache_status = resolve_quote_batch(symbols, interval, range_)
+def _batch_payload(
+    symbols: list[str],
+    interval: str,
+    range_: str,
+    response: Response,
+    include_prepost: bool = False,
+) -> dict:
+    quotes, errors, cache_status = resolve_quote_batch(symbols, interval, range_, include_prepost)
     _cache_headers(response, cache_status, None)
     return {
         "quotes": quotes,
@@ -292,7 +336,7 @@ def fear_greed_index(response: Response):
 @router.post("/batch")
 def quote_batch(body: QuoteBatchRequest, response: Response):
     """Watchlist/home poll: one request for many symbols (singleflight per key)."""
-    return _batch_payload(body.symbols, body.interval, body.range, response)
+    return _batch_payload(body.symbols, body.interval, body.range, response, body.includePrePost)
 
 
 @router.get("/batch")
@@ -301,8 +345,73 @@ def quote_batch_get(
     symbols: str = Query(..., min_length=1),
     interval: str = Query(default="1m", pattern="^(1m|5m|1h|1d)$"),
     range_: str = Query(default="1d", alias="range", pattern="^(1d|5d|1mo|3mo|6mo|1y|2y|5y)$"),
+    includePrePost: bool = Query(default=False),
 ):
-    return _batch_payload(symbols.split(","), interval, range_, response)
+    return _batch_payload(symbols.split(","), interval, range_, response, includePrePost)
+
+
+def _safe_trend_chart(symbol: str, interval: str, range_: str, include_prepost: bool) -> dict | None:
+    try:
+        payload, _status, _age, _source = resolve_quote(symbol, interval, range_, include_prepost)
+        return payload
+    except HTTPException:
+        return None
+
+
+@router.get("/trend-day")
+def trend_day_snapshot(response: Response):
+    """Compact SPY/QQQ Trend day hygiene snapshot. Cached for the ET day after 10:30."""
+    clock = trend_day_mod.clock_of()
+    if not trend_day_mod.auto_eligible(clock):
+        _cache_headers(response, "skip", None)
+        return {
+            "date": clock["date"],
+            "phase": clock["phase"],
+            "eligible": False,
+            "locked": False,
+            "checks": None,
+            "error": None,
+            "benchmark": "SPY",
+            "peers": "QQQ",
+            "_runnr": {"cache": "skip", "source": "auto"},
+        }
+
+    cached = trend_day_mod.cached_snapshot(clock, ttl_s=float(settings.quote_cache_ttl))
+    if cached:
+        _cache_headers(response, "hit", None)
+        out = dict(cached)
+        out["_runnr"] = {"cache": "hit", "source": "auto"}
+        return out
+
+    spy_m = _safe_trend_chart("SPY", "1m", "5d", True)
+    qqq_m = _safe_trend_chart("QQQ", "1m", "5d", True)
+    spy_d = _safe_trend_chart("SPY", "1d", "5d", False)
+    qqq_d = _safe_trend_chart("QQQ", "1d", "5d", False)
+    if not spy_m or not qqq_m:
+        _cache_headers(response, "error", None)
+        return {
+            "date": clock["date"],
+            "phase": clock["phase"],
+            "eligible": True,
+            "locked": clock["minutes"] >= trend_day_mod.SCORE_CLOSE,
+            "checks": None,
+            "error": "feed",
+            "benchmark": "SPY",
+            "peers": "QQQ",
+            "_runnr": {"cache": "error", "source": "auto"},
+        }
+
+    snap = trend_day_mod.evaluate_from_charts(
+        {
+            "SPY": {"m1": spy_m, "d1": spy_d},
+            "QQQ": {"m1": qqq_m, "d1": qqq_d},
+        }
+    )
+    snap["error"] = None if snap.get("levels", {}).get("SPY", {}).get("ok") else "incomplete"
+    trend_day_mod.cache_set(clock["date"], snap, locked=bool(snap.get("locked")))
+    _cache_headers(response, "miss", None)
+    snap["_runnr"] = {"cache": "miss", "source": "auto"}
+    return snap
 
 
 @router.get("/{symbol}/brief")
@@ -340,8 +449,9 @@ def quote(
     response: Response,
     interval: str = Query(default="1m", pattern="^(1m|5m|1h|1d)$"),
     range_: str = Query(default="1d", alias="range", pattern="^(1d|5d|1mo|3mo|6mo|1y|2y|5y)$"),
+    includePrePost: bool = Query(default=False),
 ):
     """Yahoo Finance chart proxy for the Runnr PWA (avoids browser CORS)."""
-    payload, status, age, _source = resolve_quote(symbol, interval, range_)
+    payload, status, age, _source = resolve_quote(symbol, interval, range_, includePrePost)
     _cache_headers(response, status, age)
     return payload
