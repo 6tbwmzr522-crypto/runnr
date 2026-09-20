@@ -311,26 +311,26 @@ const RunnrTour = {
   targetSelectors(id) {
     const phone = this.isPhone();
     if (id === "size") {
-      return ["#pt-output", "#pretrade-root .pt-sizer", "#pretrade-root", "#page-sizer", '#nav [data-nav="sizer"]'];
+      return ["#pt-ticker", "#pt-output", '#nav [data-nav="sizer"]', "#pretrade-root .pt-form"];
     }
     if (id === "journal") {
       if (this.isSampleDesk()) {
-        return ["#sample-keep-process", ".pt-process", "#modal-sample-keep .modal", "#page-journal", '#nav [data-nav="journal"]'];
+        return [".pt-process-row", "#sample-keep-process", ".pt-process", "#pt-log", '#nav [data-nav="journal"]'];
       }
-      return ["#journal-list", "#page-journal", '#nav [data-nav="journal"]', "#pt-log"];
+      return ["#pt-log", "#journal-list", '#nav [data-nav="journal"]', "#page-journal"];
     }
     if (id === "score") {
-      return ["#modal-sample-keep .modal", "#home-discipline-card", "#pt-stat-disc", "#page-home"];
+      return ["#disc-score-ring", "#home-discipline-card", "#pt-stat-disc", "#modal-sample-keep .modal"];
     }
     if (id === "shelf") {
       const shelfOpen = this.shelfPageOpen();
       if (phone && !shelfOpen) {
         if (typeof isMoreSheetOpen === "function" && isMoreSheetOpen()) {
-          return ['#more-sheet [data-more="shelf"]', "#more-sheet-panel"];
+          return ['#more-sheet [data-more="shelf"]'];
         }
-        return ['#nav [data-nav="more"]', '#nav [data-nav="shelf"]'];
+        return ['#nav [data-nav="more"]'];
       }
-      return ["#shelf-root .shelf-deck", "#shelf-root", "#page-shelf", '#nav [data-nav="shelf"]'];
+      return [".shelf-focus", ".shelf-deck", "#shelf-root .shelf-card", "#page-shelf"];
     }
     return ["#home-discipline-card", "#page-home"];
   },
@@ -342,6 +342,7 @@ const RunnrTour = {
       if (!el) continue;
       const r = el.getBoundingClientRect();
       if (r.width < 2 && r.height < 2) continue;
+      if (typeof window !== "undefined" && r.height > window.innerHeight * 0.45 && i < selectors.length - 1) continue;
       return el;
     }
     return document.querySelector(selectors[0]) || null;
@@ -362,11 +363,15 @@ const RunnrTour = {
     el.classList.add("tour-spot");
     const r = el.getBoundingClientRect();
     const pad = 8;
+    const maxW = Math.min(420, window.innerWidth - 24);
+    const maxH = Math.min(160, Math.floor(window.innerHeight * 0.28));
+    const w = Math.max(48, Math.min(maxW, r.width + pad * 2));
+    const h = Math.max(36, Math.min(maxH, r.height + pad * 2));
     hole.hidden = false;
     hole.style.top = Math.max(6, r.top - pad) + "px";
     hole.style.left = Math.max(6, r.left - pad) + "px";
-    hole.style.width = Math.min(window.innerWidth - 12, r.width + pad * 2) + "px";
-    hole.style.height = Math.min(window.innerHeight - 12, r.height + pad * 2) + "px";
+    hole.style.width = w + "px";
+    hole.style.height = h + "px";
     const holeBottom = r.bottom + pad;
     const navH = 88;
     if (holeBottom > window.innerHeight - navH - 140) {

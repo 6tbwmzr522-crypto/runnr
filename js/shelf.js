@@ -416,7 +416,8 @@ const RunnrShelf = (() => {
         <div class="sc-name">${esc(b.short)}</div>
         <div class="sc-mgr">${esc(b.manager)}</div>
         <div class="sc-pct ${live.pct == null ? "" : live.pct >= 0 ? "up" : "dn"}">${esc(pct(live.pct))}</div>
-        ${shared ? `<div class="sc-you">You hold ${esc(shared.holding.sym)}</div>` : (holdsFocus ? `<div class="sc-you">Keeps ${esc(focusTicker)}</div>` : "")}
+        ${shared ? `<div class="sc-you">You hold ${esc(shared.holding.sym)}</div>` : ""}
+        ${holdsFocus && (!shared || shared.holding.sym !== focusTicker) ? `<div class="sc-you">Keeps ${esc(focusTicker)}</div>` : ""}
       </button>`;
     }).join("")}</div>`;
   }

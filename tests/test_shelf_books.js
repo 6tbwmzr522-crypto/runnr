@@ -17,7 +17,7 @@ function check(name, cond) {
 const v = html.match(/var V = "(\d+)"/)[1];
 const cache = sw.match(/CACHE = "runnr-v(\d+)"/)[1];
 check("index.html V matches sw.js CACHE", v === cache);
-check("shelf.js cache-busted at v=5", html.includes("js/shelf.js?v=5"));
+check("shelf.js cache-busted at v=6", html.includes("js/shelf.js?v=6"));
 check("desktop deck is six columns", css.includes("grid-template-columns:repeat(6,minmax(0,1fr))"));
 
 const ctx = { window: {}, document: { getElementById: () => null } };
