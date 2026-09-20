@@ -26,7 +26,7 @@ const v = html.match(/var V = "(\d+)"/)[1];
 const cache = sw.match(/CACHE = "runnr-v(\d+)"/)[1];
 check("index.html V matches sw.js CACHE", v === cache);
 check("cache is 156+", Number(v) >= 156);
-check("cooldown.js is loaded before pretrade", html.indexOf("js/cooldown.js?v=2") < html.indexOf("js/pretrade.js?v=17"));
+check("cooldown.js is loaded before pretrade", html.indexOf("js/cooldown.js?v=2") < html.indexOf("js/pretrade.js?v=18"));
 check("cool-down sheet markup exists", html.includes('id="modal-cooldown"') && html.includes("SIT ON HANDS") && html.includes("Stay flat") && html.includes("Override anyway (logs as broke cool-down)"));
 check("cool-down copy is two losses", html.includes("Two losses in a row") && html.includes("SAMPLE warns softly"));
 check("keep-score hosts process chips", html.includes('id="sample-keep-process"'));
