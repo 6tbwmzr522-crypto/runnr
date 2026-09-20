@@ -549,6 +549,7 @@ const RunnrTour = {
     }
     try { document.documentElement.classList.remove("runnr-tour"); } catch (e) {}
     document.querySelectorAll(".tour-spot").forEach((n) => n.classList.remove("tour-spot"));
+    this.yieldTrendDay();
   },
 
   start(state) {
@@ -565,10 +566,17 @@ const RunnrTour = {
     overlay.removeAttribute("hidden");
     overlay.setAttribute("aria-hidden", "false");
     try { document.documentElement.classList.add("runnr-tour"); } catch (e) {}
+    this.yieldTrendDay();
     this.paintChip();
     this.layoutHole();
     this.startWatch();
     return true;
+  },
+
+  yieldTrendDay() {
+    try {
+      if (typeof RunnrTrendDay !== "undefined" && RunnrTrendDay.paint) RunnrTrendDay.paint();
+    } catch (e) {}
   },
 
   advance() {
