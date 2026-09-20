@@ -153,6 +153,11 @@
       <p class="hint" id="guest-email-wall-total">Today · keep-score modal</p>
     </div>
     <div class="kpi">
+      <div class="label">email_wall oauth / converted</div>
+      <div class="num" id="guest-email-wall-oauth">—</div>
+      <p class="hint" id="guest-email-wall-oauth-total">Today · Google/Apple on the wall</p>
+    </div>
+    <div class="kpi">
       <div class="label">demo_cta_start</div>
       <div class="num" id="guest-demo-cta">—</div>
       <p class="hint" id="guest-demo-cta-total">Today · clicked start free</p>
@@ -342,6 +347,7 @@
         setText("guest-demo-aha", fmt(todayEv.demo_aha));
         setText("guest-demo-score", fmt(todayEv.demo_score_trade));
         setText("guest-email-wall", fmt(todayEv.email_wall_shown) + " / " + fmt(todayEv.email_wall_locked));
+        setText("guest-email-wall-oauth", fmt(todayEv.email_wall_oauth_start) + " / " + fmt(todayEv.email_wall_converted));
         setText("guest-demo-cta", fmt(todayEv.demo_cta_start));
         setText("guest-users-created", fmt(funnel.users_created_today));
         guestHint("guest-demo-view-total", "demo_view", "SAMPLE land");
@@ -350,6 +356,10 @@
         var wallEl = document.getElementById("guest-email-wall-total");
         if (wallEl) {
           wallEl.textContent = "Today · totals " + fmt(totalEv.email_wall_shown || 0) + " shown / " + fmt(totalEv.email_wall_locked || 0) + " locked";
+        }
+        var oauthEl = document.getElementById("guest-email-wall-oauth-total");
+        if (oauthEl) {
+          oauthEl.textContent = "Today · totals " + fmt(totalEv.email_wall_oauth_start || 0) + " start / " + fmt(totalEv.email_wall_converted || 0) + " converted";
         }
         guestHint("guest-demo-cta-total", "demo_cta_start", "start free");
         var guestStatus = document.getElementById("guest-funnel-status");

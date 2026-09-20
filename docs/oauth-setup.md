@@ -61,6 +61,7 @@ Paste the PEM as one line with `\n` escapes, or a real multiline secret if Railw
 
 - `GET /api/v1/auth/oauth/providers` → `{ google, apple }` configured flags
 - `GET /api/v1/auth/oauth/{google|apple}/start?next=/`
+- SAMPLE keep-score wall (`#modal-sample-keep`) starts Google/Apple in-place. Desktop may use a popup (`next=/login.html?keep=1&oauth_popup=1`); mobile / TikTok in-app browsers redirect back to `/?demo=1` so the desk and score stay. Email/password stays on `login.html` via **Use email instead**.
 - Provider callback → find-or-create user → one-time `oauth` ticket → redirect to `https://runnr.fyi/?signedin=1&oauth=…`
 - `POST /api/v1/auth/oauth/exchange` `{ code }` → same JWT as email login
 

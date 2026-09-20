@@ -35,13 +35,15 @@ const v = html.match(/var V = "(\d+)"/)[1];
 const cache = sw.match(/CACHE = "runnr-v(\d+)"/)[1];
 check("index.html V matches sw.js CACHE", v === cache);
 check("cache is 139+", Number(v) >= 139);
-check("demo-sandbox cache-bust", html.includes("js/demo-sandbox.js?v=19"));
-check("pages.css cache-bust", html.includes("css/pages.css?v=15"));
+check("demo-sandbox cache-bust", html.includes("js/demo-sandbox.js?v=20"));
+check("pages.css cache-bust", html.includes("css/pages.css?v=16"));
 check("intro.js cache-bust", html.includes("js/intro.js?v=4"));
 
-check("stats Guest SAMPLE funnel section", stats.includes("Guest SAMPLE funnel") && stats.includes("email_wall") && stats.includes("guest-demo-view"));
+check("stats Guest SAMPLE funnel section", stats.includes("Guest SAMPLE funnel") && stats.includes("email_wall") && stats.includes("guest-demo-view") && stats.includes("email_wall oauth") && stats.includes("email_wall_converted"));
 check("stats clarifies signed-in accounts are not visits", stats.includes("Signed-in accounts (not visits)"));
-check("sandbox beacons email wall on keep-score open", sandboxSrc.includes("email_wall_shown") && sandboxSrc.includes("email_wall_locked") && sandboxSrc.includes("WALL_KEY"));
+check("sandbox beacons email wall on keep-score open", sandboxSrc.includes("email_wall_shown") && sandboxSrc.includes("email_wall_locked") && sandboxSrc.includes("WALL_SHOWN_KEY") && sandboxSrc.includes("WALL_LOCKED_KEY"));
+check("sandbox beacons OAuth start and convert", sandboxSrc.includes("email_wall_oauth_start") && sandboxSrc.includes("email_wall_converted"));
+check("locked never fires without shown", sandboxSrc.includes("fireEmailWallBeacons") && /Always record shown first/.test(sandboxSrc));
 check("bio URL is documented on stats", stats.includes("https://runnr.fyi/?demo=1") && stats.includes("tiktok-bio-url"));
 check("stats does not point TikTok bio at login.html", /TikTok bio[\s\S]{0,400}login\.html/.test(stats) === false || /not login\.html/.test(stats));
 check("stats lists /sample and #sample aliases", stats.includes("https://runnr.fyi/sample") && stats.includes("https://runnr.fyi/#sample"));
@@ -59,18 +61,26 @@ check("hero body is slip + weekly report bait", hero.includes("See your slip on 
 check("hero primary CTA is Score a trade", hero.includes('id="sample-score-cta"') && hero.includes("Score a trade"));
 check("hero is one-screen pitch without proof card", !hero.includes("data-runnr-proof") && !/Sign up/.test(hero) && !/Connect broker/.test(hero) && !/href="\/login\.html"/.test(hero) && !/Alpaca/.test(hero) && !/T212/.test(hero));
 check("hero does not invent score/P&amp;L", !/80%/.test(hero) && !/2,528/.test(hero) && !/2,503/.test(hero) && !/1,190/.test(hero));
-check("keep-score sheet is gated after aha", html.includes('id="modal-sample-keep"') && html.includes("Keep my score") && html.includes("/login.html?keep=1"));
+check("keep-score sheet is gated after aha", html.includes('id="modal-sample-keep"') && html.includes("Continue with Google") && html.includes("Continue with Apple") && html.includes("/login.html?keep=1"));
+check("keep-score primary CTAs are Google and Apple", /id="sample-keep-google"[\s\S]*Continue with Google[\s\S]*id="sample-keep-apple"[\s\S]*Continue with Apple/.test(html.slice(html.indexOf('id="modal-sample-keep"'), html.indexOf('id="modal-share"'))));
+const keepHtml = html.slice(html.indexOf('id="modal-sample-keep"'), html.indexOf('id="modal-share"'));
+check("keep-score has no email form", !/<input|<form/i.test(keepHtml) && !/or email/i.test(keepHtml));
+check("keep-score quiet email fallback", html.slice(html.indexOf('id="modal-sample-keep"'), html.indexOf('id="modal-share"')).includes("Use email instead") && html.includes("/login.html?keep=1"));
 check("keep-score offers returning-user login", /Already have an account\?[\s\S]*href="\/login\.html"/.test(html.slice(html.indexOf('id="modal-sample-keep"'), html.indexOf('id="modal-share"'))));
 check("returning-user login is not keep=1 bait", /href="\/login\.html"(?!\?keep=1)/.test(html.slice(html.indexOf('id="modal-sample-keep"'), html.indexOf('id="modal-share"'))));
 check("keep-score heading stays Keep this score", /id="modal-sample-keep"[\s\S]*Keep this score/.test(html));
 check("keep-score copy is score + weekly report bait", html.includes("Your score: ready.") && html.includes("undisciplined P&amp;L vs the clean one") && sandboxSrc.includes("undisciplined P&L vs the clean one"));
-check("keep-score supersedes Option A auto-bill copy", !html.includes("nothing bills automatically") && !html.includes("Use Runnr free for 7 days") && !html.includes("Keep this score — 7 days free") && !sandboxSrc.includes("nothing bills automatically"));
+check("keep-score keeps 7-day no auto-bill", keepHtml.includes("Start free · 7-day trial") && keepHtml.includes("Nothing bills automatically.") && !keepHtml.includes("Keep this score — 7 days free") && !keepHtml.includes("Use Runnr free for 7 days"));
+check("keep-score Google is white primary", /#modal-sample-keep \.sample-keep-google\{[^}]*background:#fff/.test(css.replace(/\s+/g, " ")));
+check("keep-score Apple is solid black", /#modal-sample-keep \.sample-keep-apple\{[^}]*background:#000/.test(css.replace(/\s+/g, " ")));
+check("OAuth returns to SAMPLE desk", sandboxSrc.includes('KEEP_RETURN = "/?demo=1"') && sandboxSrc.includes("resumeAfterKeepAuth") && bootSrc.includes("keepOAuthReturn"));
 check("keep-score hosts one-tap process chips", html.includes('id="sample-keep-process"') && sandboxSrc.includes("processButtonsHtml"));
 check("keep-score can replay the intro", html.includes('id="sample-keep-replay"') && sandboxSrc.includes("RunnrIntro.replay"));
 check("video plays before the wall", sandboxSrc.includes("playIntroThenKeep") && sandboxSrc.includes("shouldPlayBeforeKeepScore"));
 check("chip tour stays optional on the wall", sandboxSrc.includes("tourWantsChipPath") && sandboxSrc.includes("tour=1"));
 check("keep-score does not lead with Alpaca/T212", !/Alpaca|T212|Trading 212/.test(html.slice(html.indexOf('id="modal-sample-keep"'), html.indexOf('id="modal-share"'))));
-check("login keep=1 copy", login.includes("keep=1") && login.includes("Your score: ready.") && login.includes("weekly report") && login.includes("undisciplined P&L vs the clean one"));
+check("login keep=1 copy", login.includes("keep=1") && login.includes("Your score: ready.") && login.includes("weekly report") && login.includes("undisciplined P&L vs the clean one") && login.includes("Nothing bills automatically"));
+check("login keep=1 OAuth returns to SAMPLE", login.includes('keepScore ? "/?demo=1"') && login.includes("oauth_popup=1") && login.includes("runnr-oauth-done"));
 check("TikTok CTA copy points at SAMPLE URL", html.includes("runnr.fyi/?demo=1") && /TikTok bio is[\s\S]*demo=1/.test(html));
 
 function freshCtx(loc) {
@@ -86,6 +96,7 @@ function freshCtx(loc) {
     sessionStorage: {
       getItem(k) { return Object.prototype.hasOwnProperty.call(session, k) ? session[k] : null; },
       setItem(k, v) { session[k] = String(v); },
+      removeItem(k) { delete session[k]; },
     },
     location: loc || { hostname: "localhost", search: "", pathname: "/", hash: "", href: "http://localhost/" },
     navigator: { userAgent: "node", sendBeacon() { return true; } },
@@ -324,5 +335,63 @@ check("?tour=1 skips video so chips are not stacked", tourWall.ctx.RunnrIntro.sh
 check("?tour=1 keep-score opens the wall directly", tourWall.ctx.RunnrDemoSandbox.showKeepScore({ reason: "score" }) === true);
 check("?tour=1 does not open the intro overlay", tourWall.overlay.classList.contains("open") === false);
 check("?tour=1 email wall is open", tourWall.modal.classList.contains("open") === true);
+
+function loadWallBeacons(loc, extra) {
+  const ctx = loadSandbox(loc);
+  ctx.beacons = [];
+  ctx.navigator.sendBeacon = function (url) {
+    const m = String(url).match(/[?&]e=([^&]+)/);
+    ctx.beacons.push(decodeURIComponent((m && m[1]) || ""));
+    return true;
+  };
+  const modal = {
+    className: "",
+    classList: {
+      items: new Set(),
+      add(c) { this.items.add(c); modal.className = [...this.items].join(" "); },
+      remove(c) { this.items.delete(c); modal.className = [...this.items].join(" "); },
+      toggle(c, on) { if (on) this.add(c); else this.remove(c); },
+      contains(c) { return this.items.has(c); },
+    },
+    querySelector() { return null; },
+  };
+  const google = { href: "#", attrs: {}, setAttribute(k, v) { this.attrs[k] = v; this.href = k === "href" ? v : this.href; }, getAttribute(k) { return this.attrs[k] || ""; } };
+  const apple = { href: "#", attrs: {}, setAttribute(k, v) { this.attrs[k] = v; this.href = k === "href" ? v : this.href; }, getAttribute(k) { return this.attrs[k] || ""; } };
+  const prevGet = ctx.document.getElementById;
+  ctx.document.getElementById = function (id) {
+    if (id === "modal-sample-keep") return modal;
+    if (id === "sample-keep-google") return google;
+    if (id === "sample-keep-apple") return apple;
+    if (id === "sample-keep-process") return { hidden: true, innerHTML: "" };
+    return prevGet.call(ctx.document, id);
+  };
+  ctx.document.querySelector = function (sel) {
+    if (sel === "#modal-sample-keep .sample-keep-copy") return { textContent: "" };
+    return null;
+  };
+  ctx.S = { trades: book, watchlist: SB.factoryWatchlist(), bal: 10000, risk: 1, sym: "€" };
+  if (extra) extra(ctx, { modal, google, apple });
+  return ctx;
+}
+
+const sealedWall = loadWallBeacons({ search: "?demo=1", pathname: "/", hash: "", href: "http://localhost/?demo=1" }, function (ctx) {
+  ctx.localStorage.setItem("runnr_sample_seal_v1", "1");
+});
+check("sealed wall opens", sealedWall.RunnrDemoSandbox.showKeepScore({ skipIntro: true, reason: "score" }) === true);
+check("sealed wall fires shown then locked", sealedWall.beacons[0] === "email_wall_shown" && sealedWall.beacons[1] === "email_wall_locked");
+sealedWall.RunnrDemoSandbox.showKeepScore({ skipIntro: true });
+check("wall beacons are once per session", sealedWall.beacons.filter((e) => e === "email_wall_shown").length === 1 && sealedWall.beacons.filter((e) => e === "email_wall_locked").length === 1);
+
+const openWall = loadWallBeacons({ search: "?demo=1", pathname: "/", hash: "", href: "http://localhost/?demo=1" });
+check("unsealed wall fires shown only", openWall.RunnrDemoSandbox.showKeepScore({ skipIntro: true }) === true && openWall.beacons[0] === "email_wall_shown" && openWall.beacons.indexOf("email_wall_locked") === -1);
+
+const oauthWall = loadWallBeacons({ search: "?demo=1", pathname: "/", hash: "", href: "http://localhost/?demo=1" });
+check("OAuth href returns to SAMPLE desk", /next=%2F%3Fdemo%3D1/.test(oauthWall.RunnrDemoSandbox.keepOAuthHref("google")));
+check("this test UA does not open an OAuth popup", oauthWall.RunnrDemoSandbox.canUseOAuthPopup() === false);
+check("OAuth start is redirect on this UA", oauthWall.RunnrDemoSandbox.startKeepOAuth("google") === "redirect");
+check("OAuth start beacons email_wall_oauth_start", oauthWall.beacons.indexOf("email_wall_oauth_start") !== -1);
+check("OAuth start marks a pending return", oauthWall.RunnrDemoSandbox.keepOAuthPending() === true);
+oauthWall.localStorage.setItem("runnr_api_token", "tok");
+check("OAuth complete beacons converted and clears pending", oauthWall.RunnrDemoSandbox.resumeAfterKeepAuth() === true && oauthWall.beacons.indexOf("email_wall_converted") !== -1 && oauthWall.RunnrDemoSandbox.keepOAuthPending() === false);
 
 console.log("test_sample_landing: ok " + n);

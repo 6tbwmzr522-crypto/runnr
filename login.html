@@ -145,12 +145,14 @@
 <script>
 (function () {
   const API = "https://api.runnr.fyi";
+  var keepScore = false;
   try {
-    if (/[?&]keep=1(?:&|$)/.test(location.search || "")) {
+    keepScore = /[?&]keep=1(?:&|$)/.test(location.search || "");
+    if (keepScore) {
       var sub = document.getElementById("login-sub");
       var back = document.getElementById("login-back");
       var btn = document.getElementById("signin-btn");
-      if (sub) sub.textContent = "Your score: ready. Email keeps it — plus the weekly report that shows undisciplined P&L vs the clean one.";
+      if (sub) sub.textContent = "Your score: ready. Save it — plus the weekly report that shows undisciplined P&L vs the clean one. Start free · 7-day trial. Nothing bills automatically.";
       if (back) back.setAttribute("href", "/?demo=1");
       if (btn) btn.textContent = "Save with email";
     }
@@ -173,7 +175,7 @@
   let resetToken = "";
 
   function oauthStart(provider) {
-    var next = safeNextPath() || "/?signedin=1";
+    var next = safeNextPath() || (keepScore ? "/?demo=1" : "/?signedin=1");
     return API + "/api/v1/auth/oauth/" + provider + "/start?next=" + encodeURIComponent(next);
   }
   var gBtn = document.getElementById("oauth-google");
@@ -311,8 +313,27 @@
     }
   }
 
+  function isOAuthPopupReturn() {
+    try {
+      if (!window.opener || window.opener.closed) return false;
+      return /[?&]oauth_popup=1(?:&|$)/.test(location.search || "");
+    } catch (e) {
+      return false;
+    }
+  }
+
+  function notifyOAuthOpener() {
+    if (!isOAuthPopupReturn()) return false;
+    try {
+      window.opener.postMessage({ type: "runnr-oauth-done" }, location.origin);
+    } catch (e) {}
+    try { window.close(); } catch (e2) {}
+    return true;
+  }
+
   function goHome() {
-    var dest = safeNextPath() || "/?signedin=1";
+    if (notifyOAuthOpener()) return;
+    var dest = safeNextPath() || (keepScore ? "/?demo=1" : "/?signedin=1");
     setStatus(dest.indexOf("stats") !== -1 ? "Signed in — opening stats…" : "Signed in — opening Runnr…", "ok");
     setTimeout(function () {
       window.location.href = dest;
@@ -341,6 +362,7 @@
   async function afterAuth(data, fields) {
     saveSession(data.access_token, data.email || fields.email);
     applySavedFirstName(data.email || fields.email, data.first_name, fields.firstName);
+    if (notifyOAuthOpener()) return;
     var email = data.email || fields.email;
     if (data.email_verified) {
       goHome();
