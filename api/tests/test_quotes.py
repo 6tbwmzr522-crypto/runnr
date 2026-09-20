@@ -256,6 +256,28 @@ def test_quote_batch_get_uses_cache(monkeypatch):
     assert second.json()["quotes"]["NVDA"]["_runnr"]["cache"] == "hit"
 
 
+def test_quote_batch_include_prepost_uses_separate_cache_key(monkeypatch):
+    calls = []
+
+    def fake(symbol, interval, range_, include_prepost=False):
+        calls.append((symbol, include_prepost))
+        return _chart(10, symbol)
+
+    monkeypatch.setattr(quotes_mod, "_fetch_chart", fake)
+    with TestClient(app) as client:
+        rth = client.post(
+            "/api/v1/quotes/batch",
+            json={"symbols": ["SPY"], "interval": "1m", "range": "5d"},
+        )
+        pp = client.post(
+            "/api/v1/quotes/batch",
+            json={"symbols": ["SPY"], "interval": "1m", "range": "5d", "includePrePost": True},
+        )
+    assert rth.status_code == 200
+    assert pp.status_code == 200
+    assert calls == [("SPY", False), ("SPY", True)]
+
+
 def test_quote_batch_partial_error(monkeypatch):
     def fake(symbol, interval, range_):
         if symbol == "FAIL":

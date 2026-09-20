@@ -651,6 +651,13 @@ html.runnr-demo #header .header-desk-btn{display:inline-flex !important}
   margin:-4px 0 10px;
   letter-spacing:0.01em;
 }
+.td-auto{
+  font-size:11px;
+  color:rgba(232,201,122,0.58);
+  margin:-6px 0 10px;
+  letter-spacing:0.02em;
+}
+.td-auto.err{color:var(--text3)}
 .td-checks{display:flex;flex-direction:column;gap:2px;margin-bottom:12px}
 .td-check{
   display:flex;
