@@ -1,6 +1,6 @@
 /**
- * SAMPLE-only trend day size gate — checklist before the gold sizer.
- * Size multiplier only. Not an entry system. No market-data fetch in v1.
+ * Trend day size gate — checklist before the gold sizer.
+ * SAMPLE guests and signed-in books. Size multiplier only. Not an entry system.
  */
 (function (global) {
   "use strict";
@@ -21,18 +21,58 @@
 
   let bound = false;
   let draftChecks = null;
+  let draftScope = "";
 
   function S() {
     return global.S || (global.window && global.window.S) || {};
   }
 
+  function sessionWho() {
+    try {
+      if (global.RunnrSync && typeof RunnrSync.sessionEmail === "function") {
+        const e = String(RunnrSync.sessionEmail() || "").trim().toLowerCase();
+        if (e) return e;
+      }
+    } catch (e) {}
+    try {
+      const own = String((S() && S().ownerEmail) || "").trim().toLowerCase();
+      if (own) return own;
+    } catch (e2) {}
+    try {
+      if (global.localStorage) {
+        const e = String(localStorage.getItem("runnr_api_email") || "").trim().toLowerCase();
+        if (e) return e;
+      }
+    } catch (e3) {}
+    return "";
+  }
+
+  function bookScope() {
+    if (isLoggedIn()) return sessionWho() || "auth";
+    return "sample";
+  }
+
+  function storageKey(scope) {
+    return KEY + ":" + (scope || bookScope());
+  }
+
+  function parseRec(raw) {
+    if (!raw) return null;
+    try {
+      const rec = typeof raw === "string" ? JSON.parse(raw) : raw;
+      return rec && typeof rec === "object" ? rec : null;
+    } catch (e) {
+      return null;
+    }
+  }
+
   function storageGet() {
     try {
       if (!global.localStorage) return null;
-      const raw = localStorage.getItem(KEY);
-      if (!raw) return null;
-      const rec = JSON.parse(raw);
-      return rec && typeof rec === "object" ? rec : null;
+      const scoped = parseRec(localStorage.getItem(storageKey()));
+      if (scoped) return scoped;
+      if (bookScope() === "sample") return parseRec(localStorage.getItem(KEY));
+      return null;
     } catch (e) {
       return null;
     }
@@ -40,7 +80,7 @@
 
   function storageSet(rec) {
     try {
-      if (global.localStorage) localStorage.setItem(KEY, JSON.stringify(rec));
+      if (global.localStorage) localStorage.setItem(storageKey(), JSON.stringify(rec));
     } catch (e) {}
     try {
       const st = S();
@@ -163,7 +203,7 @@
     const saved = storageGet();
     if (!saved || saved.date !== clock.date) {
       const fresh = blankRecord(clock);
-      if (draftChecks) fresh.checks = normalizeChecks(draftChecks);
+      if (draftChecks && draftScope === bookScope()) fresh.checks = normalizeChecks(draftChecks);
       return fresh;
     }
     const rec = Object.assign(blankRecord(clock), saved);
@@ -262,7 +302,6 @@
   }
 
   function shouldShowChip(now) {
-    if (!isSampleDesk()) return false;
     if (shouldYield()) return false;
     const rec = todayRecord(now);
     if (settled(rec)) return false;
@@ -270,7 +309,6 @@
   }
 
   function riskMultiplier(now) {
-    if (!isSampleDesk()) return 1;
     const rec = todayRecord(now);
     if (!rec.applied || rec.skipped) return 1;
     const m = Number(rec.multiplier);
@@ -278,7 +316,6 @@
   }
 
   function planMeta(now) {
-    if (!isSampleDesk()) return null;
     const rec = todayRecord(now);
     if (!rec.applied && !rec.skipped) return null;
     return {
@@ -300,6 +337,7 @@
   }
 
   function persistDraft(checks) {
+    draftScope = bookScope();
     draftChecks = normalizeChecks(checks);
     const rec = todayRecord();
     if (settled(rec)) return rec;
@@ -327,6 +365,7 @@
     rec.appliedAt = (now instanceof Date ? now : new Date()).toISOString();
     rec.date = clock.date;
     storageSet(rec);
+    draftScope = bookScope();
     draftChecks = rec.checks.slice();
     if (typeof global.persist === "function") {
       try { global.persist(); } catch (e) {}
@@ -470,7 +509,7 @@
   function paintStamp() {
     const el = stampEl();
     if (!el) return;
-    if (!isSampleDesk() || shouldYield()) {
+    if (shouldYield()) {
       el.hidden = true;
       el.textContent = "";
       return;
@@ -488,7 +527,7 @@
   }
 
   function paint() {
-    if (!isSampleDesk() || shouldYield() || !shouldShowChip()) {
+    if (shouldYield() || !shouldShowChip()) {
       setOverlayOpen(false);
       paintStamp();
       return;
@@ -500,7 +539,7 @@
 
   function onEnterSize() {
     bind();
-    if (!isSampleDesk() || shouldYield()) {
+    if (shouldYield()) {
       setOverlayOpen(false);
       paintStamp();
       return false;
@@ -547,8 +586,20 @@
 
   function resetForTests() {
     draftChecks = null;
+    draftScope = "";
     try {
-      if (global.localStorage) localStorage.removeItem(KEY);
+      if (global.localStorage) {
+        const drop = [KEY, storageKey(), storageKey("sample"), storageKey("auth")];
+        if (typeof localStorage.length === "number" && typeof localStorage.key === "function") {
+          for (let i = 0; i < localStorage.length; i++) {
+            const k = localStorage.key(i);
+            if (k && k.indexOf(KEY) === 0) drop.push(k);
+          }
+        }
+        drop.forEach(function (k) {
+          try { localStorage.removeItem(k); } catch (e0) {}
+        });
+      }
     } catch (e) {}
     try {
       const st = S();
@@ -580,6 +631,9 @@
     shouldShowChip,
     shouldYield,
     isSampleDesk,
+    isLoggedIn,
+    bookScope,
+    storageKey,
     onEnterSize,
     paint,
     bind,

@@ -448,7 +448,6 @@
   function trendDayGate(now) {
     const TD = global.RunnrTrendDay;
     if (!TD || typeof TD.riskMultiplier !== "function") return null;
-    if (!isSampleDesk()) return null;
     let multiplier = 1;
     try { multiplier = TD.riskMultiplier(now); } catch (e) { multiplier = 1; }
     if (!Number.isFinite(multiplier) || multiplier < 0) multiplier = 1;
