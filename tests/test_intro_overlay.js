@@ -22,8 +22,8 @@ function check(name, cond) {
 const v = html.match(/var V = "(\d+)"/)[1];
 const cache = sw.match(/CACHE = "runnr-v(\d+)"/)[1];
 check("index.html V matches sw.js CACHE", v === cache);
-check("cache is 164+", Number(v) >= 164);
-check("intro.js cache-busted", html.includes("js/intro.js?v=3"));
+check("cache is 166+", Number(v) >= 166);
+check("intro.js cache-busted", html.includes("js/intro.js?v=4"));
 check("intro overlay markup", html.includes('id="intro-overlay"') && html.includes('id="intro-skip"'));
 check("intro video is the email-wall cut", html.includes("/media/runnr-intro-email-wall.mp4") && introSrc.includes("/media/runnr-intro-email-wall.mp4"));
 check("intro poster is in the repo path", html.includes("/media/runnr-intro-email-wall.jpg") && introSrc.includes("/media/runnr-intro-email-wall.jpg"));
@@ -162,6 +162,6 @@ check("?tour=1 does not stack chips + video", tourForce.I.shouldPlayBeforeKeepSc
 const tourOpen = loadIntro({
   RunnrTour: { isOpen: () => true, queryForce: () => false },
 });
-check("open chip tour blocks the video", tourOpen.I.shouldPlayBeforeKeepScore({}) === false);
+check("open chip tour does not steal the email-wall video", tourOpen.I.shouldPlayBeforeKeepScore({}) === true);
 
 console.log("test_intro_overlay: ok");

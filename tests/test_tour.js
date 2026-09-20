@@ -25,7 +25,7 @@ check("index.html V matches sw.js CACHE", v === cache);
 check("cache is 162+", Number(v) >= 162);
 check("tour.js cache-busted", html.includes("js/tour.js?v=2"));
 check("tour loads after parked intro", html.indexOf("js/intro.js") < html.indexOf("js/tour.js"));
-check("intro walkthrough stays parked", introSrc.includes("ENABLED: false") && html.includes("intro-parked"));
+check("homepage intro autoplay stays off", introSrc.includes("ENABLED: false") && /id="intro-overlay"[^>]*hidden/.test(html));
 check("tour overlay markup", html.includes('id="tour-overlay"') && html.includes('id="tour-skip"') && html.includes('id="tour-cta"') && html.includes('id="tour-chip-copy"'));
 check("Skip tour copy", html.includes("Skip tour"));
 check("storyboard CTAs in markup", html.includes("Size AAPL") && html.includes("Score another"));

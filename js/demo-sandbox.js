@@ -660,7 +660,6 @@
       if (/(?:^|[?&])tour=1(?:&|$)/.test(String(loc.search || ""))) return true;
       if (/^#tour\b/i.test(String(loc.hash || ""))) return true;
       if (global.RunnrTour && typeof RunnrTour.queryForce === "function" && RunnrTour.queryForce()) return true;
-      if (global.RunnrTour && typeof RunnrTour.isOpen === "function" && RunnrTour.isOpen()) return true;
     } catch (e) {}
     return false;
   }

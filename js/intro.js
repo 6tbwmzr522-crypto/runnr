@@ -70,9 +70,8 @@ const RunnrIntro = {
   tourBlocksVideo() {
     if (this.queryTourForce()) return true;
     try {
-      if (typeof RunnrTour !== "undefined") {
-        if (typeof RunnrTour.queryForce === "function" && RunnrTour.queryForce()) return true;
-        if (typeof RunnrTour.isOpen === "function" && RunnrTour.isOpen()) return true;
+      if (typeof RunnrTour !== "undefined" && typeof RunnrTour.queryForce === "function" && RunnrTour.queryForce()) {
+        return true;
       }
     } catch (e) {}
     return false;
@@ -154,6 +153,11 @@ const RunnrIntro = {
     overlay.setAttribute("aria-hidden", "false");
     this.paintSkip();
     this.paintSound(true);
+    try {
+      if (typeof RunnrTour !== "undefined" && RunnrTour.isOpen && RunnrTour.isOpen() && typeof RunnrTour.close === "function") {
+        RunnrTour.close();
+      }
+    } catch (e) {}
     const video = document.getElementById("intro-video");
     if (video) {
       video.muted = true;
