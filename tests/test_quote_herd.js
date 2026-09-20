@@ -2,6 +2,9 @@
 /** Quote herd: concurrency cap, list vs detail TTL, backoff, cache bust. */
 "use strict";
 
+const fs = require("fs");
+const path = require("path");
+const vm = require("vm");
 const assert = require("assert");
 const { html, src, sw } = require("./app_src").loadAppSource();
 
@@ -15,7 +18,7 @@ const v = html.match(/var V = "(\d+)"/)[1];
 const cache = sw.match(/CACHE = "runnr-v(\d+)"/)[1];
 check("index.html V matches sw.js CACHE", v === cache);
 check("PWA cache bust is 117+", Number(v) >= 117);
-check("quotes live in app-quotes.js", html.includes("js/app-quotes.js?v=1"));
+check("quotes live in app-quotes.js", html.includes("js/app-quotes.js?v=2"));
 check("watchlist poll uses quotes/batch", /\/api\/v1\/quotes\/batch/.test(src) && /async function fetchQuotesBatch/.test(src));
 check("refreshAllPrices does not Promise.all per symbol", /async function refreshAllPrices[\s\S]{0,1800}fetchQuotesBatch\(/.test(src));
 check("feed poll backs off on high stale ratio", /FEED_POLL_MAX_MS/.test(src) && /function setFeedPollInterval/.test(src));
@@ -34,5 +37,85 @@ check("traffic banner copy stays honest",
   html.includes("Live prices may lag. Journal &amp; Alpaca sync still work.")
   && src.includes("Live prices may lag. Journal & Alpaca sync still work.")
   && !/High traffic — live prices may lag/.test(src));
+check("company-name aliases live in normalizeQuoteSymbol",
+  /QUOTE_NAME_ALIASES/.test(src) && /TESLA:\s*'TSLA'/.test(src)
+  && /if \(QUOTE_NAME_ALIASES\[s\]\) return QUOTE_NAME_ALIASES\[s\]/.test(src));
+check("pretrade sizer resolves through the same quote helper",
+  /async function fetchSizerQuote[\s\S]{0,240}resolveQuoteSymbol/.test(src));
 
-console.log("ok " + n + " checks");
+function loadQuotes(fetchImpl) {
+  const quotesSrc = fs.readFileSync(path.join(__dirname, "..", "js/app-quotes.js"), "utf8");
+  const ctx = {
+    S: { watchlist: [] },
+    window: { Baron: { EQUITIES: ["AAPL", "TSLA", "MSFT"], COMMODITIES: [] } },
+    console,
+    Date,
+    Math,
+    Number,
+    String,
+    Boolean,
+    Array,
+    Object,
+    parseFloat,
+    parseInt,
+    isNaN,
+    Infinity,
+    JSON,
+    Promise,
+    setTimeout,
+    clearTimeout,
+    AbortController,
+    encodeURIComponent,
+    fetch: fetchImpl,
+  };
+  ctx.window = Object.assign(ctx.window, ctx);
+  ctx.globalThis = ctx;
+  vm.runInNewContext(quotesSrc, ctx);
+  return ctx;
+}
+
+const q = loadQuotes(async () => { throw new Error("network should not run for normalize"); });
+const aliases = {
+  tesla: "TSLA",
+  TESLA: "TSLA",
+  apple: "AAPL",
+  google: "GOOGL",
+  alphabet: "GOOGL",
+  amazon: "AMZN",
+  microsoft: "MSFT",
+  nvidia: "NVDA",
+  nvidea: "NVDA",
+  meta: "META",
+  facebook: "META",
+  netflix: "NFLX",
+};
+Object.keys(aliases).forEach((name) => {
+  check(name + " normalizes to " + aliases[name], q.normalizeQuoteSymbol(name) === aliases[name]);
+});
+check("real tickers stay themselves", q.normalizeQuoteSymbol("TSLA") === "TSLA" && q.normalizeQuoteSymbol("AAPL") === "AAPL");
+check("crypto suffix still applies after aliases", q.normalizeQuoteSymbol("BTC") === "BTC-USD");
+check("pair symbols are left alone", q.normalizeQuoteSymbol("EURUSD=") === "EURUSD=");
+
+const probed = [];
+const live = loadQuotes(async (url) => {
+  probed.push(String(url));
+  const want = String(url).includes("/TSLA");
+  return {
+    ok: want,
+    headers: { get: () => "miss" },
+    json: async () => ({
+      chart: { result: [{ meta: { regularMarketPrice: 364.12, previousClose: 360 } }] },
+    }),
+  };
+});
+live.resolveQuoteSymbol("TESLA").then((resolved) => {
+  check("resolveQuoteSymbol maps TESLA to TSLA", resolved === "TSLA");
+  check("TESLA resolve probes Yahoo as TSLA", probed.some((u) => u.includes("/TSLA")) && !probed.some((u) => /\/TESLA(?:\?|$)/.test(u)));
+  return live.fetchLivePrice("TESLA", resolved);
+}).then((data) => {
+  check("TESLA fetchLivePrice uses TSLA and returns a price", data && data.quoteSym === "TSLA" && data.price === 364.12 && !data.estimated);
+  console.log("ok " + n + " checks");
+}).catch((err) => {
+  console.error(err);
+  process.exit(1);
+});
