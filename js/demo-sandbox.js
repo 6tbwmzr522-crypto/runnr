@@ -654,8 +654,37 @@
     return locked;
   }
 
+  function tourWantsChipPath() {
+    try {
+      const loc = global.location || {};
+      if (/(?:^|[?&])tour=1(?:&|$)/.test(String(loc.search || ""))) return true;
+      if (/^#tour\b/i.test(String(loc.hash || ""))) return true;
+      if (global.RunnrTour && typeof RunnrTour.queryForce === "function" && RunnrTour.queryForce()) return true;
+      if (global.RunnrTour && typeof RunnrTour.isOpen === "function" && RunnrTour.isOpen()) return true;
+    } catch (e) {}
+    return false;
+  }
+
+  function playIntroThenKeep(opts) {
+    const Intro = global.RunnrIntro;
+    if (!Intro || typeof Intro.playBeforeKeepScore !== "function") return false;
+    if (typeof Intro.isOpen === "function" && Intro.isOpen()) return true;
+    return !!Intro.playBeforeKeepScore(function () {
+      showKeepScore(Object.assign({}, opts || {}, { skipIntro: true }));
+    }, opts);
+  }
+
   function showKeepScore(opts) {
     if (isLoggedIn()) return false;
+    const o = opts || {};
+    if (!o.skipIntro) {
+      const Intro = global.RunnrIntro;
+      if (Intro && typeof Intro.isOpen === "function" && Intro.isOpen()) return true;
+      const wantsIntro = Intro && typeof Intro.shouldPlayBeforeKeepScore === "function"
+        ? Intro.shouldPlayBeforeKeepScore(o)
+        : false;
+      if (wantsIntro && !tourWantsChipPath() && playIntroThenKeep(o)) return true;
+    }
     const copy = global.document && document.querySelector("#modal-sample-keep .sample-keep-copy");
     if (copy) {
       copy.textContent = (opts && opts.reason === "sample-log-cap") ? CAP_KEEP_COPY : DEFAULT_KEEP_COPY;
@@ -764,6 +793,16 @@
         hideKeepScore();
       });
     }
+    const replay = doc.getElementById("sample-keep-replay");
+    if (replay && !replay.dataset.sampleBound) {
+      replay.dataset.sampleBound = "1";
+      replay.addEventListener("click", function (ev) {
+        if (ev && ev.preventDefault) ev.preventDefault();
+        try {
+          if (global.RunnrIntro && typeof RunnrIntro.replay === "function") RunnrIntro.replay();
+        } catch (e) {}
+      });
+    }
     doc.querySelectorAll("[data-sample-keep-cta]").forEach((el) => {
       if (el.dataset.sampleBound) return;
       el.dataset.sampleBound = "1";
@@ -855,6 +894,7 @@
     onProofViewed,
     showKeepScore,
     hideKeepScore,
+    tourWantsChipPath,
     shouldShowSampleHero,
     bootSampleLanding,
     showSampleHero,

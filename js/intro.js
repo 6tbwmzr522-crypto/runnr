@@ -1,17 +1,28 @@
-/** First signed-in home walkthrough — once per account, never on the public hook. */
+/** Pre-email-wall intro — SAMPLE keep-score only. Homepage autoplay stays off. */
 const RunnrIntro = {
   KEY: "runnr_intro_v1",
-  VIDEO: "/media/runnr-how-it-works.mp4",
-  VIDEO_ALT: "/media/runnr-how-it-works-vo.mp4",
-  // Parked: VO pauses are too long. Flip to true after Janis retunes the cut.
+  VIDEO: "/media/runnr-intro-email-wall.mp4",
+  VIDEO_ALT: "/media/runnr-how-it-works.mp4",
+  POSTER: "/media/runnr-intro-email-wall.jpg",
+  // Parked homepage autoplay. Wall path is the dedicated replacement.
   ENABLED: false,
+  WALL_ENABLED: true,
+  SKIP_LABEL: "Skip to save your score",
+  SOUND_LABEL: "Tap for sound",
+  _pendingKeep: null,
+  _playingForKeep: false,
+
+  localFlag() {
+    try {
+      return localStorage.getItem(this.KEY) || "";
+    } catch (e) {
+      return "";
+    }
+  },
 
   localSeen() {
-    try {
-      return localStorage.getItem(this.KEY) === "done";
-    } catch (e) {
-      return false;
-    }
+    const v = this.localFlag();
+    return v === "done" || v === "skipped";
   },
 
   profileSeen(state) {
@@ -22,7 +33,49 @@ const RunnrIntro = {
   },
 
   isLoggedIn() {
-    return !!(typeof RunnrSync !== "undefined" && RunnrSync.isLoggedIn && RunnrSync.isLoggedIn());
+    try {
+      if (typeof RunnrSync !== "undefined" && RunnrSync.isLoggedIn && RunnrSync.isLoggedIn()) return true;
+    } catch (e) {}
+    try {
+      if (typeof localStorage !== "undefined" && localStorage.getItem("runnr_api_token")) return true;
+    } catch (e) {}
+    return false;
+  },
+
+  loc() {
+    return (typeof location !== "undefined" && location)
+      || (typeof window !== "undefined" && window.location)
+      || {};
+  },
+
+  queryForce() {
+    try {
+      const loc = this.loc();
+      const search = String(loc.search || "");
+      if (/(?:^|[?&])intro=1(?:&|$)/.test(search)) return true;
+      if (/^#intro\b/i.test(String(loc.hash || ""))) return true;
+    } catch (e) {}
+    return false;
+  },
+
+  queryTourForce() {
+    try {
+      const loc = this.loc();
+      if (/(?:^|[?&])tour=1(?:&|$)/.test(String(loc.search || ""))) return true;
+      if (/^#tour\b/i.test(String(loc.hash || ""))) return true;
+    } catch (e) {}
+    return false;
+  },
+
+  tourBlocksVideo() {
+    if (this.queryTourForce()) return true;
+    try {
+      if (typeof RunnrTour !== "undefined") {
+        if (typeof RunnrTour.queryForce === "function" && RunnrTour.queryForce()) return true;
+        if (typeof RunnrTour.isOpen === "function" && RunnrTour.isOpen()) return true;
+      }
+    } catch (e) {}
+    return false;
   },
 
   shouldShow(state) {
@@ -33,9 +86,22 @@ const RunnrIntro = {
     return true;
   },
 
-  markSeen(state) {
+  shouldPlayBeforeKeepScore(opts) {
+    if (!this.WALL_ENABLED) return false;
+    const o = opts || {};
+    if (o.skipIntro) return false;
+    if (this.isLoggedIn()) return false;
+    if (o.force || o.replay) return true;
+    if (this.queryForce()) return true;
+    if (this.tourBlocksVideo()) return false;
+    if (this.localSeen()) return false;
+    return true;
+  },
+
+  markSeen(state, how) {
+    const flag = how === "skipped" ? "skipped" : "done";
     try {
-      localStorage.setItem(this.KEY, "done");
+      localStorage.setItem(this.KEY, flag);
     } catch (e) {}
     const s = state || (typeof window !== "undefined" ? window.S : null);
     if (s) s.introWalkthroughSeen = true;
@@ -49,25 +115,55 @@ const RunnrIntro = {
 
   isOpen() {
     if (typeof document === "undefined") return false;
-    return !!document.getElementById("intro-overlay")?.classList.contains("open");
+    const overlay = document.getElementById("intro-overlay");
+    if (!overlay) return false;
+    return overlay.classList.contains("open") && !overlay.hasAttribute("hidden");
   },
 
-  open() {
-    if (!this.ENABLED) {
+  paintSkip() {
+    const skip = typeof document !== "undefined" ? document.getElementById("intro-skip") : null;
+    if (skip) skip.textContent = this.SKIP_LABEL;
+  },
+
+  paintSound(show) {
+    const unmute = typeof document !== "undefined" ? document.getElementById("intro-unmute") : null;
+    const overlay = typeof document !== "undefined" ? document.getElementById("intro-overlay") : null;
+    if (unmute) {
+      unmute.textContent = this.SOUND_LABEL;
+      unmute.hidden = !show;
+    }
+    if (overlay) overlay.classList.toggle("intro-sound-on", !show);
+  },
+
+  open(opts) {
+    const o = opts || {};
+    const forKeep = !!o.forKeep;
+    if (!forKeep && !this.ENABLED) {
+      this.close();
+      return false;
+    }
+    if (forKeep && !this.WALL_ENABLED && !o.force) {
       this.close();
       return false;
     }
     const overlay = typeof document !== "undefined" ? document.getElementById("intro-overlay") : null;
     if (!overlay) return false;
+    overlay.classList.remove("intro-parked");
     overlay.classList.add("open");
     overlay.removeAttribute("hidden");
     overlay.setAttribute("aria-hidden", "false");
+    this.paintSkip();
+    this.paintSound(true);
     const video = document.getElementById("intro-video");
     if (video) {
       video.muted = true;
       video.setAttribute("playsinline", "");
       video.setAttribute("webkit-playsinline", "");
-      if (!video.getAttribute("src")) video.src = this.VIDEO;
+      if (!video.getAttribute("poster")) video.setAttribute("poster", this.POSTER);
+      if (!video.getAttribute("src") || video.getAttribute("src") !== this.VIDEO) {
+        video.src = this.VIDEO;
+      }
+      try { video.currentTime = 0; } catch (e) {}
       const play = video.play();
       if (play && typeof play.catch === "function") play.catch(() => {});
     }
@@ -77,7 +173,7 @@ const RunnrIntro = {
   close() {
     const overlay = typeof document !== "undefined" ? document.getElementById("intro-overlay") : null;
     if (!overlay) return;
-    overlay.classList.remove("open");
+    overlay.classList.remove("open", "intro-sound-on");
     overlay.setAttribute("hidden", "");
     overlay.setAttribute("aria-hidden", "true");
     const video = document.getElementById("intro-video");
@@ -85,16 +181,50 @@ const RunnrIntro = {
       try { video.pause(); } catch (e) {}
       try { video.removeAttribute("autoplay"); } catch (e) {}
     }
+    this.paintSound(true);
+  },
+
+  consumePendingKeep() {
+    const fn = this._pendingKeep;
+    this._pendingKeep = null;
+    this._playingForKeep = false;
+    if (typeof fn === "function") {
+      try { fn(); } catch (e) {}
+    }
+  },
+
+  playBeforeKeepScore(onDone, opts) {
+    this._pendingKeep = typeof onDone === "function" ? onDone : null;
+    this._playingForKeep = true;
+    const opened = this.open(Object.assign({ forKeep: true }, opts || {}));
+    if (!opened) {
+      this.consumePendingKeep();
+      return false;
+    }
+    return true;
   },
 
   skip(state) {
-    this.markSeen(state);
+    this.markSeen(state, "skipped");
     this.close();
+    this.consumePendingKeep();
   },
 
   finish(state) {
-    this.markSeen(state);
+    this.markSeen(state, "done");
     this.close();
+    this.consumePendingKeep();
+  },
+
+  replay() {
+    const reopenWall = () => {
+      try {
+        if (typeof RunnrDemoSandbox !== "undefined" && typeof RunnrDemoSandbox.showKeepScore === "function") {
+          RunnrDemoSandbox.showKeepScore({ skipIntro: true });
+        }
+      } catch (e) {}
+    };
+    return this.playBeforeKeepScore(reopenWall, { force: true, replay: true });
   },
 
   maybeShow(state) {
@@ -111,26 +241,34 @@ const RunnrIntro = {
     const unmute = document.getElementById("intro-unmute");
     const video = document.getElementById("intro-video");
     const missing = document.getElementById("intro-missing");
+    this.paintSkip();
+    if (unmute && !unmute.textContent) unmute.textContent = this.SOUND_LABEL;
     if (skip && !skip.dataset.bound) {
       skip.dataset.bound = "1";
       skip.addEventListener("click", (e) => {
         e.preventDefault();
-        this.skip(window.S);
+        this.skip(typeof window !== "undefined" ? window.S : null);
       });
     }
+    const tapSound = () => {
+      if (!video) return;
+      try { video.currentTime = 0; } catch (e) {}
+      video.muted = false;
+      this.paintSound(false);
+      const play = video.play();
+      if (play && typeof play.catch === "function") play.catch(() => {});
+    };
     if (unmute && !unmute.dataset.bound) {
       unmute.dataset.bound = "1";
-      unmute.addEventListener("click", () => {
-        if (!video) return;
-        video.muted = false;
-        unmute.hidden = true;
-        const play = video.play();
-        if (play && typeof play.catch === "function") play.catch(() => {});
+      unmute.addEventListener("click", (e) => {
+        if (e && e.preventDefault) e.preventDefault();
+        tapSound();
       });
     }
     if (video && !video.dataset.bound) {
       video.dataset.bound = "1";
-      video.addEventListener("ended", () => this.finish(window.S));
+      if (!video.getAttribute("poster")) video.setAttribute("poster", this.POSTER);
+      video.addEventListener("ended", () => this.finish(typeof window !== "undefined" ? window.S : null));
       video.addEventListener("error", () => {
         if (video.dataset.triedAlt !== "1") {
           video.dataset.triedAlt = "1";
@@ -146,3 +284,4 @@ const RunnrIntro = {
 };
 
 if (typeof window !== "undefined") window.RunnrIntro = RunnrIntro;
+if (typeof module !== "undefined" && module.exports) module.exports = RunnrIntro;

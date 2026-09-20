@@ -1,15 +1,15 @@
 # Media
 
-## TODO (parent / Janis)
+## In-product intro (email wall)
 
-Drop the ~90s 1080p voiced walkthrough onto this folder as:
+`media/runnr-intro-email-wall.mp4` (~39.5s, British VO, candy linger) plays **before** the SAMPLE keep-score email wall. Poster: `media/runnr-intro-email-wall.jpg`.
 
-```
-media/runnr-how-it-works.mp4
-```
+This clip replaces the old parked signed-in homepage walkthrough. It is **not** for Instagram/TikTok. Homepage autoplay stays off (`RunnrIntro.ENABLED=false`).
 
-Source filename is expected to look like `runnr-how-it-works-vo.mp4` (~1.6MB). The signed-in intro player loads `/media/runnr-how-it-works.mp4` (then `/media/runnr-how-it-works-vo.mp4` as a fallback).
+The four-beat chip tour (if present) stays optional via `?tour=1` — do not force chips + video on the first email wall. Replay the video with `?intro=1` or **Watch how Runnr works** on the keep-score sheet.
 
-Do **not** use `tmp-reply-video/` (old spy-ad). Do **not** put this clip on the public logged-out homepage.
+Fallback: `/media/runnr-how-it-works.mp4`.
+
+Do **not** use `tmp-reply-video/` (old spy-ad). Do **not** put this clip on the public logged-out homepage hook.
 
 GitHub Pages copies this directory from `.github/workflows/pages.yml`.
