@@ -843,14 +843,6 @@
     if (copy) {
       copy.textContent = (opts && opts.reason === "sample-log-cap") ? CAP_KEEP_COPY : DEFAULT_KEEP_COPY;
     }
-    const processHost = global.document && document.getElementById("sample-keep-process");
-    if (processHost) {
-      const PT = global.RunnrPretrade;
-      if (PT && typeof PT.processButtonsHtml === "function") {
-        processHost.innerHTML = PT.processButtonsHtml(null);
-        processHost.hidden = false;
-      }
-    }
     const modal = global.document && document.getElementById("modal-sample-keep");
     paintKeepLock(modal);
     paintKeepOAuth();
@@ -889,6 +881,16 @@
       score.addEventListener("click", function (ev) {
         if (ev) ev.preventDefault();
         openScoreTrade(global.S);
+      });
+    }
+    const watch = doc.getElementById("sample-hero-watch");
+    if (watch && !watch.dataset.sampleBound) {
+      watch.dataset.sampleBound = "1";
+      watch.addEventListener("click", function (ev) {
+        if (ev && ev.preventDefault) ev.preventDefault();
+        try {
+          if (global.RunnrIntro && typeof RunnrIntro.replay === "function") RunnrIntro.replay();
+        } catch (e) {}
       });
     }
     const skip = doc.getElementById("sample-hero-skip");
@@ -940,16 +942,6 @@
           return;
         }
         hideKeepScore();
-      });
-    }
-    const replay = doc.getElementById("sample-keep-replay");
-    if (replay && !replay.dataset.sampleBound) {
-      replay.dataset.sampleBound = "1";
-      replay.addEventListener("click", function (ev) {
-        if (ev && ev.preventDefault) ev.preventDefault();
-        try {
-          if (global.RunnrIntro && typeof RunnrIntro.replay === "function") RunnrIntro.replay();
-        } catch (e) {}
       });
     }
     doc.querySelectorAll("[data-sample-keep-cta]").forEach((el) => {

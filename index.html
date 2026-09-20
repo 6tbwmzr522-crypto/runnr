@@ -5,7 +5,7 @@
 <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
 <script>
 (function () {
-  var V = "170";
+  var V = "171";
   try {
     if (localStorage.getItem("runnr_app_v") !== V) {
       localStorage.setItem("runnr_app_v", V);
@@ -67,7 +67,7 @@
 <link rel="stylesheet" href="css/tokens.css?v=1">
 <link rel="stylesheet" href="css/layout.css?v=2">
 <link rel="stylesheet" href="css/components.css?v=3">
-<link rel="stylesheet" href="css/pages.css?v=16">
+<link rel="stylesheet" href="css/pages.css?v=17">
 <link rel="stylesheet" href="css/pretrade.css?v=10">
 </head>
 <body>
@@ -1511,6 +1511,7 @@
       <p>See your slip on one trade. Email saves the score + weekly discipline report.</p>
     </div>
     <button type="button" class="btn" id="sample-score-cta">Score a trade</button>
+    <button type="button" class="sample-hero-watch" id="sample-hero-watch">Watch how Runnr works</button>
     <p class="ob-hook-sample">runnr.fyi</p>
   </div>
 </div>
@@ -1738,7 +1739,6 @@
     <div class="modal-title">Keep this score <button class="modal-close" onclick="closeModal('modal-sample-keep')">✕</button></div>
     <p class="sample-keep-copy">Your score: ready. Save it — plus the weekly report that shows undisciplined P&amp;L vs the clean one.</p>
     <p class="sample-keep-trial">Start free · 7-day trial. Nothing bills automatically.</p>
-    <div id="sample-keep-process" class="sample-keep-process" hidden></div>
     <div class="oauth-row sample-keep-oauth" id="sample-keep-oauth">
       <a class="oauth-btn sample-keep-google" id="sample-keep-google" data-sample-keep-oauth="google" href="https://api.runnr.fyi/api/v1/auth/oauth/google/start?next=/?demo=1">
         <span class="oauth-mark" aria-hidden="true">
@@ -1753,9 +1753,7 @@
         Continue with Apple
       </a>
     </div>
-    <p class="sample-keep-login">Already have an account? <a href="/login.html">Log in</a></p>
-    <p class="sample-keep-email"><a data-sample-keep-cta href="/login.html?keep=1">Use email instead</a></p>
-    <button type="button" class="sample-keep-replay" id="sample-keep-replay">Watch how Runnr works</button>
+    <p class="sample-keep-login">Already have an account? <a href="/login.html">Log in</a> · <a data-sample-keep-cta href="/login.html?keep=1">Use email instead</a></p>
     <button type="button" class="btn btn-ghost" id="sample-keep-dismiss">Not now</button>
   </div>
 </div>
@@ -1913,12 +1911,12 @@
 <script src="js/options-coach.js?v=1"></script>
 <script src="js/fvg-retrace.js?v=1"></script>
 <script src="js/onboarding.js?v=38"></script>
-<script src="js/intro.js?v=4"></script>
-<script src="js/tour.js?v=3"></script>
+<script src="js/intro.js?v=5"></script>
+<script src="js/tour.js?v=4"></script>
 <script src="js/csv-presets.js?v=4"></script>
 <script src="js/trade-limit.js?v=4"></script>
 <script src="js/desk-quiet.js?v=3"></script>
-<script src="js/demo-sandbox.js?v=20"></script>
+<script src="js/demo-sandbox.js?v=21"></script>
 <script src="js/sync.js?v=71"></script>
 <script src="js/desk-sessions.js?v=2"></script>
 <script src="js/desk.js?v=17"></script>

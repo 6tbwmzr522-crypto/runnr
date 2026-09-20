@@ -315,7 +315,7 @@ const RunnrTour = {
     }
     if (id === "journal") {
       if (this.isSampleDesk()) {
-        return [".pt-process-row", "#sample-keep-process", ".pt-process", "#pt-log", '#nav [data-nav="journal"]'];
+        return [".pt-process-row", ".pt-process", "#pt-log", '#nav [data-nav="journal"]'];
       }
       return ["#pt-log", "#journal-list", '#nav [data-nav="journal"]', "#page-journal"];
     }
