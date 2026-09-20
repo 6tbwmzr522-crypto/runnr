@@ -36,7 +36,7 @@ const cache = sw.match(/CACHE = "runnr-v(\d+)"/)[1];
 check("index.html V matches sw.js CACHE", v === cache);
 check("cache is 139+", Number(v) >= 139);
 check("demo-sandbox cache-bust", html.includes("js/demo-sandbox.js?v=21"));
-check("pages.css cache-bust", html.includes("css/pages.css?v=17"));
+check("pages.css cache-bust", html.includes("css/pages.css?v=18"));
 check("intro.js cache-bust", html.includes("js/intro.js?v=5"));
 
 check("stats Guest SAMPLE funnel section", stats.includes("Guest SAMPLE funnel") && stats.includes("email_wall") && stats.includes("guest-demo-view") && stats.includes("email_wall oauth") && stats.includes("email_wall_converted"));
@@ -74,6 +74,8 @@ check("keep-score copy is score + weekly report bait", html.includes("Your score
 check("keep-score keeps 7-day no auto-bill", keepHtml.includes("Start free · 7-day trial") && keepHtml.includes("Nothing bills automatically.") && !keepHtml.includes("Keep this score — 7 days free") && !keepHtml.includes("Use Runnr free for 7 days"));
 check("keep-score Google is white primary", /#modal-sample-keep \.sample-keep-google\{[^}]*background:#fff/.test(css.replace(/\s+/g, " ")));
 check("keep-score Apple is solid black", /#modal-sample-keep \.sample-keep-apple\{[^}]*background:#000/.test(css.replace(/\s+/g, " ")));
+check("keep-score card reuses tour-chip gold energy", /#modal-sample-keep \.modal\{[^}]*border:1px solid var\(--gold-light\)/.test(css.replace(/\s+/g, " ")) && /#modal-sample-keep \.modal\{[^}]*box-shadow:0 18px 50px rgba\(0,0,0,0\.45\)/.test(css.replace(/\s+/g, " ")) && /#modal-sample-keep \.modal-title\{[^}]*color:var\(--gold-light\)/.test(css.replace(/\s+/g, " ")));
+check("keep-score has no extra eyebrow copy", !/SAVE YOUR SCORE/i.test(keepHtml));
 check("OAuth returns to SAMPLE desk", sandboxSrc.includes('KEEP_RETURN = "/?demo=1"') && sandboxSrc.includes("resumeAfterKeepAuth") && bootSrc.includes("keepOAuthReturn"));
 check("keep-score has no process chips", !keepHtml.includes("sample-keep-process") && !keepHtml.includes("HOW DID IT GO?") && !keepHtml.includes("Followed") && !keepHtml.includes("Leaked") && !keepHtml.includes("Skipped") && !sandboxSrc.includes("sample-keep-process"));
 check("keep-score has no Watch CTA", !keepHtml.includes("sample-keep-replay") && !keepHtml.includes("Watch how Runnr works"));

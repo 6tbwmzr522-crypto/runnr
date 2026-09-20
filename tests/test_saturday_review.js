@@ -96,6 +96,7 @@ check("keep-score returning login is secondary", keep.includes("Already have an 
 check("keep-score has no chips host", !keep.includes('id="sample-keep-process"') && !keep.includes("HOW DID IT GO?"));
 check("keep-score has no Watch CTA", !keep.includes("Watch how Runnr works") && !keep.includes("sample-keep-replay"));
 check("keep-score light scrim stays", /#modal-sample-keep\{[^}]*rgba\(4,6,10,0\.46\)/.test(css.replace(/\s+/g, "")));
+check("keep-score card is gold-lit not funeral flat", /#modal-sample-keep \.modal\{[^}]*var\(--gold-light\)/.test(css.replace(/\s+/g, " ")) && /#modal-sample-keep \.modal-title\{[^}]*var\(--gold-light\)/.test(css.replace(/\s+/g, " ")));
 
 check("intro stays in the tree", html.includes('id="intro-overlay"') && html.includes("/media/runnr-intro-email-wall.mp4"));
 check("homepage intro autoplay stays off", introSrc.includes("ENABLED: false") && /id="intro-overlay"[^>]*hidden/.test(html));
