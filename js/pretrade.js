@@ -356,7 +356,9 @@
     const stop = num(input && input.stop);
     const target = num(input && input.target);
     const notes = String((input && input.notes) || "");
-    const maxRiskAmt = r.bal * r.maxRiskPct / 100;
+    const gate = trendDayGate(now);
+    const gateMult = gate && Number.isFinite(gate.multiplier) ? gate.multiplier : 1;
+    const maxRiskAmt = r.bal * r.maxRiskPct / 100 * gateMult;
     const maxDailyAmt = r.bal * r.maxDailyLossPct / 100;
     const propDailyAmt = r.bal * r.propDailyDDPct / 100;
     const propMaxAmt = r.bal * r.propMaxDDPct / 100;
@@ -378,6 +380,8 @@
       todayCount,
       duplicate: false,
       sampleLocked: false,
+      trendDaySit: false,
+      trendDayMult: gateMult,
     };
     if (SampleQuota.atCap(trades)) {
       base.sampleLocked = true;
@@ -416,7 +420,8 @@
     if (rr > 0 && rr + 1e-9 < r.minRR) {
       reasons.push("R:R " + rr.toFixed(2) + " below minimum " + r.minRR.toFixed(2));
     }
-    if (size <= 0) reasons.push("No size at max risk / trade");
+    const sit = !!(gate && gate.sit);
+    if (size <= 0 && !sit) reasons.push("No size at max risk / trade");
     if (totalRisk > maxRiskAmt + 0.009) reasons.push("Exceeds max risk per trade");
     if (todayAmt + totalRisk > maxDailyAmt + 0.009) reasons.push("Exceeds max daily loss limit");
     if (todayAmt + totalRisk > propDailyAmt + 0.009) reasons.push("Exceeds prop daily drawdown");
@@ -435,7 +440,26 @@
       blocked: reasons.length > 0,
       reasons,
       duplicate: !!duplicate,
+      trendDaySit: sit,
+      trendDayMult: gateMult,
     });
+  }
+
+  function trendDayGate(now) {
+    const TD = global.RunnrTrendDay;
+    if (!TD || typeof TD.riskMultiplier !== "function") return null;
+    if (!isSampleDesk()) return null;
+    let multiplier = 1;
+    try { multiplier = TD.riskMultiplier(now); } catch (e) { multiplier = 1; }
+    if (!Number.isFinite(multiplier) || multiplier < 0) multiplier = 1;
+    let meta = null;
+    try { meta = typeof TD.planMeta === "function" ? TD.planMeta(now) : null; } catch (e2) {}
+    const applied = !!(meta && meta.applied && !meta.skipped);
+    return {
+      multiplier: applied ? multiplier : 1,
+      sit: applied && (meta.band === "sit") && multiplier === 0,
+      meta: meta,
+    };
   }
 
   function isSampleDesk() {
@@ -709,6 +733,14 @@
       row.isDemo = true;
       row.sampleOrigin = "manual";
     }
+    const gate = trendDayGate(now);
+    if (gate && gate.meta) {
+      row.trendDay = gate.meta;
+      const tag = gate.meta.skipped
+        ? "sized without trend-day gate"
+        : ("trend day " + gate.meta.score + "/4 · " + gate.meta.band);
+      row.notes = row.notes ? (row.notes + " · " + tag) : tag;
+    }
     if (typeof global.DisciplineReplay !== "undefined" && DisciplineReplay.stampTrade) {
       DisciplineReplay.stampTrade(row, st, global.Baron || null);
     }
@@ -851,6 +883,11 @@
     }
     const rrCls = c.blocked || (c.rr > 0 && c.rr < (rails.minRR || 1.5)) ? "neg" : "gold";
     const tk = c.ticker ? esc(c.ticker) : "this setup";
+    const gateLine = (c.trendDayMult != null && c.trendDayMult !== 1)
+      ? '<div class="pt-kv"><span>Trend day</span><strong class="gold">' +
+        (c.trendDaySit ? "sit" : (c.trendDayMult === 0.5 ? "half size" : (c.trendDayMult === 0.25 ? "0.25×" : (c.trendDayMult + "×")))) +
+        "</strong></div>"
+      : "";
     let banner = "";
     if (c.duplicate) {
       const extra = (c.reasons || []).map((r) => '<div class="pt-blocked-reason">⚠ ' + esc(r) + "</div>").join("");
@@ -865,6 +902,8 @@
         '<div class="pt-blocked-reason">This pending plan is not logged yet — Recent Trades is the book.</div>' +
         c.reasons.map((r) => '<div class="pt-blocked-reason">⚠ ' + esc(r) + "</div>").join("") +
         "</div>";
+    } else if (c.trendDaySit) {
+      banner = '<div class="pt-trend-sit">SIT — trend day check is 0–1. No size today.</div>';
     } else if (c.ready) {
       banner = '<div class="pt-cleared">PENDING · APPROVED — log to journal</div>';
     }
@@ -882,6 +921,7 @@
       '<div class="pt-kv"><span>Reward / Share</span><strong class="mint">' + money(c.rewardPerShare, rails.sym) + "</strong></div>" +
       '<div class="pt-kv"><span>Total Reward</span><strong class="mint">' + money(c.totalReward, rails.sym) + "</strong></div>" +
       '<div class="pt-kv"><span>R:R Ratio</span><strong class="' + rrCls + '">' + (c.rr ? c.rr.toFixed(2) + " : 1" : "—") + "</strong></div>" +
+      gateLine +
       banner +
       chips
     );
@@ -1054,6 +1094,7 @@
         '<section class="pt-panel" aria-label="Position sizer">' +
           '<div class="pt-sec-hd">POSITION SIZER</div>' +
           '<div class="pt-sample-cap" id="pt-sample-cap" hidden></div>' +
+          '<div class="pt-trend-stamp" id="pt-trend-stamp" hidden></div>' +
           '<div class="pt-sizer">' +
             '<div class="pt-form">' +
               '<label class="pt-field"><span>TICKER</span><input id="pt-ticker" autocomplete="off" spellcheck="false" value="' + esc(form.ticker) + '"><p class="pt-quote' + (quoteState.status ? " " + quoteState.status : "") + '" id="pt-quote"' + (quoteState.text ? "" : " hidden") + ">" + esc(quoteState.text || "") + "</p></label>" +
@@ -1169,6 +1210,9 @@
     renderProgress(c, rails);
     renderRecent();
     renderSampleCap();
+    if (global.RunnrTrendDay && typeof RunnrTrendDay.paint === "function") {
+      try { RunnrTrendDay.paint(); } catch (e) {}
+    }
     maybeSealGoldScore(c);
   }
 
@@ -1507,6 +1551,9 @@
     syncHash("desk");
     bindProcessClicks();
     if (SampleQuota.atCap(deskTrades())) SampleQuota.openWall();
+    if (global.RunnrTrendDay && typeof RunnrTrendDay.onEnterSize === "function") {
+      try { RunnrTrendDay.onEnterSize(); } catch (e) {}
+    }
   }
 
   function leave() {
@@ -1540,6 +1587,7 @@
     normalizeRails,
     computePlan,
     maybeSealGoldScore,
+    trendDayGate,
     planStatusOf,
     isPretradeRow,
     isDuplicatePlan,
