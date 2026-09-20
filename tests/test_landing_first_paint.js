@@ -17,7 +17,7 @@ const v = html.match(/var V = "(\d+)"/)[1];
 const cache = sw.match(/CACHE = "runnr-v(\d+)"/)[1];
 check("index.html V matches sw.js CACHE", v === cache);
 check("onboarding cache-bust", html.includes("js/onboarding.js?v=38"));
-check("demo sandbox is loaded", html.includes("js/demo-sandbox.js?v=17"));
+check("demo sandbox is loaded", html.includes("js/demo-sandbox.js?v=18"));
 check("demo chrome is persistent on the guest desk", html.includes('id="demo-chrome"') && html.includes('id="demo-chrome-cta"') && html.includes("SAMPLE · not your book"));
 check("demo=1 skips the first-paint hook", html.includes("demo=1") && /runnr_hook_v1[\s\S]*demo=1|demo=1[\s\S]*runnr_hook_v1/.test(html));
 
@@ -60,7 +60,7 @@ check("login page states 7-day trial", fs.readFileSync(path.join(root, "login.ht
 check("report is gated to trial or Pro", fs.readFileSync(path.join(root, "report/index.html"), "utf8").includes("Start your 7-day trial") && fs.readFileSync(path.join(root, "report/index.html"), "utf8").includes("/api/v1/auth/me"));
 check("report expired CTA hits billing=upgrade", fs.readFileSync(path.join(root, "report/index.html"), "utf8").includes("/?billing=upgrade"));
 check("app handles billing=upgrade", src.includes("billing=upgrade") && /openUpgrade\(['"]Your 7-day trial has ended['"]\)/.test(src));
-check("intro overlay not removed", html.includes('id="intro-overlay"') && html.includes("/media/runnr-how-it-works.mp4"));
+check("intro overlay not removed", html.includes('id="intro-overlay"') && html.includes("/media/runnr-intro-email-wall.mp4"));
 check("footer mailto kept", html.includes("mailto:info@thinicedigital.com"));
 
 console.log("test_landing_first_paint: ok");

@@ -339,16 +339,17 @@ html:not(.runnr-guest) #home-coach-banner{display:none !important}
 .profile-chip-face img{width:100%;height:100%;object-fit:cover;display:block}
 .profile-chip-check{position:absolute;right:-3px;bottom:-3px;width:13px;height:13px;border-radius:50%;background:var(--accent);color:#080c12;font-size:8px;line-height:13px;text-align:center;border:1.5px solid var(--bg);font-weight:700}
 .profile-chip-check.off{background:var(--text3);color:var(--bg)}
-#intro-overlay{position:fixed;inset:0;z-index:360;display:none;align-items:center;justify-content:center;padding:20px 16px;background:rgba(8,12,18,0.72);backdrop-filter:blur(8px)}
+#intro-overlay{position:fixed;inset:0;z-index:10060;display:none;align-items:center;justify-content:center;padding:20px 16px;background:rgba(8,12,18,0.78);backdrop-filter:blur(8px)}
 #intro-overlay.open{display:flex}
-/* Parked while Janis retunes VO pauses — keep markup, never show or autoplay. */
-#intro-overlay[hidden],#intro-overlay.intro-parked,#intro-overlay.intro-parked.open{display:none !important}
-.intro-card{width:min(520px,100%);background:var(--surface);border:1px solid var(--border-strong);border-radius:var(--r);padding:14px 14px 16px;box-shadow:0 18px 50px rgba(0,0,0,0.35)}
+#intro-overlay[hidden]{display:none !important}
+.intro-card{width:min(390px,100%);background:var(--surface);border:1px solid var(--border-strong);border-radius:var(--r);padding:14px 14px 16px;box-shadow:0 18px 50px rgba(0,0,0,0.35)}
 .intro-top{display:flex;align-items:center;justify-content:space-between;gap:12px;margin-bottom:10px}
 .intro-kicker{font-size:10px;letter-spacing:0.16em;text-transform:uppercase;color:var(--gold);font-weight:600}
-#intro-skip{background:none;border:1px solid var(--border);color:var(--text2);border-radius:999px;padding:6px 12px;font-size:12px;cursor:pointer;font-family:inherit}
-#intro-video{width:100%;border-radius:8px;background:#000;max-height:min(56vh,360px);display:block}
-#intro-unmute{margin-top:10px;width:100%;background:var(--accent);color:#080c12;border:none;border-radius:8px;padding:12px;font-weight:600;cursor:pointer;font-family:inherit}
+#intro-skip{background:none;border:1px solid var(--border);color:var(--text2);border-radius:999px;padding:8px 12px;font-size:12px;cursor:pointer;font-family:inherit;flex-shrink:0}
+.intro-stage{position:relative;border-radius:8px;overflow:hidden;background:#000}
+#intro-video{width:100%;border-radius:8px;background:#000;max-height:min(68vh,620px);height:auto;display:block;object-fit:contain}
+#intro-unmute{position:absolute;inset:0;margin:0;width:100%;height:100%;background:rgba(8,12,18,0.42);color:#fff;border:none;border-radius:8px;padding:16px;font-size:20px;font-weight:700;letter-spacing:0.02em;cursor:pointer;font-family:inherit;display:flex;align-items:center;justify-content:center}
+#intro-unmute[hidden],#intro-overlay.intro-sound-on #intro-unmute{display:none}
 #intro-missing{margin-top:10px;font-size:12px;color:var(--text3);line-height:1.45}
 #tour-overlay{position:fixed;inset:0;z-index:10050;display:none;pointer-events:none}
 #tour-overlay.open{display:block}
@@ -367,6 +368,7 @@ html:not(.runnr-guest) #home-coach-banner{display:none !important}
 .shelf-focus.empty{color:var(--text2);border-color:var(--border)}
 .shelf-seed{display:inline-block;margin-left:6px;font-size:9px;letter-spacing:0.12em;text-transform:uppercase;color:var(--gold);border:1px solid var(--border-strong);border-radius:3px;padding:1px 4px;vertical-align:middle}
 .shelf-card.has-focus{outline:1px solid var(--gold);outline-offset:1px}
+.sample-keep-replay{display:block;width:100%;margin:0 0 10px;padding:8px 4px;background:none;border:none;color:var(--gold);font-size:12px;letter-spacing:0.06em;text-transform:uppercase;cursor:pointer;font-family:inherit;text-align:center}
 .oauth-row{display:flex;flex-direction:column;gap:8px;margin:0 0 14px}
 .oauth-btn{display:block;width:100%;padding:13px 14px;border-radius:8px;border:1px solid var(--border);background:var(--surface2);color:var(--text);font-size:14px;font-weight:600;text-align:center;text-decoration:none;cursor:pointer;font-family:inherit}
 .oauth-btn.apple{background:#111;color:#fff;border-color:#222}

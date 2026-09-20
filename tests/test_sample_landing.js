@@ -9,6 +9,7 @@ const assert = require("assert");
 
 const { root, html, sw, css } = require("./app_src").loadAppSource();
 const sandboxSrc = fs.readFileSync(path.join(root, "js/demo-sandbox.js"), "utf8");
+const introSrc = fs.readFileSync(path.join(root, "js/intro.js"), "utf8");
 const coachSrc = fs.readFileSync(path.join(root, "js/coach.js"), "utf8");
 const baronSrc = fs.readFileSync(path.join(root, "js/baron.js"), "utf8");
 const quietSrc = fs.readFileSync(path.join(root, "js/desk-quiet.js"), "utf8");
@@ -34,8 +35,9 @@ const v = html.match(/var V = "(\d+)"/)[1];
 const cache = sw.match(/CACHE = "runnr-v(\d+)"/)[1];
 check("index.html V matches sw.js CACHE", v === cache);
 check("cache is 139+", Number(v) >= 139);
-check("demo-sandbox cache-bust", html.includes("js/demo-sandbox.js?v=17"));
-check("pages.css cache-bust", html.includes("css/pages.css?v=14"));
+check("demo-sandbox cache-bust", html.includes("js/demo-sandbox.js?v=18"));
+check("pages.css cache-bust", html.includes("css/pages.css?v=15"));
+check("intro.js cache-bust", html.includes("js/intro.js?v=3"));
 
 check("stats Guest SAMPLE funnel section", stats.includes("Guest SAMPLE funnel") && stats.includes("email_wall") && stats.includes("guest-demo-view"));
 check("stats clarifies signed-in accounts are not visits", stats.includes("Signed-in accounts (not visits)"));
@@ -64,6 +66,9 @@ check("keep-score heading stays Keep this score", /id="modal-sample-keep"[\s\S]*
 check("keep-score copy is score + weekly report bait", html.includes("Your score: ready.") && html.includes("undisciplined P&amp;L vs the clean one") && sandboxSrc.includes("undisciplined P&L vs the clean one"));
 check("keep-score supersedes Option A auto-bill copy", !html.includes("nothing bills automatically") && !html.includes("Use Runnr free for 7 days") && !html.includes("Keep this score — 7 days free") && !sandboxSrc.includes("nothing bills automatically"));
 check("keep-score hosts one-tap process chips", html.includes('id="sample-keep-process"') && sandboxSrc.includes("processButtonsHtml"));
+check("keep-score can replay the intro", html.includes('id="sample-keep-replay"') && sandboxSrc.includes("RunnrIntro.replay"));
+check("video plays before the wall", sandboxSrc.includes("playIntroThenKeep") && sandboxSrc.includes("shouldPlayBeforeKeepScore"));
+check("chip tour stays optional on the wall", sandboxSrc.includes("tourWantsChipPath") && sandboxSrc.includes("tour=1"));
 check("keep-score does not lead with Alpaca/T212", !/Alpaca|T212|Trading 212/.test(html.slice(html.indexOf('id="modal-sample-keep"'), html.indexOf('id="modal-share"'))));
 check("login keep=1 copy", login.includes("keep=1") && login.includes("Your score: ready.") && login.includes("weekly report") && login.includes("undisciplined P&L vs the clean one"));
 check("TikTok CTA copy points at SAMPLE URL", html.includes("runnr.fyi/?demo=1") && /TikTok bio is[\s\S]*demo=1/.test(html));
@@ -235,5 +240,89 @@ check("signed-in does not hold keep-score", signed.RunnrDemoSandbox.shouldHoldKe
 const realGuest = loadSandbox({ search: "?demo=1", pathname: "/", hash: "", href: "http://localhost/?demo=1" });
 realGuest.localStorage.setItem("runnr_sample_seal_v1", "1");
 check("real book does not hold keep-score", realGuest.RunnrDemoSandbox.shouldHoldKeepScore(real) === false);
+
+function loadWall(loc, extra) {
+  const ctx = loadSandbox(loc);
+  const overlay = {
+    className: "",
+    attrs: { hidden: "" },
+    classList: {
+      items: new Set(),
+      add(c) { this.items.add(c); overlay.className = [...this.items].join(" "); },
+      remove(c) {
+        String(c).split(/\s+/).forEach((x) => this.items.delete(x));
+        overlay.className = [...this.items].join(" ");
+      },
+      toggle(c, on) { if (on) this.add(c); else this.remove(c); },
+      contains(c) { return this.items.has(c); },
+    },
+    setAttribute(k, v) { this.attrs[k] = v; },
+    getAttribute(k) { return this.attrs[k] || ""; },
+    removeAttribute(k) { delete this.attrs[k]; },
+    hasAttribute(k) { return Object.prototype.hasOwnProperty.call(this.attrs, k); },
+  };
+  const video = {
+    muted: true, src: "", paused: true, dataset: {}, currentTime: 0,
+    setAttribute() {}, getAttribute(k) { return k === "src" ? this.src : ""; },
+    play() { this.paused = false; return Promise.resolve(); },
+    pause() { this.paused = true; },
+    addEventListener() {},
+  };
+  const modal = {
+    className: "",
+    classList: {
+      items: new Set(),
+      add(c) { this.items.add(c); modal.className = [...this.items].join(" "); },
+      remove(c) { this.items.delete(c); modal.className = [...this.items].join(" "); },
+      toggle(c, on) { if (on) this.add(c); else this.remove(c); },
+      contains(c) { return this.items.has(c); },
+    },
+    querySelector() { return null; },
+  };
+  const skip = { dataset: {}, textContent: "Skip", addEventListener() {} };
+  const unmute = { dataset: {}, textContent: "", hidden: true, addEventListener() {} };
+  const prevGet = ctx.document.getElementById;
+  ctx.document.getElementById = function (id) {
+    if (id === "intro-overlay") return overlay;
+    if (id === "intro-video") return video;
+    if (id === "intro-skip") return skip;
+    if (id === "intro-unmute") return unmute;
+    if (id === "intro-missing") return { hidden: true };
+    if (id === "modal-sample-keep") return modal;
+    if (id === "sample-keep-process") return { hidden: true, innerHTML: "" };
+    return prevGet.call(ctx.document, id);
+  };
+  ctx.document.querySelector = function (sel) {
+    if (sel === "#modal-sample-keep .sample-keep-copy") return { textContent: "" };
+    return null;
+  };
+  vm.runInNewContext(introSrc, ctx);
+  if (extra) extra(ctx);
+  return { ctx, overlay, video, modal, skip, unmute };
+}
+
+const firstWall = loadWall({ search: "?demo=1", pathname: "/", hash: "", href: "http://localhost/?demo=1" });
+firstWall.ctx.S = { trades: book, watchlist: SB.factoryWatchlist(), bal: 10000, risk: 1, sym: "€" };
+check("first gold score wants video before the wall", firstWall.ctx.RunnrIntro.shouldPlayBeforeKeepScore({}) === true);
+check("first gold score holds the wall while video plays", firstWall.ctx.RunnrDemoSandbox.onGoldScored({ ready: true, size: 25, entry: 198, stop: 194 }, { reason: "score" }) === true);
+check("video overlay is open before keep-score", firstWall.overlay.classList.contains("open") === true);
+check("email wall stays closed during the video", firstWall.modal.classList.contains("open") === false);
+firstWall.ctx.RunnrIntro.skip(firstWall.ctx.S);
+check("skip closes the video", firstWall.overlay.classList.contains("open") === false);
+check("skip then opens keep-score", firstWall.modal.classList.contains("open") === true);
+
+const seenWall = loadWall({ search: "?demo=1", pathname: "/", hash: "", href: "http://localhost/?demo=1" });
+seenWall.ctx.localStorage.setItem("runnr_intro_v1", "skipped");
+seenWall.ctx.S = { trades: book, watchlist: SB.factoryWatchlist(), bal: 10000, risk: 1, sym: "€" };
+check("returner gold score opens the wall without video", seenWall.ctx.RunnrDemoSandbox.onGoldScored({ ready: true, size: 25, entry: 198, stop: 194 }) === true);
+check("returner does not reopen the intro", seenWall.overlay.classList.contains("open") === false);
+check("returner keep-score is open", seenWall.modal.classList.contains("open") === true);
+
+const tourWall = loadWall({ search: "?demo=1&tour=1", pathname: "/", hash: "", href: "http://localhost/?demo=1&tour=1" });
+tourWall.ctx.S = { trades: book, watchlist: SB.factoryWatchlist(), bal: 10000, risk: 1, sym: "€" };
+check("?tour=1 skips video so chips are not stacked", tourWall.ctx.RunnrIntro.shouldPlayBeforeKeepScore({}) === false);
+check("?tour=1 keep-score opens the wall directly", tourWall.ctx.RunnrDemoSandbox.showKeepScore({ reason: "score" }) === true);
+check("?tour=1 does not open the intro overlay", tourWall.overlay.classList.contains("open") === false);
+check("?tour=1 email wall is open", tourWall.modal.classList.contains("open") === true);
 
 console.log("test_sample_landing: ok " + n);

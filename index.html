@@ -5,7 +5,7 @@
 <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
 <script>
 (function () {
-  var V = "164";
+  var V = "165";
   try {
     if (localStorage.getItem("runnr_app_v") !== V) {
       localStorage.setItem("runnr_app_v", V);
@@ -67,7 +67,7 @@
 <link rel="stylesheet" href="css/tokens.css?v=1">
 <link rel="stylesheet" href="css/layout.css?v=2">
 <link rel="stylesheet" href="css/components.css?v=3">
-<link rel="stylesheet" href="css/pages.css?v=14">
+<link rel="stylesheet" href="css/pages.css?v=15">
 <link rel="stylesheet" href="css/pretrade.css?v=8">
 </head>
 <body>
@@ -1511,15 +1511,17 @@
   </div>
 </div>
 
-<div id="intro-overlay" class="intro-parked" hidden aria-hidden="true" role="dialog" aria-modal="true" aria-label="How Runnr works">
+<div id="intro-overlay" hidden aria-hidden="true" role="dialog" aria-modal="true" aria-label="How Runnr works">
   <div class="intro-card">
     <div class="intro-top">
       <div class="intro-kicker">How Runnr works</div>
-      <button type="button" id="intro-skip">Skip</button>
+      <button type="button" id="intro-skip">Skip to save your score</button>
     </div>
-    <video id="intro-video" src="/media/runnr-how-it-works.mp4" muted playsinline webkit-playsinline preload="none" controlslist="nodownload"></video>
-    <button type="button" id="intro-unmute">Tap to unmute</button>
-    <p id="intro-missing" hidden>Walkthrough file is not on this branch yet — skip to the desk. Parent: drop <code>runnr-how-it-works-vo.mp4</code> onto <code>media/runnr-how-it-works.mp4</code>.</p>
+    <div class="intro-stage">
+      <video id="intro-video" src="/media/runnr-intro-email-wall.mp4" poster="/media/runnr-intro-email-wall.jpg" muted playsinline webkit-playsinline preload="metadata" controlslist="nodownload"></video>
+      <button type="button" id="intro-unmute">Tap for sound</button>
+    </div>
+    <p id="intro-missing" hidden>Intro file is missing — skip to save your score. Parent: drop the cut onto <code>media/runnr-intro-email-wall.mp4</code>.</p>
   </div>
 </div>
 
@@ -1734,6 +1736,7 @@
     <div id="sample-keep-process" class="sample-keep-process" hidden></div>
     <a class="btn" data-sample-keep-cta href="/login.html?keep=1">Keep my score</a>
     <p class="sample-keep-login">Already have an account? <a href="/login.html">Log in</a></p>
+    <button type="button" class="sample-keep-replay" id="sample-keep-replay">Watch how Runnr works</button>
     <button type="button" class="btn btn-ghost" id="sample-keep-dismiss">Not now</button>
   </div>
 </div>
@@ -1891,12 +1894,12 @@
 <script src="js/options-coach.js?v=1"></script>
 <script src="js/fvg-retrace.js?v=1"></script>
 <script src="js/onboarding.js?v=38"></script>
-<script src="js/intro.js?v=2"></script>
+<script src="js/intro.js?v=3"></script>
 <script src="js/tour.js?v=2"></script>
 <script src="js/csv-presets.js?v=4"></script>
 <script src="js/trade-limit.js?v=4"></script>
 <script src="js/desk-quiet.js?v=3"></script>
-<script src="js/demo-sandbox.js?v=17"></script>
+<script src="js/demo-sandbox.js?v=18"></script>
 <script src="js/sync.js?v=71"></script>
 <script src="js/desk-sessions.js?v=2"></script>
 <script src="js/desk.js?v=17"></script>

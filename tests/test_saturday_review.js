@@ -96,8 +96,9 @@ check("keep-score returning login is secondary", keep.includes("Already have an 
 check("keep-score chips host stays", keep.includes('id="sample-keep-process"'));
 check("keep-score light scrim stays", /#modal-sample-keep\{[^}]*rgba\(4,6,10,0\.46\)/.test(css.replace(/\s+/g, "")));
 
-check("intro stays in the tree", html.includes('id="intro-overlay"') && html.includes("/media/runnr-how-it-works.mp4"));
-check("intro is parked and hidden", introSrc.includes("ENABLED: false") && /id="intro-overlay"[^>]*hidden/.test(html));
-check("intro CSS parks autoplay overlay", css.includes("#intro-overlay.intro-parked") || css.includes("#intro-overlay[hidden]"));
+check("intro stays in the tree", html.includes('id="intro-overlay"') && html.includes("/media/runnr-intro-email-wall.mp4"));
+check("homepage intro autoplay stays off", introSrc.includes("ENABLED: false") && /id="intro-overlay"[^>]*hidden/.test(html));
+check("intro CSS hides until opened", css.includes("#intro-overlay[hidden]"));
+check("intro skip is always visible copy", html.includes("Skip to save your score"));
 
 console.log("ok " + n);
