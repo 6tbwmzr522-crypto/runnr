@@ -510,6 +510,11 @@
         document.documentElement.classList.remove("runnr-sample-landing");
       }
     } catch (e) {}
+    try {
+      if (global.RunnrTour && typeof RunnrTour.maybeShow === "function") {
+        RunnrTour.maybeShow(global.S);
+      }
+    } catch (e) {}
   }
 
   function shouldShowSampleHero(state) {
@@ -576,11 +581,20 @@
     return openGoldSizer(primed);
   }
 
+  function tourBlocksWall() {
+    try {
+      return !!(global.RunnrTour && RunnrTour.isOpen && RunnrTour.isOpen() && RunnrTour.allowsEmailWall && !RunnrTour.allowsEmailWall());
+    } catch (e) {
+      return false;
+    }
+  }
+
   function onSampleScored(trade, opts) {
     if (isLoggedIn()) return false;
     if (!isDemoState(global.S)) return false;
     if (trade && !isDemoTrade(trade)) return false;
     markSeal();
+    if (tourBlocksWall()) return true;
     showKeepScore({ reason: (opts && opts.reason) || "score" });
     return true;
   }
@@ -601,6 +615,7 @@
       const delay = opts && Number.isFinite(Number(opts.delayMs)) ? Math.max(0, Number(opts.delayMs)) : 0;
       const show = function () {
         if (isLoggedIn()) return;
+        if (tourBlocksWall()) return;
         showKeepScore({ reason: reason });
       };
       if (delay > 0 && typeof global.setTimeout === "function") {

@@ -17,7 +17,7 @@ function check(name, cond) {
 const v = html.match(/var V = "(\d+)"/)[1];
 const cache = sw.match(/CACHE = "runnr-v(\d+)"/)[1];
 check("index.html V matches sw.js CACHE", v === cache);
-check("shelf.js cache-busted at v=4", html.includes("js/shelf.js?v=4"));
+check("shelf.js cache-busted at v=5", html.includes("js/shelf.js?v=5"));
 check("desktop deck is six columns", css.includes("grid-template-columns:repeat(6,minmax(0,1fr))"));
 
 const ctx = { window: {}, document: { getElementById: () => null } };
@@ -45,5 +45,7 @@ check("NTRA value $864.923M", ntra.value === 864.923e6);
 
 check("footnote omits Duquesne options and remaining names", /Duquesne options and the rest of the 95 names are omitted/.test(shelfSrc));
 check("selectedId default is situational", /let selectedId = "situational"/.test(shelfSrc));
+check("AAPL Mag 7 seed covers 2-3 demo books", /AAPL_SEED_BOOKS = \["situational", "pershing", "appaloosa"\]/.test(shelfSrc));
+check("booksFor helper exists", shelfSrc.includes("function booksFor") && shelfSrc.includes("function seedMag7Aapl") && shelfSrc.includes("function showTicker"));
 
 console.log("ok " + module.filename);

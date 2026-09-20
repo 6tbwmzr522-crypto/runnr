@@ -233,6 +233,7 @@ const RunnrGrowth = {
     if (typeof renderJournal === "function") renderJournal();
     if (typeof applyGuestShell === "function") applyGuestShell();
     this.close();
+    try { window.RunnrTour?.maybeShow?.(state); } catch (e) {}
   },
 
   hideHookPaint() {
@@ -261,6 +262,10 @@ const RunnrGrowth = {
       return;
     }
     this.hideHookPaint();
+    if (typeof RunnrTour !== "undefined" && RunnrTour.shouldShow?.(state)) {
+      try { RunnrTour.maybeShow(state); } catch (e) {}
+      return;
+    }
     if (typeof RunnrIntro !== "undefined" && RunnrIntro.shouldShow?.(state)) {
       return;
     }

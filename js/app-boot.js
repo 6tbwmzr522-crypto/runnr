@@ -191,6 +191,7 @@ function initApp() {
   try { refreshBillingUI(); } catch (e) {}
   try { maybePullWatchlistFromCloud(); } catch (e) {}
   try { window.RunnrIntro?.bind?.(); } catch (e) {}
+  try { window.RunnrTour?.bind?.(); } catch (e) {}
   const params = new URLSearchParams(location.search);
   if (params.get('oauth')) {
     const code = params.get('oauth');
@@ -216,6 +217,7 @@ function initApp() {
       })
       .then(() => {
         try { window.RunnrIntro?.maybeShow?.(S); } catch (err) {}
+        try { window.RunnrTour?.maybeShow?.(S); } catch (err) {}
       })
       .catch((e) => {
         window._runnrAuthPending = false;
@@ -289,7 +291,10 @@ function initApp() {
     setTimeout(() => { RunnrGrowth.bootGate(S); }, 600);
   }
   if (window.RunnrSync?.isLoggedIn?.() && !params.get('oauth')) {
-    const showIntro = () => { try { window.RunnrIntro?.maybeShow?.(S); } catch (e) {} };
+    const showIntro = () => {
+      try { window.RunnrIntro?.maybeShow?.(S); } catch (e) {}
+      try { window.RunnrTour?.maybeShow?.(S); } catch (e) {}
+    };
     if (RunnrSync.refreshBilling) RunnrSync.refreshBilling().catch(() => {}).then(showIntro);
     else setTimeout(showIntro, 200);
   }
