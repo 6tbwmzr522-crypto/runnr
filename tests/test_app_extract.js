@@ -35,6 +35,7 @@ appFiles.forEach((f) => {
     : f === "js/app-nav.js" ? "?v=5"
     : f === "js/app-boot.js" ? "?v=7"
     : f === "js/app-watchlist.js" ? "?v=3"
+    : f === "js/app-quotes.js" ? "?v=2"
     : f === "js/app-coach-page.js" ? "?v=2"
     : "?v=1";
   check(f + " is loaded with cache-bust", html.includes(f + pin));

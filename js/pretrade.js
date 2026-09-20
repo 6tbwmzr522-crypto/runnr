@@ -150,7 +150,14 @@
   function looksLikeTicker(raw) {
     const s = String(raw || "").trim().toUpperCase();
     if (!s || /\s/.test(s)) return false;
-    return /^[A-Z]{2,6}(?:[.\-][A-Z0-9]{1,4})?$/.test(s);
+    if (/^[A-Z]{2,6}(?:[.\-][A-Z0-9]{1,4})?$/.test(s)) return true;
+    const aliases = global.QUOTE_NAME_ALIASES;
+    if (aliases && aliases[s]) return true;
+    if (typeof global.normalizeQuoteSymbol === "function") {
+      const mapped = String(global.normalizeQuoteSymbol(s) || "").toUpperCase();
+      return mapped !== s && /^[A-Z]{1,6}(?:[.\-][A-Z0-9]{1,4})?$/.test(mapped);
+    }
+    return false;
   }
 
   function fmtQuotePx(n) {

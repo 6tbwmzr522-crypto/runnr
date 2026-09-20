@@ -22,7 +22,7 @@ const v = html.match(/var V = "(\d+)"/)[1];
 const cache = sw.match(/CACHE = "runnr-v(\d+)"/)[1];
 check("index.html V matches sw.js CACHE", v === cache);
 check("cache is 147+", Number(v) >= 147);
-check("pretrade.js is loaded", html.includes("js/pretrade.js?v=15"));
+check("pretrade.js is loaded", html.includes("js/pretrade.js?v=16"));
 check("pretrade.css is loaded", html.includes("css/pretrade.css?v=8"));
 check("gold mounts in pretrade-root, not desk-root hijack", html.includes('id="pretrade-root"') && src.includes('getElementById("pretrade-root")'));
 check("legacy CFD sizer stays in the page, hidden", html.includes("CFD / Forex Position Sizer") && html.includes('id="legacy-sizer"') && css.includes("#legacy-sizer{display:none"));
@@ -299,7 +299,10 @@ check("pretrade open(journal) lands on the unified journal", ctx.switched === "j
 
 check("ticker debounce is 450ms", PT.TICKER_DEBOUNCE_MS === 450);
 check("AAPL NBIS EURUSD look like tickers", PT.looksLikeTicker("AAPL") && PT.looksLikeTicker("nbis") && PT.looksLikeTicker("EURUSD") && PT.looksLikeTicker("BMW.DE"));
+check("TESLA looks like a ticker so pretrade will resolve it", PT.looksLikeTicker("TESLA") === true);
 check("spaces and empty are not tickers", PT.looksLikeTicker("AAPL CFD") === false && PT.looksLikeTicker("") === false && PT.looksLikeTicker("to the moon") === false && PT.looksLikeTicker("A") === false && PT.looksLikeTicker("GM") === true);
+ctx.QUOTE_NAME_ALIASES = { MICROSOFT: "MSFT", ALPHABET: "GOOGL", FACEBOOK: "META", NETFLIX: "NFLX" };
+check("company-name aliases longer than 6 still look like tickers", PT.looksLikeTicker("MICROSOFT") && PT.looksLikeTicker("ALPHABET") && PT.looksLikeTicker("FACEBOOK") && PT.looksLikeTicker("NETFLIX"));
 check("empty entry autofills from last", PT.shouldAutofillEntry("", "", "AAPL") === true);
 check("primed SAMPLE entry is not overwritten", PT.shouldAutofillEntry("198", "", "AAPL") === false);
 check("quoted entry follows a new ticker", PT.shouldAutofillEntry("188.42", "AAPL", "NBIS") === true);

@@ -20,10 +20,26 @@ var quoteBackoffUntil = 0;
 
 var CRYPTO_SYMS = ['BTC','ETH','SOL','DOGE','XRP','ADA','AVAX','LINK','BNB','LTC','DOT','MATIC','SHIB'];
 
+// Common company names → Yahoo tickers. Keep this small and obvious — not a company DB.
+var QUOTE_NAME_ALIASES = {
+  TESLA: 'TSLA',
+  APPLE: 'AAPL',
+  GOOGLE: 'GOOGL',
+  ALPHABET: 'GOOGL',
+  AMAZON: 'AMZN',
+  MICROSOFT: 'MSFT',
+  NVIDIA: 'NVDA',
+  NVIDEA: 'NVDA',
+  META: 'META',
+  FACEBOOK: 'META',
+  NETFLIX: 'NFLX',
+};
+
 function normalizeQuoteSymbol(sym) {
   const s = String(sym || '').trim().toUpperCase();
   if (!s) return s;
   if (s.includes('-') || s.includes('=')) return s;
+  if (QUOTE_NAME_ALIASES[s]) return QUOTE_NAME_ALIASES[s];
   if (CRYPTO_SYMS.includes(s)) return s + '-USD';
   return s;
 }
