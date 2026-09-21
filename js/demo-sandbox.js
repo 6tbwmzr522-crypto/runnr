@@ -15,6 +15,7 @@
   const WALL_OAUTH_KEY = "runnr_email_wall_oauth_v1";
   const WALL_CONVERTED_KEY = "runnr_email_wall_converted_v1";
   const AHA_KEY = "runnr_sample_aha_v1";
+  const AHA_DAY_KEY = "runnr_sample_aha_day_v1";
   const HERO_KEY = "runnr_sample_hero_v1";
   const KEEP_KEY = "runnr_sample_keep_v1";
   const SEAL_KEY = "runnr_sample_seal_v1";
@@ -472,7 +473,11 @@
     storageSet(global.localStorage, AHA_KEY, "1");
     storageSet(global.sessionStorage, KEEP_KEY, reason || "1");
     paintChrome(global.S);
-    beacon("demo_aha");
+    // Proof / homepage hero is not a scored trade. Do not count it as demo_aha.
+    if (reason === "proof") return;
+    onceLocalDay(AHA_DAY_KEY, function () {
+      beacon("demo_aha");
+    });
   }
 
   function firstIncompleteSample(state) {
@@ -607,35 +612,46 @@
    * Distinct from opening the sizer and from the skippable SAMPLE hero.
    * LOG TRADE still seals via onSampleScored.
    */
+  /**
+   * First ready gold plan. The slip stays on screen.
+   * The keep-score wall waits for the journal log (onSampleScored)
+   * or an explicit Keep this score tap — not this paint.
+   */
   function onGoldScored(computed, opts) {
     if (isLoggedIn()) return false;
     if (!isDemoState(global.S)) return false;
     if (!isReadyGoldScore(computed)) return false;
-    const first = !hasSeal();
     markSeal();
-    if (first) {
-      const reason = (opts && opts.reason) || "score";
-      const delay = opts && Number.isFinite(Number(opts.delayMs)) ? Math.max(0, Number(opts.delayMs)) : 0;
-      const show = function () {
-        if (isLoggedIn()) return;
-        if (tourBlocksWall()) return;
-        showKeepScore({ reason: reason });
-      };
-      if (delay > 0 && typeof global.setTimeout === "function") {
-        global.setTimeout(show, delay);
-      } else {
-        show();
-      }
-    }
     return true;
   }
 
   function onProofViewed() {
-    if (isLoggedIn()) return false;
-    if (!isDemoState(global.S) && !queryForce()) return false;
-    markAha("proof");
-    showKeepScore();
-    return true;
+    // Homepage and SAMPLE proof cards are not the guest's score.
+    return false;
+  }
+
+  /**
+   * Loss-aversion line from this plan only.
+   * Rule is the book's risk % (state.risk). Overage is this plan's risk minus that rule.
+   * No line when the plan is inside the rule — do not invent a monthly cost.
+   */
+  function slipLine(computed, rails, state) {
+    if (!computed || computed.sampleLocked) return "";
+    const bal = Number(rails && rails.bal);
+    const total = Number(computed.totalRisk);
+    const rulePct = Number(state && state.risk);
+    if (!(bal > 0) || !(total > 0) || !(rulePct > 0)) return "";
+    const riskPct = (total / bal) * 100;
+    const over = Math.round(total - (bal * rulePct / 100));
+    if (!(over > 0)) return "";
+    const sym = (rails && rails.sym) || (state && state.sym) || "€";
+    return "Risked " + trimPct(riskPct) + "% on a " + trimPct(rulePct) + "% rule — " + moneyLabel(over, sym) + " over on this plan.";
+  }
+
+  function trimPct(n) {
+    const r = Math.round(Number(n) * 10) / 10;
+    if (!Number.isFinite(r)) return "";
+    return String(r).replace(/\.0$/, "");
   }
 
   // Wall bait is saved score + weekly discipline report. Quiet 7-day / no auto-bill line
@@ -652,13 +668,29 @@
     return true;
   }
 
+  function utcDay(now) {
+    const d = now instanceof Date ? now : new Date();
+    return d.toISOString().slice(0, 10);
+  }
+
+  function onceLocalDay(key, fn, now) {
+    const day = utcDay(now);
+    try {
+      if (global.localStorage && localStorage.getItem(key) === day) return false;
+      if (global.localStorage) localStorage.setItem(key, day);
+    } catch (e) {}
+    if (typeof fn === "function") fn();
+    return true;
+  }
+
   function fireEmailWallBeacons(locked) {
-    // Always record shown first. Locked is a later hold — never fire locked without shown.
-    onceSessionFlag(WALL_SHOWN_KEY, function () {
+    // shown = keep-score modal opened, once per guest per UTC day.
+    // locked = that same open is sealed. Never a revisit, and never without shown.
+    const shownFresh = onceLocalDay(WALL_SHOWN_KEY, function () {
       beacon("email_wall_shown");
     });
-    if (locked) {
-      onceSessionFlag(WALL_LOCKED_KEY, function () {
+    if (locked && shownFresh) {
+      onceLocalDay(WALL_LOCKED_KEY, function () {
         beacon("email_wall_locked");
       });
     }
@@ -919,14 +951,6 @@
         } catch (e) {}
       });
     }
-    doc.querySelectorAll("#sample-hero [data-runnr-proof]").forEach((card) => {
-      if (card.dataset.sampleProofBound) return;
-      card.dataset.sampleProofBound = "1";
-      card.addEventListener("click", function (ev) {
-        if (ev && ev.target && ev.target.closest && ev.target.closest("button, a")) return;
-        onProofViewed();
-      });
-    });
   }
 
   function bindKeepScore() {
@@ -973,6 +997,13 @@
     if (shouldHoldKeepScore(state || global.S)) showKeepScore();
   }
 
+  // Guest SAMPLE beacons:
+  // demo_view — SAMPLE desk land, once per browser session. Not the homepage proof card.
+  // demo_aha — guest scored a trade, once per guest per UTC day. Proof/hero does not fire this.
+  // demo_score_trade — opened the sizer from Score a trade.
+  // email_wall_shown — Keep this score modal opened, once per guest per UTC day.
+  // email_wall_locked — that open was sealed. Only with a fresh shown, not on revisit.
+  // email_wall_oauth_start / email_wall_converted — Google/Apple tap, then a signed-in return.
   function beacon(event) {
     try {
       const nav = global.navigator;
@@ -1037,6 +1068,7 @@
     markSeal,
     shouldHoldKeepScore,
     isReadyGoldScore,
+    slipLine,
     firstIncompleteSample,
     sampleScorePrime,
     openScoreTrade,

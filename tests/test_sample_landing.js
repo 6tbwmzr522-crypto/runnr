@@ -35,7 +35,7 @@ const v = html.match(/var V = "(\d+)"/)[1];
 const cache = sw.match(/CACHE = "runnr-v(\d+)"/)[1];
 check("index.html V matches sw.js CACHE", v === cache);
 check("cache is 139+", Number(v) >= 139);
-check("demo-sandbox cache-bust", html.includes("js/demo-sandbox.js?v=23"));
+check("demo-sandbox cache-bust", html.includes("js/demo-sandbox.js?v=24"));
 check("pages.css cache-bust", html.includes("css/pages.css?v=19"));
 check("intro.js cache-bust", html.includes("js/intro.js?v=6"));
 
@@ -43,7 +43,7 @@ check("stats Guest SAMPLE funnel section", stats.includes("Guest SAMPLE funnel")
 check("stats clarifies signed-in accounts are not visits", stats.includes("Signed-in accounts (not visits)"));
 check("sandbox beacons email wall on keep-score open", sandboxSrc.includes("email_wall_shown") && sandboxSrc.includes("email_wall_locked") && sandboxSrc.includes("WALL_SHOWN_KEY") && sandboxSrc.includes("WALL_LOCKED_KEY"));
 check("sandbox beacons OAuth start and convert", sandboxSrc.includes("email_wall_oauth_start") && sandboxSrc.includes("email_wall_converted"));
-check("locked never fires without shown", sandboxSrc.includes("fireEmailWallBeacons") && /Always record shown first/.test(sandboxSrc));
+check("locked never fires without shown", sandboxSrc.includes("fireEmailWallBeacons") && /never without shown/.test(sandboxSrc));
 check("bio URL is documented on stats", stats.includes("https://runnr.fyi/?demo=1") && stats.includes("tiktok-bio-url"));
 check("stats does not point TikTok bio at login.html", /TikTok bio[\s\S]{0,400}login\.html/.test(stats) === false || /not login\.html/.test(stats));
 check("stats lists /sample and #sample aliases", stats.includes("https://runnr.fyi/sample") && stats.includes("https://runnr.fyi/#sample"));
@@ -237,12 +237,29 @@ scoredGuest.RunnrDemoSandbox.hideKeepScore();
 check("hideKeepScore cannot drop a gold-score seal", scoredGuest.RunnrDemoSandbox.hasSeal() === true && scoredGuest.RunnrDemoSandbox.shouldHoldKeepScore() === true);
 check("later gold scores stay sealed without dropping the hold", scoredGuest.RunnrDemoSandbox.onGoldScored({ ready: true, size: 10, entry: 100, stop: 90 }) === true && scoredGuest.RunnrDemoSandbox.shouldHoldKeepScore() === true);
 
-const delayed = loadSandbox({ search: "?demo=1", pathname: "/", hash: "", href: "http://localhost/?demo=1" });
-delayed.S = { trades: book, watchlist: SB.factoryWatchlist(), bal: 10000, risk: 1, sym: "€" };
-const delays = [];
-delayed.setTimeout = function (fn, ms) { delays.push(ms); delayed.queuedKeep = fn; return 1; };
-check("first gold score can delay the wall paint", delayed.RunnrDemoSandbox.onGoldScored({ ready: true, size: 25, entry: 198, stop: 194 }, { delayMs: 900 }) === true);
-check("delay does not wait to seal", delayed.RunnrDemoSandbox.hasSeal() === true && delays[0] === 900 && delayed.RunnrDemoSandbox.shouldHoldKeepScore() === true);
+const liveScore = loadSandbox({ search: "?demo=1", pathname: "/", hash: "", href: "http://localhost/?demo=1" });
+liveScore.S = { trades: book, watchlist: SB.factoryWatchlist(), bal: 10000, risk: 1, sym: "€" };
+liveScore.wallOpens = 0;
+liveScore.openModal = function () { liveScore.wallOpens += 1; };
+check("live gold score seals without opening the wall", liveScore.RunnrDemoSandbox.onGoldScored({ ready: true, size: 50, entry: 198, stop: 194, totalRisk: 200 }, { reason: "score" }) === true && liveScore.wallOpens === 0);
+check("live gold score still holds keep-score for a later save", liveScore.RunnrDemoSandbox.shouldHoldKeepScore() === true);
+
+const slipOver = SB.slipLine({ ready: true, totalRisk: 200, size: 50 }, { bal: 10000, sym: "€" }, { risk: 1, sym: "€" });
+check("slip uses this plan against the 1% rule", slipOver === "Risked 2% on a 1% rule — €100 over on this plan.");
+const slipInside = SB.slipLine({ ready: true, totalRisk: 100, size: 25 }, { bal: 10000, sym: "€" }, { risk: 1, sym: "€" });
+check("plan inside the rule does not invent a cost", slipInside === "");
+const slipNoRule = SB.slipLine({ ready: true, totalRisk: 200, size: 50 }, { bal: 10000, sym: "€" }, {});
+check("missing rule does not invent a percent", slipNoRule === "");
+check("onGoldScored does not open keep-score", (function () {
+  const fn = sandboxSrc.slice(sandboxSrc.indexOf("function onGoldScored"), sandboxSrc.indexOf("function onProofViewed"));
+  return fn.includes("markSeal") && !fn.includes("showKeepScore");
+})());
+check("journal log still opens keep-score after the score", (function () {
+  const fn = sandboxSrc.slice(sandboxSrc.indexOf("function onSampleScored"), sandboxSrc.indexOf("function onGoldScored"));
+  return fn.includes("showKeepScore");
+})());
+check("proof and homepage hero do not mark aha", !sandboxSrc.includes('markAha("proof")') && !sandboxSrc.includes("onProofViewed();"));
+check("aha beacon is once per guest per day", sandboxSrc.includes("AHA_DAY_KEY") && sandboxSrc.includes("onceLocalDay(AHA_DAY_KEY"));
 
 const loggedGuest = loadSandbox({ search: "?demo=1", pathname: "/", hash: "", href: "http://localhost/?demo=1" });
 loggedGuest.S = { trades: book, watchlist: SB.factoryWatchlist(), bal: 10000, risk: 1, sym: "€" };
@@ -323,8 +340,12 @@ function loadWall(loc, extra) {
 
 const firstWall = loadWall({ search: "?demo=1", pathname: "/", hash: "", href: "http://localhost/?demo=1" });
 firstWall.ctx.S = { trades: book, watchlist: SB.factoryWatchlist(), bal: 10000, risk: 1, sym: "€" };
-check("first gold score wants video before the wall", firstWall.ctx.RunnrIntro.shouldPlayBeforeKeepScore({}) === true);
-check("first gold score holds the wall while video plays", firstWall.ctx.RunnrDemoSandbox.onGoldScored({ ready: true, size: 25, entry: 198, stop: 194 }, { reason: "score" }) === true);
+check("intro still wants to play before the wall", firstWall.ctx.RunnrIntro.shouldPlayBeforeKeepScore({}) === true);
+check("live gold score leaves the slip up", firstWall.ctx.RunnrDemoSandbox.onGoldScored({ ready: true, size: 25, entry: 198, stop: 194, totalRisk: 100 }, { reason: "score" }) === true);
+check("video stays closed on the live score", firstWall.overlay.classList.contains("open") === false);
+check("email wall stays closed on the live score", firstWall.modal.classList.contains("open") === false);
+const goldRowWall = { id: 99, isDemo: true, source: "pretrade", instr: "AAPL", incomplete: false };
+check("journal log opens the video before the wall", firstWall.ctx.RunnrDemoSandbox.onSampleScored(goldRowWall, { reason: "pretrade" }) === true);
 check("video overlay is open before keep-score", firstWall.overlay.classList.contains("open") === true);
 check("email wall stays closed during the video", firstWall.modal.classList.contains("open") === false);
 firstWall.ctx.RunnrIntro.skip(firstWall.ctx.S);
@@ -334,8 +355,10 @@ check("skip then opens keep-score", firstWall.modal.classList.contains("open") =
 const seenWall = loadWall({ search: "?demo=1", pathname: "/", hash: "", href: "http://localhost/?demo=1" });
 seenWall.ctx.localStorage.setItem("runnr_intro_v1", "skipped");
 seenWall.ctx.S = { trades: book, watchlist: SB.factoryWatchlist(), bal: 10000, risk: 1, sym: "€" };
-check("returner gold score opens the wall without video", seenWall.ctx.RunnrDemoSandbox.onGoldScored({ ready: true, size: 25, entry: 198, stop: 194 }) === true);
-check("returner does not reopen the intro", seenWall.overlay.classList.contains("open") === false);
+check("returner gold score does not open the wall", seenWall.ctx.RunnrDemoSandbox.onGoldScored({ ready: true, size: 25, entry: 198, stop: 194 }) === true);
+check("returner does not reopen the intro on the live score", seenWall.overlay.classList.contains("open") === false);
+check("returner keep-score stays closed until the log", seenWall.modal.classList.contains("open") === false);
+check("returner journal log opens the wall without video", seenWall.ctx.RunnrDemoSandbox.onSampleScored(goldRowWall, { reason: "pretrade" }) === true);
 check("returner keep-score is open", seenWall.modal.classList.contains("open") === true);
 
 const tourWall = loadWall({ search: "?demo=1&tour=1", pathname: "/", hash: "", href: "http://localhost/?demo=1&tour=1" });
@@ -389,7 +412,11 @@ const sealedWall = loadWallBeacons({ search: "?demo=1", pathname: "/", hash: "",
 check("sealed wall opens", sealedWall.RunnrDemoSandbox.showKeepScore({ skipIntro: true, reason: "score" }) === true);
 check("sealed wall fires shown then locked", sealedWall.beacons[0] === "email_wall_shown" && sealedWall.beacons[1] === "email_wall_locked");
 sealedWall.RunnrDemoSandbox.showKeepScore({ skipIntro: true });
-check("wall beacons are once per session", sealedWall.beacons.filter((e) => e === "email_wall_shown").length === 1 && sealedWall.beacons.filter((e) => e === "email_wall_locked").length === 1);
+check("wall beacons are once per day", sealedWall.beacons.filter((e) => e === "email_wall_shown").length === 1 && sealedWall.beacons.filter((e) => e === "email_wall_locked").length === 1);
+sealedWall.sessionStorage.removeItem("runnr_email_wall_shown_v1");
+sealedWall.sessionStorage.removeItem("runnr_email_wall_locked_v1");
+sealedWall.RunnrDemoSandbox.showKeepScore({ skipIntro: true });
+check("revisit does not re-fire shown or locked", sealedWall.beacons.filter((e) => e === "email_wall_shown").length === 1 && sealedWall.beacons.filter((e) => e === "email_wall_locked").length === 1);
 
 const openWall = loadWallBeacons({ search: "?demo=1", pathname: "/", hash: "", href: "http://localhost/?demo=1" });
 check("unsealed wall fires shown only", openWall.RunnrDemoSandbox.showKeepScore({ skipIntro: true }) === true && openWall.beacons[0] === "email_wall_shown" && openWall.beacons.indexOf("email_wall_locked") === -1);
@@ -402,5 +429,24 @@ check("OAuth start beacons email_wall_oauth_start", oauthWall.beacons.indexOf("e
 check("OAuth start marks a pending return", oauthWall.RunnrDemoSandbox.keepOAuthPending() === true);
 oauthWall.localStorage.setItem("runnr_api_token", "tok");
 check("OAuth complete beacons converted and clears pending", oauthWall.RunnrDemoSandbox.resumeAfterKeepAuth() === true && oauthWall.beacons.indexOf("email_wall_converted") !== -1 && oauthWall.RunnrDemoSandbox.keepOAuthPending() === false);
+
+const ahaCtx = loadSandbox({ search: "?demo=1", pathname: "/", hash: "", href: "http://localhost/?demo=1" });
+const ahaHits = [];
+ahaCtx.navigator.sendBeacon = function (url) {
+  const m = String(url).match(/[?&]e=([^&]+)/);
+  ahaHits.push(decodeURIComponent((m && m[1]) || ""));
+  return true;
+};
+ahaCtx.S = { trades: book, watchlist: SB.factoryWatchlist(), bal: 10000, risk: 1, sym: "€" };
+check("proof view does not count as aha", ahaCtx.RunnrDemoSandbox.onProofViewed() === false && ahaHits.indexOf("demo_aha") === -1);
+ahaCtx.RunnrDemoSandbox.markAha("proof");
+check("homepage proof reason does not beacon aha", ahaHits.indexOf("demo_aha") === -1);
+ahaCtx.RunnrDemoSandbox.markAha("score");
+ahaCtx.RunnrDemoSandbox.markAha("score");
+check("score aha fires once per guest per day", ahaHits.filter((e) => e === "demo_aha").length === 1);
+check("score path does not open the share card", (function () {
+  const fn = sandboxSrc.slice(sandboxSrc.indexOf("function onSampleScored"), sandboxSrc.indexOf("function onProofViewed"));
+  return !fn.includes("openShareModal") && !fn.includes("modal-share");
+})());
 
 console.log("test_sample_landing: ok " + n);

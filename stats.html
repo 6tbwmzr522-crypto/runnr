@@ -140,7 +140,7 @@
     <div class="kpi">
       <div class="label">demo_aha</div>
       <div class="num" id="guest-demo-aha">—</div>
-      <p class="hint" id="guest-demo-aha-total">Today · proof viewed</p>
+      <p class="hint" id="guest-demo-aha-total">Today · scored a trade, once per guest per day</p>
     </div>
     <div class="kpi">
       <div class="label">demo_score_trade</div>
@@ -150,7 +150,7 @@
     <div class="kpi">
       <div class="label">email_wall shown / locked</div>
       <div class="num" id="guest-email-wall">—</div>
-      <p class="hint" id="guest-email-wall-total">Today · keep-score modal</p>
+      <p class="hint" id="guest-email-wall-total">Today · opened once per day. Locked only with that open, not on revisit</p>
     </div>
     <div class="kpi">
       <div class="label">email_wall oauth / converted</div>
@@ -351,7 +351,7 @@
         setText("guest-demo-cta", fmt(todayEv.demo_cta_start));
         setText("guest-users-created", fmt(funnel.users_created_today));
         guestHint("guest-demo-view-total", "demo_view", "SAMPLE land");
-        guestHint("guest-demo-aha-total", "demo_aha", "proof viewed");
+        guestHint("guest-demo-aha-total", "demo_aha", "scored a trade, once per guest per day");
         guestHint("guest-demo-score-total", "demo_score_trade", "scored");
         var wallEl = document.getElementById("guest-email-wall-total");
         if (wallEl) {
