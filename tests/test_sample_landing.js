@@ -85,7 +85,8 @@ check("chip tour stays optional on the wall", sandboxSrc.includes("tourWantsChip
 check("keep-score does not lead with Alpaca/T212", !/Alpaca|T212|Trading 212/.test(html.slice(html.indexOf('id="modal-sample-keep"'), html.indexOf('id="modal-share"'))));
 check("login keep=1 copy", login.includes("keep=1") && login.includes("Your score: ready.") && login.includes("weekly report") && login.includes("undisciplined P&L vs the clean one") && login.includes("Nothing bills automatically"));
 check("login keep=1 OAuth returns to SAMPLE", login.includes('keepScore ? "/?demo=1"') && login.includes("oauth_popup=1") && login.includes("runnr-oauth-done"));
-check("TikTok CTA copy points at SAMPLE URL", html.includes("runnr.fyi/?demo=1") && /TikTok bio is[\s\S]*demo=1/.test(html));
+check("SAMPLE desk URL stays on the live app", html.includes('href="/?demo=1"') && html.includes("runnr.fyi"));
+check("share card is not the TikTok P&L bio pitch", !/TikTok bio is[\s\S]*demo=1/.test(html) && !html.includes("Process P&amp;L (followed vs leaks)"));
 
 function freshCtx(loc) {
   const store = {};

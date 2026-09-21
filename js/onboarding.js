@@ -102,6 +102,15 @@ const RunnrGrowth = {
     return "Log 3 trades to unlock your score & share card";
   },
 
+  isShareDemo(state) {
+    return (typeof RunnrSync !== "undefined" && typeof RunnrSync.isDemoState === "function" && RunnrSync.isDemoState(state))
+      || (typeof RunnrDemoSandbox !== "undefined" && typeof RunnrDemoSandbox.isDemoState === "function" && RunnrDemoSandbox.isDemoState(state));
+  },
+
+  sharePreviewUnlocked(state) {
+    return this.isShareDemo(state) || this.scoreShareUnlocked(state);
+  },
+
   renderDisciplineCard(state) {
     const demo = (typeof RunnrSync !== "undefined" && typeof RunnrSync.isDemoState === "function" && RunnrSync.isDemoState(state))
       || (typeof RunnrDemoSandbox !== "undefined" && typeof RunnrDemoSandbox.isDemoState === "function" && RunnrDemoSandbox.isDemoState(state));
@@ -533,9 +542,9 @@ const RunnrGrowth = {
   },
 
   // ── Share discipline card ──
-  shareVariant: "weekly",
+  shareVariant: "score",
   SHARE_WEEKLY: { w: 360, h: 700 },
-  SHARE_SCORE: { w: 360, h: 420 },
+  SHARE_SCORE: { w: 360, h: 500 },
 
   prepareShareCanvas(canvas, w, h) {
     const dpr = (typeof window !== "undefined" && window.devicePixelRatio) || 1;
@@ -587,12 +596,22 @@ const RunnrGrowth = {
   },
 
   weeklyShareModel(state) {
-    return CoachEngine.weeklyShareModel(this.scoreTrades(state), {
+    const model = CoachEngine.weeklyShareModel(this.scoreTrades(state), {
       sym: state.sym || "€",
       riskPct: state.risk,
       handle: state.profileHandle || "",
       now: state.shareNow,
     });
+    model.sample = this.isShareDemo(state);
+    return model;
+  },
+
+  scoreShareModel(state) {
+    const model = CoachEngine.scoreShareModel(this.scoreTrades(state), {
+      handle: state.profileHandle || "",
+    });
+    model.sample = this.isShareDemo(state);
+    return model;
   },
 
   drawShareRing(ctx, cx, cy, r, pct) {
@@ -614,22 +633,26 @@ const RunnrGrowth = {
   },
 
   drawLoudBrandFooter(ctx, x, y, w, h, handleUrl) {
+    this.drawBrandFooter(ctx, x, y, w, h, handleUrl);
+  },
+
+  drawBrandFooter(ctx, x, y, w, h, handleUrl) {
     this.roundRectPath(ctx, x, y, w, h, 12);
-    ctx.fillStyle = "rgba(0, 229, 160, 0.10)";
+    ctx.fillStyle = "rgba(201, 169, 110, 0.10)";
     ctx.fill();
-    ctx.strokeStyle = "#00e5a0";
-    ctx.lineWidth = 2.5;
+    ctx.strokeStyle = "#C9A96E";
+    ctx.lineWidth = 1.6;
     ctx.stroke();
 
-    ctx.fillStyle = "#00e5a0";
-    ctx.font = "700 34px Jost, sans-serif";
+    ctx.fillStyle = "#E8C97A";
+    ctx.font = "italic 600 30px Cormorant Garamond, serif";
     ctx.textAlign = "center";
     ctx.textBaseline = "alphabetic";
-    ctx.fillText("runnr.fyi", x + w / 2, y + (handleUrl ? 38 : 42));
+    ctx.fillText("runnr.fyi", x + w / 2, y + (handleUrl ? 36 : 42));
 
     ctx.fillStyle = "#C9A96E";
     ctx.font = "italic 500 13px Cormorant Garamond, serif";
-    ctx.fillText("Discipline OS · Process · not P&L", x + w / 2, y + (handleUrl ? 58 : 64));
+    ctx.fillText("Process beat P&L", x + w / 2, y + (handleUrl ? 56 : 64));
 
     if (handleUrl) {
       ctx.fillStyle = "rgba(245,242,236,0.45)";
@@ -640,36 +663,82 @@ const RunnrGrowth = {
   },
 
   drawShareCard(state, canvas) {
-    const score = CoachEngine.disciplineScore(this.scoreTrades(state));
-    const handle = state.profileHandle || "runner";
+    const card = this.scoreShareModel(state);
     const W = this.SHARE_SCORE.w;
     const H = this.SHARE_SCORE.h;
     const ctx = this.prepareShareCanvas(canvas, W, H);
+    const pad = 22;
 
     ctx.fillStyle = "#080c12";
     ctx.fillRect(0, 0, W, H);
     ctx.strokeStyle = "#C9A96E";
-    ctx.lineWidth = 2;
-    ctx.strokeRect(12, 12, W - 24, H - 24);
+    ctx.lineWidth = 1.6;
+    ctx.strokeRect(10, 10, W - 20, H - 20);
 
-    ctx.fillStyle = "rgba(201,169,110,0.7)";
-    ctx.font = "500 11px Jost, sans-serif";
-    ctx.fillText("RUNNR · DISCIPLINE SCORE", 28, 44);
+    ctx.fillStyle = "#E8C97A";
+    ctx.font = "italic 500 22px Cormorant Garamond, serif";
+    ctx.textBaseline = "alphabetic";
+    ctx.textAlign = "left";
+    ctx.fillText("runnr", pad, 42);
 
-    ctx.fillStyle = "#00e5a0";
-    ctx.font = "italic 700 52px Cormorant Garamond, serif";
-    ctx.fillText(score.tradeCount ? score.overall + "%" : "—", 28, 110);
+    const pill = card.sample ? "SAMPLE" : "SCORE";
+    ctx.font = "600 9px Jost, sans-serif";
+    const pillW = Math.max(58, (ctx.measureText ? ctx.measureText(pill).width : 40) + 16);
+    const pillX = W - pad - pillW;
+    this.roundRectPath(ctx, pillX, 24, pillW, 20, 10);
+    ctx.strokeStyle = "#C9A96E";
+    ctx.lineWidth = 1.2;
+    ctx.stroke();
+    ctx.fillStyle = "#E8C97A";
+    ctx.textAlign = "center";
+    ctx.fillText(pill, pillX + pillW / 2, 38);
+    ctx.textAlign = "left";
 
-    ctx.fillStyle = "rgba(245,242,236,0.55)";
-    ctx.font = "13px Jost, sans-serif";
-    ctx.fillText("Stop confirmation: " + (score.tradeCount ? score.stopPct + "%" : "—"), 28, 150);
-    ctx.fillText("Size discipline:   " + (score.tradeCount ? score.sizePct + "%" : "—"), 28, 174);
-    ctx.fillText(score.tradeCount + " trades · " + score.streak + "-day streak", 28, 210);
+    ctx.fillStyle = "rgba(245,242,236,0.38)";
+    ctx.font = "600 9px Jost, sans-serif";
+    ctx.fillText("DISCIPLINE SCORE", pad, 72);
 
-    ctx.fillStyle = "rgba(201,169,110,0.5)";
-    ctx.font = "11px Cormorant Garamond, serif";
-    ctx.fillText("runnr.fyi/u/" + handle, 28, H - 36);
-    ctx.fillText("Process · not P&L", 28, H - 18);
+    ctx.fillStyle = "#E8C97A";
+    ctx.font = "italic 700 72px Cormorant Garamond, serif";
+    ctx.fillText(card.overallLabel, pad, 142);
+
+    ctx.fillStyle = "rgba(245,242,236,0.82)";
+    ctx.font = "italic 500 18px Cormorant Garamond, serif";
+    ctx.fillText(card.line, pad, 176);
+
+    const cells = [
+      { v: card.stopLabel, l: "STOP" },
+      { v: card.sizeLabel, l: "SIZE" },
+      { v: card.streakLabel, l: "STREAK" },
+    ];
+    const gap = 8;
+    const cellW = (W - pad * 2 - gap * 2) / 3;
+    const cellH = 64;
+    const cellY = 198;
+    cells.forEach((c, i) => {
+      const x = pad + i * (cellW + gap);
+      this.roundRectPath(ctx, x, cellY, cellW, cellH, 8);
+      ctx.fillStyle = "#101620";
+      ctx.fill();
+      ctx.fillStyle = "#F5F2EC";
+      ctx.font = "600 20px Jost, sans-serif";
+      ctx.fillText(c.v, x + 10, cellY + 30);
+      ctx.fillStyle = "rgba(245,242,236,0.38)";
+      ctx.font = "600 8px Jost, sans-serif";
+      ctx.fillText(c.l, x + 10, cellY + 48);
+    });
+
+    if (card.focusLabel) {
+      ctx.fillStyle = "rgba(245,242,236,0.45)";
+      ctx.font = "500 12px Jost, sans-serif";
+      ctx.fillText(card.focusLabel, pad, cellY + cellH + 28);
+    }
+    ctx.fillStyle = "rgba(245,242,236,0.50)";
+    ctx.font = "500 12px Jost, sans-serif";
+    const processY = cellY + cellH + (card.focusLabel ? 48 : 28);
+    ctx.fillText(card.followedLabel + " followed · " + card.skippedLabel + " sat", pad, processY);
+
+    this.drawBrandFooter(ctx, pad, H - 108, W - pad * 2, 88, card.handleUrl);
   },
 
   drawWeeklyDigestCard(state, canvas) {
@@ -681,21 +750,24 @@ const RunnrGrowth = {
 
     ctx.fillStyle = "#080c12";
     ctx.fillRect(0, 0, W, H);
+    ctx.strokeStyle = "#C9A96E";
+    ctx.lineWidth = 1.6;
+    ctx.strokeRect(10, 10, W - 20, H - 20);
 
     ctx.fillStyle = "#C9A96E";
     ctx.font = "italic 500 22px Cormorant Garamond, serif";
     ctx.textBaseline = "alphabetic";
     ctx.fillText("runnr", pad, 36);
 
-    const pill = "WEEKLY DIGEST";
+    const pill = card.sample ? "SAMPLE" : "THIS WEEK";
     ctx.font = "600 9px Jost, sans-serif";
-    const pillW = Math.max(92, (ctx.measureText ? ctx.measureText(pill).width : 70) + 16);
+    const pillW = Math.max(78, (ctx.measureText ? ctx.measureText(pill).width : 70) + 16);
     const pillX = W - pad - pillW;
     this.roundRectPath(ctx, pillX, 18, pillW, 20, 10);
-    ctx.strokeStyle = "#00e5a0";
+    ctx.strokeStyle = "#C9A96E";
     ctx.lineWidth = 1.2;
     ctx.stroke();
-    ctx.fillStyle = "#00e5a0";
+    ctx.fillStyle = "#E8C97A";
     ctx.textAlign = "center";
     ctx.fillText(pill, pillX + pillW / 2, 32);
     ctx.textAlign = "left";
@@ -723,7 +795,7 @@ const RunnrGrowth = {
     ctx.fillStyle = "rgba(245,242,236,0.38)";
     ctx.font = "600 9px Jost, sans-serif";
     ctx.fillText("DISCIPLINE SCORE", metaX, 158);
-    ctx.fillStyle = "#00e5a0";
+    ctx.fillStyle = "#E8C97A";
     ctx.font = "italic 600 22px Cormorant Garamond, serif";
     ctx.fillText(card.tier, metaX, 184);
     ctx.fillStyle = "rgba(245,242,236,0.72)";
@@ -734,8 +806,8 @@ const RunnrGrowth = {
     const cells = [
       { v: card.stopLabel, l: "STOP DISCIPLINE" },
       { v: card.sizeLabel, l: "SIZE DISCIPLINE" },
-      { v: card.pfLabel, l: "PROFIT FACTOR" },
-      { v: card.winLabel, l: "WIN RATE" },
+      { v: card.followedPctLabel, l: "FOLLOWED PLAN" },
+      { v: card.skippedLabel, l: "SAT / SKIPPED" },
     ];
     const gap = 8;
     const gridX = pad;
@@ -760,25 +832,18 @@ const RunnrGrowth = {
 
     const pnlY = gridY + cellH * 2 + gap * 2 + 6;
     const pnlH = 64;
-    const pnlW = cellW;
-    [
-      { title: "DISCIPLINED P&L", value: card.discPnlLabel, sub: "followed", color: "#00e5a0" },
-      { title: "UNDISCIPLINED P&L", value: card.undiscPnlLabel, sub: card.leakLabel, color: "#e85d6f" },
-    ].forEach((c, i) => {
-      const x = gridX + i * (pnlW + gap);
-      this.roundRectPath(ctx, x, pnlY, pnlW, pnlH, 8);
-      ctx.fillStyle = "#101620";
-      ctx.fill();
-      ctx.fillStyle = "rgba(245,242,236,0.38)";
-      ctx.font = "600 8px Jost, sans-serif";
-      ctx.fillText(c.title, x + 12, pnlY + 16);
-      ctx.fillStyle = c.color;
-      ctx.font = "600 20px Jost, sans-serif";
-      ctx.fillText(c.value, x + 12, pnlY + 38);
-      ctx.fillStyle = "rgba(245,242,236,0.42)";
-      ctx.font = "400 11px Jost, sans-serif";
-      ctx.fillText(c.sub, x + 12, pnlY + 54);
-    });
+    this.roundRectPath(ctx, gridX, pnlY, W - pad * 2, pnlH, 8);
+    ctx.fillStyle = "#101620";
+    ctx.fill();
+    ctx.fillStyle = "rgba(245,242,236,0.38)";
+    ctx.font = "600 8px Jost, sans-serif";
+    ctx.fillText("PROCESS LINE", gridX + 12, pnlY + 16);
+    ctx.fillStyle = "#E8C97A";
+    ctx.font = "italic 600 18px Cormorant Garamond, serif";
+    ctx.fillText(card.line, gridX + 12, pnlY + 38);
+    ctx.fillStyle = "rgba(245,242,236,0.42)";
+    ctx.font = "400 11px Jost, sans-serif";
+    ctx.fillText(card.focusLabel || card.tagline, gridX + 12, pnlY + 54);
 
     const noteY = pnlY + pnlH + 10;
     this.roundRectPath(ctx, pad, noteY, W - pad * 2, 52, 8);
@@ -806,7 +871,7 @@ const RunnrGrowth = {
     ctx.font = "400 11px Jost, sans-serif";
     ctx.fillText(prog.detail, pad, progY + 34);
 
-    this.drawLoudBrandFooter(ctx, pad, H - 108, W - pad * 2, 88, card.handleUrl);
+    this.drawBrandFooter(ctx, pad, H - 108, W - pad * 2, 88, card.handleUrl);
   },
 
   drawActiveShareCard(state, canvas) {
@@ -816,16 +881,18 @@ const RunnrGrowth = {
   },
 
   setShareVariant(variant, state) {
-    this.shareVariant = variant === "score" ? "score" : "weekly";
+    this.shareVariant = variant === "weekly" ? "weekly" : "score";
     document.querySelectorAll("[data-share-variant]").forEach((btn) => {
       btn.classList.toggle("active", btn.getAttribute("data-share-variant") === this.shareVariant);
     });
     const note = document.getElementById("share-card-note");
     if (note) {
-      note.textContent = this.shareVariant === "score"
-        ? "Process only — no P&L on the score card."
-        : "Loud runnr.fyi/?demo=1 footer — TikTok bio lands on SAMPLE, not login. Process P&L (followed vs leaks).";
+      note.textContent = this.shareVariant === "weekly"
+        ? "This week's process — score, followed, sits. Not a P&L flex."
+        : "Discipline score — no dollar P&L on this card.";
     }
+    const title = document.getElementById("share-modal-title");
+    if (title) title.textContent = this.shareVariant === "weekly" ? "Share this week" : "Share discipline";
     const canvas = document.getElementById("share-canvas");
     if (canvas) this.drawActiveShareCard(state, canvas);
   },
@@ -839,7 +906,7 @@ const RunnrGrowth = {
   },
 
   async shareDisciplineCard(state) {
-    if (!this.scoreShareUnlocked(state)) {
+    if (!this.sharePreviewUnlocked(state)) {
       this.openShareModal(state);
       return;
     }
@@ -875,7 +942,7 @@ const RunnrGrowth = {
   },
 
   applyShareModalLock(state) {
-    const unlocked = this.scoreShareUnlocked(state);
+    const unlocked = this.sharePreviewUnlocked(state);
     const lockedEl = document.getElementById("share-locked");
     const canvas = document.getElementById("share-canvas");
     const variants = document.querySelector(".share-variant-row");
@@ -901,7 +968,7 @@ const RunnrGrowth = {
       openModal("modal-share");
       return;
     }
-    this.shareVariant = variant === "score" ? "score" : "weekly";
+    this.shareVariant = variant === "weekly" ? "weekly" : "score";
     const h = document.getElementById("share-handle");
     if (h) h.value = state.profileHandle || "";
     this.setShareVariant(this.shareVariant, state);
