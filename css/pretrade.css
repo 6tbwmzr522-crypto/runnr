@@ -591,9 +591,10 @@ html.runnr-demo #header .header-desk-btn{display:inline-flex !important}
 #page-sizer.pt-live #pretrade-root,
 #page-sizer.active #pretrade-root{display:flex}
 #page-sizer.pt-trend-gate #pretrade-root{
-  opacity:0.28;
-  pointer-events:none;
-  filter:blur(0.4px);
+  /* Overlay chip is advisory. Never zero Size by blocking the desk. */
+  opacity:1;
+  pointer-events:auto;
+  filter:none;
 }
 
 #trend-day-overlay{
@@ -711,7 +712,7 @@ html.runnr-demo #header .header-desk-btn{display:inline-flex !important}
   padding:12px 14px;
   cursor:pointer;
 }
-.td-quarter,.td-skip{
+.td-quarter,.td-skip,.td-sit{
   display:block;
   width:100%;
   margin-top:8px;
@@ -724,6 +725,8 @@ html.runnr-demo #header .header-desk-btn{display:inline-flex !important}
   text-align:center;
   padding:2px 0;
 }
+.td-sit{color:rgba(232,201,122,0.72)}
+.pt-trend-stamp.optional{color:var(--text2);cursor:pointer}
 .td-hint{
   margin:10px 0 0;
   text-align:center;
