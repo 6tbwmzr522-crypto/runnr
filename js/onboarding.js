@@ -102,6 +102,15 @@ const RunnrGrowth = {
     return "Log 3 trades to unlock your score & share card";
   },
 
+  isShareDemo(state) {
+    return (typeof RunnrSync !== "undefined" && typeof RunnrSync.isDemoState === "function" && RunnrSync.isDemoState(state))
+      || (typeof RunnrDemoSandbox !== "undefined" && typeof RunnrDemoSandbox.isDemoState === "function" && RunnrDemoSandbox.isDemoState(state));
+  },
+
+  sharePreviewUnlocked(state) {
+    return this.isShareDemo(state) || this.scoreShareUnlocked(state);
+  },
+
   renderDisciplineCard(state) {
     const demo = (typeof RunnrSync !== "undefined" && typeof RunnrSync.isDemoState === "function" && RunnrSync.isDemoState(state))
       || (typeof RunnrDemoSandbox !== "undefined" && typeof RunnrDemoSandbox.isDemoState === "function" && RunnrDemoSandbox.isDemoState(state));
@@ -535,7 +544,7 @@ const RunnrGrowth = {
   // ── Share discipline card ──
   shareVariant: "score",
   SHARE_WEEKLY: { w: 360, h: 700 },
-  SHARE_SCORE: { w: 360, h: 540 },
+  SHARE_SCORE: { w: 360, h: 500 },
 
   prepareShareCanvas(canvas, w, h) {
     const dpr = (typeof window !== "undefined" && window.devicePixelRatio) || 1;
@@ -587,18 +596,22 @@ const RunnrGrowth = {
   },
 
   weeklyShareModel(state) {
-    return CoachEngine.weeklyShareModel(this.scoreTrades(state), {
+    const model = CoachEngine.weeklyShareModel(this.scoreTrades(state), {
       sym: state.sym || "€",
       riskPct: state.risk,
       handle: state.profileHandle || "",
       now: state.shareNow,
     });
+    model.sample = this.isShareDemo(state);
+    return model;
   },
 
   scoreShareModel(state) {
-    return CoachEngine.scoreShareModel(this.scoreTrades(state), {
+    const model = CoachEngine.scoreShareModel(this.scoreTrades(state), {
       handle: state.profileHandle || "",
     });
+    model.sample = this.isShareDemo(state);
+    return model;
   },
 
   drawShareRing(ctx, cx, cy, r, pct) {
@@ -668,7 +681,7 @@ const RunnrGrowth = {
     ctx.textAlign = "left";
     ctx.fillText("runnr", pad, 42);
 
-    const pill = "SCORE";
+    const pill = card.sample ? "SAMPLE" : "SCORE";
     ctx.font = "600 9px Jost, sans-serif";
     const pillW = Math.max(58, (ctx.measureText ? ctx.measureText(pill).width : 40) + 16);
     const pillX = W - pad - pillW;
@@ -720,6 +733,10 @@ const RunnrGrowth = {
       ctx.font = "500 12px Jost, sans-serif";
       ctx.fillText(card.focusLabel, pad, cellY + cellH + 28);
     }
+    ctx.fillStyle = "rgba(245,242,236,0.50)";
+    ctx.font = "500 12px Jost, sans-serif";
+    const processY = cellY + cellH + (card.focusLabel ? 48 : 28);
+    ctx.fillText(card.followedLabel + " followed · " + card.skippedLabel + " sat", pad, processY);
 
     this.drawBrandFooter(ctx, pad, H - 108, W - pad * 2, 88, card.handleUrl);
   },
@@ -742,7 +759,7 @@ const RunnrGrowth = {
     ctx.textBaseline = "alphabetic";
     ctx.fillText("runnr", pad, 36);
 
-    const pill = "THIS WEEK";
+    const pill = card.sample ? "SAMPLE" : "THIS WEEK";
     ctx.font = "600 9px Jost, sans-serif";
     const pillW = Math.max(78, (ctx.measureText ? ctx.measureText(pill).width : 70) + 16);
     const pillX = W - pad - pillW;
@@ -889,7 +906,7 @@ const RunnrGrowth = {
   },
 
   async shareDisciplineCard(state) {
-    if (!this.scoreShareUnlocked(state)) {
+    if (!this.sharePreviewUnlocked(state)) {
       this.openShareModal(state);
       return;
     }
@@ -925,7 +942,7 @@ const RunnrGrowth = {
   },
 
   applyShareModalLock(state) {
-    const unlocked = this.scoreShareUnlocked(state);
+    const unlocked = this.sharePreviewUnlocked(state);
     const lockedEl = document.getElementById("share-locked");
     const canvas = document.getElementById("share-canvas");
     const variants = document.querySelector(".share-variant-row");

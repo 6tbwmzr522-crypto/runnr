@@ -40,7 +40,7 @@ check("index.html V matches sw.js CACHE", v === cache);
 check("cache is 178+", Number(v) >= 178);
 check("coach.js cache-busted", html.includes("js/coach.js?v=29"));
 check("onboarding.js cache-busted", html.includes("js/onboarding.js?v=40"));
-check("default canvas is the score card height", html.includes('id="share-canvas" width="360" height="540"'));
+check("default canvas is the score card height", html.includes('id="share-canvas" width="360" height="500"'));
 check("weekly / score toggle exists", html.includes('data-share-variant="weekly"') && html.includes('data-share-variant="score"'));
 check("handle redraws active card", html.includes("RunnrGrowth.redrawShareFromHandle(S)"));
 check("default share is discipline, not weekly P&L", html.includes("Share discipline") && !html.includes("Share weekly report"));
@@ -50,7 +50,7 @@ check("home / coach / journal open the score card", html.includes("openShareModa
   && html.includes('id="journal-share-btn"')
   && html.includes('id="home-share-btn"'));
 check("coach copy is not a P&L flex", html.includes("Not a dollar P&amp;L flex") || html.includes("Not a dollar P&L flex"));
-check("no glacifraga on share card", !/glacifraga/i.test(obSrc) && !/glacifraga/i.test(coachSrc));
+check("share preview unlocks with the in-app score", obSrc.includes("sharePreviewUnlocked") && obSrc.includes("isShareDemo"));
 check("share card drawing does not headline P&L money", !/DISCIPLINED P&L/.test(obSrc) && !/card\.discPnlLabel/.test(obSrc));
 
 function mockCanvas() {
@@ -204,9 +204,17 @@ check("score card kicker", scoreTexts.includes("DISCIPLINE SCORE") && scoreTexts
 check("score card process line", scoreTexts.includes("Process beat P&L.") || scoreTexts.includes("Followed the plan."));
 check("score card shows stop / size / streak", scoreTexts.includes("STOP") && scoreTexts.includes("SIZE") && scoreTexts.includes("STREAK"));
 check("score card ticker + side only", scoreTexts.includes("NVDA · LONG"));
+check("score card followed / sat counts", scoreTexts.some((t) => /followed/.test(t) && /sat/.test(t)));
 check("score card keeps handle URL", scoreTexts.includes("runnr.fyi/u/ada") && scoreTexts.includes("runnr.fyi"));
 check("score card does not use the fat weekly title", !scoreTexts.includes("discipline report"));
 check("score canvas has no money hero", !scoreTexts.some(looksLikeMoney));
 check("score card does not headline P&L dollars", !scoreTexts.some((t) => /P&L/i.test(t) && looksLikeMoney(t)));
+
+sandbox.RunnrDemoSandbox = { isDemoState: () => true };
+const sampleCanvas = mockCanvas();
+G.drawShareCard({ trades: weekTrades, profileHandle: "ada", shareNow: now }, sampleCanvas);
+check("SAMPLE desk stamps SAMPLE on the card", sampleCanvas.texts.map((t) => t.text).includes("SAMPLE"));
+check("live book does not stamp SAMPLE", scoreTexts.includes("SCORE") && !scoreTexts.includes("SAMPLE"));
+sandbox.RunnrDemoSandbox = { isDemoState: () => false };
 
 console.log("test_weekly_share_card: " + n + " checks ok");
