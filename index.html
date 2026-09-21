@@ -5,7 +5,7 @@
 <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
 <script>
 (function () {
-  var V = "182";
+  var V = "183";
   try {
     if (localStorage.getItem("runnr_app_v") !== V) {
       localStorage.setItem("runnr_app_v", V);
@@ -310,8 +310,8 @@
           </div>
           <div class="fg-info">
             <div class="fg-value" id="fg-value">—</div>
-            <div class="fg-label" id="fg-label" style="color:var(--text3)">LOADING</div>
-            <div class="fg-desc" id="fg-desc">Fetching CNN Fear & Greed…</div>
+            <div class="fg-label" id="fg-label" style="color:var(--text3)">—</div>
+            <div class="fg-desc" id="fg-desc">CNN Fear &amp; Greed is a mood gauge for the session. Not a trade signal.</div>
             <div class="fg-zones">
               <span class="fg-zone" id="fz-ef" style="background:rgba(220,38,38,0.2);color:#ef4444">Extreme Fear</span>
               <span class="fg-zone" id="fz-f"  style="background:rgba(249,115,22,0.2);color:#f97316">Fear</span>
@@ -319,7 +319,7 @@
               <span class="fg-zone" id="fz-g"  style="background:rgba(132,204,22,0.2);color:#84cc16">Greed</span>
               <span class="fg-zone" id="fz-eg" style="background:rgba(34,197,94,0.2);color:#22c55e">Extreme Greed</span>
             </div>
-            <div class="fg-updated" id="fg-updated">↻ Loading CNN Fear & Greed…</div>
+            <div class="fg-updated" id="fg-updated"></div>
           </div>
         </div>
       </div>
@@ -355,7 +355,7 @@
         <div class="section-hdr">
           <h3>Global Markets</h3>
           <div style="display:flex;align-items:center;gap:10px">
-            <span id="home-markets-updated" style="font-size:10px;color:var(--text3)">↻ Loading…</span>
+            <span id="home-markets-updated" style="font-size:10px;color:var(--text3)"></span>
             <button class="see-all" onclick="RunnrDesk.open()" data-i18n="header.terminal">Terminal</button>
           </div>
         </div>
@@ -888,7 +888,7 @@
       </div>
       <div class="feed-status" style="margin-bottom:10px">
         <div class="feed-dot" id="feed-dot"></div>
-        <span id="feed-status-text" data-i18n="watch.fetching">Fetching prices...</span>
+        <span id="feed-status-text">Prices</span>
         <button onclick="refreshAllPrices()" style="background:none;border:none;color:var(--accent);font-size:10px;cursor:pointer;margin-left:4px;font-family:var(--font-body)" data-i18n="watch.refresh">↻ Refresh</button>
       </div>
       <!-- Notification Settings -->
@@ -1528,7 +1528,6 @@
       <video id="intro-video" src="/media/runnr-intro-email-wall.mp4" poster="/media/runnr-intro-email-wall.jpg" muted playsinline webkit-playsinline preload="metadata" controlslist="nodownload"></video>
       <button type="button" id="intro-unmute">Tap for sound</button>
     </div>
-    <p id="intro-missing" hidden>Intro file is missing — skip to save your score. Parent: drop the cut onto <code>media/runnr-intro-email-wall.mp4</code>.</p>
   </div>
 </div>
 
@@ -1600,7 +1599,6 @@
       <button class="modal-close" onclick="closeModal('modal-stock')">✕</button>
     </div>
     <div id="sd-modal-body">
-      <div class="sd-loading">Loading market data...</div>
     </div>
   </div>
 </div>
@@ -1755,7 +1753,7 @@
         Continue with Apple
       </a>
     </div>
-    <p class="sample-keep-login">Already have an account? <a href="/sign-in">Log in</a> · <a data-sample-keep-cta href="/login.html?keep=1">Use email instead</a></p>
+    <p class="sample-keep-login">Already have an account? <a href="/sign-in">Log in</a> · <a data-sample-keep-cta href="/sign-in?keep=1">Use email instead</a></p>
     <button type="button" class="btn btn-ghost" id="sample-keep-dismiss">Not now</button>
   </div>
 </div>
@@ -1913,20 +1911,20 @@
 <script src="js/options-coach.js?v=1"></script>
 <script src="js/fvg-retrace.js?v=1"></script>
 <script src="js/onboarding.js?v=40"></script>
-<script src="js/intro.js?v=5"></script>
+<script src="js/intro.js?v=6"></script>
 <script src="js/tour.js?v=5"></script>
 <script src="js/csv-presets.js?v=4"></script>
 <script src="js/brokers.js?v=1"></script>
 <script src="js/fetch-timeout.js?v=1"></script>
 <script src="js/trade-limit.js?v=4"></script>
 <script src="js/desk-quiet.js?v=3"></script>
-<script src="js/demo-sandbox.js?v=22"></script>
+<script src="js/demo-sandbox.js?v=23"></script>
 <script src="js/sync.js?v=72"></script>
 <script src="js/desk-sessions.js?v=2"></script>
 <script src="js/desk.js?v=18"></script>
 <script src="js/cooldown.js?v=2"></script>
 <script src="js/trend-day.js?v=7"></script>
-<script src="js/pretrade.js?v=21"></script>
+<script src="js/pretrade.js?v=22"></script>
 <script src="js/wave.js?v=2"></script>
 <script src="js/shelf.js?v=6"></script>
 <script src="js/visit.js?v=1"></script>
@@ -1935,8 +1933,8 @@
 <script src="js/app-settings.js?v=1"></script>
 <script src="js/app-sizer.js?v=1"></script>
 <script src="js/app-journal.js?v=6"></script>
-<script src="js/app-watchlist.js?v=4"></script>
-<script src="js/app-quotes.js?v=3"></script>
+<script src="js/app-watchlist.js?v=5"></script>
+<script src="js/app-quotes.js?v=4"></script>
 <script src="js/app-alerts.js?v=1"></script>
 <script src="js/app-portfolio.js?v=2"></script>
 <script src="js/app-sync-ui.js?v=3"></script>

@@ -888,7 +888,7 @@
 
   function outputHTML(c, rails) {
     if (c && c.sampleLocked) {
-      return '<div class="pt-output-empty pt-output-locked">3 SAMPLE plans used — <a href="/login.html?keep=1">save with email</a> to keep sizing &amp; logging</div>';
+      return '<div class="pt-output-empty pt-output-locked">3 SAMPLE plans used — <a href="/sign-in?keep=1">save with email</a> to keep sizing &amp; logging</div>';
     }
     if (!c.ready && !(c.riskPerShare > 0)) {
       return '<div class="pt-output-empty">Pending plan — enter ticker, entry &amp; stop</div>';
@@ -1293,7 +1293,7 @@
     el.hidden = false;
     if (locked) {
       el.className = "pt-sample-cap capped";
-      el.innerHTML = '3 SAMPLE plans used — <a href="/login.html?keep=1">save with email</a> to keep sizing &amp; logging';
+      el.innerHTML = '3 SAMPLE plans used — <a href="/sign-in?keep=1">save with email</a> to keep sizing &amp; logging';
       if (logBtn) logBtn.textContent = "SAVE WITH EMAIL";
     } else {
       el.className = "pt-sample-cap";

@@ -18,7 +18,7 @@ const v = html.match(/var V = "(\d+)"/)[1];
 const cache = sw.match(/CACHE = "runnr-v(\d+)"/)[1];
 check("index.html V matches sw.js CACHE", v === cache);
 check("PWA cache bust is 117+", Number(v) >= 117);
-check("quotes live in app-quotes.js", html.includes("js/app-quotes.js?v=3"));
+check("quotes live in app-quotes.js", html.includes("js/app-quotes.js?v=4"));
 check("watchlist poll uses quotes/batch", /\/api\/v1\/quotes\/batch/.test(src) && /async function fetchQuotesBatch/.test(src));
 check("refreshAllPrices does not Promise.all per symbol", /async function refreshAllPrices[\s\S]{0,1800}fetchQuotesBatch\(/.test(src));
 check("feed poll backs off on high stale ratio", /FEED_POLL_MAX_MS/.test(src) && /function setFeedPollInterval/.test(src));

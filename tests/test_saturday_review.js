@@ -95,7 +95,7 @@ const idleHtml = W.renderRemarkHtml({ sym: "GDX" });
 check("idle remark is empty not a spinner", idleHtml === "");
 
 const keep = html.slice(html.indexOf('id="modal-sample-keep"'), html.indexOf('id="modal-share"'));
-check("keep-score bait CTA stays", keep.includes("Continue with Google") && keep.includes("Continue with Apple") && keep.includes("/login.html?keep=1") && keep.includes("Keep this score") && keep.includes("Use email instead"));
+check("keep-score bait CTA stays", keep.includes("Continue with Google") && keep.includes("Continue with Apple") && keep.includes("/sign-in?keep=1") && keep.includes("Keep this score") && keep.includes("Use email instead"));
 check("keep-score returning login is secondary", keep.includes("Already have an account?") && keep.includes('href="/sign-in"'));
 check("keep-score has no chips host", !keep.includes('id="sample-keep-process"') && !keep.includes("HOW DID IT GO?"));
 check("keep-score has no Watch CTA", !keep.includes("Watch how Runnr works") && !keep.includes("sample-keep-replay"));

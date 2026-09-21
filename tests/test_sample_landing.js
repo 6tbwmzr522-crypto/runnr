@@ -21,7 +21,7 @@ const onboardingSrc = fs.readFileSync(path.join(root, "js/onboarding.js"), "utf8
 const pretradeSrc = fs.readFileSync(path.join(root, "js/pretrade.js"), "utf8");
 const bootSrc = fs.readFileSync(path.join(root, "js/app-boot.js"), "utf8");
 const stats = fs.readFileSync(path.join(root, "stats.html"), "utf8");
-const login = fs.readFileSync(path.join(root, "login.html"), "utf8");
+const login = fs.readFileSync(path.join(root, "sign-in/index.html"), "utf8");
 const sampleAlias = fs.readFileSync(path.join(root, "sample/index.html"), "utf8");
 const pagesYml = fs.readFileSync(path.join(root, ".github/workflows/pages.yml"), "utf8");
 
@@ -35,9 +35,9 @@ const v = html.match(/var V = "(\d+)"/)[1];
 const cache = sw.match(/CACHE = "runnr-v(\d+)"/)[1];
 check("index.html V matches sw.js CACHE", v === cache);
 check("cache is 139+", Number(v) >= 139);
-check("demo-sandbox cache-bust", html.includes("js/demo-sandbox.js?v=22"));
+check("demo-sandbox cache-bust", html.includes("js/demo-sandbox.js?v=23"));
 check("pages.css cache-bust", html.includes("css/pages.css?v=19"));
-check("intro.js cache-bust", html.includes("js/intro.js?v=5"));
+check("intro.js cache-bust", html.includes("js/intro.js?v=6"));
 
 check("stats Guest SAMPLE funnel section", stats.includes("Guest SAMPLE funnel") && stats.includes("email_wall") && stats.includes("guest-demo-view") && stats.includes("email_wall oauth") && stats.includes("email_wall_converted"));
 check("stats clarifies signed-in accounts are not visits", stats.includes("Signed-in accounts (not visits)"));
@@ -48,6 +48,10 @@ check("bio URL is documented on stats", stats.includes("https://runnr.fyi/?demo=
 check("stats does not point TikTok bio at login.html", /TikTok bio[\s\S]{0,400}login\.html/.test(stats) === false || /not login\.html/.test(stats));
 check("stats lists /sample and #sample aliases", stats.includes("https://runnr.fyi/sample") && stats.includes("https://runnr.fyi/#sample"));
 check("/sample alias redirects to ?demo=1", sampleAlias.includes('url=/?demo=1') && sampleAlias.includes('location.replace("/?demo=1")'));
+check("/sample explains the discipline product", sampleAlias.includes("Trading discipline, not a broker") && sampleAlias.includes("not a broker") && sampleAlias.includes("What SAMPLE is"));
+check("/sample says the demo book is not yours", sampleAlias.includes("Those numbers are not yours") && sampleAlias.includes("not a customer testimonial"));
+check("/sample canonical is itself", sampleAlias.includes('href="https://runnr.fyi/sample/"'));
+check("/sample is more than the old one-liner", !/^[\s\S]*<p><a href="\/\?demo=1">Open SAMPLE desk/.test(sampleAlias) && sampleAlias.includes("Score a trade on the SAMPLE desk"));
 check("Pages deploy copies sample/", pagesYml.includes("sample _site") || pagesYml.includes("cp -r") && pagesYml.includes("sample"));
 
 check("first-paint detects demo=1 and #sample and /sample", html.includes("demo=1") && html.includes("sample") && html.includes("runnr-sample-landing"));
@@ -62,11 +66,11 @@ check("hero primary CTA is Score a trade", hero.includes('id="sample-score-cta"'
 check("hero has quiet intro watch", hero.includes('id="sample-hero-watch"') && hero.includes("Watch how Runnr works"));
 check("hero is one-screen pitch without proof card", !hero.includes("data-runnr-proof") && !/Sign up/.test(hero) && !/Connect broker/.test(hero) && !/href="\/login\.html"/.test(hero) && !/Alpaca/.test(hero) && !/T212/.test(hero));
 check("hero does not invent score/P&amp;L", !/80%/.test(hero) && !/2,528/.test(hero) && !/2,503/.test(hero) && !/1,190/.test(hero));
-check("keep-score sheet is gated after aha", html.includes('id="modal-sample-keep"') && html.includes("Continue with Google") && html.includes("Continue with Apple") && html.includes("/login.html?keep=1"));
+check("keep-score sheet is gated after aha", html.includes('id="modal-sample-keep"') && html.includes("Continue with Google") && html.includes("Continue with Apple") && html.includes("/sign-in?keep=1"));
 check("keep-score primary CTAs are Google and Apple", /id="sample-keep-google"[\s\S]*Continue with Google[\s\S]*id="sample-keep-apple"[\s\S]*Continue with Apple/.test(html.slice(html.indexOf('id="modal-sample-keep"'), html.indexOf('id="modal-share"'))));
 const keepHtml = html.slice(html.indexOf('id="modal-sample-keep"'), html.indexOf('id="modal-share"'));
 check("keep-score has no email form", !/<input|<form/i.test(keepHtml) && !/or email/i.test(keepHtml));
-check("keep-score quiet email fallback", html.slice(html.indexOf('id="modal-sample-keep"'), html.indexOf('id="modal-share"')).includes("Use email instead") && html.includes("/login.html?keep=1"));
+check("keep-score quiet email fallback", html.slice(html.indexOf('id="modal-sample-keep"'), html.indexOf('id="modal-share"')).includes("Use email instead") && html.includes("/sign-in?keep=1"));
 check("keep-score offers returning-user login", /Already have an account\?[\s\S]*href="\/sign-in"/.test(html.slice(html.indexOf('id="modal-sample-keep"'), html.indexOf('id="modal-share"'))));
 check("returning-user login is not keep=1 bait", /href="\/sign-in"(?!\?keep=1)/.test(html.slice(html.indexOf('id="modal-sample-keep"'), html.indexOf('id="modal-share"'))));
 check("keep-score heading stays Keep this score", /id="modal-sample-keep"[\s\S]*Keep this score/.test(html));
@@ -185,7 +189,7 @@ check("gold live score notifies SAMPLE aha", pretradeSrc.includes("onGoldScored"
 check("3-plan cap wall also seals", /function showSampleCapWall[\s\S]*markSeal/.test(pretradeSrc));
 check("nav runs sample-score job", navSrc.includes("sample-score") && navSrc.includes("openScoreTrade"));
 check("onboarding skips wizard on sample aliases", onboardingSrc.includes("queryForce") && onboardingSrc.includes('get("demo") === "1"'));
-check("keep-score href is email not broker", SB.KEEP_HREF === "/login.html?keep=1");
+check("keep-score href is email not broker", SB.KEEP_HREF === "/sign-in?keep=1");
 check("keep-score lock CSS hides dismiss", css.includes("sample-keep-locked") && css.includes("sample-keep-dismiss"));
 check("keep-score overlay is a light dim not a lockout", /#modal-sample-keep\{[^}]*rgba\(4,6,10,0\.46\)/.test(css.replace(/\s+/g, "")) && /#modal-sample-keep\{[^}]*backdrop-filter:blur\(2px\)/.test(css.replace(/\s+/g, "")));
 check("closeModal holds sealed SAMPLE keep-score", bootSrc.includes("shouldHoldKeepScore") && bootSrc.includes("modal-sample-keep"));

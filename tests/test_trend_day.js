@@ -27,7 +27,7 @@ check("cache is 180+", Number(v) >= 180);
 check("trend-day.js is cache-busted", html.includes("js/trend-day.js?v=7"));
 check("trend-day loads after tour and intro", html.indexOf("js/intro.js") < html.indexOf("js/trend-day.js") && html.indexOf("js/tour.js") < html.indexOf("js/trend-day.js"));
 check("trend-day loads before pretrade", html.indexOf("js/trend-day.js") < html.indexOf("js/pretrade.js"));
-check("pretrade cache-bust bumped", html.includes("js/pretrade.js?v=21"));
+check("pretrade cache-bust bumped", html.includes("js/pretrade.js?v=22"));
 check("pretrade.css cache-bust bumped", html.includes("css/pretrade.css?v=15"));
 check("soft auto-apply does not settle the chip", trendSrc.includes("function softLive") && trendSrc.includes("Applied · full size") && trendSrc.includes("Applied · half size") && !/function maybeAutoApply[\s\S]{0,400}applied\s*=\s*true/.test(trendSrc));
 check("trend strip is a button that opens the checklist", pretradeSrc.includes('type="button" class="pt-trend-stamp"') && pretradeSrc.includes('aria-controls="trend-day-chip"') && trendSrc.includes("toggleChecklist") && trendSrc.includes("aria-expanded"));

@@ -1034,6 +1034,12 @@ function updateFGDisplay(value, meta = {}) {
 
 async function fetchFearGreed() {
   if (isGuestLanding()) return;
+  const pendingLabel = document.getElementById('fg-label');
+  const pendingDesc = document.getElementById('fg-desc');
+  const pendingUpd = document.getElementById('fg-updated');
+  if (pendingLabel) pendingLabel.textContent = 'LOADING';
+  if (pendingDesc) pendingDesc.textContent = 'Fetching CNN Fear & Greed…';
+  if (pendingUpd) pendingUpd.textContent = '↻ Loading CNN Fear & Greed…';
   try {
     const base = (typeof RunnrSync !== 'undefined' ? RunnrSync.apiBase() : 'https://api.runnr.fyi');
     const res = await fetchWithTimeout(base + '/api/v1/quotes/fear-greed', 6000);

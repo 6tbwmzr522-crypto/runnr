@@ -20,9 +20,9 @@
   const SEAL_KEY = "runnr_sample_seal_v1";
   const BIO_URL = "https://runnr.fyi/?demo=1";
   const ALIAS_PATH = "/sample";
-  const KEEP_HREF = "/login.html?keep=1";
+  const KEEP_HREF = "/sign-in?keep=1";
   const KEEP_RETURN = "/?demo=1";
-  const KEEP_OAUTH_POPUP = "/login.html?keep=1&oauth_popup=1";
+  const KEEP_OAUTH_POPUP = "/sign-in?keep=1&oauth_popup=1";
 
   function snap(at) {
     return { risk: 1, bal: 10000, at: at || "2026-04-15T00:00:00.000Z", sym: "€" };

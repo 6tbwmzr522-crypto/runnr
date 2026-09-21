@@ -2,18 +2,599 @@
 <html lang="en">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
 <title>Runnr — Sign in</title>
 <meta name="description" content="Sign in to Runnr. 7-day free trial, then €19/month or €190/year. Trading discipline, not a broker.">
-<link rel="canonical" href="https://runnr.fyi/login.html">
-<script>
-(function () {
-  location.replace("/login.html" + (location.search || "") + (location.hash || ""));
-})();
-</script>
-<meta http-equiv="refresh" content="0;url=/login.html">
+<link rel="canonical" href="https://runnr.fyi/sign-in/">
+<style>
+  :root {
+    --bg: #080c12;
+    --surface: #0c1118;
+    --text: #f5f2ec;
+    --text2: rgba(245, 242, 236, 0.65);
+    --accent: #00e5a0;
+    --red: #ff4d6d;
+    --border: rgba(201, 169, 110, 0.2);
+    --gold: #C9A96E;
+  }
+  * { box-sizing: border-box; }
+  html, body {
+    margin: 0;
+    min-height: 100%;
+    background: var(--bg);
+    color: var(--text);
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+    font-size: 16px;
+  }
+  .wrap {
+    max-width: 400px;
+    margin: 0 auto;
+    padding: 24px 20px calc(24px + env(safe-area-inset-bottom));
+  }
+  h1 {
+    font-size: 28px;
+    font-weight: 300;
+    font-style: italic;
+    color: var(--accent);
+    margin: 0 0 8px;
+  }
+  .sub { font-size: 14px; color: var(--text2); margin-bottom: 24px; line-height: 1.45; }
+  .card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 18px;
+    margin-bottom: 16px;
+  }
+  label { display: block; font-size: 12px; color: var(--text2); margin-bottom: 6px; }
+  input {
+    width: 100%;
+    padding: 14px 12px;
+    margin-bottom: 14px;
+    border-radius: 8px;
+    border: 1px solid var(--border);
+    background: #101620;
+    color: var(--text);
+    font-size: 16px;
+    -webkit-appearance: none;
+  }
+  button, .link-btn {
+    display: block;
+    width: 100%;
+    padding: 16px;
+    border: none;
+    border-radius: 8px;
+    font-size: 15px;
+    font-weight: 600;
+    cursor: pointer;
+    touch-action: manipulation;
+    text-align: center;
+    text-decoration: none;
+  }
+  #signin-btn, #continue-verify-btn { background: var(--accent); color: #080c12; margin-top: 4px; }
+  #reset-btn, #resend-verify-btn { background: transparent; color: var(--gold); border: 1px solid var(--border); margin-top: 10px; }
+  .back { color: var(--text2); font-size: 14px; text-decoration: none; display: inline-block; margin-bottom: 20px; }
+  #status {
+    min-height: 20px;
+    font-size: 14px;
+    line-height: 1.4;
+    margin: 12px 0 4px;
+  }
+  #status.err { color: var(--red); }
+  #status.ok { color: var(--accent); }
+  #status.work { color: var(--gold); }
+  .hint { font-size: 12px; color: var(--text2); margin-top: 16px; line-height: 1.4; }
+  .hint a { color: var(--gold); }
+  .legal-links { display:flex; flex-wrap:wrap; gap:8px 14px; justify-content:center; margin-top:20px; font-size:12px; }
+  .legal-links a { color: var(--gold); }
+  .oauth-row { display:flex; flex-direction:column; gap:8px; margin:0 0 14px; }
+  .oauth-btn {
+    display:block; width:100%; padding:14px; border-radius:8px;
+    border:1px solid var(--border); background:#101620; color:var(--text);
+    font-size:15px; font-weight:600; text-align:center; text-decoration:none;
+  }
+  .oauth-btn.apple { background:#111; color:#fff; border-color:#222; }
+  .oauth-or { font-size:11px; color:var(--text2); text-align:center; margin:-2px 0 14px; letter-spacing:0.08em; text-transform:uppercase; }
+</style>
 </head>
 <body>
-<p><a href="/login.html">Continue to Runnr sign-in</a></p>
+<div class="wrap">
+  <a class="back" href="/" id="login-back">← Back to Runnr</a>
+  <h1>runnr</h1>
+  <p class="sub" id="login-sub">Start free · 7-day trial · then €19/month or €190/year. First name is for your terminal — e.g. John’s terminal.</p>
+
+  <div class="card">
+    <div class="oauth-row">
+      <a class="oauth-btn" id="oauth-google" href="#">Continue with Google</a>
+      <a class="oauth-btn apple" id="oauth-apple" href="#">Continue with Apple</a>
+    </div>
+    <p class="oauth-or">or email &amp; password</p>
+        <form id="signin-form" action="/" method="post" autocomplete="on">
+    <label for="email">Email</label>
+    <input id="email" name="email" type="email" inputmode="email" autocomplete="username" autocapitalize="none" autocorrect="off" placeholder="you@example.com" enterkeyhint="next">
+
+    <label for="first-name">First name</label>
+    <input id="first-name" name="given-name" type="text" autocomplete="off" autocapitalize="words" autocorrect="off" spellcheck="false" placeholder="John" enterkeyhint="next">
+
+    <label for="password">Password</label>
+    <input id="password" name="password" type="password" autocomplete="current-password" autocapitalize="none" autocorrect="off" placeholder="Your password" enterkeyhint="go">
+
+    <label for="password2" id="confirm-label" style="display:none">Confirm new password</label>
+    <input id="password2" name="new-password" type="password" autocomplete="new-password" autocapitalize="none" autocorrect="off" placeholder="Type again" style="display:none" enterkeyhint="go">
+
+    <div id="status"></div>
+    <button type="submit" id="signin-btn">Sign in</button>
+    <button type="button" id="reset-btn">Forgot password? Set new one</button>
+        </form>
+  </div>
+
+  <div class="card" id="verify-card" style="display:none">
+    <p class="sub" style="margin-bottom:12px" id="verify-copy">Check your inbox and tap the confirmation link.</p>
+    <button type="button" id="resend-verify-btn" style="background:transparent;color:var(--gold);border:1px solid var(--border);margin-bottom:10px">Resend verification email</button>
+    <button type="button" id="continue-verify-btn" style="background:var(--accent);color:#080c12">Continue to Runnr</button>
+  </div>
+
+  <p class="hint">By signing in you agree to our <a href="/terms/">Terms</a>, <a href="/privacy/">Privacy Policy</a>, and <a href="/refund/">Refund Policy</a>. Not in Private Browsing — Safari blocks saving your login there.</p>
+  <div class="legal-links">
+    <a href="/terms/">Terms</a>
+    <a href="/refund/">Refund Policy</a>
+    <a href="/privacy/">Privacy</a>
+  </div>
+</div>
+<script src="/js/visit.js?v=1"></script>
+<script>
+(function () {
+  const API = "https://api.runnr.fyi";
+  var keepScore = false;
+  try {
+    keepScore = /[?&]keep=1(?:&|$)/.test(location.search || "");
+    if (keepScore) {
+      var sub = document.getElementById("login-sub");
+      var back = document.getElementById("login-back");
+      var btn = document.getElementById("signin-btn");
+      if (sub) sub.textContent = "Your score: ready. Save it — plus the weekly report that shows undisciplined P&L vs the clean one. Start free · 7-day trial. Nothing bills automatically.";
+      if (back) back.setAttribute("href", "/?demo=1");
+      if (btn) btn.textContent = "Save with email";
+    }
+  } catch (e) {}
+  const emailEl = document.getElementById("email");
+  const nameEl = document.getElementById("first-name");
+  const passEl = document.getElementById("password");
+  const pass2El = document.getElementById("password2");
+  const confirmLabel = document.getElementById("confirm-label");
+  const statusEl = document.getElementById("status");
+  const signinBtn = document.getElementById("signin-btn");
+  const resetBtn = document.getElementById("reset-btn");
+  const signinCard = document.querySelector(".card");
+  const verifyCard = document.getElementById("verify-card");
+  const verifyCopy = document.getElementById("verify-copy");
+  const resendBtn = document.getElementById("resend-verify-btn");
+  const continueBtn = document.getElementById("continue-verify-btn");
+  let resetMode = false;
+  let pendingToken = "";
+  let resetToken = "";
+
+  function oauthStart(provider) {
+    var next = safeNextPath() || (keepScore ? "/?demo=1" : "/?signedin=1");
+    return API + "/api/v1/auth/oauth/" + provider + "/start?next=" + encodeURIComponent(next);
+  }
+  var gBtn = document.getElementById("oauth-google");
+  var aBtn = document.getElementById("oauth-apple");
+  if (gBtn) gBtn.href = oauthStart("google");
+  if (aBtn) aBtn.href = oauthStart("apple");
+
+  try {
+    const remembered = localStorage.getItem("runnr_remember_email");
+    if (remembered) emailEl.value = remembered;
+  } catch (e) {}
+  fillFirstName();
+  emailEl.addEventListener("input", fillFirstName);
+  emailEl.addEventListener("change", fillFirstName);
+  setTimeout(fillFirstName, 200);
+  setTimeout(fillFirstName, 800);
+
+  function houseFirstName() {
+    return "";
+  }
+
+  function rememberFirstName(email, name) {
+    var e = String(email || "").trim().toLowerCase();
+    var n = normalizeFirstName(name);
+    if (!e || !n) return;
+    try {
+      var map = {};
+      try { map = JSON.parse(localStorage.getItem("runnr_remember_first_name") || "{}") || {}; } catch (err) { map = {}; }
+      map[e] = n;
+      localStorage.setItem("runnr_remember_first_name", JSON.stringify(map));
+    } catch (err) {}
+  }
+
+  function recalledFirstName(email) {
+    var e = String(email || "").trim().toLowerCase();
+    try {
+      var map = JSON.parse(localStorage.getItem("runnr_remember_first_name") || "{}") || {};
+      if (e && map[e]) return map[e];
+    } catch (err) {}
+    try {
+      var st = JSON.parse(localStorage.getItem("runnr_state") || "{}");
+      if (st && st.firstName) return st.firstName;
+    } catch (err) {}
+    return houseFirstName(e);
+  }
+
+  function fillFirstName() {
+    if (!nameEl || document.activeElement === nameEl) return;
+    var n = recalledFirstName(emailEl && emailEl.value);
+    if (n) nameEl.value = n;
+  }
+
+  function setStatus(text, kind) {
+    statusEl.textContent = text || "";
+    statusEl.className = kind || "";
+  }
+
+  function storageOk() {
+    try {
+      const k = "__runnr_test__";
+      localStorage.setItem(k, "1");
+      localStorage.removeItem(k);
+      return true;
+    } catch (e) {
+      return false;
+    }
+  }
+
+  function saveSession(token, email) {
+    const prev = (localStorage.getItem("runnr_api_email") || "").trim().toLowerCase();
+    const next = String(email || "").trim().toLowerCase();
+    function looksReal(raw) {
+      try {
+        var s = JSON.parse(raw);
+        var trades = s.trades || [];
+        if (trades.some(function (t) { return t && (String(t.source || "").toLowerCase() === "alpaca" || (t.id != null && t.id !== 1 && t.id !== 2 && t.id !== 3 && t.id !== 4)); })) return true;
+        var wl = s.watchlist || [];
+        if (wl.some(function (w) {
+          if (!w) return false;
+          var id = Number(w.id);
+          var sym = String(w.sym || "").toUpperCase();
+          var demo = (id === 1 || id === 2 || id === 3) && (sym === "RACE" || sym === "ASTS" || sym === "EURUSD");
+          return !demo;
+        })) return true;
+        if (s.balFromAlpaca || (Number(s.bal) > 0 && Number(s.bal) !== 10000)) return true;
+        if (Number(s.journalBaseBal) > 0) return true;
+        return false;
+      } catch (e) { return false; }
+    }
+    try {
+      if (prev && next && prev !== next) {
+        const current = localStorage.getItem("runnr_state");
+        if (current && looksReal(current)) localStorage.setItem("runnr_state:" + prev, current);
+      }
+      if (next) {
+        var incoming = localStorage.getItem("runnr_state:" + next);
+        if (incoming && looksReal(incoming)) {
+          localStorage.setItem("runnr_state", incoming);
+        } else if (prev && prev !== next) {
+          var live = localStorage.getItem("runnr_state");
+          if (live && looksReal(live)) localStorage.removeItem("runnr_state");
+        }
+        if (!prev || prev !== next) localStorage.removeItem("runnr_alpaca_device");
+      }
+    } catch (e) {}
+    localStorage.setItem("runnr_api_token", token);
+    localStorage.setItem("runnr_api_email", email);
+    localStorage.setItem("runnr_remember_email", email);
+    localStorage.setItem("runnr_api_url", API);
+  }
+
+  function applySavedFirstName(email, apiName, typedName) {
+    var given = apiName || typedName || houseFirstName(email);
+    if (!given) return;
+    rememberFirstName(email, given);
+    try {
+      var raw = localStorage.getItem("runnr_state");
+      if (!raw) return;
+      var st = JSON.parse(raw);
+      if (!st || typeof st !== "object") return;
+      st.firstName = given;
+      localStorage.setItem("runnr_state", JSON.stringify(st));
+    } catch (e) {}
+  }
+
+  function safeNextPath() {
+    try {
+      var n = (new URLSearchParams(location.search).get("next") || "").trim();
+      if (!n || n.charAt(0) !== "/" || n.charAt(1) === "/") return "";
+      if (n.indexOf("\\") !== -1 || n.indexOf("://") !== -1) return "";
+      if (/[\s<>'"`]/.test(n)) return "";
+      return n;
+    } catch (e) {
+      return "";
+    }
+  }
+
+  function isOAuthPopupReturn() {
+    try {
+      if (!window.opener || window.opener.closed) return false;
+      return /[?&]oauth_popup=1(?:&|$)/.test(location.search || "");
+    } catch (e) {
+      return false;
+    }
+  }
+
+  function notifyOAuthOpener() {
+    if (!isOAuthPopupReturn()) return false;
+    try {
+      window.opener.postMessage({ type: "runnr-oauth-done" }, location.origin);
+    } catch (e) {}
+    try { window.close(); } catch (e2) {}
+    return true;
+  }
+
+  function goHome() {
+    if (notifyOAuthOpener()) return;
+    var dest = safeNextPath() || (keepScore ? "/?demo=1" : "/?signedin=1");
+    setStatus(dest.indexOf("stats") !== -1 ? "Signed in — opening stats…" : "Signed in — opening Runnr…", "ok");
+    setTimeout(function () {
+      window.location.href = dest;
+    }, 400);
+  }
+
+  function showVerify(email, data) {
+    pendingToken = data && data.access_token || pendingToken;
+    if (signinCard) signinCard.style.display = "none";
+    verifyCard.style.display = "block";
+    var sent = data && data.verification_sent;
+    var link = data && data.verify_url;
+    var html = "We sent a confirmation link to <strong>" + String(email || "").replace(/</g, "") + "</strong>. Open it when you can — you can continue into Runnr now.";
+    if (data && data.email_configured === false) {
+      html = "Confirmation emails are not sending yet. You can still continue into Runnr.";
+    } else if (!sent && link) {
+      html += " Email isn’t configured yet — use this link: <a href=\"" + link + "\" style=\"color:var(--gold)\">verify now</a>.";
+    } else if (!sent) {
+      html = "We could not send the confirmation email to <strong>" + String(email || "").replace(/</g, "") + "</strong>. Tap resend, or continue into Runnr and confirm later.";
+    }
+    verifyCopy.innerHTML = html;
+    setStatus("", "");
+    signinBtn.disabled = false;
+  }
+
+  async function afterAuth(data, fields) {
+    saveSession(data.access_token, data.email || fields.email);
+    applySavedFirstName(data.email || fields.email, data.first_name, fields.firstName);
+    if (notifyOAuthOpener()) return;
+    var email = data.email || fields.email;
+    if (data.email_verified) {
+      goHome();
+      return;
+    }
+    showVerify(email, data);
+  }
+
+  async function apiPost(path, body) {
+    const ctrl = new AbortController();
+    const timer = setTimeout(function () { ctrl.abort(); }, 15000);
+    try {
+      const res = await fetch(API + path, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(body),
+        signal: ctrl.signal,
+      });
+      let data = {};
+      try { data = await res.json(); } catch (e) {}
+      if (!res.ok) {
+        const detail = data.detail;
+        const msg = typeof detail === "string" ? detail : JSON.stringify(detail || "Request failed");
+        throw new Error(msg);
+      }
+      return data;
+    } finally {
+      clearTimeout(timer);
+    }
+  }
+
+  function normalizeFirstName(raw) {
+    var s = String(raw || "").trim().replace(/\s+/g, " ").slice(0, 24);
+    if (!s) return "";
+    return s.replace(/(^|[\s\-'])([A-Za-zÀ-ÿ])/, function (_, a, b) { return a + b.toUpperCase(); });
+  }
+
+  function readFields() {
+    return {
+      email: (emailEl.value || "").trim().toLowerCase(),
+      firstName: normalizeFirstName(nameEl && nameEl.value),
+      password: (passEl.value || "").trim(),
+      confirm: (pass2El.value || "").trim(),
+    };
+  }
+
+  function validate(email, password) {
+    if (!email) return "Enter your email.";
+    if (!email.includes("@")) return "Enter a valid email.";
+    if (!password) return "Enter your password.";
+    if (password.length < 8) return "Password must be at least 8 characters.";
+    return "";
+  }
+
+  document.getElementById("signin-form").addEventListener("submit", function (e) {
+    e.preventDefault();
+    if (resetMode) return doReset();
+    return doSignIn();
+  });
+  document.getElementById("signin-form").addEventListener("keydown", function (e) {
+    if (e.key !== "Enter" || e.shiftKey) return;
+    if (e.target && e.target.id === "reset-btn") return;
+    e.preventDefault();
+    if (this.requestSubmit) this.requestSubmit();
+    else if (resetMode) doReset();
+    else doSignIn();
+  });
+  continueBtn.addEventListener("click", function () {
+    continueBtn.disabled = true;
+    goHome();
+  });
+  resendBtn.addEventListener("click", async function () {
+    if (!pendingToken) return setStatus("Sign in first, then resend.", "err");
+    resendBtn.disabled = true;
+    setStatus("Sending…", "work");
+    try {
+      const res = await fetch(API + "/api/v1/auth/resend-verification", {
+        method: "POST",
+        headers: { "Content-Type": "application/json", Authorization: "Bearer " + pendingToken },
+        body: "{}",
+      });
+      let data = {};
+      try { data = await res.json(); } catch (err) {}
+      if (!res.ok) throw new Error(data.detail || "Could not resend");
+      setStatus(data.detail || "Verification email sent.", "ok");
+      if (data.verify_url) {
+        showVerify((emailEl && emailEl.value) || "", Object.assign({ access_token: pendingToken }, data));
+      }
+    } catch (err) {
+      setStatus(String(err.message || err), "err");
+    }
+    resendBtn.disabled = false;
+  });
+
+  function showResetFields(token, message) {
+    resetToken = String(token || "").trim();
+    resetMode = !!resetToken;
+    pass2El.style.display = resetMode ? "block" : "none";
+    confirmLabel.style.display = resetMode ? "block" : "none";
+    passEl.autocomplete = resetMode ? "new-password" : "current-password";
+    document.querySelector('label[for="password"]').textContent = resetMode ? "New password" : "Password";
+    signinBtn.textContent = resetMode ? "Set new password & sign in" : "Sign in";
+    resetBtn.textContent = resetMode ? "← Back to sign in" : "Forgot password? Set new one";
+    if (message) setStatus(message, "ok");
+    else setStatus("", "");
+  }
+
+  try {
+    var urlReset = (new URLSearchParams(location.search).get("reset") || "").trim();
+    if (urlReset.length >= 10) {
+      showResetFields(urlReset, "Choose a new password below.");
+      try { history.replaceState(null, "", location.pathname); } catch (e) {}
+    }
+  } catch (e) {}
+
+  try {
+    var oauthCode = (new URLSearchParams(location.search).get("oauth") || "").trim();
+    if (oauthCode.length >= 8) {
+      try { history.replaceState(null, "", location.pathname + (safeNextPath() ? ("?next=" + encodeURIComponent(safeNextPath())) : "")); } catch (e) {}
+      setStatus("Signing in…", "work");
+      apiPost("/api/v1/auth/oauth/exchange", { code: oauthCode }).then(function (data) {
+        return afterAuth(data, { email: data.email, firstName: data.first_name });
+      }).catch(function (err) {
+        setStatus(String(err.message || err), "err");
+      });
+    }
+  } catch (e) {}
+
+  resetBtn.addEventListener("click", async function () {
+    if (resetMode) {
+      showResetFields("", "");
+      return;
+    }
+    const fields = readFields();
+    if (!fields.email || !fields.email.includes("@")) {
+      return setStatus("Enter your email, then tap Forgot password.", "err");
+    }
+    resetBtn.disabled = true;
+    setStatus("Sending reset link…", "work");
+    try {
+      const data = await apiPost("/api/v1/auth/forgot-password", { email: fields.email });
+      if (data && data.reset_url) {
+        var token = "";
+        try { token = new URL(data.reset_url).searchParams.get("reset") || ""; } catch (err) {}
+        if (token) {
+          showResetFields(token, data.detail || "Use this reset link to set a new password.");
+        } else {
+          setStatus((data.detail || "Use this reset link:") + " " + data.reset_url, "ok");
+        }
+      } else {
+        setStatus(data && data.detail ? data.detail : "Check your email for a reset link, then open it to set a new password.", "ok");
+      }
+    } catch (err) {
+      setStatus(String(err.message || err), "err");
+    }
+    resetBtn.disabled = false;
+  });
+
+  async function doSignIn() {
+    const fields = readFields();
+    const err = validate(fields.email, fields.password);
+    if (err) return setStatus(err, "err");
+    if (!storageOk()) return setStatus("Safari blocked storage — turn off Private Browsing.", "err");
+
+    signinBtn.disabled = true;
+    setStatus("Signing in…", "work");
+    try {
+      let data;
+      try {
+        data = await apiPost("/api/v1/auth/login", { email: fields.email, password: fields.password });
+      } catch (loginErr) {
+        const loginMsg = String(loginErr.message || loginErr);
+        if (!/invalid email or password/i.test(loginMsg)) throw loginErr;
+        setStatus("Creating your account…", "work");
+        var body = { email: fields.email, password: fields.password };
+        if (fields.firstName) body.first_name = fields.firstName;
+        data = await apiPost("/api/v1/auth/register", body);
+      }
+      saveSession(data.access_token, data.email || fields.email);
+      applySavedFirstName(data.email || fields.email, data.first_name, fields.firstName);
+      await afterAuth(data, fields);
+    } catch (e) {
+      const msg = String(e.message || e);
+      if (/wrong password/i.test(msg)) {
+        setStatus("Wrong password for this email — tap Forgot password below to set a new one.", "err");
+      } else if (/invalid email or password/i.test(msg)) {
+        setStatus("Could not sign in — check email and password.", "err");
+      } else if (/abort/i.test(msg)) {
+        setStatus("Timed out — check your connection and try again.", "err");
+      } else {
+        setStatus(msg, "err");
+      }
+      signinBtn.disabled = false;
+    }
+  }
+
+  async function doReset() {
+    const fields = readFields();
+    if (!resetToken || resetToken.length < 10) {
+      return setStatus("Request a reset link first — tap Forgot password, then open the email.", "err");
+    }
+    if (!fields.password || fields.password.length < 8) {
+      return setStatus("Password must be at least 8 characters.", "err");
+    }
+    if (fields.password !== fields.confirm) {
+      return setStatus("Passwords do not match.", "err");
+    }
+    if (!storageOk()) return setStatus("Safari blocked storage — turn off Private Browsing.", "err");
+
+    signinBtn.disabled = true;
+    setStatus("Updating password…", "work");
+    try {
+      const data = await apiPost("/api/v1/auth/reset-password", {
+        token: resetToken,
+        new_password: fields.password,
+      });
+      saveSession(data.access_token, data.email || fields.email);
+      applySavedFirstName(data.email || fields.email, data.first_name, fields.firstName);
+      await afterAuth(data, fields);
+    } catch (e) {
+      const msg = String(e.message || e);
+      if (/abort/i.test(msg)) {
+        setStatus("Timed out — check your connection.", "err");
+      } else {
+        setStatus(msg, "err");
+      }
+      signinBtn.disabled = false;
+    }
+  }
+})();
+</script>
 </body>
 </html>
