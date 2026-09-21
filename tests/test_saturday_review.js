@@ -24,8 +24,8 @@ const cache = sw.match(/CACHE = "runnr-v(\d+)"/)[1];
 check("index.html V matches sw.js CACHE", v === cache);
 check("cache is 157+", Number(v) >= 157);
 
-check("commodities sit before brokers in markup", html.indexOf('class="card home-commodities-card"') < html.indexOf('class="card home-brokers-card"'));
-check("markets sit before brokers in markup", html.indexOf('class="card home-markets-card"') < html.indexOf('class="card home-brokers-card"'));
+check("commodities sit before brokers in markup", html.indexOf('class="card home-commodities-card') < html.indexOf('class="card home-brokers-card'));
+check("markets sit before brokers in markup", html.indexOf('class="card home-markets-card') < html.indexOf('class="card home-brokers-card'));
 check("desktop brokers stay full-width", css.includes("#page-home .home-frame > .home-brokers-card"));
 check("desktop market cards are content-sized", css.includes(".home-commodities-card") && css.includes("min-height:min-content"));
 

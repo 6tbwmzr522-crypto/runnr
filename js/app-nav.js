@@ -118,6 +118,54 @@ function expandDeskMore() {
   toggleMoreSheet();
 }
 
+var HOME_DESK_MORE_LABEL = "More on this desk";
+var HOME_DESK_LESS_LABEL = "Hide desk extras";
+
+function homeDeskPage() {
+  return document.getElementById("page-home");
+}
+
+function homeDeskMoreBtn() {
+  return document.getElementById("home-desk-more-toggle");
+}
+
+function isHomeDeskExpanded() {
+  const page = homeDeskPage();
+  return !!(page && page.classList.contains("home-desk-expanded"));
+}
+
+function syncHomeDeskMore() {
+  const btn = homeDeskMoreBtn();
+  const open = isHomeDeskExpanded();
+  if (!btn) return;
+  btn.setAttribute("aria-expanded", open ? "true" : "false");
+  btn.textContent = open ? HOME_DESK_LESS_LABEL : HOME_DESK_MORE_LABEL;
+}
+
+function setHomeDeskExpanded(on) {
+  const page = homeDeskPage();
+  if (page) page.classList.toggle("home-desk-expanded", !!on);
+  syncHomeDeskMore();
+}
+
+function toggleHomeDeskMore() {
+  if (isDesktopShell()) {
+    setHomeDeskExpanded(false);
+    return;
+  }
+  setHomeDeskExpanded(!isHomeDeskExpanded());
+}
+
+try {
+  if (window.matchMedia) {
+    const mq = window.matchMedia(DESKTOP_NAV_MQ);
+    const onDesk = function (e) { if (e && e.matches) setHomeDeskExpanded(false); };
+    if (mq.addEventListener) mq.addEventListener("change", onDesk);
+    else if (mq.addListener) mq.addListener(onDesk);
+  }
+} catch (e) {}
+syncHomeDeskMore();
+
 function bindMoreSheetGestures() {
   const panel = document.getElementById('more-sheet-panel');
   if (!panel || panel.dataset.bound === '1') return;
@@ -144,6 +192,9 @@ window.openMoreSheet = openMoreSheet;
 window.closeMoreSheet = closeMoreSheet;
 window.toggleMoreSheet = toggleMoreSheet;
 window.expandDeskMore = expandDeskMore;
+window.toggleHomeDeskMore = toggleHomeDeskMore;
+window.setHomeDeskExpanded = setHomeDeskExpanded;
+window.isHomeDeskExpanded = isHomeDeskExpanded;
 
 function renderHomeJob() {
   const hero = document.getElementById('home-job-hero');
