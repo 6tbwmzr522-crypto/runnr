@@ -276,7 +276,7 @@ button {
   <div class="gate" id="report-gate">
     <h2>Start your 7-day trial</h2>
     <p id="report-gate-copy">Sign in to score a trade. The report is included in the Runnr trial — then €19/month.</p>
-    <a class="btn-primary" id="report-gate-cta" href="/login.html?next=/report/">Start free · sign in</a>
+    <a class="btn-primary" id="report-gate-cta" href="/sign-in?next=/report/">Start free · sign in</a>
     <p class="fine">Not a free forever guest tool. Guests who never sign in cannot use /report.</p>
   </div>
 
@@ -336,7 +336,7 @@ button {
   <div class="report" id="report" hidden>
     <div class="report-shell" id="report-body"></div>
     <div class="cta-block">
-      <a class="btn-primary" href="/login.html">Open Runnr — 7-day trial</a>
+      <a class="btn-primary" href="/sign-in">Open Runnr — 7-day trial</a>
       <p class="fine">Start free · 7-day trial · then €19/month via Stripe</p>
     </div>
   </div>
@@ -577,7 +577,7 @@ button {
       if (title) title.textContent = "Start your 7-day trial";
       if (copy) copy.textContent = "Sign in to score a trade. The report is included in the Runnr trial — then €19/month.";
       if (cta) {
-        cta.href = "/login.html?next=/report/";
+        cta.href = "/sign-in?next=/report/";
         cta.textContent = "Start free · sign in";
       }
     }

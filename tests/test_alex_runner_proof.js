@@ -23,8 +23,8 @@ const v = html.match(/var V = "(\d+)"/)[1];
 const cache = sw.match(/CACHE = "runnr-v(\d+)"/)[1];
 check("index.html V matches sw.js CACHE", v === cache);
 check("cache is 135+", Number(v) >= 135);
-check("demo-sandbox cache-bust", html.includes("js/demo-sandbox.js?v=21"));
-check("onboarding cache-bust", html.includes("js/onboarding.js?v=38"));
+check("demo-sandbox cache-bust", html.includes("js/demo-sandbox.js?v=22"));
+check("onboarding cache-bust", html.includes("js/onboarding.js?v=39"));
 check("pages.css cache-bust", html.includes("css/pages.css?v=18"));
 
 const hookStart = html.indexOf('id="onboarding-overlay"');
@@ -162,7 +162,7 @@ check("proof P&L matches CoachEngine", proof.discPnl === metrics.discPnl && proo
 check("Alex Runner SAMPLE labels", proof.name === "Alex Runner" && proof.badge === "SAMPLE" && /SAMPLE/.test(proof.kicker));
 check("story is stops held, size leaked", /stops held,\s*size leaked/i.test(proof.story));
 check("disclaimer forbids testimonial/AUM reading", /not a customer testimonial/i.test(proof.disclaimer) && /not live AUM/i.test(proof.disclaimer));
-check("proof CTAs", proof.deskHref === "/?demo=1" && proof.deskLabel === "Score one trade" && proof.trialHref === "/login.html" && /7-day trial/.test(proof.trialLabel));
+check("proof CTAs", proof.deskHref === "/?demo=1" && proof.deskLabel === "Score one trade" && proof.trialHref === "/sign-in" && /7-day trial/.test(proof.trialLabel));
 check("loud brand", proof.brand === "runnr.fyi");
 check("expected sandbox band", proof.overall >= 78 && proof.overall <= 85 && proof.tier === "Consistent Runner");
 check("expected sandbox split", proof.stopPct === 95 && proof.sizePct === 71);

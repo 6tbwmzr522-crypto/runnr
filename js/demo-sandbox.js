@@ -305,7 +305,7 @@
       disclaimer: "Illustrative demo book — not a customer testimonial, not live AUM.",
       brand: "runnr.fyi",
       deskHref: "/?demo=1",
-      trialHref: "/login.html",
+      trialHref: "/sign-in",
       trialLabel: "Start free · 7-day trial",
       deskLabel: "Score one trade",
       overall: score.overall,

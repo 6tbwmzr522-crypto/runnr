@@ -35,7 +35,7 @@ const v = html.match(/var V = "(\d+)"/)[1];
 const cache = sw.match(/CACHE = "runnr-v(\d+)"/)[1];
 check("index.html V matches sw.js CACHE", v === cache);
 check("cache is 139+", Number(v) >= 139);
-check("demo-sandbox cache-bust", html.includes("js/demo-sandbox.js?v=21"));
+check("demo-sandbox cache-bust", html.includes("js/demo-sandbox.js?v=22"));
 check("pages.css cache-bust", html.includes("css/pages.css?v=18"));
 check("intro.js cache-bust", html.includes("js/intro.js?v=5"));
 
@@ -67,8 +67,8 @@ check("keep-score primary CTAs are Google and Apple", /id="sample-keep-google"[\
 const keepHtml = html.slice(html.indexOf('id="modal-sample-keep"'), html.indexOf('id="modal-share"'));
 check("keep-score has no email form", !/<input|<form/i.test(keepHtml) && !/or email/i.test(keepHtml));
 check("keep-score quiet email fallback", html.slice(html.indexOf('id="modal-sample-keep"'), html.indexOf('id="modal-share"')).includes("Use email instead") && html.includes("/login.html?keep=1"));
-check("keep-score offers returning-user login", /Already have an account\?[\s\S]*href="\/login\.html"/.test(html.slice(html.indexOf('id="modal-sample-keep"'), html.indexOf('id="modal-share"'))));
-check("returning-user login is not keep=1 bait", /href="\/login\.html"(?!\?keep=1)/.test(html.slice(html.indexOf('id="modal-sample-keep"'), html.indexOf('id="modal-share"'))));
+check("keep-score offers returning-user login", /Already have an account\?[\s\S]*href="\/sign-in"/.test(html.slice(html.indexOf('id="modal-sample-keep"'), html.indexOf('id="modal-share"'))));
+check("returning-user login is not keep=1 bait", /href="\/sign-in"(?!\?keep=1)/.test(html.slice(html.indexOf('id="modal-sample-keep"'), html.indexOf('id="modal-share"'))));
 check("keep-score heading stays Keep this score", /id="modal-sample-keep"[\s\S]*Keep this score/.test(html));
 check("keep-score copy is score + weekly report bait", html.includes("Your score: ready.") && html.includes("undisciplined P&amp;L vs the clean one") && sandboxSrc.includes("undisciplined P&L vs the clean one"));
 check("keep-score keeps 7-day no auto-bill", keepHtml.includes("Start free · 7-day trial") && keepHtml.includes("Nothing bills automatically.") && !keepHtml.includes("Keep this score — 7 days free") && !keepHtml.includes("Use Runnr free for 7 days"));

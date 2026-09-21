@@ -5,7 +5,7 @@
 <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
 <script>
 (function () {
-  var V = "173";
+  var V = "174";
   try {
     if (localStorage.getItem("runnr_app_v") !== V) {
       localStorage.setItem("runnr_app_v", V);
@@ -82,7 +82,7 @@
     </div>
     <div class="header-tools">
       <button type="button" class="header-desk-btn" onclick="RunnrDesk.open()" data-i18n="header.terminal">Terminal</button>
-      <a id="header-sync-pill" href="/login.html" onclick="return headerSyncTap(event)" data-i18n-title="common.signInTitle">Sign in</a>
+      <a id="header-sync-pill" href="/sign-in" onclick="return headerSyncTap(event)" data-i18n-title="common.signInTitle">Sign in</a>
       <button type="button" class="header-bal-settings" onclick="openSettingsModal()" data-i18n-title="settings.title" aria-label="Settings">
         <span id="acct-display">€10,000</span>
         <svg class="header-gear" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>
@@ -97,7 +97,7 @@
 
   <div id="demo-chrome" hidden>
     <span class="demo-chrome-text" data-i18n="header.demoChrome">SAMPLE · not your book</span>
-    <a class="btn btn-sm" id="demo-chrome-cta" href="/login.html" data-i18n="header.demoCta">Start free · 7-day trial</a>
+    <a class="btn btn-sm" id="demo-chrome-cta" href="/sign-in" data-i18n="header.demoCta">Start free · 7-day trial</a>
   </div>
 
   <div id="demo-banner" onclick="switchPage('sync')">
@@ -914,19 +914,19 @@
       <div style="font-size:12px;color:var(--text3);margin-bottom:12px" data-i18n="sync.subtitle">Connect once. Pull real trades into your journal.</div>
       <div id="sync-login-gate" class="card" style="margin-bottom:12px;border-color:var(--accent2)">
         <div class="card-title" data-i18n="sync.signIn">Sign in</div>
-        <div style="font-size:13px;color:var(--text2);margin-bottom:14px;line-height:1.45" data-i18n="sync.signInDesc">Sync journal &amp; watchlist from your Mac. Use the sign-in page — it works reliably on iPhone.</div>
+        <div style="font-size:13px;color:var(--text2);margin-bottom:14px;line-height:1.45" data-i18n="sync.signInDesc">Sync journal &amp; watchlist across Mac and iPhone. Same account on every device.</div>
         <div class="oauth-row" id="sync-oauth-row">
           <a class="oauth-btn" id="sync-oauth-google" href="https://api.runnr.fyi/api/v1/auth/oauth/google/start?next=/?signedin=1">Continue with Google</a>
           <a class="oauth-btn apple" id="sync-oauth-apple" href="https://api.runnr.fyi/api/v1/auth/oauth/apple/start?next=/?signedin=1">Continue with Apple</a>
         </div>
         <p class="oauth-or">or email &amp; password</p>
-        <a class="btn" href="login.html" style="display:block;text-align:center;text-decoration:none;padding:16px;line-height:1.3" data-i18n="sync.openSignIn">Open sign-in page</a>
+        <a class="btn" href="/sign-in" style="display:block;text-align:center;text-decoration:none;padding:16px;line-height:1.3" data-i18n="sync.openSignIn">Open sign-in page</a>
       </div>
       <div id="sync-auth-banner" style="margin-bottom:12px"></div>
       <div id="sync-mobile-login" class="card" style="display:none;margin-bottom:12px">
         <div class="card-title" data-i18n="sync.signInIphone">Sign in on iPhone</div>
-        <div style="font-size:12px;color:var(--text2);margin-bottom:14px;line-height:1.45" data-i18n="sync.signInIphoneDesc">The in-app form can freeze on Safari. Use the simple sign-in page — same email and password as your Mac.</div>
-        <a class="btn" id="sync-mobile-login-link" href="login.html" style="display:block;text-align:center;text-decoration:none;line-height:1.2;padding:16px" data-i18n="sync.openSignIn">Open sign in page</a>
+        <div style="font-size:12px;color:var(--text2);margin-bottom:14px;line-height:1.45" data-i18n="sync.signInIphoneDesc">Same email and password on every device.</div>
+        <a class="btn" id="sync-mobile-login-link" href="/sign-in" style="display:block;text-align:center;text-decoration:none;line-height:1.2;padding:16px" data-i18n="sync.openSignIn">Open sign in page</a>
       </div>
       <div id="sync-inline-auth" class="card" style="display:none;margin-bottom:12px">
         <div class="card-title">Sign in</div>
@@ -1492,7 +1492,7 @@
       <p class="ob-hook-price">Start free · 7-day trial · then €19/month or €190/year</p>
       <p class="ob-hook-sample">Sample journal is labeled SAMPLE. Those numbers are not yours.</p>
       <div class="ob-hook-actions">
-        <a class="btn" id="ob-hook-start" href="/login.html">Start free</a>
+        <a class="btn" id="ob-hook-start" href="/sign-in">Start free</a>
         <button type="button" class="btn btn-ghost" id="ob-hook-enter">View sample</button>
         <a class="ob-hook-secondary" id="ob-hook-report" href="/report/">Score one trade</a>
       </div>
@@ -1753,7 +1753,7 @@
         Continue with Apple
       </a>
     </div>
-    <p class="sample-keep-login">Already have an account? <a href="/login.html">Log in</a> · <a data-sample-keep-cta href="/login.html?keep=1">Use email instead</a></p>
+    <p class="sample-keep-login">Already have an account? <a href="/sign-in">Log in</a> · <a data-sample-keep-cta href="/login.html?keep=1">Use email instead</a></p>
     <button type="button" class="btn btn-ghost" id="sample-keep-dismiss">Not now</button>
   </div>
 </div>
@@ -1904,19 +1904,19 @@
   </div>
 </div>
 
-<script src="js/i18n.js?v=20"></script>
+<script src="js/i18n.js?v=21"></script>
 <script src="js/baron.js?v=32"></script>
 <script src="js/discipline-replay.js?v=6"></script>
 <script src="js/coach.js?v=28"></script>
 <script src="js/options-coach.js?v=1"></script>
 <script src="js/fvg-retrace.js?v=1"></script>
-<script src="js/onboarding.js?v=38"></script>
+<script src="js/onboarding.js?v=39"></script>
 <script src="js/intro.js?v=5"></script>
 <script src="js/tour.js?v=4"></script>
 <script src="js/csv-presets.js?v=4"></script>
 <script src="js/trade-limit.js?v=4"></script>
 <script src="js/desk-quiet.js?v=3"></script>
-<script src="js/demo-sandbox.js?v=21"></script>
+<script src="js/demo-sandbox.js?v=22"></script>
 <script src="js/sync.js?v=71"></script>
 <script src="js/desk-sessions.js?v=2"></script>
 <script src="js/desk.js?v=17"></script>
@@ -1935,7 +1935,7 @@
 <script src="js/app-quotes.js?v=2"></script>
 <script src="js/app-alerts.js?v=1"></script>
 <script src="js/app-portfolio.js?v=1"></script>
-<script src="js/app-sync-ui.js?v=1"></script>
+<script src="js/app-sync-ui.js?v=2"></script>
 <script src="js/app-coach-page.js?v=2"></script>
 <script src="js/app-boot.js?v=8"></script>
 
