@@ -26,7 +26,7 @@ check("journal has T212 import control", html.includes('id="journal-t212-btn"') 
 check("Connect T212 form exists", html.includes('id="modal-t212"') && html.includes("submitT212Connect") && html.includes("t212-key") && html.includes("t212-secret"));
 check("T212 copy mentions API (Beta), permissions, SIPP", html.includes("API (Beta)") && html.includes("Leave <strong>orders</strong> off") && html.includes("SIPP is not supported"));
 check("T212 card keeps CSV fallback", /id:\s*"t212"/.test(fs.readFileSync(path.join(root, "js/csv-presets.js"), "utf8")) && html.includes("CSV Import"));
-check("Trading 212 is a live broker card", /code:\s*'Trading 212'[\s\S]{0,80}live:\s*true/.test(src));
+check("Trading 212 is a live broker card", /id:\s*"t212"[\s\S]{0,400}live:\s*true/.test(src) && /code:\s*"Trading 212"/.test(src));
 check("T212 connect/status/sync routes exist", brokersPy.includes('/t212/connect') && brokersPy.includes('/t212/sync') && brokersPy.includes('/t212/status'));
 check("T212 stores broker='t212' rows", /broker = ['"]t212['"]/.test(brokersPy) || /VALUES \(\?, 't212'/.test(brokersPy));
 check("T212 product path is not house-gated", !brokersPy.includes("require_t212_house") && !brokersPy.includes("email_is_boss"));
