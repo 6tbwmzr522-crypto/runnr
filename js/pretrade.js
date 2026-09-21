@@ -462,9 +462,10 @@
     try { meta = typeof TD.planMeta === "function" ? TD.planMeta(now) : null; } catch (e2) {}
     const skipped = !!(meta && meta.skipped);
     const applied = !!(meta && meta.applied && !skipped);
+    const soft = !!(meta && meta.soft && !skipped && !applied);
     const sitZero = applied && meta.band === "sit" && multiplier === 0;
     return {
-      multiplier: skipped ? 1 : (applied ? multiplier : 1),
+      multiplier: skipped ? 1 : ((applied || soft) ? multiplier : 1),
       sit: sitZero,
       meta: meta,
     };
@@ -1105,7 +1106,7 @@
         '<section class="pt-panel" aria-label="Position sizer">' +
           '<div class="pt-sec-hd">POSITION SIZER</div>' +
           '<div class="pt-sample-cap" id="pt-sample-cap" hidden></div>' +
-          '<div class="pt-trend-stamp" id="pt-trend-stamp" hidden></div>' +
+          '<button type="button" class="pt-trend-stamp" id="pt-trend-stamp" hidden aria-expanded="false" aria-controls="trend-day-chip"></button>' +
           '<div class="pt-sizer">' +
             '<div class="pt-form">' +
               '<label class="pt-field"><span>TICKER</span><input id="pt-ticker" autocomplete="off" spellcheck="false" value="' + esc(form.ticker) + '"><p class="pt-quote' + (quoteState.status ? " " + quoteState.status : "") + '" id="pt-quote"' + (quoteState.text ? "" : " hidden") + ">" + esc(quoteState.text || "") + "</p></label>" +
