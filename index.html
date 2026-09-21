@@ -5,7 +5,7 @@
 <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
 <script>
 (function () {
-  var V = "177";
+  var V = "178";
   try {
     if (localStorage.getItem("runnr_app_v") !== V) {
       localStorage.setItem("runnr_app_v", V);
@@ -179,7 +179,7 @@
       <div class="card highlight-card disc-locked" id="home-discipline-card">
         <div class="section-hdr" style="margin-bottom:12px">
           <h3 data-i18n="home.disciplineScore">Discipline Score</h3>
-          <button class="see-all home-share-btn" id="home-share-btn" onclick="RunnrGrowth.openShareModal(S)" data-i18n="home.share">Share ↗</button>
+          <button class="see-all home-share-btn" id="home-share-btn" onclick="RunnrGrowth.openShareModal(S, 'score')" data-i18n="home.share">Share ↗</button>
         </div>
         <div class="discipline-card">
           <div class="disc-ring" id="disc-score-ring">
@@ -716,6 +716,7 @@
         <h3 style="font-size:15px">Trade Journal</h3>
         <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;justify-content:flex-end">
           <p class="free-trade-counter" data-free-trade-counter hidden style="margin:0"></p>
+          <button class="see-all home-share-btn" id="journal-share-btn" type="button" onclick="RunnrGrowth.openShareModal(S, 'score')">Share ↗</button>
           <button class="btn btn-sm btn-ghost" id="journal-t212-btn" type="button" onclick="importT212Fills()" style="display:none">Import T212</button>
           <button class="btn btn-sm" onclick="saveLogFromSizer('cfd')" style="background:var(--accent);color:#070d0b;font-family:var(--font-head);font-size:12px;font-weight:700;border:none;cursor:pointer;padding:7px 14px;border-radius:20px">+ Log Trade</button>
         </div>
@@ -824,9 +825,9 @@
       <div class="card coach-share-card" style="margin-top:12px">
         <div class="card-title">Share your process</div>
         <div id="coach-share-ready">
-        <div style="font-size:12px;color:var(--text2);margin-bottom:12px">Weekly discipline report — TikTok bio is <code>runnr.fyi/?demo=1</code> (SAMPLE desk), not login.html. Process, not a performance claim.</div>
+        <div style="font-size:12px;color:var(--text2);margin-bottom:12px">A discipline card — score, followed the plan, sits. Not a dollar P&amp;L flex. Quiet <code>runnr.fyi</code> on the image.</div>
         <div style="display:flex;gap:8px;flex-wrap:wrap">
-          <button class="btn btn-sm" onclick="RunnrGrowth.openShareModal(S)">Create share card</button>
+          <button class="btn btn-sm" onclick="RunnrGrowth.openShareModal(S, 'score')">Create share card</button>
           <button class="btn btn-sm btn-ghost" onclick="RunnrGrowth.previewWeeklyDigest(S)">Preview weekly digest</button>
         </div>
         </div>
@@ -1762,19 +1763,19 @@
 <!-- Share discipline card -->
 <div class="modal-overlay" id="modal-share" onclick="closeModalOutside(event,'modal-share')">
   <div class="modal">
-    <div class="modal-title">Share weekly report <button class="modal-close" onclick="closeModal('modal-share')">✕</button></div>
+    <div class="modal-title"><span id="share-modal-title">Share discipline</span> <button class="modal-close" onclick="closeModal('modal-share')">✕</button></div>
     <div class="share-variant-row">
-      <button type="button" class="share-variant active" data-share-variant="weekly" onclick="RunnrGrowth.setShareVariant('weekly', S)">Weekly report</button>
-      <button type="button" class="share-variant" data-share-variant="score" onclick="RunnrGrowth.setShareVariant('score', S)">Score</button>
+      <button type="button" class="share-variant active" data-share-variant="score" onclick="RunnrGrowth.setShareVariant('score', S)">Score</button>
+      <button type="button" class="share-variant" data-share-variant="weekly" onclick="RunnrGrowth.setShareVariant('weekly', S)">This week</button>
     </div>
-    <canvas id="share-canvas" width="360" height="700"></canvas>
+    <canvas id="share-canvas" width="360" height="540"></canvas>
     <div id="share-locked" hidden>
       <p data-share-lock-copy>Log 3 trades to unlock your score &amp; share card</p>
       <button type="button" class="btn" onclick="closeModal('modal-share'); openLogModal('cfd')">Log a trade</button>
     </div>
     <div class="field" style="margin-top:12px"><label>Handle on card</label><input id="share-handle" placeholder="yourname" oninput="RunnrGrowth.redrawShareFromHandle(S)"></div>
     <button class="btn" id="share-download-btn" style="margin-top:8px" onclick="RunnrGrowth.shareDisciplineCard(S)">Download / Share PNG</button>
-    <div id="share-card-note" style="font-size:11px;color:var(--text3);text-align:center;margin-top:8px">Loud runnr.fyi/?demo=1 footer — TikTok bio lands on SAMPLE, not login. Process P&amp;L (followed vs leaks).</div>
+    <div id="share-card-note" style="font-size:11px;color:var(--text3);text-align:center;margin-top:8px">Discipline score — no dollar P&amp;L on this card.</div>
   </div>
 </div>
 
@@ -1908,10 +1909,10 @@
 <script src="js/i18n.js?v=21"></script>
 <script src="js/baron.js?v=32"></script>
 <script src="js/discipline-replay.js?v=6"></script>
-<script src="js/coach.js?v=28"></script>
+<script src="js/coach.js?v=29"></script>
 <script src="js/options-coach.js?v=1"></script>
 <script src="js/fvg-retrace.js?v=1"></script>
-<script src="js/onboarding.js?v=39"></script>
+<script src="js/onboarding.js?v=40"></script>
 <script src="js/intro.js?v=5"></script>
 <script src="js/tour.js?v=4"></script>
 <script src="js/csv-presets.js?v=4"></script>

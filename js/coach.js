@@ -437,6 +437,87 @@ const CoachEngine = {
     };
   },
 
+  shareFocusTrade(trades) {
+    const list = (trades || []).filter((t) => t && !t.mergedAway && t.instr);
+    if (!list.length) return null;
+    let best = list[0];
+    let bestT = this.tradeDate(best);
+    for (let i = 1; i < list.length; i++) {
+      const d = this.tradeDate(list[i]);
+      if (d && (!bestT || d.getTime() > bestT.getTime())) {
+        best = list[i];
+        bestT = d;
+      }
+    }
+    const ticker = String(best.instr || "").replace(/\s*CFD\s*$/i, "").trim().toUpperCase();
+    if (!ticker) return null;
+    const side = String(best.dir || "").toLowerCase() === "short" ? "SHORT" : "LONG";
+    return { ticker, side, label: ticker + " · " + side };
+  },
+
+  shareProcessBrief(trades) {
+    const d = this.forDiscipline(trades);
+    let followed = 0;
+    let leaked = 0;
+    let skipped = 0;
+    d.forEach((t) => {
+      const p = String((t && t.processFlag) || "").toLowerCase();
+      if (p === "followed") followed += 1;
+      else if (p === "leaked") leaked += 1;
+      else if (p === "skipped") skipped += 1;
+      else if (t && t.stopOk && t.sizeOk) followed += 1;
+      else if (t && (t.stopOk === false || t.sizeOk === false)) leaked += 1;
+    });
+    const flagged = followed + leaked + skipped;
+    return {
+      followed,
+      leaked,
+      skipped,
+      flagged,
+      followedPct: flagged ? Math.round((followed / flagged) * 100) : null,
+      followedLabel: flagged ? followed + " of " + flagged : "—",
+      skippedLabel: skipped ? String(skipped) : "0",
+    };
+  },
+
+  shareProcessLine(score, brief) {
+    if (brief && brief.skipped > 0 && brief.followed >= brief.leaked) {
+      return "Sat when it was the plan.";
+    }
+    if ((score && score.completePct >= 70) || (brief && brief.followedPct >= 70)) {
+      return "Followed the plan.";
+    }
+    return "Process beat P&L.";
+  },
+
+  /** All-book discipline card — score is the hero, never dollar P&L. */
+  scoreShareModel(trades, opts = {}) {
+    const handle = String(opts.handle || "").replace(/^@/, "").trim();
+    const score = this.disciplineScore(trades);
+    const brief = this.shareProcessBrief(trades);
+    const focus = this.shareFocusTrade(trades);
+    const hasScore = !!(score && score.tradeCount);
+    return {
+      overall: hasScore ? score.overall : null,
+      overallLabel: hasScore ? score.overall + "%" : "—",
+      stopLabel: this.fmtCardPct(hasScore ? score.stopPct : null),
+      sizeLabel: this.fmtCardPct(hasScore ? score.sizePct : null),
+      completePct: hasScore ? score.completePct : null,
+      streakLabel: score && score.streak ? score.streak + "d" : "0d",
+      tradeCount: (score && score.tradeCount) || 0,
+      tier: hasScore ? score.tier : "—",
+      followedPct: brief.followedPct,
+      followedLabel: brief.followedLabel,
+      skippedLabel: brief.skippedLabel,
+      line: this.shareProcessLine(score, brief),
+      focusLabel: focus ? focus.label : "",
+      handle,
+      brandUrl: "runnr.fyi",
+      handleUrl: handle ? "runnr.fyi/u/" + handle : "",
+      tagline: "Process beat P&L",
+    };
+  },
+
   /** Share-card payload from journal metrics — never invents sample numbers. */
   weeklyShareModel(trades, opts = {}) {
     const now = opts.now instanceof Date && !Number.isNaN(opts.now.getTime()) ? opts.now : new Date();
@@ -446,8 +527,10 @@ const CoachEngine = {
     const weekTrades = this.tradesInDays(trades, 7, now);
     const weekScore = this.disciplineScore(weekTrades);
     const weekMetrics = this.metrics(weekTrades);
+    const brief = this.shareProcessBrief(weekTrades);
+    const focus = this.shareFocusTrade(weekTrades);
     const hasWeek = weekScore.tradeCount > 0 || weekMetrics.count > 0;
-    const score = hasWeek ? weekScore : { overall: null, stopPct: null, sizePct: null, streak: this.loggingStreak(trades), tradeCount: 0, tier: "" };
+    const score = hasWeek ? weekScore : { overall: null, stopPct: null, sizePct: null, completePct: null, streak: this.loggingStreak(trades), tradeCount: 0, tier: "" };
     const dated = weekTrades.map((t) => this.tradeDate(t)).filter(Boolean);
     let start;
     let end;
@@ -469,8 +552,16 @@ const CoachEngine = {
       tradeCount: score.tradeCount || 0,
       stopPct: hasWeek && score.tradeCount ? score.stopPct : null,
       sizePct: hasWeek && score.tradeCount ? score.sizePct : null,
+      completePct: hasWeek && score.tradeCount ? score.completePct : null,
       stopLabel: this.fmtCardPct(hasWeek && score.tradeCount ? score.stopPct : null),
       sizeLabel: this.fmtCardPct(hasWeek && score.tradeCount ? score.sizePct : null),
+      followedPct: hasWeek ? brief.followedPct : null,
+      followedLabel: hasWeek ? brief.followedLabel : "—",
+      followedPctLabel: this.fmtCardPct(hasWeek ? brief.followedPct : null),
+      skipped: brief.skipped,
+      skippedLabel: hasWeek ? brief.skippedLabel : "—",
+      line: this.shareProcessLine(score, brief),
+      focusLabel: focus ? focus.label : "",
       profitFactor: weekMetrics.count ? weekMetrics.profitFactor : null,
       winRate: weekMetrics.count ? weekMetrics.winRate : null,
       pfLabel: this.fmtCardPf(weekMetrics.count ? weekMetrics.profitFactor : null),
@@ -486,7 +577,7 @@ const CoachEngine = {
       handle,
       brandUrl: "runnr.fyi",
       handleUrl: handle ? "runnr.fyi/u/" + handle : "",
-      tagline: "Discipline OS · Process · not P&L",
+      tagline: "Process beat P&L",
       hasWeek,
     };
   },

@@ -22,7 +22,7 @@ const v = html.match(/var V = "(\d+)"/)[1];
 const cache = sw.match(/CACHE = "runnr-v(\d+)"/)[1];
 check("index.html V matches sw.js CACHE", v === cache);
 check("cache is 136+", Number(v) >= 136);
-check("coach.js cache-busted", html.includes("js/coach.js?v=28"));
+check("coach.js cache-busted", html.includes("js/coach.js?v=29"));
 check("weight hint in discipline card", html.includes("home.scoreWeightHint") && html.includes("confidence mix"));
 check("journal hint explains weights", html.includes("journal.scoreHint") && html.includes("self-logged (half)"));
 check("live + sample badge labels in journal", src.includes("Synced (sample)") && src.includes("Imported (sample)") && src.includes("Manual (sample)"));
