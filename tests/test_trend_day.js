@@ -24,11 +24,14 @@ const v = html.match(/var V = "(\d+)"/)[1];
 const cache = sw.match(/CACHE = "runnr-v(\d+)"/)[1];
 check("index.html V matches sw.js CACHE", v === cache);
 check("cache is 180+", Number(v) >= 180);
-check("trend-day.js is cache-busted", html.includes("js/trend-day.js?v=6"));
+check("trend-day.js is cache-busted", html.includes("js/trend-day.js?v=7"));
 check("trend-day loads after tour and intro", html.indexOf("js/intro.js") < html.indexOf("js/trend-day.js") && html.indexOf("js/tour.js") < html.indexOf("js/trend-day.js"));
 check("trend-day loads before pretrade", html.indexOf("js/trend-day.js") < html.indexOf("js/pretrade.js"));
-check("pretrade cache-bust bumped", html.includes("js/pretrade.js?v=20"));
-check("pretrade.css cache-bust bumped", html.includes("css/pretrade.css?v=13"));
+check("pretrade cache-bust bumped", html.includes("js/pretrade.js?v=21"));
+check("pretrade.css cache-bust bumped", html.includes("css/pretrade.css?v=14"));
+check("soft auto-apply does not settle the chip", trendSrc.includes("function softLive") && trendSrc.includes("Applied · full size") && trendSrc.includes("Applied · half size") && !/function maybeAutoApply[\s\S]{0,400}applied\s*=\s*true/.test(trendSrc));
+check("trend strip is a button that opens the checklist", pretradeSrc.includes('type="button" class="pt-trend-stamp"') && pretradeSrc.includes('aria-controls="trend-day-chip"') && trendSrc.includes("toggleChecklist") && trendSrc.includes("aria-expanded"));
+check("live strip is a gold control", css.includes(".pt-trend-stamp.live") && css.includes(".pt-trend-stamp:focus-visible") && css.includes("cursor:pointer"));
 check("auto is labeled SPY/QQQ, not Ripster", trendSrc.includes("Auto · SPY/QQQ") && !/ripster/i.test(trendSrc));
 check("auto snapshot key is isolated from the book key", trendSrc.includes('AUTO_KEY = "runnr_trend_day_auto_v1"'));
 check("overlay markup sits on the Size page", html.includes('id="trend-day-overlay"') && html.includes('id="trend-day-chip"') && html.includes('id="page-sizer"'));
@@ -81,7 +84,15 @@ function load(opts) {
     addEventListener() {},
   };
   const chip = { innerHTML: "" };
-  const stamp = { hidden: true, textContent: "", className: "pt-trend-stamp" };
+  const stampAttrs = {};
+  const stamp = {
+    hidden: true,
+    textContent: "",
+    className: "pt-trend-stamp",
+    setAttribute(k, v) { stampAttrs[k] = String(v); },
+    getAttribute(k) { return Object.prototype.hasOwnProperty.call(stampAttrs, k) ? stampAttrs[k] : null; },
+    removeAttribute(k) { delete stampAttrs[k]; },
+  };
   const mark = { innerHTML: "" };
   const ticker = { value: "AAPL" };
   const els = {
@@ -437,9 +448,16 @@ check("Friday after hours is auto-eligible so the stamp can lock", Auto.autoElig
 const autoChip = load();
 autoChip.RunnrTrendDay.resetForTests();
 const filled = autoChip.RunnrTrendDay.applyAutoSnapshot(demo, friScore);
-check("auto snapshot prefills 4/4 and Apply full size", filled.score === 4 && filled.source === "auto" && filled.autoChecks[0] === true);
-const filledHtml = autoChip.RunnrTrendDay.chipHTML(filled, autoChip.RunnrTrendDay.clockOf(friScore));
-check("chip names Auto · SPY/QQQ", filledHtml.includes("Auto · SPY/QQQ") && filledHtml.includes("Apply full size"));
+check("auto snapshot prefills 4/4 without settling", filled.score === 4 && filled.source === "auto" && filled.applied !== true && filled.locked !== true && filled.autoChecks[0] === true);
+const filledClock = autoChip.RunnrTrendDay.clockOf(friScore);
+const filledHtml = autoChip.RunnrTrendDay.chipHTML(filled, filledClock);
+check("chip names Auto · SPY/QQQ and already applied full size", filledHtml.includes("Auto · SPY/QQQ") && filledHtml.includes("Applied · full size") && !filledHtml.includes("Apply full size") && !filledHtml.includes("disabled"));
+check("soft full is already 1× and the strip explains it", autoChip.RunnrTrendDay.riskMultiplier(friScore) === 1 && autoChip.RunnrTrendDay.softLive(filled, filledClock) === true && /4 \/ 4 · full size · auto/.test(autoChip.RunnrTrendDay.stampHTML(filled, filledClock)) && autoChip.RunnrTrendDay.stampTone(filled, filledClock) === "live");
+check("soft full rests on the strip instead of a forced gate", autoChip.RunnrTrendDay.shouldShowChip(friScore) === true && autoChip.RunnrTrendDay.shouldOpenOverlay(friScore) === false && autoChip.RunnrTrendDay.shouldPollAuto(friScore) === true);
+check("opening the strip shows why it is 4/4", autoChip.RunnrTrendDay.toggleChecklist(friScore) === true && autoChip.RunnrTrendDay.shouldOpenOverlay(friScore) === true);
+const openedHtml = autoChip.RunnrTrendDay.chipHTML(autoChip.RunnrTrendDay.todayRecord(friScore), filledClock);
+check("opened checklist keeps the checks and the size key", openedHtml.includes("Outside first-hour range") && openedHtml.includes("Peers same direction") && openedHtml.includes("Sit if 0–1 · half at 2 · full at 3–4") && openedHtml.includes("Applied · full size") && !openedHtml.includes("disabled"));
+check("closing the strip returns to the desk", autoChip.RunnrTrendDay.toggleChecklist(friScore) === false && autoChip.RunnrTrendDay.shouldOpenOverlay(friScore) === false);
 const flipped = autoChip.RunnrTrendDay.onCheck(3, friScore);
 check("manual flip marks mixed source", flipped.source === "mixed" && flipped.userEdited === true && flipped.checks[3] === false && flipped.score === 3);
 const mixedHtml = autoChip.RunnrTrendDay.chipHTML(flipped, autoChip.RunnrTrendDay.clockOf(friScore));
@@ -492,6 +510,73 @@ const weekendAuto = load({ location: { search: "?demo=1", hash: "" } });
 weekendAuto.RunnrTrendDay.resetForTests();
 check("Sunday without fixture does not auto-fill", weekendAuto.RunnrTrendDay.autoEligible(weekendAuto.RunnrTrendDay.clockOf(sat)) === false);
 
+const softHalf = load({
+  withPretrade: true,
+  loggedIn: true,
+  email: "janis@example.com",
+});
+softHalf.RunnrTrendDay.resetForTests();
+const halfSnap = Object.assign({}, demo, { checks: [true, true, false, false] });
+const halfRec = softHalf.RunnrTrendDay.applyAutoSnapshot(halfSnap, friAfter);
+const halfClock = softHalf.RunnrTrendDay.clockOf(friAfter);
+const halfHtml = softHalf.RunnrTrendDay.chipHTML(halfRec, halfClock);
+const halfRails = softHalf.RunnrPretrade.normalizeRails(softHalf.window.S.pretrade, softHalf.window.S);
+const halfPlan = softHalf.RunnrPretrade.computePlan({ ticker: "AAPL", dir: "long", entry: 200, stop: 190, target: 230 }, halfRails, [], friAfter);
+check("signed-in auto half soft-applies 0.5× without Apply", halfRec.applied !== true && halfRec.score === 2 && halfRec.locked !== true && softHalf.RunnrTrendDay.riskMultiplier(friAfter) === 0.5 && halfPlan.size === 50 && halfPlan.trendDayMult === 0.5 && halfPlan.trendDaySit === false);
+check("auto half strip is quiet applied and still skippable", halfHtml.includes("Applied · half size") && halfHtml.includes("Skip — size without gate") && !halfHtml.includes("Apply half size") && !halfHtml.includes("disabled") && /2 \/ 4 · half size · auto/.test(softHalf.RunnrTrendDay.stampHTML(halfRec, halfClock)));
+check("auto half log keeps the soft score", (function () {
+  const loggedHalf = softHalf.RunnrPretrade.logPlan({ ticker: "AAPL", dir: "long", entry: 200, stop: 190, target: 230 }, halfRails, softHalf.window.S.trades, friAfter);
+  return loggedHalf.ok && loggedHalf.row.trendDay && loggedHalf.row.trendDay.soft === true && loggedHalf.row.trendDay.applied === false && loggedHalf.row.trendDay.multiplier === 0.5;
+})());
+softHalf.RunnrTrendDay.toggleChecklist(friAfter);
+const overridden = softHalf.RunnrTrendDay.onCheck(1, friAfter);
+check("toggle to sit does not force 0 shares", overridden.userEdited === true && overridden.score === 1 && overridden.applied !== true && softHalf.RunnrTrendDay.riskMultiplier(friAfter) === 1);
+const sitOverrideHtml = softHalf.RunnrTrendDay.chipHTML(overridden, halfClock);
+check("sit after an override asks before zeroing", sitOverrideHtml.includes("Sit — no trade (0 size)") && sitOverrideHtml.includes("Skip — size without gate") && !sitOverrideHtml.includes("Applied ·"));
+const sitOverridePlan = softHalf.RunnrPretrade.computePlan({ ticker: "AAPL", dir: "long", entry: 200, stop: 190, target: 230 }, halfRails, [], friAfter);
+check("sit score still sizes until Apply sit", sitOverridePlan.size === 100 && sitOverridePlan.trendDaySit === false);
+const kept = softHalf.RunnrTrendDay.applyAutoSnapshot(demo, friAfter);
+check("user tap wins over a later 4/4 refresh", kept.userEdited === true && kept.checks[1] === false && kept.score === 1 && softHalf.RunnrTrendDay.riskMultiplier(friAfter) === 1 && softHalf.RunnrTrendDay.shouldShowChip(friAfter) === true);
+
+const softFullDesk = load({ withPretrade: true, loggedIn: true, email: "janis@example.com" });
+softFullDesk.RunnrTrendDay.resetForTests();
+const fullRec = softFullDesk.RunnrTrendDay.applyAutoSnapshot(demo, friAfter);
+const fullRails = softFullDesk.RunnrPretrade.normalizeRails(softFullDesk.window.S.pretrade, softFullDesk.window.S);
+const fullPlan = softFullDesk.RunnrPretrade.computePlan({ ticker: "AAPL", dir: "long", entry: 338.83, stop: 330, target: 360 }, fullRails, [], friAfter);
+check("signed-in auto 4/4 sizes without Apply", fullRec.score === 4 && fullRec.applied !== true && fullPlan.size > 0 && fullPlan.trendDayMult === 1 && fullPlan.trendDaySit === false && softFullDesk.RunnrTrendDay.shouldOpenOverlay(friAfter) === false);
+check("4/4 strip reopens an interactive checklist", softFullDesk.RunnrTrendDay.toggleChecklist(friAfter) === true && !softFullDesk.RunnrTrendDay.chipHTML(softFullDesk.RunnrTrendDay.todayRecord(friAfter), softFullDesk.RunnrTrendDay.clockOf(friAfter)).includes("disabled"));
+
+const manualHalf = load({ withPretrade: true });
+manualHalf.RunnrTrendDay.resetForTests();
+manualHalf.RunnrTrendDay.persistDraft([true, true, false, false], { userEdited: true }, friScore);
+const manualHtml = manualHalf.RunnrTrendDay.chipHTML(manualHalf.RunnrTrendDay.todayRecord(friScore), manualHalf.RunnrTrendDay.clockOf(friScore));
+check("manual half still waits for Apply", manualHalf.RunnrTrendDay.riskMultiplier(friScore) === 1 && manualHalf.RunnrTrendDay.softLive(manualHalf.RunnrTrendDay.todayRecord(friScore), manualHalf.RunnrTrendDay.clockOf(friScore)) === false && manualHtml.includes("Apply half size"));
+
+const offHalf = load({ withPretrade: true });
+offHalf.RunnrTrendDay.resetForTests();
+offHalf.RunnrTrendDay.applyAutoSnapshot(halfSnap, friOutside);
+const offHtml = offHalf.RunnrTrendDay.chipHTML(offHalf.RunnrTrendDay.todayRecord(friOutside), offHalf.RunnrTrendDay.clockOf(friOutside));
+check("after the close auto half stays optional 1×", offHalf.RunnrTrendDay.riskMultiplier(friOutside) === 1 && offHalf.RunnrTrendDay.shouldOpenOverlay(friOutside) === false && /size without gate/i.test(offHtml) && !offHtml.includes("Applied · half size"));
+
+const weekHalf = load({
+  withPretrade: true,
+  state: { bal: 10000, risk: 1, sym: "€", trades: [], pretrade: { maxRiskPct: 2, maxDailyLossPct: 5, minRR: 1.5 } },
+});
+weekHalf.RunnrTrendDay.resetForTests();
+weekHalf.RunnrTrendDay.applyAutoSnapshot(halfSnap, sat);
+const weekRails = { bal: 10000, maxRiskPct: 2, maxDailyLossPct: 5, minRR: 1.5, propDailyDDPct: 5, propMaxDDPct: 10, sym: "€" };
+const weekPlan = weekHalf.RunnrPretrade.computePlan({ ticker: "AAPL", dir: "long", entry: 336.13, stop: 326, target: 367 }, weekRails, [], sat);
+check("weekend visitor is not silently halved or zeroed", weekHalf.RunnrTrendDay.riskMultiplier(sat) === 1 && weekPlan.size > 0 && weekPlan.trendDayMult === 1 && weekPlan.trendDaySit === false);
+
+const reopen = load();
+reopen.RunnrTrendDay.resetForTests();
+reopen.RunnrTrendDay.applyAutoSnapshot(demo, friScore);
+reopen.RunnrTrendDay.apply({}, friScore);
+check("explicit apply still collapses to the strip", reopen.RunnrTrendDay.shouldShowChip(friScore) === false && reopen.RunnrTrendDay.shouldOpenOverlay(friScore) === false && /4 \/ 4 · full size · auto/.test(reopen.RunnrTrendDay.stampHTML(reopen.RunnrTrendDay.todayRecord(friScore), reopen.RunnrTrendDay.clockOf(friScore))));
+check("explicit apply strip still opens the checklist", reopen.RunnrTrendDay.toggleChecklist(friScore) === true && reopen.RunnrTrendDay.shouldOpenOverlay(friScore) === true);
+const reopenHtml = reopen.RunnrTrendDay.chipHTML(reopen.RunnrTrendDay.todayRecord(friScore), reopen.RunnrTrendDay.clockOf(friScore));
+check("reopened checklist still explains the four checks", reopenHtml.includes("Outside first-hour range") && reopenHtml.includes("Sit if 0–1 · half at 2 · full at 3–4"));
+
 (async function () {
   const tdfix = load({ location: { search: "?demo=1&tdfix=1", hash: "" } });
   tdfix.RunnrTrendDay.resetForTests();
@@ -538,6 +623,7 @@ check("Sunday without fixture does not auto-fill", weekendAuto.RunnrTrendDay.aut
   const liveRec = await live.RunnrTrendDay.hydrateAuto(friScore);
   check("RTH hydrate prefills from /quotes/trend-day", liveRec.score === 4 && liveRec.source === "auto" && liveRec.autoError === "");
   check("score-window auto fill stays interactive", liveRec.applied !== true && live.RunnrTrendDay.shouldShowChip(friScore) === true);
+  check("score-window auto full rests on the strip", live.RunnrTrendDay.shouldOpenOverlay(friScore) === false && live.RunnrTrendDay.riskMultiplier(friScore) === 1 && /4 \/ 4 · full size · auto/.test(live.RunnrTrendDay.stampHTML(liveRec, live.RunnrTrendDay.clockOf(friScore))));
   const flippedLive = live.RunnrTrendDay.onCheck(3, friScore);
   check("score-window toggle still works after auto fill", flippedLive.userEdited === true && flippedLive.checks[3] === false && flippedLive.applied !== true);
 

@@ -30,6 +30,7 @@
   let autoTimer = null;
   let autoInflight = null;
   let lastPointerUp = 0;
+  let chipOpen = false;
 
   function S() {
     return global.S || (global.window && global.window.S) || {};
@@ -293,6 +294,26 @@
     return "sit";
   }
 
+  /* Half/full from an Auto score counts immediately. Sit stays 0× only after an explicit Apply.
+     Optional hours stay at 1× so visitors are never silently zeroed. */
+  function softLive(rec, clock) {
+    if (!rec || rec.skipped || rec.applied) return false;
+    if (optionalClock(clock || clockOf())) return false;
+    if (!rec.autoChecks) return false;
+    const band = rec.band || bandOf(rec.score);
+    return band === "half" || band === "full";
+  }
+
+  function appliedQuiet(band) {
+    return band === "half" ? "Applied · half size" : "Applied · full size";
+  }
+
+  function stampTone(rec, clock) {
+    if (!rec || rec.skipped) return rec && rec.skipped ? "skipped" : "optional";
+    if (rec.applied || softLive(rec, clock || clockOf())) return "live";
+    return "optional";
+  }
+
   function sourceOf(rec) {
     if (!rec) return "";
     if (!rec.autoChecks) return rec.userEdited ? "manual" : (rec.source || "");
@@ -460,28 +481,39 @@
   }
 
   function shouldOpenOverlay(now) {
-    if (!shouldShowChip(now)) return false;
+    if (shouldYield()) return false;
+    if (chipOpen) return true;
+    const rec = todayRecord(now);
+    if (settled(rec)) return false;
     const clock = clockOf(now);
     if (optionalClock(clock)) return false;
+    if (softLive(rec, clock)) return false;
     return true;
   }
 
   function riskMultiplier(now) {
     const rec = todayRecord(now);
-    if (!rec || rec.skipped || !rec.applied) return 1;
-    const m = Number(rec.multiplier);
-    return Number.isFinite(m) && m >= 0 ? m : 1;
+    if (!rec || rec.skipped) return 1;
+    if (rec.applied) {
+      const m = Number(rec.multiplier);
+      return Number.isFinite(m) && m >= 0 ? m : 1;
+    }
+    if (softLive(rec, clockOf(now))) return multiplierOf(rec.score);
+    return 1;
   }
 
   function planMeta(now) {
     const rec = todayRecord(now);
-    if (!rec.applied && !rec.skipped) return null;
+    const soft = softLive(rec, clockOf(now));
+    if (!rec.applied && !rec.skipped && !soft) return null;
+    const multiplier = rec.skipped ? 1 : (rec.applied ? Number(rec.multiplier) : multiplierOf(rec.score));
     return {
       date: rec.date,
       score: rec.score,
       band: rec.skipped ? "skip" : rec.band,
-      multiplier: rec.skipped ? 1 : rec.multiplier,
+      multiplier: multiplier,
       applied: !!rec.applied,
+      soft: !!soft,
       skipped: !!rec.skipped,
       skipReason: rec.skipReason || "",
       checks: rec.checks.slice(),
@@ -763,6 +795,7 @@
 
   function applyAutoSnapshot(snap, now, opts) {
     const o = opts || {};
+    const before = riskMultiplier(now);
     const rec = todayRecord(now);
     if (settled(rec) || !snap || !snap.checks) return rec;
     const next = rec.userEdited ? rec.checks : normalizeChecks(snap.checks);
@@ -777,7 +810,8 @@
       },
     }, now);
     if (snap.date) autoStoreSet({ date: snap.date, snap: snap, locked: !!snap.locked, fetchedAt: Date.now() });
-    paintChip();
+    if (riskMultiplier(now) !== before) refreshSizer();
+    paint();
     return todayRecord(now);
   }
 
@@ -940,6 +974,7 @@
     rec.date = clock.date;
     rec.schema = SCHEMA;
     storageSet(rec);
+    chipOpen = false;
     draftScope = bookScope();
     draftChecks = rec.checks.slice();
     if (typeof global.persist === "function") {
@@ -969,6 +1004,7 @@
     rec.date = clock.date;
     rec.schema = SCHEMA;
     storageSet(rec);
+    chipOpen = false;
     if (typeof global.persist === "function") {
       try { global.persist(); } catch (e) {}
     }
@@ -978,13 +1014,8 @@
   }
 
   function maybeAutoApply(now) {
-    const clock = clockOf(now);
-    const rec = todayRecord(now);
-    if (settled(rec) || rec.userEdited) return rec;
-    if (!autoEligible(clock)) return rec;
-    if (!rec.autoChecks) return rec;
-    if (rec.score < 2 || rec.band === "sit") return rec;
-    return apply({ auto: true }, now);
+    /* Derived in softLive / riskMultiplier. Do not set applied or locked — that froze the chip. */
+    return todayRecord(now);
   }
 
   function refreshSizer() {
@@ -1051,6 +1082,7 @@
       );
     }).join("");
     const primary = primaryAction(rec, clock);
+    const soft = softLive(rec, clock);
     const quarter = band === "sit" && !locked
       ? '<button type="button" class="td-quarter" id="td-quarter">Use 0.25×</button>'
       : "";
@@ -1062,9 +1094,12 @@
     const sitQuiet = !locked && band === "sit" && primary === "skip"
       ? '<button type="button" class="td-sit" id="td-apply">Sit — no trade (0 size)</button>'
       : "";
-    const cta = locked || sitQuiet
+    const cta = locked || sitQuiet || soft
       ? ""
       : '<button type="button" class="td-cta" id="td-apply">' + ctaLabel(band) + "</button>";
+    const appliedNote = soft
+      ? '<p class="td-applied" id="td-applied">' + appliedQuiet(band) + "</p>"
+      : "";
     const hint = optionalClock(clock)
       ? "Optional now — size is not gated until you sit"
       : "Sit if 0–1 · half at 2 · full at 3–4";
@@ -1074,6 +1109,7 @@
       autoLineHTML(rec) +
       (label ? '<div class="td-clock" id="trend-day-clock">' + label + "</div>" : '<div class="td-clock" id="trend-day-clock" hidden></div>') +
       '<div class="td-checks" role="group" aria-label="Trend day checks">' + checks + "</div>" +
+      appliedNote +
       cta +
       quarter +
       skipBtn +
@@ -1087,12 +1123,12 @@
     if (rec.skipped) {
       return "Trend day check · skipped · sized without gate";
     }
-    if (rec.applied) {
+    const c = clock || clockOf();
+    if (rec.applied || softLive(rec, c)) {
       const extra = rec.band === "sit" && rec.multiplier === 0.25 ? " · 0.25×" : (rec.band === "sit" ? " · 0 size" : "");
       const src = rec.source === "auto" ? " · auto" : rec.source === "mixed" ? " · edited" : "";
       return "Trend day check · " + statusText(rec.score, rec.band) + extra + src;
     }
-    const c = clock || clockOf();
     if (optionalClock(c)) {
       const when = c.outsideRth ? "Outside RTH" : "before 10:00 ET";
       return "Trend day check · optional · " + when + " — size not gated";
@@ -1128,9 +1164,13 @@
   function paintStamp() {
     const el = stampEl();
     if (!el) return;
+    const setAttr = function (k, v) {
+      if (typeof el.setAttribute === "function") el.setAttribute(k, v);
+    };
     if (shouldYield()) {
       el.hidden = true;
       el.textContent = "";
+      setAttr("aria-expanded", "false");
       return;
     }
     const rec = todayRecord();
@@ -1139,11 +1179,24 @@
     if (!copy) {
       el.hidden = true;
       el.textContent = "";
+      setAttr("aria-expanded", "false");
       return;
     }
     el.hidden = false;
     el.textContent = copy;
-    el.className = "pt-trend-stamp" + (rec.skipped ? " skipped" : rec.applied ? "" : " optional");
+    el.className = "pt-trend-stamp " + stampTone(rec, clock);
+    setAttr("aria-expanded", chipOpen ? "true" : "false");
+    setAttr("aria-controls", "trend-day-chip");
+  }
+
+  function toggleChecklist(now) {
+    if (shouldYield()) return false;
+    const rec = todayRecord(now);
+    const clock = clockOf(now);
+    if (!stampHTML(rec, clock) && !chipOpen) return false;
+    chipOpen = !chipOpen;
+    paint();
+    return chipOpen;
   }
 
   function paint() {
@@ -1173,10 +1226,13 @@
   function onCheck(index, now) {
     const rec = todayRecord(now);
     if (settled(rec)) return rec;
+    chipOpen = true;
+    const before = riskMultiplier(now);
     const next = rec.checks.slice();
     next[index] = !next[index];
     persistDraft(next, { userEdited: true }, now);
-    paintChip();
+    if (riskMultiplier(now) !== before) refreshSizer();
+    paint();
     return todayRecord(now);
   }
 
@@ -1218,10 +1274,8 @@
       page.addEventListener("click", function (e) {
         const stamp = e.target && e.target.closest ? e.target.closest("#pt-trend-stamp") : null;
         if (!stamp) return;
-        const rec = todayRecord();
-        if (settled(rec) || shouldYield()) return;
-        paintChip();
-        setOverlayOpen(true);
+        e.preventDefault();
+        toggleChecklist();
       });
     }
   }
@@ -1235,6 +1289,7 @@
     }
     autoTimer = null;
     lastPointerUp = 0;
+    chipOpen = false;
     try {
       if (global.localStorage) {
         const drop = [KEY, AUTO_KEY, storageKey(), storageKey("sample"), storageKey("auth")];
@@ -1285,6 +1340,10 @@
     shouldYield,
     optionalClock,
     primaryAction,
+    softLive,
+    appliedQuiet,
+    stampTone,
+    toggleChecklist,
     isAccidentalSit,
     migrateRecord,
     maybeAutoApply,
