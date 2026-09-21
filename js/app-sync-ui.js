@@ -3,14 +3,45 @@
  * Extracted from index.html (slice 1). Classic script; globals kept for onclick=.
  */
 // ── BROKER SYNC (Runnr API) ───────────────────────────────────────────────
-var brokers = [
-  { code: 'Alpaca', bg: '#f5d542', color: '#000', live: true },
-  { code: 'IBKR', bg: '#cc0000', color: '#fff', live: true, kind: 'flex' },
-  { code: 'Trading 212', bg: '#00a7e1', color: '#fff', live: true, csv: true },
-  { code: 'eToro', bg: '#6FCF97', color: '#000', csv: true },
-  { code: 'Degiro', bg: '#e30613', color: '#fff', csv: true },
-  { code: 'Schwab', bg: '#00a0df', color: '#fff', csv: true },
-];
+function catalogBrokers() {
+  return (typeof RunnrBrokers !== 'undefined' && typeof RunnrBrokers.list === 'function')
+    ? RunnrBrokers.list()
+    : [];
+}
+var brokers = catalogBrokers();
+
+function brokerByCode(code) {
+  if (typeof RunnrBrokers !== 'undefined' && typeof RunnrBrokers.byCode === 'function') {
+    return RunnrBrokers.byCode(code);
+  }
+  return catalogBrokers().find((b) => b.code === code) || null;
+}
+
+function brokerLogoHtml(b) {
+  if (typeof RunnrBrokers !== 'undefined' && typeof RunnrBrokers.logoHtml === 'function') {
+    return RunnrBrokers.logoHtml(b);
+  }
+  return `<div class="bk-logo" style="background:${b.bg};color:${b.color}">${b.mark || b.name}</div>`;
+}
+
+function connectedBrokerIds() {
+  RunnrSync.ensureBrokerState();
+  const a = (window.S && S.brokerSync && S.brokerSync.alpaca) || {};
+  const ib = (window.S && S.brokerSync && S.brokerSync.ibkr) || {};
+  const t212 = (window.S && S.brokerSync && S.brokerSync.t212) || {};
+  return {
+    alpaca: !!a.connected,
+    ibkr: !!ib.connected,
+    t212: !!t212.connected,
+  };
+}
+
+function brokerParadeHtml() {
+  if (typeof RunnrBrokers !== 'undefined' && typeof RunnrBrokers.paradeHtml === 'function') {
+    return RunnrBrokers.paradeHtml(connectedBrokerIds());
+  }
+  return '';
+}
 
 var csvPresetId = 'auto';
 
@@ -43,11 +74,11 @@ function renderAvailableBrokers() {
     const t212Linked = !!(S.brokerSync && S.brokerSync.t212 && S.brokerSync.t212.connected);
     const hasLocal = typeof RunnrSync.hasLocalAlpaca === 'function' && RunnrSync.hasLocalAlpaca();
     const loggedIn = typeof RunnrSync.isLoggedIn === 'function' && RunnrSync.isLoggedIn();
-    el.innerHTML = brokers.map(b => {
+    el.innerHTML = catalogBrokers().map(b => {
       let badge = '+ Connect';
       let badgeCls = 'bk-available';
       let status = b.live ? 'Read-only sync available' : (b.csv ? 'CSV preset on Sync page' : 'Coming soon — CSV import works today');
-      if (b.code === 'Alpaca') {
+      if (b.id === 'alpaca') {
         if (alpacaLinked) {
           badge = '● Connected';
           badgeCls = 'bk-synced';
@@ -55,7 +86,7 @@ function renderAvailableBrokers() {
           badge = '↻ Reconnect';
           badgeCls = 'bk-synced';
         }
-      } else if (b.code === 'IBKR') {
+      } else if (b.id === 'ibkr') {
         if (ibkrLinked) {
           badge = '● Connected';
           badgeCls = 'bk-synced';
@@ -63,7 +94,7 @@ function renderAvailableBrokers() {
         } else {
           status = 'Flex token · read-only';
         }
-      } else if (b.code === 'Trading 212') {
+      } else if (b.id === 't212') {
         if (t212Linked) {
           badge = '● Connected';
           badgeCls = 'bk-synced';
@@ -78,8 +109,8 @@ function renderAvailableBrokers() {
       }
       return `
   <div class="broker-card" onclick="connectBroker('${b.code}')">
-    <div class="bk-logo" style="background:${b.bg};color:${b.color}">${b.code.slice(0,4)}</div>
-    <div class="bk-info"><div class="bk-name">${b.code}</div><div class="bk-status">${status}</div></div>
+    ${brokerLogoHtml(b)}
+    <div class="bk-info"><div class="bk-name">${b.name}</div><div class="bk-status">${status}</div></div>
     <div class="bk-badge ${badgeCls}">${badge}</div>
   </div>`;
     }).join('');
@@ -354,14 +385,17 @@ function renderConnectedBrokers() {
   const ib = S.brokerSync.ibkr || {};
   const t212 = S.brokerSync.t212 || {};
   const cards = [];
+  const alpaca = brokerByCode('Alpaca') || { name: 'Alpaca', mark: 'ALP', bg: '#f5d542', color: '#000' };
+  const ibkr = brokerByCode('IBKR') || { name: 'IBKR', mark: 'IBKR', bg: '#cc0000', color: '#fff' };
+  const t212b = brokerByCode('Trading 212') || { name: 'Trading 212', mark: 'T212', bg: '#00a7e1', color: '#fff' };
 
   if (a.connected) {
     const ago = RunnrSync.formatAgo(a.lastSync);
     const eq = a.equity != null ? ('$' + Math.round(a.equity).toLocaleString()) : '—';
     cards.push(`<div class="broker-card" style="cursor:default;margin-bottom:8px">
-      <div class="bk-logo" style="background:#f5d542;color:#000">ALP</div>
+      ${brokerLogoHtml(alpaca)}
       <div class="bk-info">
-        <div class="bk-name">Alpaca ${a.paper !== false ? 'Paper' : 'Live'}</div>
+        <div class="bk-name">${alpaca.name} ${a.paper !== false ? 'Paper' : 'Live'}</div>
         <div class="bk-status">${eq} · ${a.positionCount ?? 0} positions · Last sync ${ago}</div>
       </div>
       <div class="bk-badge bk-synced">● Live</div>
@@ -376,7 +410,7 @@ function renderConnectedBrokers() {
   if (ib.connected) {
     const ago = RunnrSync.formatAgo(ib.lastSync);
     cards.push(`<div class="broker-card" style="cursor:default;margin-bottom:8px">
-      <div class="bk-logo" style="background:#cc0000;color:#fff">IBKR</div>
+      ${brokerLogoHtml(ibkr)}
       <div class="bk-info">
         <div class="bk-name">IBKR Flex</div>
         <div class="bk-status">${ib.imported || 0} fills imported · Last sync ${ago}</div>
@@ -388,9 +422,9 @@ function renderConnectedBrokers() {
   if (t212.connected) {
     const ago = RunnrSync.formatAgo(t212.lastSync);
     cards.push(`<div class="broker-card" style="cursor:default;margin-bottom:8px">
-      <div class="bk-logo" style="background:#00a7e1;color:#fff">T212</div>
+      ${brokerLogoHtml(t212b)}
       <div class="bk-info">
-        <div class="bk-name">Trading 212</div>
+        <div class="bk-name">${t212b.name}</div>
         <div class="bk-status">${t212.imported || 0} fills imported · Last sync ${ago}</div>
       </div>
       <div class="bk-badge bk-synced">● Live</div>
@@ -413,20 +447,52 @@ function renderHomeBrokerPreview() {
   if (!el) return;
   RunnrSync.ensureBrokerState();
   const a = S.brokerSync.alpaca || {};
-  if (!a.connected) {
-    el.innerHTML = `<div style="font-size:12px;color:var(--text3)">No broker connected. <span style="color:var(--accent);cursor:pointer" onclick="switchPage('sync')">Connect Alpaca →</span></div>`;
-    return;
+  const ib = S.brokerSync.ibkr || {};
+  const t212 = S.brokerSync.t212 || {};
+  const alpaca = brokerByCode('Alpaca') || { name: 'Alpaca', mark: 'ALP', bg: '#f5d542', color: '#000' };
+  const ibkr = brokerByCode('IBKR') || { name: 'IBKR', mark: 'IBKR', bg: '#cc0000', color: '#fff' };
+  const t212b = brokerByCode('Trading 212') || { name: 'Trading 212', mark: 'T212', bg: '#00a7e1', color: '#fff' };
+  const cards = [];
+
+  if (a.connected) {
+    const ago = RunnrSync.formatAgo(a.lastSync);
+    cards.push(`<div class="broker-card" style="cursor:default">
+      ${brokerLogoHtml(alpaca)}
+      <div class="bk-info">
+        <div class="bk-name">${alpaca.name} ${a.paper !== false ? 'Paper' : 'Live'}</div>
+        <div class="bk-status">Last sync ${ago} · ${a.imported || 0} trades imported</div>
+      </div>
+      <div class="bk-badge bk-synced">● Live</div>
+    </div>`);
   }
-  const ago = RunnrSync.formatAgo(a.lastSync);
-  el.innerHTML = `<div class="broker-card" style="cursor:default">
-    <div class="bk-logo" style="background:#f5d542;color:#000">ALP</div>
-    <div class="bk-info">
-      <div class="bk-name">Alpaca Paper</div>
-      <div class="bk-status">Last sync ${ago} · ${a.imported || 0} trades imported</div>
-    </div>
-    <div class="bk-badge bk-synced">● Live</div>
-  </div>
-  <div style="font-size:11px;color:var(--text3);margin-top:4px"><span style="color:var(--accent);cursor:pointer" onclick="runBrokerSync()">Refresh now</span></div>`;
+  if (ib.connected) {
+    const ago = RunnrSync.formatAgo(ib.lastSync);
+    cards.push(`<div class="broker-card" style="cursor:default">
+      ${brokerLogoHtml(ibkr)}
+      <div class="bk-info">
+        <div class="bk-name">IBKR Flex</div>
+        <div class="bk-status">Last sync ${ago} · ${ib.imported || 0} fills imported</div>
+      </div>
+      <div class="bk-badge bk-synced">● Live</div>
+    </div>`);
+  }
+  if (t212.connected) {
+    const ago = RunnrSync.formatAgo(t212.lastSync);
+    cards.push(`<div class="broker-card" style="cursor:default">
+      ${brokerLogoHtml(t212b)}
+      <div class="bk-info">
+        <div class="bk-name">${t212b.name}</div>
+        <div class="bk-status">Last sync ${ago} · ${t212.imported || 0} fills imported</div>
+      </div>
+      <div class="bk-badge bk-synced">● Live</div>
+    </div>`);
+  }
+
+  const anyLive = !!(a.connected || ib.connected || t212.connected);
+  const empty = anyLive
+    ? `<div style="font-size:11px;color:var(--text3);margin:6px 0 2px"><span style="color:var(--accent);cursor:pointer" onclick="runBrokerSync()">Refresh now</span></div>`
+    : `<div class="broker-empty">No broker connected. Tap a name to connect or import CSV.</div>`;
+  el.innerHTML = cards.join('') + empty + brokerParadeHtml();
 }
 
 function renderT212JournalButton() {
@@ -877,20 +943,16 @@ async function connectBroker(name) {
     openT212Modal();
     return;
   }
-  const csvMap = {
-    eToro: 'etoro',
-    Degiro: 'degiro',
-    Schwab: 'schwab',
-  };
-  if (csvMap[name]) {
-    setCsvPreset(csvMap[name]);
+  const b = brokerByCode(name);
+  if (b && b.csvPreset && !b.live) {
+    setCsvPreset(b.csvPreset);
     switchPage('sync');
     const zone = document.getElementById('csv-drop-zone');
     if (zone) zone.scrollIntoView({ behavior: 'smooth', block: 'center' });
-    showToast('Runnr', name + ' — pick CSV preset, then upload export');
+    showToast('Runnr', b.name + ' — pick CSV preset, then upload export');
     return;
   }
-  alert(name + ' coming soon.\n\nUse Alpaca or IBKR Flex today, or import trades via CSV on the Sync page.');
+  alert((b && b.name ? b.name : name) + ' coming soon.\n\nUse Alpaca, IBKR Flex, or Trading 212 today, or import trades via CSV on the Sync page.');
 }
 
 async function openIbkrModal() {

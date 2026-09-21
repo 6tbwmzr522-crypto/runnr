@@ -265,7 +265,13 @@
 /* ── BROKER SYNC ── */
 .broker-card{background:rgba(245,242,236,0.02);border:1px solid var(--border);border-radius:var(--r-sm);padding:12px;margin-bottom:8px;display:flex;align-items:center;gap:12px;cursor:pointer;transition:border-color 0.2s,background 0.2s}
 .broker-card:hover{border-color:var(--border-strong);background:rgba(201,169,110,0.04)}
-.broker-card .bk-logo{width:36px;height:36px;border-radius:6px;display:flex;align-items:center;justify-content:center;font-family:var(--font-body);font-size:10px;font-weight:500;flex-shrink:0;letter-spacing:0.08em}
+.broker-card .bk-logo{width:auto;min-width:40px;max-width:4.6em;height:auto;min-height:36px;padding:4px 6px;border-radius:6px;display:flex;align-items:center;justify-content:center;font-family:var(--font-body);font-size:9px;font-weight:500;flex-shrink:0;letter-spacing:0.04em;line-height:1.15;text-align:center;white-space:normal;overflow:visible;word-break:normal;hyphens:none}
+.broker-chip-parade{display:flex;flex-wrap:wrap;gap:6px;margin-top:8px}
+.broker-chip{display:inline-flex;align-items:center;justify-content:center;max-width:100%;padding:6px 10px;border:1px solid var(--border);border-radius:12px;background:var(--surface2);color:var(--text);font-family:var(--font-body);font-size:11px;font-weight:500;line-height:1.25;letter-spacing:0.02em;white-space:normal;overflow:visible;text-overflow:clip;word-break:normal;overflow-wrap:normal;hyphens:none;text-align:center;cursor:pointer}
+.broker-chip.live{border-color:rgba(0,229,160,0.35)}
+.broker-chip.csv{border-color:var(--border-strong)}
+.broker-chip.on{background:var(--accent-dim);border-color:var(--accent);color:var(--accent)}
+.broker-empty{font-size:12px;color:var(--text3);line-height:1.4}
 .broker-card .bk-info{flex:1}
 .broker-card .bk-name{font-weight:400;font-size:14px;letter-spacing:0.02em}
 .broker-card .bk-status{font-size:11px;color:var(--text3);margin-top:2px;font-weight:300}

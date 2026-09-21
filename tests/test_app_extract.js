@@ -37,7 +37,7 @@ appFiles.forEach((f) => {
     : f === "js/app-watchlist.js" ? "?v=3"
     : f === "js/app-quotes.js" ? "?v=2"
     : f === "js/app-coach-page.js" ? "?v=2"
-    : f === "js/app-sync-ui.js" ? "?v=2"
+    : f === "js/app-sync-ui.js" ? "?v=3"
     : "?v=1";
   check(f + " is loaded with cache-bust", html.includes(f + pin));
   check(f + " is in the script list", scripts.includes(f));
