@@ -238,7 +238,6 @@ const RunnrIntro = {
     const skip = document.getElementById("intro-skip");
     const unmute = document.getElementById("intro-unmute");
     const video = document.getElementById("intro-video");
-    const missing = document.getElementById("intro-missing");
     this.paintSkip();
     if (unmute && !unmute.textContent) unmute.textContent = this.SOUND_LABEL;
     if (skip && !skip.dataset.bound) {
@@ -268,14 +267,15 @@ const RunnrIntro = {
       if (!video.getAttribute("poster")) video.setAttribute("poster", this.POSTER);
       video.addEventListener("ended", () => this.finish(typeof window !== "undefined" ? window.S : null));
       video.addEventListener("error", () => {
-        if (video.dataset.triedAlt !== "1") {
+        if (video.dataset.triedAlt !== "1" && this.VIDEO_ALT && video.getAttribute("src") !== this.VIDEO_ALT) {
           video.dataset.triedAlt = "1";
           video.src = this.VIDEO_ALT;
           const play = video.play();
           if (play && typeof play.catch === "function") play.catch(() => {});
           return;
         }
-        if (missing) missing.hidden = false;
+        // Quiet skip. Never surface a missing-file or parent path in the UI.
+        this.skip(typeof window !== "undefined" ? window.S : null);
       });
     }
   },

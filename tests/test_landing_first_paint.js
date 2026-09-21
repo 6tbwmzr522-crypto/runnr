@@ -17,7 +17,7 @@ const v = html.match(/var V = "(\d+)"/)[1];
 const cache = sw.match(/CACHE = "runnr-v(\d+)"/)[1];
 check("index.html V matches sw.js CACHE", v === cache);
 check("onboarding cache-bust", html.includes("js/onboarding.js?v=40"));
-check("demo sandbox is loaded", html.includes("js/demo-sandbox.js?v=22"));
+check("demo sandbox is loaded", html.includes("js/demo-sandbox.js?v=23"));
 check("demo chrome is persistent on the guest desk", html.includes('id="demo-chrome"') && html.includes('id="demo-chrome-cta"') && html.includes("SAMPLE · not your book"));
 check("demo=1 skips the first-paint hook", html.includes("demo=1") && /runnr_hook_v1[\s\S]*demo=1|demo=1[\s\S]*runnr_hook_v1/.test(html));
 
@@ -55,8 +55,8 @@ check("init no longer always starts feeds", src.includes("startMarketFeedsIfAllo
 check("fear-greed fetch bails for guests", /async function fetchFearGreed\(\) \{\s*if \(isGuestLanding\(\)\) return;/.test(src));
 check("home markets fetch bails for guests", /async function refreshHomeMarkets\(\) \{\s*if \(isGuestLanding\(\)\) return;/.test(src));
 
-check("email/password login kept", fs.readFileSync(path.join(root, "login.html"), "utf8").includes('id="signin-form"'));
-check("login page states 7-day trial", fs.readFileSync(path.join(root, "login.html"), "utf8").includes("7-day trial"));
+check("email/password login kept", fs.readFileSync(path.join(root, "sign-in/index.html"), "utf8").includes('id="signin-form"'));
+check("login page states 7-day trial", fs.readFileSync(path.join(root, "sign-in/index.html"), "utf8").includes("7-day trial"));
 check("report is gated to trial or Pro", fs.readFileSync(path.join(root, "report/index.html"), "utf8").includes("Start your 7-day trial") && fs.readFileSync(path.join(root, "report/index.html"), "utf8").includes("/api/v1/auth/me"));
 check("report expired CTA hits billing=upgrade", fs.readFileSync(path.join(root, "report/index.html"), "utf8").includes("/?billing=upgrade"));
 check("app handles billing=upgrade", src.includes("billing=upgrade") && /openUpgrade\(['"]Your 7-day trial has ended['"]\)/.test(src));

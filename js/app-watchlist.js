@@ -527,6 +527,7 @@ async function refreshHomeMarkets() {
   homeMarketsRefreshing = true;
   try {
   const stamp = document.getElementById('home-markets-updated');
+  if (stamp) stamp.textContent = '↻ Loading…';
   const all = [...HOME_MARKETS.indices, ...HOME_MARKETS.commodities];
   paintHomeMarkets();
   const need = all.filter((item) => {

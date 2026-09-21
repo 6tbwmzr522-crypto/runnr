@@ -28,6 +28,7 @@ const leftoverRe = /10 journal trades|5 journal trades|free 5-trade|free 10-trad
   ["app js", src],
   ["i18n.js", i18nSrc],
   ["login.html", loginHtml],
+  ["sign-in/index.html", fs.readFileSync(path.join(root, "sign-in/index.html"), "utf8")],
   ["report/index.html", reportHtml],
   ["onboarding.js", obSrc],
   ["trade-limit.js", limitSrc],

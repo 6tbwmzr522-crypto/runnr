@@ -28,7 +28,6 @@ const sitemap = read("sitemap.xml");
 [
   "https://runnr.fyi/",
   "https://runnr.fyi/sample/",
-  "https://runnr.fyi/login.html",
   "https://runnr.fyi/sign-in/",
   "https://runnr.fyi/report/",
   "https://runnr.fyi/privacy/",
@@ -43,15 +42,17 @@ check("Pages copies sign-in aliases", pagesYml.includes("sign-in") && pagesYml.i
 
 function assertAlias(rel) {
   const src = read(rel);
-  check(rel + " redirects to login.html", src.includes('location.replace("/login.html"') && src.includes("location.search"));
-  check(rel + " keeps a real href", /href="\/login\.html"/.test(src));
-  check(rel + " canonical is login.html", src.includes('href="https://runnr.fyi/login.html"'));
+  check(rel + " redirects to /sign-in/", src.includes('location.replace("/sign-in/"') && src.includes("location.search"));
+  check(rel + " keeps a real href", /href="\/sign-in\/"/.test(src));
+  check(rel + " canonical is /sign-in/", src.includes('href="https://runnr.fyi/sign-in/"'));
+  check(rel + " is noindex", src.includes('name="robots" content="noindex"'));
 }
-assertAlias("sign-in/index.html");
+assertAlias("login.html");
 assertAlias("signin/index.html");
 assertAlias("start/index.html");
+check("sitemap omits login.html", !sitemap.includes("login.html"));
 
-const login = read("login.html");
+const login = read("sign-in/index.html");
 const i18n = read("js/i18n.js");
 const apology = /works reliably on iPhone|freeze on Safari|Simple sign-in for iPhone|Use the sign-in page — it works|in-app form can freeze/i;
 check("home has no iPhone workaround apology", !apology.test(html));
@@ -63,6 +64,9 @@ check("header Sign in is a real /sign-in href", /id="header-sync-pill"[^>]*href=
 check("hook Start free is a real /sign-in href", /id="ob-hook-start"[^>]*href="\/sign-in"/.test(html));
 check("demo chrome CTA is a real /sign-in href", /id="demo-chrome-cta"[^>]*href="\/sign-in"/.test(html));
 check("home landing pitch is static HTML", html.includes("Trading discipline, not a broker") && html.includes("Sizer, journal, score, streak, and session wave"));
-check("login form still lives on login.html", login.includes('id="signin-form"') && login.includes("7-day trial"));
+check("login form lives on /sign-in/", login.includes('id="signin-form"') && login.includes("7-day trial") && login.includes('rel="canonical" href="https://runnr.fyi/sign-in/"'));
+check("sign-in script is root-relative", login.includes('src="/js/visit.js?v=1"'));
+check("home has no crawler spinner copy", !html.includes("Fetching CNN Fear") && !html.includes("↻ Loading") && !html.includes(">LOADING<") && !html.includes("Fetching prices...") && !html.includes("Loading market data"));
+check("fear and greed first paint is static", html.includes("CNN Fear &amp; Greed is a mood gauge for the session."));
 
 console.log("test_seo_trust: ok");

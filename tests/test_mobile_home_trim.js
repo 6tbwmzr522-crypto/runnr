@@ -85,7 +85,7 @@ check("SAMPLE keep-score OAuth wall is intact",
   html.includes('id="modal-sample-keep"')
   && html.includes("Continue with Google")
   && html.includes("Continue with Apple")
-  && html.includes("/login.html?keep=1"));
+  && html.includes("/sign-in?keep=1"));
 check("intro video overlay is intact",
   html.includes('id="intro-overlay"')
   && html.includes("/media/runnr-intro-email-wall.mp4"));

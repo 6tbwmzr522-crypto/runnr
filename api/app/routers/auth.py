@@ -314,7 +314,7 @@ def _oauth_error_page(message: str, status_code: int = 503) -> HTMLResponse:
 <style>body{{font-family:-apple-system,sans-serif;background:#080c12;color:#f5f2ec;padding:32px;max-width:440px;margin:0 auto;line-height:1.5}}
 a{{color:#C9A96E}}</style></head>
 <body><h1>runnr</h1><p>{message}</p>
-<p><a href="https://runnr.fyi/login.html">Back to sign in</a></p></body></html>"""
+<p><a href="https://runnr.fyi/sign-in/">Back to sign in</a></p></body></html>"""
     return HTMLResponse(body, status_code=status_code)
 
 

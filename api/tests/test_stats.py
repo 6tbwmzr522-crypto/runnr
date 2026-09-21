@@ -175,7 +175,7 @@ def test_stats_html_is_gated():
     html = (ROOT / "stats.html").read_text(encoding="utf-8")
     assert 'name="robots" content="noindex' in html
     assert "This page is only for Janis" in html
-    assert "/login.html?next=/stats.html" in html
+    assert "/sign-in?next=/stats.html" in html
     assert "runnr_api_token" in html
     assert "Bearer" in html
     assert "/api/v1/admin/funnel" in html
@@ -291,7 +291,7 @@ def test_funnel_counts_signed_in_journals():
 
 
 def test_public_legal_and_login_footers_omit_stats():
-    for rel in ("login.html", "privacy/index.html", "terms/index.html", "refund/index.html"):
+    for rel in ("login.html", "sign-in/index.html", "privacy/index.html", "terms/index.html", "refund/index.html"):
         html = (ROOT / rel).read_text(encoding="utf-8")
         assert 'href="/stats.html"' not in html, rel
 
@@ -314,7 +314,7 @@ def test_app_hides_stats_link_until_janis():
     assert "from app.billing_util import" not in stats_py
     assert "email_is_boss(" not in stats_py
     assert "/admin/funnel" in stats_py
-    login = (ROOT / "login.html").read_text(encoding="utf-8")
+    login = (ROOT / "sign-in/index.html").read_text(encoding="utf-8")
     assert "safeNextPath" in login
     assert 'get("next")' in login
 
@@ -327,7 +327,7 @@ PERSONAL_EMAILS = (
 
 
 def test_public_js_omits_personal_house_emails():
-    for rel in ("js/sync.js", "login.html", "js/desk.js"):
+    for rel in ("js/sync.js", "sign-in/index.html", "login.html", "js/desk.js"):
         text = (ROOT / rel).read_text(encoding="utf-8").lower()
         for email in PERSONAL_EMAILS:
             assert email not in text, f"{rel} still publishes {email}"
@@ -365,7 +365,7 @@ def test_me_exposes_house_and_stats_flags_not_emails():
 
 
 def test_login_html_uses_emailed_token_reset():
-    html = (ROOT / "login.html").read_text(encoding="utf-8")
+    html = (ROOT / "sign-in/index.html").read_text(encoding="utf-8")
     assert "/api/v1/auth/forgot-password" in html
     assert "/api/v1/auth/reset-password" in html
     assert "token: resetToken" in html

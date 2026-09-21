@@ -23,7 +23,7 @@ const v = html.match(/var V = "(\d+)"/)[1];
 const cache = sw.match(/CACHE = "runnr-v(\d+)"/)[1];
 check("index.html V matches sw.js CACHE", v === cache);
 check("cache is 166+", Number(v) >= 166);
-check("intro.js cache-busted", html.includes("js/intro.js?v=5"));
+check("intro.js cache-busted", html.includes("js/intro.js?v=6"));
 check("intro overlay markup", html.includes('id="intro-overlay"') && html.includes('id="intro-skip"'));
 check("intro video is the email-wall cut", html.includes("/media/runnr-intro-email-wall.mp4") && introSrc.includes("/media/runnr-intro-email-wall.mp4"));
 check("intro poster is in the repo path", html.includes("/media/runnr-intro-email-wall.jpg") && introSrc.includes("/media/runnr-intro-email-wall.jpg"));
@@ -32,6 +32,8 @@ check("intro poster is in media/", fs.existsSync(path.join(root, "media/runnr-in
 check("intro overlay starts hidden", /id="intro-overlay"[^>]*hidden/.test(html));
 check("intro overlay is not parked", !html.includes("intro-parked"));
 check("skip copy is skip to save your score", html.includes("Skip to save your score") && introSrc.includes("Skip to save your score"));
+check("dev missing-file note is not in the page", !html.includes("Intro file is missing") && !html.includes("Parent:") && !html.includes('id="intro-missing"'));
+check("intro.js does not reveal a missing-file note", !introSrc.includes("intro-missing") && introSrc.includes("this.skip("));
 check("tap for sound copy", html.includes("Tap for sound") && introSrc.includes("Tap for sound"));
 check("keep-score has no replay", !html.includes('id="sample-keep-replay"') && !html.slice(html.indexOf('id="modal-sample-keep"'), html.indexOf('id="modal-share"')).includes("Watch how Runnr works"));
 check("landing has quiet watch", html.includes('id="sample-hero-watch"') && html.includes("Watch how Runnr works"));
@@ -42,7 +44,7 @@ check("public hook is a different overlay", html.includes('id="onboarding-overla
 check("logged-out hook copy has no walkthrough video", !html.slice(html.indexOf('id="onboarding-overlay"'), html.indexOf("ob-hook-report")).includes("intro-video"));
 check("tmp-reply-video spy-ad not used", !html.includes("tmp-reply-video") && !introSrc.includes("tmp-reply-video") && !introSrc.includes("spy"));
 check("chip tour is not forced with the video", introSrc.includes("tourBlocksVideo") && introSrc.includes("tour=1") && sandboxSrc.includes("tourWantsChipPath"));
-const login = fs.readFileSync(path.join(root, "login.html"), "utf8");
+const login = fs.readFileSync(path.join(root, "sign-in/index.html"), "utf8");
 check("login has Google + Apple buttons", login.includes("Continue with Google") && login.includes("Continue with Apple"));
 check("login keeps email/password", login.includes('id="signin-form"') && login.includes("/api/v1/auth/login"));
 check("in-app card has OAuth", html.includes("modal-sync-auth") && html.includes("Continue with Google"));
@@ -69,12 +71,13 @@ function loadIntro(opts) {
     removeAttribute(k) { delete this.attrs[k]; if (k === "hidden") this.hidden = false; },
     hasAttribute(k) { return Object.prototype.hasOwnProperty.call(this.attrs, k); },
   };
+  const listeners = {};
   const video = {
     muted: true, src: "", paused: true, dataset: {}, currentTime: 0,
     setAttribute() {}, getAttribute(k) { return k === "src" ? this.src : ""; },
     play() { this.paused = false; return Promise.resolve(); },
     pause() { this.paused = true; },
-    addEventListener() {},
+    addEventListener(ev, fn) { (listeners[ev] = listeners[ev] || []).push(fn); },
   };
   const skip = { dataset: {}, textContent: "Skip", addEventListener() {} };
   const unmute = { dataset: {}, textContent: "", hidden: true, addEventListener() {} };
@@ -102,7 +105,7 @@ function loadIntro(opts) {
   };
   ctx.window = ctx;
   vm.runInNewContext(introSrc, ctx);
-  return { I: ctx.RunnrIntro, store, overlay, video, skip, unmute, ctx };
+  return { I: ctx.RunnrIntro, store, overlay, video, skip, unmute, ctx, listeners };
 }
 
 const unsigned = loadIntro({ RunnrSync: { isLoggedIn: () => false } });
@@ -169,5 +172,16 @@ const tourOpen = loadIntro({
   RunnrTour: { isOpen: () => true, queryForce: () => false },
 });
 check("open chip tour does not steal the email-wall video", tourOpen.I.shouldPlayBeforeKeepScore({}) === true);
+
+const broken = loadIntro({ RunnrSync: { isLoggedIn: () => false } });
+broken.I.bind();
+broken.I.playBeforeKeepScore(() => { broken.ctx.wallOpened = true; });
+broken.video.src = "/media/runnr-intro-email-wall.mp4";
+(broken.listeners.error || []).forEach((fn) => fn());
+check("first video error tries the fallback cut", broken.video.src === "/media/runnr-how-it-works.mp4" && broken.ctx.wallOpened !== true);
+(broken.listeners.error || []).forEach((fn) => fn());
+check("fallback error skips to the email wall", broken.ctx.wallOpened === true);
+check("fallback error closes the overlay", broken.overlay.classList.contains("open") === false);
+check("fallback error leaves no missing-file note", broken.skip.textContent === "Skip to save your score");
 
 console.log("test_intro_overlay: ok");
