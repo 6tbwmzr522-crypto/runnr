@@ -138,29 +138,55 @@ function renderCoachPage() {
   }
 }
 
-async function askCoach(el) {
-  if (!(await requirePro('Coach'))) return;
-  const q = el.textContent;
-  const ans = CoachEngine.answerQuestion(S.trades, q, S.sym, S.bal, S.risk);
+function paintCoachAnswer(text, opts) {
   const ansEl = document.getElementById('coach-answer');
-  ansEl.textContent = ans;
+  if (!ansEl) return;
+  if (!text) {
+    ansEl.style.display = 'none';
+    ansEl.textContent = '';
+    return;
+  }
+  ansEl.textContent = text;
   ansEl.style.display = 'block';
-  ansEl.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+  if (opts && opts.scroll) ansEl.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+}
+
+async function askCoach(el) {
+  paintCoachAnswer('Asking Coach…');
+  try {
+    if (!(await requirePro('Coach'))) {
+      paintCoachAnswer('');
+      return;
+    }
+    const q = el.textContent;
+    const ans = CoachEngine.answerQuestion(S.trades, q, S.sym, S.bal, S.risk);
+    paintCoachAnswer(ans, { scroll: true });
+  } catch (e) {
+    paintCoachAnswer(typeof isFetchTimeout === 'function' && isFetchTimeout(e)
+      ? 'Coach timed out — try again.'
+      : 'Coach could not answer — try again.');
+  }
 }
 async function askCoachFree() {
-  if (!(await requirePro('Coach'))) return;
   const input = document.getElementById('coach-free-ask');
   const q = (input?.value || '').trim();
   if (!q) {
     if (input && typeof input.focus === 'function') input.focus();
     return;
   }
-  const ans = CoachEngine.answerQuestion(S.trades, q, S.sym, S.bal, S.risk);
-  const ansEl = document.getElementById('coach-answer');
-  if (!ansEl) return;
-  ansEl.textContent = ans;
-  ansEl.style.display = 'block';
-  ansEl.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+  paintCoachAnswer('Asking Coach…');
+  try {
+    if (!(await requirePro('Coach'))) {
+      paintCoachAnswer('');
+      return;
+    }
+    const ans = CoachEngine.answerQuestion(S.trades, q, S.sym, S.bal, S.risk);
+    paintCoachAnswer(ans, { scroll: true });
+  } catch (e) {
+    paintCoachAnswer(typeof isFetchTimeout === 'function' && isFetchTimeout(e)
+      ? 'Coach timed out — try again.'
+      : 'Coach could not answer — try again.');
+  }
 }
 window.askCoachFree = askCoachFree;
 
@@ -169,6 +195,7 @@ function drawEquityCurve() {
   const canvas = document.getElementById('equity-canvas');
   if (!canvas) return;
   if (!hasProAccess()) return;
+  try {
   const cmp = CoachEngine.equityComparison(S.trades, S.bal);
   const actual = cmp.actual.length > 1 ? cmp.actual : [0, cmp.actualEnd];
   const ideal = cmp.ideal.length > 1 ? cmp.ideal : [0, cmp.idealEnd];
@@ -211,4 +238,16 @@ function drawEquityCurve() {
   ctx.fillText((cmp.idealEnd >= 0 ? '+' : '') + S.sym + Math.round(cmp.idealEnd).toLocaleString(), toX(n - 1) - 60, toY(ideal[n - 1], mn, mx) - 6);
   ctx.fillStyle = '#ff4d6d';
   ctx.fillText((cmp.actualEnd >= 0 ? '+' : '') + S.sym + Math.round(cmp.actualEnd).toLocaleString(), toX(n - 1) - 52, toY(actual[n - 1], mn, mx) + 14);
+  } catch (e) {
+    try {
+      const ctx = canvas.getContext('2d');
+      if (!ctx) return;
+      ctx.setTransform(1, 0, 0, 1, 0, 0);
+      ctx.clearRect(0, 0, canvas.width, canvas.height);
+      ctx.fillStyle = getComputedStyle(document.body).getPropertyValue('--text3') || '#888';
+      ctx.font = '12px DM Sans, sans-serif';
+      ctx.textAlign = 'center';
+      ctx.fillText('Could not draw equity — try again', (canvas.offsetWidth || 200) / 2, 60);
+    } catch (err) {}
+  }
 }

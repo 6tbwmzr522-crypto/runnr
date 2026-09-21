@@ -16,6 +16,8 @@ const RunnrDesk = (() => {
   let alive = false;
   let sectorRows = [];
   let sectorsLoaded = false;
+  let barsFailed = false;
+  let snapFailed = false;
   const PREF_KEY = "runnr_desk_chart";
   const TFS = ["15m", "1H", "1D", "1W"];
   const MAS = [9, 20, 50, 200];
@@ -166,8 +168,16 @@ const RunnrDesk = (() => {
       .join(" · ");
   }
 
+  function timedGet(url, opts) {
+    if (typeof fetchWithTimeout === "function") {
+      const ms = typeof FETCH_TIMEOUT_MS === "number" ? FETCH_TIMEOUT_MS : 12000;
+      return fetchWithTimeout(url, ms, opts);
+    }
+    return fetch(url, opts);
+  }
+
   async function getJson(path) {
-    const res = await fetch(apiBase() + path, { headers: authHeaders(), cache: "no-store" });
+    const res = await timedGet(apiBase() + path, { headers: authHeaders(), cache: "no-store" });
     if (!res.ok) throw new Error("HTTP " + res.status);
     return res.json();
   }
@@ -499,13 +509,17 @@ const RunnrDesk = (() => {
             (focusRow ? ` · ${fmtPct(focusRow.chgPct)} today` : "") +
             ` · <span class="desk-ma-status">${maLabelMarkup(prefs)}</span>` +
             (lvNote ? " · " + lvNote : "")
-          : "Loading chart…"
+          : barsFailed
+            ? 'Chart unavailable — <button type="button" class="desk-chip" id="desk-chart-retry">Retry</button>'
+            : "Loading chart…"
       }</div>` +
       `</section>` +
       `</div>`;
 
     const back = document.getElementById("desk-back");
     if (back) back.onclick = () => window.switchPage("watchlist");
+    const chartRetry = document.getElementById("desk-chart-retry");
+    if (chartRetry) chartRetry.onclick = () => refresh();
     const unlock = document.getElementById("desk-unlock");
     if (unlock) {
       unlock.onclick = () => {
@@ -518,7 +532,9 @@ const RunnrDesk = (() => {
         if (!sym || sym === "XAU") return;
         focus = sym;
         const needQuote = !rows.some((r) => r.sym === sym);
-        Promise.all([needQuote ? loadSnap() : Promise.resolve(), loadBars(sym)]).then(render);
+        Promise.all([needQuote ? loadSnap() : Promise.resolve(), loadBars(sym)])
+          .then(render)
+          .catch(() => { barsFailed = true; render(); });
         render();
       });
     });
@@ -528,7 +544,7 @@ const RunnrDesk = (() => {
         if (!tf || tf === prefs.tf) return;
         prefs.tf = tf;
         savePrefs(prefs);
-        loadBars(focus).then(render);
+        loadBars(focus).then(render).catch(() => { barsFailed = true; render(); });
       });
     });
     el.querySelectorAll("[data-desk-ma]").forEach((btn) => {
@@ -554,7 +570,7 @@ const RunnrDesk = (() => {
         const tfChanged = prefs.tf !== "1D";
         prefs = { tf: "1D", ma: { 9: false, 20: true, 50: true, 200: false } };
         savePrefs(prefs);
-        if (tfChanged) loadBars(focus).then(render);
+        if (tfChanged) loadBars(focus).then(render).catch(() => { barsFailed = true; render(); });
         else render();
       });
     }
@@ -588,6 +604,7 @@ const RunnrDesk = (() => {
   }
 
   async function loadSnap() {
+    snapFailed = false;
     const u = universe();
     const syms = u.slice();
     if (focus && isEquity(focus) && !syms.includes(focus)) syms.push(focus);
@@ -614,27 +631,55 @@ const RunnrDesk = (() => {
   }
 
   async function loadBars(sym) {
+    barsFailed = false;
     const tf = encodeURIComponent(prefs.tf || "1D");
     const j = await getJson("/api/v1/desk/bars/" + encodeURIComponent(sym || focus || "AAPL") + "?timeframe=" + tf);
     bars = j.bars || [];
     if (j.source && !source.includes(j.source)) source = (source ? source + " · " : "") + j.source;
   }
 
+  function paintDeskFail(msg) {
+    const el = root();
+    if (!el) return;
+    el.innerHTML =
+      `<div class="desk-cmd"><button type="button" class="back" id="desk-back">← Runnr</button>` +
+      `<div class="brand">${esc(brandTitle())}</div></div>` +
+      `<div class="desk-empty">${esc(msg)} <button type="button" class="desk-preview-unlock" id="desk-retry">Retry</button></div>`;
+    const back = document.getElementById("desk-back");
+    if (back) back.onclick = () => window.switchPage("watchlist");
+    const retry = document.getElementById("desk-retry");
+    if (retry) retry.onclick = () => refresh();
+  }
+
   async function refresh() {
     if (!alive) return;
     try {
-      await Promise.all([loadSnap(), loadSectors(), loadBars(focus)]);
+      let snapErr = null;
+      let barsErr = null;
+      await Promise.all([
+        loadSnap().catch((e) => { snapFailed = true; snapErr = e; }),
+        loadSectors(),
+        loadBars(focus).catch((e) => { barsFailed = true; barsErr = e; }),
+      ]);
+      if (!rows.length && snapFailed && !bars.length) {
+        const timedOut = typeof isFetchTimeout === "function"
+          && (isFetchTimeout(snapErr) || isFetchTimeout(barsErr));
+        paintDeskFail(timedOut
+          ? "Terminal timed out. Check network, then retry."
+          : "Terminal could not reach the quote API. Check network, then retry.");
+        return;
+      }
       render();
     } catch (e) {
-      const el = root();
-      if (el && !rows.length) {
-        el.innerHTML =
-          `<div class="desk-cmd"><button type="button" class="back" id="desk-back">← Runnr</button>` +
-          `<div class="brand">${esc(brandTitle())}</div></div>` +
-          `<div class="desk-empty">Terminal could not reach the quote API. Check network, then retry.</div>`;
-        const back = document.getElementById("desk-back");
-        if (back) back.onclick = () => window.switchPage("watchlist");
+      const timedOut = typeof isFetchTimeout === "function" && isFetchTimeout(e);
+      if (!rows.length) {
+        paintDeskFail(timedOut
+          ? "Terminal timed out. Check network, then retry."
+          : "Terminal could not reach the quote API. Check network, then retry.");
+        return;
       }
+      barsFailed = barsFailed || !bars.length;
+      render();
     }
   }
 

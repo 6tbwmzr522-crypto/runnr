@@ -18,7 +18,7 @@ const v = html.match(/var V = "(\d+)"/)[1];
 const cache = sw.match(/CACHE = "runnr-v(\d+)"/)[1];
 check("index.html V matches sw.js CACHE", v === cache);
 check("PWA cache bust is 117+", Number(v) >= 117);
-check("quotes live in app-quotes.js", html.includes("js/app-quotes.js?v=2"));
+check("quotes live in app-quotes.js", html.includes("js/app-quotes.js?v=3"));
 check("watchlist poll uses quotes/batch", /\/api\/v1\/quotes\/batch/.test(src) && /async function fetchQuotesBatch/.test(src));
 check("refreshAllPrices does not Promise.all per symbol", /async function refreshAllPrices[\s\S]{0,1800}fetchQuotesBatch\(/.test(src));
 check("feed poll backs off on high stale ratio", /FEED_POLL_MAX_MS/.test(src) && /function setFeedPollInterval/.test(src));
@@ -44,10 +44,11 @@ check("pretrade sizer resolves through the same quote helper",
   /async function fetchSizerQuote[\s\S]{0,240}resolveQuoteSymbol/.test(src));
 
 function loadQuotes(fetchImpl) {
+  const timeoutSrc = fs.readFileSync(path.join(__dirname, "..", "js/fetch-timeout.js"), "utf8");
   const quotesSrc = fs.readFileSync(path.join(__dirname, "..", "js/app-quotes.js"), "utf8");
   const ctx = {
     S: { watchlist: [] },
-    window: { Baron: { EQUITIES: ["AAPL", "TSLA", "MSFT"], COMMODITIES: [] } },
+    Baron: { EQUITIES: ["AAPL", "TSLA", "MSFT"], COMMODITIES: [] },
     console,
     Date,
     Math,
@@ -65,12 +66,13 @@ function loadQuotes(fetchImpl) {
     setTimeout,
     clearTimeout,
     AbortController,
+    Error,
     encodeURIComponent,
     fetch: fetchImpl,
   };
-  ctx.window = Object.assign(ctx.window, ctx);
+  ctx.window = ctx;
   ctx.globalThis = ctx;
-  vm.runInNewContext(quotesSrc, ctx);
+  vm.runInNewContext(timeoutSrc + "\n" + quotesSrc, ctx);
   return ctx;
 }
 

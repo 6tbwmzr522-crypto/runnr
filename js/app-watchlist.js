@@ -96,8 +96,8 @@ function renderRemarkHtml(w) {
     }
     return `<div class="wcr-remark${stale ? ' stale' : ''}">${escHtml(r.text)}${badge}</div>`;
   }
-  if (!watchRemark(w)) {
-    return `<div class="wcr-remark wcr-remark-loading">⟳ Fetching market read…</div>`;
+  if (w && w.autoRemarkError) {
+    return `<div class="wcr-remark wcr-remark-error">${escHtml(w.autoRemarkError)}</div>`;
   }
   return '';
 }
@@ -118,6 +118,7 @@ async function fetchWatchBriefForItem(w, force) {
   const qs = params.toString();
   const url = base + '/api/v1/quotes/' + encodeURIComponent(sym) + '/brief' + (qs ? '?' + qs : '');
   w.autoRemarkLoading = true;
+  delete w.autoRemarkError;
   try {
     const res = await fetchWithTimeout(url, 15000);
     if (!res.ok) throw new Error('brief failed');
@@ -130,7 +131,13 @@ async function fetchWatchBriefForItem(w, force) {
       w.autoRemarkPrice = live || (Number.isFinite(priced) && priced > 0 ? priced : w.autoRemarkPrice);
       delete w.autoRemarkLoading;
       persist();
+    } else {
+      w.autoRemarkError = 'Market read unavailable — tap ↻ AI read';
     }
+  } catch (e) {
+    w.autoRemarkError = (typeof isFetchTimeout === 'function' && isFetchTimeout(e))
+      ? 'Market read timed out — tap ↻ AI read'
+      : 'Market read unavailable — tap ↻ AI read';
   } finally {
     delete w.autoRemarkLoading;
   }
@@ -307,12 +314,16 @@ function renderWatchDetailCard(w) {
   } else if (display) {
     const extra = loading ? ' · refreshing' : (stale ? ' · stale' : '');
     remarkBlock = `<div class="wds-thesis">${escHtml(display.text)}<span class="remark-src${stale ? ' stale' : ''}">${remarkModeLabel(display.mode)}${extra}</span></div>`;
-  } else {
+  } else if (w.autoRemarkError) {
+    remarkBlock = `<div class="wds-thesis" style="border-top:none;padding-top:0;color:var(--text3);font-style:normal;font-family:var(--font-body);font-size:11px">${escHtml(w.autoRemarkError)}</div>`;
+  } else if (loading) {
     remarkBlock = `<div class="wds-thesis" style="border-top:none;padding-top:0;color:var(--text3);font-style:normal;font-family:var(--font-body);font-size:11px">⟳ Pulling market read…</div>`;
+  } else {
+    remarkBlock = '';
   }
   return `<div class="watch-detail-slim watch-detail-panel" id="wi-${w.id}">
     <div class="live-price-row" id="lp-row-${w.id}">
-      ${lp && lp.price ? renderLivePriceRow(lp, w) : '<span class="lp-loading">⟳ Fetching price…</span>'}
+      ${lp && lp.price ? renderLivePriceRow(lp, w) : (typeof livePricePendingHtml === 'function' ? livePricePendingHtml(lp) : (lp && lp.failed ? '<span class="lp-error">Price unavailable — tap ↻ Refresh</span>' : '<span class="lp-loading">⟳ Fetching price…</span>'))}
     </div>
     <div class="wds-levels">
       <span><em>Entry</em>${w.entry || '—'}</span>
@@ -377,7 +388,11 @@ function renderWatchlist() {
 }
 
 function renderLivePriceRow(lp, w) {
-  if (!lp || !lp.price) return '<span class="lp-loading">⟳ Fetching price…</span>';
+  if (!lp || !lp.price) {
+    if (typeof livePricePendingHtml === 'function') return livePricePendingHtml(lp);
+    if (lp && lp.failed) return '<span class="lp-error">Price unavailable — tap ↻ Refresh</span>';
+    return '<span class="lp-loading">⟳ Fetching price…</span>';
+  }
   const change = Number(lp.change) || 0;
   const changePct = Number(lp.changePct) || 0;
   const isPos = change >= 0;
@@ -464,6 +479,7 @@ var HOME_MARKETS = {
 };
 var homeMarketCache = {};
 var homeMarketsRefreshing = false;
+var homeMarketsFailed = false;
 
 function parseQuickQuote(json) {
   const chart = json?.chart?.result?.[0];
@@ -479,13 +495,14 @@ function parseQuickQuote(json) {
 }
 
 function renderMarketTile(item, data) {
-  const loading = !data;
+  const loading = !data && !homeMarketsFailed;
+  const failed = !data && homeMarketsFailed;
   const up = (data?.change || 0) >= 0;
-  const chgColor = loading ? 'var(--text3)' : up ? 'var(--accent)' : 'var(--red)';
-  const arrow = loading ? '' : up ? '▲' : '▼';
-  const price = loading ? '—' : fmtPrice(data.price);
-  const chg = loading ? '…' : arrow + ' ' + Math.abs(data.changePct || 0).toFixed(2) + '%';
-  const session = loading ? '' : sessionDisplayLabel(data.session, item.sym);
+  const chgColor = loading || failed ? 'var(--text3)' : up ? 'var(--accent)' : 'var(--red)';
+  const arrow = loading || failed ? '' : up ? '▲' : '▼';
+  const price = loading || failed ? '—' : fmtPrice(data.price);
+  const chg = loading ? '…' : failed ? '—' : arrow + ' ' + Math.abs(data.changePct || 0).toFixed(2) + '%';
+  const session = loading || failed ? '' : sessionDisplayLabel(data.session, item.sym);
   return `<div class="market-tile${loading ? ' loading' : ''}" onclick="openStockDetail('${item.sym.replace(/'/g, "\\'")}')">
     <div class="m-label">${item.label}</div>
     <div class="m-price">${price}</div>
@@ -508,6 +525,7 @@ async function refreshHomeMarkets() {
   if (isGuestLanding()) return;
   if (homeMarketsRefreshing) return;
   homeMarketsRefreshing = true;
+  try {
   const stamp = document.getElementById('home-markets-updated');
   const all = [...HOME_MARKETS.indices, ...HOME_MARKETS.commodities];
   paintHomeMarkets();
@@ -523,14 +541,17 @@ async function refreshHomeMarkets() {
         const q = json && parseQuickQuote(json);
         if (q) homeMarketCache[item.sym] = { ...q, ts: Date.now() };
       });
-    } catch (e) { /* keep stale or dash */ }
+    } catch (e) { homeMarketsFailed = true; }
   }
+  homeMarketsFailed = all.some((i) => !homeMarketCache[i.sym]);
   paintHomeMarkets();
   if (stamp) {
     const live = all.filter(i => homeMarketCache[i.sym]).length;
     stamp.textContent = live ? '↻ ' + new Date().toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' }) + ' · tap for chart' : '↻ Unavailable';
   }
-  homeMarketsRefreshing = false;
+  } finally {
+    homeMarketsRefreshing = false;
+  }
 }
 
 function openWatchEditor(id) {

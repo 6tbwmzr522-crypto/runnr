@@ -23,8 +23,8 @@ const v = html.match(/var V = "(\d+)"/)[1];
 const cache = sw.match(/CACHE = "runnr-v(\d+)"/)[1];
 check("index.html V matches sw.js CACHE", v === cache);
 
-check("askCoach requires Pro", /async function askCoach[\s\S]{0,120}requirePro\(\s*['"]Coach['"]\)/.test(src));
-check("askCoachFree requires Pro", /async function askCoachFree[\s\S]{0,120}requirePro\(\s*['"]Coach['"]\)/.test(src));
+check("askCoach requires Pro", /async function askCoach[\s\S]{0,400}requirePro\(\s*['"]Coach['"]\)/.test(src));
+check("askCoachFree requires Pro", /async function askCoachFree[\s\S]{0,500}requirePro\(\s*['"]Coach['"]\)/.test(src));
 check("renderCoachPage uses hasProAccess", /function renderCoachPage[\s\S]{0,400}hasProAccess\(\)/.test(src));
 check("Coach upgrade CTA exists", html.includes('id="coach-upgrade-cta"') && html.includes("Unlock Coach"));
 check("Coach insights live in pro body", html.includes('id="coach-pro-body"'));
