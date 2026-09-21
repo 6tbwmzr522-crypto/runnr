@@ -237,7 +237,19 @@ html.runnr-show-hook #onboarding-overlay .ob-progress-wrap,#onboarding-overlay.h
 .home-landing-card .home-score-one{font-size:16px;letter-spacing:0.14em;padding:16px 14px}
 .home-landing-card .ob-hook-actions{margin:0 0 10px}
 .home-landing-card .ob-hook-price{margin:0;font-size:12px;color:var(--text3);text-align:center;line-height:1.45}
+.ob-hook{display:flex;flex-direction:column}
+.ob-hook .ob-hero{order:1}
+.ob-hook .ob-hook-actions{order:2}
+.ob-hook .ob-hook-price{order:3}
+.ob-hook .ob-hook-sample{order:4}
+.ob-hook .runnr-proof{order:5}
+.ob-hook .ob-hook-more{order:6}
+.ob-hook-more{margin:0 0 16px}
+.ob-hook-more > summary{cursor:pointer;list-style:none;color:var(--gold);font-size:12px;letter-spacing:0.12em;text-transform:uppercase;padding:8px 0;font-family:var(--font-body)}
+.ob-hook-more > summary::-webkit-details-marker{display:none}
+.ob-hook-more[open] > summary{margin-bottom:8px}
 .ob-hook-pills{display:flex;flex-direction:column;gap:8px;margin:0 0 16px}
+.ob-hook-more .ob-hook-pills{margin:0}
 .ob-hook-pill{display:grid;grid-template-columns:6.4em 1fr;gap:10px;align-items:baseline;background:var(--surface2);border:1px solid var(--border);border-radius:var(--r-sm);padding:10px 12px}
 .ob-hook-pill dt{font-size:10px;font-weight:500;letter-spacing:0.16em;text-transform:uppercase;color:var(--gold)}
 .ob-hook-pill dd{font-size:13px;color:var(--text2);line-height:1.4;margin:0}
@@ -248,7 +260,10 @@ a.btn{display:block;text-decoration:none;text-align:center;box-sizing:border-box
 .ob-hook-secondary{display:block;text-align:center;margin-top:4px;color:var(--gold);font-size:13px;text-decoration:none;letter-spacing:0.02em}
 .ob-hook-secondary:active{color:var(--gold-light)}
 .home-landing-card{display:none}
-html.runnr-guest .home-landing-card{display:block}
+html.runnr-guest .home-landing-card{display:flex;flex-direction:column}
+.home-sizer-link{background:none;border:none;color:var(--gold);cursor:pointer;padding:8px 4px;font-size:13px;font-family:inherit;text-decoration:underline;text-underline-offset:3px;width:100%}
+.home-sizer-link:active{color:var(--gold-light)}
+.home-desk-more-toggle{display:none}
 html.runnr-demo .home-landing-card,
 html.runnr-demo #page-home .home-frame > .home-landing-card{display:none !important}
 .home-landing-title{font-family:var(--font-head);font-size:26px;font-weight:300;font-style:italic;line-height:1.2;margin:0 0 8px;color:var(--text);display:block}
@@ -444,6 +459,43 @@ html:not(.runnr-guest) #home-coach-banner{display:none !important}
 #sync-inline-auth .btn,#sync-reset-auth .btn{min-height:44px;width:100%}
 .nav-desktop-only{display:none}
 
+/* ── PHONE HOME TRIM — conversion path first; markets soup behind More. ── */
+@media (max-width:1023px){
+  #page-home .home-frame{display:flex;flex-direction:column}
+  #page-home .home-landing-card{order:1}
+  #page-home .home-job-hero{order:2}
+  #page-home #home-coach-banner{order:3}
+  #page-home #home-discipline-card{order:4}
+  #page-home .home-account-card{order:5}
+  #page-home .home-challenge-card{order:6}
+  #page-home #incomplete-banner{order:7}
+  #page-home .stat-grid{order:8}
+  #page-home .home-desk-more-toggle{order:19}
+  #page-home .home-desk-extra{order:20}
+  #page-home:not(.home-desk-expanded) .home-desk-extra{display:none}
+  html:not(.runnr-guest):not(.runnr-quiet) .home-desk-more-toggle{
+    display:block;
+    width:100%;
+    margin:0 0 12px;
+    padding:12px 14px;
+    background:transparent;
+    color:var(--gold);
+    border:1px solid var(--border-strong);
+    border-radius:var(--r-sm);
+    font-family:inherit;
+    font-size:12px;
+    letter-spacing:0.12em;
+    text-transform:uppercase;
+    cursor:pointer;
+  }
+  .home-landing-card .ob-kicker{order:1}
+  .home-landing-card .home-landing-title{order:2}
+  .home-landing-card > p{order:3}
+  .home-landing-card .ob-hook-actions{order:4}
+  .home-landing-card .ob-hook-price{order:5}
+  .home-landing-card [data-runnr-proof-host]{order:6}
+}
+
 /* ── PHONE MORE SHEET — Watch / Portfolio / Shelf. Terminal stays desktop. ── */
 #more-sheet{position:absolute;inset:0;z-index:12;display:none}
 #more-sheet.open{display:block}
@@ -505,6 +557,8 @@ html:not(.runnr-guest) #home-coach-banner{display:none !important}
   .nav-desktop-only{display:flex}
   .nav-phone-more{display:flex}
   .nav-btn-more,#more-sheet{display:none !important}
+  .home-desk-more-toggle{display:none !important}
+  .home-sizer-link{display:none}
   #header .header-desk-btn{display:none}
   #header{grid-area:header;padding:14px 28px 12px}
   #header .logo{font-size:26px}

@@ -197,12 +197,15 @@ const RunnrGrowth = {
       ${typeof RunnrDemoSandbox !== "undefined" && RunnrDemoSandbox.proofCardHtml
         ? RunnrDemoSandbox.proofCardHtml()
         : ""}
-      <dl class="ob-hook-pills">
+      <details class="ob-hook-more">
+        <summary>What you get</summary>
+        <dl class="ob-hook-pills">
           <div class="ob-hook-pill"><dt>Sizer</dt><dd>Account, risk %, and a stop</dd></div>
           <div class="ob-hook-pill"><dt>Journal</dt><dd>Flags skipped stops and oversized trades</dd></div>
           <div class="ob-hook-pill"><dt>Coach</dt><dd>Report on the one trade that hurt</dd></div>
           <div class="ob-hook-pill"><dt>Terminal</dt><dd>Session clocks, heatmap, chart — look without paying</dd></div>
         </dl>
+      </details>
         <p class="ob-hook-price">Start free · 7-day trial · then €19/month or €190/year</p>
         <p class="ob-hook-sample">Sample journal is labeled SAMPLE. Those numbers are not yours.</p>
         <div class="ob-hook-actions">

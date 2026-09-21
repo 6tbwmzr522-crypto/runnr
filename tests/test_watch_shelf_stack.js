@@ -21,11 +21,11 @@ check("desktop shell media query exists", !!desk);
 const d = desk[1];
 
 check("watch shelf spans the framed grid", d.includes("#page-home .home-frame > .home-watch-shelf"));
-check("sentiment and progress remain sibling cards", html.includes('class="fg-card"')
-  && html.includes('class="card home-progress-card"')
-  && html.includes('class="card home-watch-shelf"'));
-check("watch shelf markup sits before sentiment", html.indexOf('class="card home-watch-shelf"') < html.indexOf('class="fg-card"'));
-check("progress sits after sentiment", html.indexOf('class="fg-card"') < html.indexOf('class="card home-progress-card"'));
+check("sentiment and progress remain sibling cards", html.includes('class="fg-card')
+  && html.includes('class="card home-progress-card')
+  && html.includes('class="card home-watch-shelf'));
+check("watch shelf markup sits before sentiment", html.indexOf('class="card home-watch-shelf') < html.indexOf('class="fg-card'));
+check("progress sits after sentiment", html.indexOf('class="fg-card') < html.indexOf('class="card home-progress-card'));
 
 const shelfRule = d.match(/#page-home \.home-frame > \.home-watch-shelf\{([^}]+)\}/);
 check("desktop watch-shelf override exists", !!shelfRule);
