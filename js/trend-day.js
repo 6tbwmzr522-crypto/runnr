@@ -29,6 +29,7 @@
   let draftScope = "";
   let autoTimer = null;
   let autoInflight = null;
+  let lastPointerUp = 0;
 
   function S() {
     return global.S || (global.window && global.window.S) || {};
@@ -901,7 +902,7 @@
     if (!autoEligible(clock)) return false;
     if (!sizePageOpen()) return false;
     const rec = todayRecord(now);
-    if (settled(rec) || rec.userEdited) return false;
+    if (settled(rec)) return false;
     return true;
   }
 
@@ -1183,8 +1184,11 @@
     const t = e.target && e.target.closest ? e.target.closest("[data-td-check], #td-apply, #td-skip, #td-quarter") : null;
     if (!t) return;
     if (t.closest && !t.closest("#trend-day-chip") && !t.closest("#trend-day-overlay")) return;
+    if (e.type === "pointerup") lastPointerUp = Date.now();
+    else if (e.type === "click" && lastPointerUp && (Date.now() - lastPointerUp) < 500) return;
     e.preventDefault();
     e.stopPropagation();
+    if (typeof e.stopImmediatePropagation === "function") e.stopImmediatePropagation();
     if (t.id === "td-apply") {
       apply({ explicit: true });
       return;
@@ -1204,6 +1208,7 @@
   function bind() {
     if (bound || !global.document) return;
     bound = true;
+    global.document.addEventListener("pointerup", onChipClick, true);
     global.document.addEventListener("click", onChipClick, true);
     const overlay = overlayEl();
     if (overlay) overlay.addEventListener("click", onChipClick);
@@ -1229,6 +1234,7 @@
       try { global.clearInterval(autoTimer); } catch (e0) {}
     }
     autoTimer = null;
+    lastPointerUp = 0;
     try {
       if (global.localStorage) {
         const drop = [KEY, AUTO_KEY, storageKey(), storageKey("sample"), storageKey("auth")];

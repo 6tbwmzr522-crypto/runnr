@@ -23,12 +23,12 @@ function check(name, cond) {
 const v = html.match(/var V = "(\d+)"/)[1];
 const cache = sw.match(/CACHE = "runnr-v(\d+)"/)[1];
 check("index.html V matches sw.js CACHE", v === cache);
-check("cache is 179+", Number(v) >= 179);
-check("trend-day.js is cache-busted", html.includes("js/trend-day.js?v=5"));
+check("cache is 180+", Number(v) >= 180);
+check("trend-day.js is cache-busted", html.includes("js/trend-day.js?v=6"));
 check("trend-day loads after tour and intro", html.indexOf("js/intro.js") < html.indexOf("js/trend-day.js") && html.indexOf("js/tour.js") < html.indexOf("js/trend-day.js"));
 check("trend-day loads before pretrade", html.indexOf("js/trend-day.js") < html.indexOf("js/pretrade.js"));
 check("pretrade cache-bust bumped", html.includes("js/pretrade.js?v=20"));
-check("pretrade.css cache-bust bumped", html.includes("css/pretrade.css?v=12"));
+check("pretrade.css cache-bust bumped", html.includes("css/pretrade.css?v=13"));
 check("auto is labeled SPY/QQQ, not Ripster", trendSrc.includes("Auto · SPY/QQQ") && !/ripster/i.test(trendSrc));
 check("auto snapshot key is isolated from the book key", trendSrc.includes('AUTO_KEY = "runnr_trend_day_auto_v1"'));
 check("overlay markup sits on the Size page", html.includes('id="trend-day-overlay"') && html.includes('id="trend-day-chip"') && html.includes('id="page-sizer"'));
@@ -46,8 +46,8 @@ check("pretrade applies the gate multiplier", pretradeSrc.includes("trendDayGate
 check("skip persists on the plan", pretradeSrc.includes("sized without trend-day gate") && pretradeSrc.includes("row.trendDay"));
 check("tour still opens Size", tourSrc.includes("openSizer") && tourSrc.includes('id === "size"'));
 check("tour start/close yields the size gate", tourSrc.includes("yieldTrendDay") && tourSrc.includes("onEnterSize"));
-check("chip clicks bind on document capture", trendSrc.includes('addEventListener("click", onChipClick, true)'));
-check("signed-in desk stacks under the chip", css.includes("isolation:isolate") && css.includes("z-index:40") && css.includes("z-index:41"));
+check("chip clicks bind on document capture", trendSrc.includes('addEventListener("click", onChipClick, true)') && trendSrc.includes('addEventListener("pointerup", onChipClick, true)'));
+check("signed-in desk stacks under the chip", css.includes("position:fixed") && css.includes("z-index:80") && css.includes("z-index:81"));
 check("sizer quote refresh nudges trend-day", pretradeSrc.includes("RunnrTrendDay.hydrateAuto"));
 check("intro key is still runnr_intro_v1", introSrc.includes('KEY: "runnr_intro_v1"'));
 check("tour query still yields the chip path", trendSrc.includes("tour=1") && trendSrc.includes("shouldYield") && src.includes("tourWantsChipPath"));
@@ -326,6 +326,11 @@ const clicked = signedClick.RunnrTrendDay.todayRecord();
 check("signed-in chip click toggles a check", clicked.checks[0] === true && clicked.userEdited === true && clicked.applied !== true);
 check("signed-in after 10:30 still polls while Size is open", signedClick.RunnrTrendDay.shouldPollAuto(friAfter) === true);
 check("weekend does not poll auto", signedClick.RunnrTrendDay.shouldPollAuto(sat) === false);
+signedClick.RunnrTrendDay.resetForTests();
+signedClick.RunnrTrendDay.onChipClick({ type: "pointerup", target: fakeCheck, preventDefault() {}, stopPropagation() {}, stopImmediatePropagation() {} });
+const afterPointer = signedClick.RunnrTrendDay.todayRecord();
+signedClick.RunnrTrendDay.onChipClick({ type: "click", target: fakeCheck, preventDefault() {}, stopPropagation() {}, stopImmediatePropagation() {} });
+check("pointerup+click does not double-toggle", signedClick.RunnrTrendDay.todayRecord().checks[0] === afterPointer.checks[0] && afterPointer.checks[0] === true);
 
 const sharedStore = {};
 const sampleBook = load({ withPretrade: true, store: sharedStore });
@@ -468,6 +473,7 @@ check("after 10:30 user-unedited auto can refresh only via hydrate cache, not by
 lockAuto.RunnrTrendDay.onCheck(0, friAfter);
 const editedLock = lockAuto.RunnrTrendDay.applyAutoSnapshot(Object.assign({}, later, { date: "2026-09-18", locked: true, checks: later.checks }), friAfter);
 check("user override survives a second auto snapshot", editedLock.userEdited === true && editedLock.checks[0] === false && editedLock.source === "mixed");
+check("tapped chip still polls live SPY/QQQ", lockAuto.RunnrTrendDay.shouldPollAuto(friAfter) === true);
 
 const isoStore = {};
 const iso = load({ store: isoStore, withPretrade: true });

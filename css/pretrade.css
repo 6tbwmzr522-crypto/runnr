@@ -587,7 +587,7 @@ html.runnr-demo #header .header-desk-btn{display:inline-flex !important}
 }
 #legacy-sizer{display:none !important}
 #pretrade-root{display:none;flex:1;min-height:0}
-#page-sizer{position:relative;isolation:isolate}
+#page-sizer{position:relative}
 #page-sizer.pt-live #pretrade-root,
 #page-sizer.active #pretrade-root{display:flex;position:relative;z-index:0}
 #page-sizer.pt-trend-gate #pretrade-root{
@@ -597,11 +597,13 @@ html.runnr-demo #header .header-desk-btn{display:inline-flex !important}
   filter:none;
 }
 
+/* Fixed, not absolute: signed-in #pretrade-root is a scrolling compositor
+   that stole hits from an inset overlay with pointer-events:none. */
 #trend-day-overlay{
   display:none;
-  position:absolute;
+  position:fixed;
   inset:0;
-  z-index:40;
+  z-index:80;
   pointer-events:none;
 }
 #trend-day-overlay.open{display:block}
@@ -619,15 +621,16 @@ html.runnr-demo #header .header-desk-btn{display:inline-flex !important}
   pointer-events:none;
 }
 #trend-day-chip{
-  position:absolute;
+  position:fixed;
   top:16px;
   right:14px;
   width:min(304px,calc(100% - 28px));
   pointer-events:auto;
-  z-index:41;
-  background:rgba(10,12,14,0.82);
-  backdrop-filter:blur(22px) saturate(1.1);
-  -webkit-backdrop-filter:blur(22px) saturate(1.1);
+  z-index:81;
+  isolation:isolate;
+  transform:translateZ(0);
+  -webkit-transform:translateZ(0);
+  background:rgba(10,12,14,0.94);
   border:1px solid rgba(201,169,110,0.22);
   border-radius:16px;
   padding:16px 16px 14px;
@@ -675,6 +678,7 @@ html.runnr-demo #header .header-desk-btn{display:inline-flex !important}
   padding:7px 2px;
   cursor:pointer;
   pointer-events:auto;
+  touch-action:manipulation;
   position:relative;
   z-index:1;
 }
