@@ -575,7 +575,9 @@ const RunnrTour = {
 
   yieldTrendDay() {
     try {
-      if (typeof RunnrTrendDay !== "undefined" && RunnrTrendDay.paint) RunnrTrendDay.paint();
+      if (typeof RunnrTrendDay === "undefined") return;
+      if (typeof RunnrTrendDay.onEnterSize === "function") RunnrTrendDay.onEnterSize();
+      else if (typeof RunnrTrendDay.paint === "function") RunnrTrendDay.paint();
     } catch (e) {}
   },
 

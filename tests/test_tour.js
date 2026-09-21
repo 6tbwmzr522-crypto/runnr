@@ -23,7 +23,7 @@ const v = html.match(/var V = "(\d+)"/)[1];
 const cache = sw.match(/CACHE = "runnr-v(\d+)"/)[1];
 check("index.html V matches sw.js CACHE", v === cache);
 check("cache is 162+", Number(v) >= 162);
-check("tour.js cache-busted", html.includes("js/tour.js?v=4"));
+check("tour.js cache-busted", html.includes("js/tour.js?v=5"));
 check("tour loads after parked intro", html.indexOf("js/intro.js") < html.indexOf("js/tour.js"));
 check("homepage intro autoplay stays off", introSrc.includes("ENABLED: false") && /id="intro-overlay"[^>]*hidden/.test(html));
 check("tour overlay markup", html.includes('id="tour-overlay"') && html.includes('id="tour-skip"') && html.includes('id="tour-cta"') && html.includes('id="tour-chip-copy"'));

@@ -226,6 +226,11 @@
     const next = quoteAutofill(form.entry, entryQuotedFor, ticker, data);
     quoteState = next.hint;
     paintQuoteHint();
+    try {
+      if (data && global.RunnrTrendDay && typeof RunnrTrendDay.hydrateAuto === "function") {
+        global.RunnrTrendDay.hydrateAuto();
+      }
+    } catch (eTd) {}
     if (!next.fillEntry) return next;
     form.entry = next.entry;
     entryQuotedFor = next.quotedFor;

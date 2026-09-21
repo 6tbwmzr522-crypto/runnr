@@ -29,6 +29,7 @@
   let draftScope = "";
   let autoTimer = null;
   let autoInflight = null;
+  let lastPointerUp = 0;
 
   function S() {
     return global.S || (global.window && global.window.S) || {};
@@ -75,17 +76,31 @@
 
   function storageGet() {
     try {
-      if (!global.localStorage) return null;
+      if (!global.localStorage) return bookRecord();
       const scoped = parseRec(localStorage.getItem(storageKey()));
       if (scoped) return scoped;
       if (bookScope() === "sample") return parseRec(localStorage.getItem(KEY));
-      return null;
+      return bookRecord();
+    } catch (e) {
+      return bookRecord();
+    }
+  }
+
+  function bookRecord() {
+    if (!isLoggedIn()) return null;
+    try {
+      const rec = parseRec(S() && S().trendDay);
+      if (!rec) return null;
+      const scope = String(rec.scope || "");
+      if (scope !== bookScope()) return null;
+      return rec;
     } catch (e) {
       return null;
     }
   }
 
   function storageSet(rec) {
+    if (rec && typeof rec === "object") rec.scope = bookScope();
     try {
       if (global.localStorage) localStorage.setItem(storageKey(), JSON.stringify(rec));
     } catch (e) {}
@@ -96,7 +111,11 @@
     } catch (eBare) {}
     try {
       const st = S();
-      st.trendDay = rec;
+      if (isLoggedIn()) {
+        st.trendDay = rec;
+      } else if (st.trendDay && (st.trendDay.scope === "sample" || !st.trendDay.scope)) {
+        delete st.trendDay;
+      }
     } catch (e2) {}
   }
 
@@ -206,7 +225,7 @@
   function clockLabel(clock) {
     const c = clock || clockOf();
     if (c.phase === "score") return "";
-    if (c.phase === "after") return "After 10:30 ET — score once";
+    if (c.phase === "after") return "Live SPY/QQQ — still updating";
     if (c.phase === "before") return "Score window opens 10:00 ET";
     return "Outside RTH — gate is optional";
   }
@@ -774,7 +793,6 @@
   function cachedAutoFor(clock) {
     const row = autoStoreGet();
     if (!row || !row.snap || row.snap.date !== clock.date) return null;
-    if (row.locked || clock.minutes >= SCORE_CLOSE) return row.snap;
     const age = Date.now() - (Number(row.fetchedAt) || 0);
     if (age < AUTO_REFRESH_MS) return row.snap;
     return null;
@@ -870,7 +888,7 @@
         return todayRecord(now);
       }
       applyAutoSnapshot(snap, now);
-      return maybeAutoApply(now);
+      return todayRecord(now);
     }).catch(function () {
       autoInflight = null;
       markAutoError("Auto unavailable", now);
@@ -879,17 +897,24 @@
     return autoInflight;
   }
 
+  function shouldPollAuto(now) {
+    const clock = clockOf(now);
+    if (!autoEligible(clock)) return false;
+    if (!sizePageOpen()) return false;
+    const rec = todayRecord(now);
+    if (settled(rec)) return false;
+    return true;
+  }
+
   function scheduleAutoRefresh() {
     if (autoTimer || typeof global.setInterval !== "function") return;
     autoTimer = global.setInterval(function () {
-      const c = clockOf();
-      if (!c.inScoreWindow) {
+      if (!sizePageOpen()) {
         if (typeof global.clearInterval === "function") global.clearInterval(autoTimer);
         autoTimer = null;
         return;
       }
-      const rec = todayRecord();
-      if (settled(rec) || rec.userEdited) return;
+      if (!shouldPollAuto()) return;
       hydrateAuto();
     }, AUTO_REFRESH_MS);
   }
@@ -1012,7 +1037,7 @@
     const score = rec.score;
     const band = rec.band;
     const label = clockLabel(clock);
-    const locked = !!rec.locked || !!o.readonly;
+    const locked = !!(settled(rec) || o.readonly);
     const checks = CHECKS.map(function (item, i) {
       const on = !!rec.checks[i];
       return (
@@ -1155,32 +1180,40 @@
     return todayRecord(now);
   }
 
+  function onChipClick(e) {
+    const t = e.target && e.target.closest ? e.target.closest("[data-td-check], #td-apply, #td-skip, #td-quarter") : null;
+    if (!t) return;
+    if (t.closest && !t.closest("#trend-day-chip") && !t.closest("#trend-day-overlay")) return;
+    if (e.type === "pointerup") lastPointerUp = Date.now();
+    else if (e.type === "click" && lastPointerUp && (Date.now() - lastPointerUp) < 500) return;
+    e.preventDefault();
+    e.stopPropagation();
+    if (typeof e.stopImmediatePropagation === "function") e.stopImmediatePropagation();
+    if (t.id === "td-apply") {
+      apply({ explicit: true });
+      return;
+    }
+    if (t.id === "td-quarter") {
+      apply({ quarter: true, explicit: true });
+      return;
+    }
+    if (t.id === "td-skip") {
+      skip("user");
+      return;
+    }
+    const idx = t.getAttribute("data-td-check");
+    if (idx != null) onCheck(+idx);
+  }
+
   function bind() {
     if (bound || !global.document) return;
-    const overlay = overlayEl();
-    if (!overlay) return;
     bound = true;
-    overlay.addEventListener("click", function (e) {
-      const t = e.target && e.target.closest ? e.target.closest("[data-td-check], #td-apply, #td-skip, #td-quarter") : null;
-      if (!t) return;
-      e.preventDefault();
-      if (t.id === "td-apply") {
-        apply({ explicit: true });
-        return;
-      }
-      if (t.id === "td-quarter") {
-        apply({ quarter: true, explicit: true });
-        return;
-      }
-      if (t.id === "td-skip") {
-        skip("user");
-        return;
-      }
-      const idx = t.getAttribute("data-td-check");
-      if (idx != null) onCheck(+idx);
-    });
+    global.document.addEventListener("pointerup", onChipClick, true);
+    global.document.addEventListener("click", onChipClick, true);
+    const overlay = overlayEl();
+    if (overlay) overlay.addEventListener("click", onChipClick);
     const page = global.document.getElementById("page-sizer");
-    if (page && !page._tdStampBound) {
+    if (page && typeof page.addEventListener === "function" && !page._tdStampBound) {
       page._tdStampBound = true;
       page.addEventListener("click", function (e) {
         const stamp = e.target && e.target.closest ? e.target.closest("#pt-trend-stamp") : null;
@@ -1201,6 +1234,7 @@
       try { global.clearInterval(autoTimer); } catch (e0) {}
     }
     autoTimer = null;
+    lastPointerUp = 0;
     try {
       if (global.localStorage) {
         const drop = [KEY, AUTO_KEY, storageKey(), storageKey("sample"), storageKey("auth")];
@@ -1271,6 +1305,8 @@
     evaluateFromCharts,
     applyAutoSnapshot,
     hydrateAuto,
+    shouldPollAuto,
+    onChipClick,
     demoCharts,
     demoSnapshot,
     yahooChart,
