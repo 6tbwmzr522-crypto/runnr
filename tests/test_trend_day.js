@@ -24,17 +24,19 @@ const v = html.match(/var V = "(\d+)"/)[1];
 const cache = sw.match(/CACHE = "runnr-v(\d+)"/)[1];
 check("index.html V matches sw.js CACHE", v === cache);
 check("cache is 169+", Number(v) >= 169);
-check("trend-day.js is cache-busted", html.includes("js/trend-day.js?v=3"));
+check("trend-day.js is cache-busted", html.includes("js/trend-day.js?v=4"));
 check("trend-day loads after tour and intro", html.indexOf("js/intro.js") < html.indexOf("js/trend-day.js") && html.indexOf("js/tour.js") < html.indexOf("js/trend-day.js"));
 check("trend-day loads before pretrade", html.indexOf("js/trend-day.js") < html.indexOf("js/pretrade.js"));
-check("pretrade cache-bust bumped", html.includes("js/pretrade.js?v=18"));
-check("pretrade.css cache-bust bumped", html.includes("css/pretrade.css?v=10"));
+check("pretrade cache-bust bumped", html.includes("js/pretrade.js?v=19"));
+check("pretrade.css cache-bust bumped", html.includes("css/pretrade.css?v=11"));
 check("auto is labeled SPY/QQQ, not Ripster", trendSrc.includes("Auto · SPY/QQQ") && !/ripster/i.test(trendSrc));
 check("auto snapshot key is isolated from the book key", trendSrc.includes('AUTO_KEY = "runnr_trend_day_auto_v1"'));
 check("overlay markup sits on the Size page", html.includes('id="trend-day-overlay"') && html.includes('id="trend-day-chip"') && html.includes('id="page-sizer"'));
 check("overlay starts hidden", /id="trend-day-overlay"[^>]*hidden/.test(html));
 check("copy is Trend day check", trendSrc.includes("Trend day check") && trendSrc.includes("Sit if 0–1 · half at 2 · full at 3–4"));
-check("CTAs are sit / half / full", trendSrc.includes("Apply sit") && trendSrc.includes("Apply half size") && trendSrc.includes("Apply full size"));
+check("CTAs are sit / half / full", trendSrc.includes("Sit — no trade (0 size)") && trendSrc.includes("Apply half size") && trendSrc.includes("Apply full size"));
+check("optional hours do not block Size", trendSrc.includes("shouldOpenOverlay") && css.includes("pointer-events:auto") && trendSrc.includes("size not gated"));
+check("accidental sit records migrate", trendSrc.includes("isAccidentalSit") && trendSrc.includes("migratedSit"));
 check("no Ripster / EMA / cloud branding", !/ripster|ema cloud|ichimoku/i.test(trendSrc) && !/ripster|ema cloud/i.test(html));
 check("localStorage key is runnr_trend_day_v1", trendSrc.includes('KEY = "runnr_trend_day_v1"') && trendSrc.includes("storageKey") && trendSrc.includes("bookScope"));
 check("signed-in books are not SAMPLE-gated", !/function shouldShowChip[\s\S]*isSampleDesk\(\)\s*return false/.test(trendSrc.replace(/\n/g, " ")) && !pretradeSrc.includes("if (!isSampleDesk()) return null;"));
@@ -171,7 +173,7 @@ check("Friday 9:45 ET waits for 10:00", TD.clockOf(friBefore).phase === "before"
 check("Friday after the close is Outside RTH", TD.clockOf(friOutside).outsideRth === true && /Outside RTH/.test(TD.clockLabel(TD.clockOf(friOutside))));
 check("Saturday is Outside RTH — gate is optional", TD.clockOf(sat).weekend === true && TD.clockLabel(TD.clockOf(sat)) === "Outside RTH — gate is optional");
 
-check("0 checks → sit / 0×", TD.bandOf(0) === "sit" && TD.multiplierOf(0) === 0 && TD.ctaLabel("sit") === "Apply sit");
+check("0 checks → sit / 0×", TD.bandOf(0) === "sit" && TD.multiplierOf(0) === 0 && TD.ctaLabel("sit") === "Sit — no trade (0 size)");
 check("1 check → sit / 0×", TD.bandOf(1) === "sit" && TD.multiplierOf(1) === 0);
 check("1 check can take 0.25×", TD.multiplierOf(1, { quarter: true }) === 0.25);
 check("2 checks → half / 0.5×", TD.bandOf(2) === "half" && TD.multiplierOf(2) === 0.5 && TD.ctaLabel("half") === "Apply half size");
@@ -181,8 +183,9 @@ check("status copy matches the mock", TD.statusText(2, "half") === "2 / 4 · hal
 const sample = load({ withPretrade: true });
 sample.RunnrTrendDay.resetForTests();
 check("SAMPLE shows the chip before Size", sample.RunnrTrendDay.shouldShowChip(friScore) === true);
-check("onEnterSize opens the overlay on SAMPLE", sample.RunnrTrendDay.onEnterSize() === true && sample._els["page-sizer"].classList.contains("pt-trend-gate"));
-check("chip HTML has the four checks and Apply sit", (function () {
+check("score window opens the overlay", sample.RunnrTrendDay.shouldOpenOverlay(friScore) === true);
+check("outside RTH does not open a blocking overlay", sample.RunnrTrendDay.shouldOpenOverlay(sat) === false && sample.RunnrTrendDay.optionalClock(sample.RunnrTrendDay.clockOf(sat)) === true);
+check("chip HTML has the four checks and explicit sit", (function () {
   const rec = sample.RunnrTrendDay.todayRecord(friScore);
   const htmlChip = sample.RunnrTrendDay.chipHTML(rec, sample.RunnrTrendDay.clockOf(friScore));
   return htmlChip.includes("Trend day check")
@@ -190,8 +193,9 @@ check("chip HTML has the four checks and Apply sit", (function () {
     && htmlChip.includes("Broke premarket high/low")
     && htmlChip.includes("Cleared yesterday’s H/L")
     && htmlChip.includes("Peers same direction")
-    && htmlChip.includes("Apply sit")
-    && htmlChip.includes("Skip — size without gate");
+    && htmlChip.includes("Sit — no trade (0 size)")
+    && htmlChip.includes("Skip — size without gate")
+    && !htmlChip.includes("Apply sit");
 })());
 
 sample.RunnrTrendDay.persistDraft([true, true, false, false]);
@@ -215,6 +219,7 @@ const skipped = skipCtx.RunnrTrendDay.skip("user", friScore);
 check("skip is persisted", skipped.skipped === true && skipped.skipReason === "user" && String(skipCtx._store[skipCtx.RunnrTrendDay.storageKey()] || "").indexOf("skipped") >= 0);
 check("SAMPLE storage is scoped as sample", skipCtx.RunnrTrendDay.bookScope() === "sample" && skipCtx.RunnrTrendDay.storageKey() === "runnr_trend_day_v1:sample");
 check("skip does not apply a multiplier", skipCtx.RunnrTrendDay.riskMultiplier(friScore) === 1);
+check("skip band is not sit", skipped.band === "skip" && skipCtx.RunnrTrendDay.planMeta(friScore).band === "skip");
 check("Coach can read the skip", skipCtx.RunnrTrendDay.coachHint(friScore) === "Sized without the trend day check");
 const skipLog = skipCtx.RunnrPretrade.logPlan({ ticker: "AAPL", dir: "long", entry: 200, stop: 190, target: 230 }, rails, skipCtx.window.S.trades, friScore);
 check("skip lands on the journal row", skipLog.ok && skipLog.row.trendDay.skipped === true && /sized without trend-day gate/.test(skipLog.row.notes));
@@ -283,6 +288,8 @@ check("after 10:30 locks once applied", after.RunnrTrendDay.todayRecord(friAfter
 const out = load();
 const outHtml = out.RunnrTrendDay.chipHTML(out.RunnrTrendDay.todayRecord(sat), out.RunnrTrendDay.clockOf(sat));
 check("weekend chip is optional, not Berlin", outHtml.includes("Outside RTH — gate is optional") && !/Berlin/.test(outHtml));
+check("weekend gold CTA is Size without gate, not Apply sit", outHtml.includes('id="td-skip">Size without gate') && outHtml.includes("Sit — no trade (0 size)") && outHtml.includes("td-sit") && !outHtml.includes("Apply sit"));
+check("weekend optional stamp does not gate size", /optional · Outside RTH/.test(out.RunnrTrendDay.stampHTML(out.RunnrTrendDay.todayRecord(sat), out.RunnrTrendDay.clockOf(sat))));
 
 const rules = load();
 const Auto = rules.RunnrTrendDay;
@@ -422,8 +429,8 @@ check("Sunday without fixture does not auto-fill", weekendAuto.RunnrTrendDay.aut
   const failed = await fail.RunnrTrendDay.hydrateAuto(friScore);
   check("feed fail leaves an empty manual chip", failed.score === 0 && failed.autoError === "Auto unavailable" && failed.checks.every((x) => x === false));
   const failHtml = fail.RunnrTrendDay.chipHTML(failed, fail.RunnrTrendDay.clockOf(friScore));
-  check("feed fail is a quiet Auto unavailable line", failHtml.includes("Auto unavailable") && failHtml.includes("Apply sit") && failHtml.includes("Skip — size without gate"));
-  check("feed fail still allows Size", fail.RunnrTrendDay.shouldShowChip(friScore) === true && fetches >= 1);
+  check("feed fail is a quiet Auto unavailable line", failHtml.includes("Auto unavailable") && failHtml.includes("Sit — no trade (0 size)") && failHtml.includes("Skip — size without gate"));
+  check("feed fail still allows Size", fail.RunnrTrendDay.shouldShowChip(friScore) === true && fail.RunnrTrendDay.riskMultiplier(friScore) === 1 && fetches >= 1);
 
   const live = load({
     fetch(url) {
@@ -448,6 +455,121 @@ check("Sunday without fixture does not auto-fill", weekendAuto.RunnrTrendDay.aut
   live.RunnrTrendDay.resetForTests();
   const liveRec = await live.RunnrTrendDay.hydrateAuto(friScore);
   check("RTH hydrate prefills from /quotes/trend-day", liveRec.score === 4 && liveRec.source === "auto" && liveRec.autoError === "");
+  check("score-window auto apply settles full size", liveRec.applied === true && liveRec.band === "full" && live.RunnrTrendDay.riskMultiplier(friScore) === 1 && live.RunnrTrendDay.shouldShowChip(friScore) === false);
+
+  const guestRails = { bal: 10000, maxRiskPct: 2, maxDailyLossPct: 5, minRR: 1.5, propDailyDDPct: 5, propMaxDDPct: 10, sym: "€" };
+  const janis = { ticker: "AAPL", dir: "long", entry: 336.13, stop: 326, target: 367 };
+
+  const guestSkip = load({
+    withPretrade: true,
+    state: { bal: 10000, risk: 1, sym: "€", trades: [], pretrade: { maxRiskPct: 2, maxDailyLossPct: 5, minRR: 1.5 } },
+  });
+  guestSkip.RunnrTrendDay.resetForTests();
+  guestSkip.RunnrTrendDay.skip("user", sat);
+  const guestSkipPlan = guestSkip.RunnrPretrade.computePlan(janis, guestRails, [], sat);
+  check("visitor skip → SAMPLE size is non-zero", guestSkipPlan.size > 0 && guestSkipPlan.totalRisk > 0 && guestSkipPlan.trendDaySit === false && guestSkipPlan.trendDayMult === 1);
+  const skipHtml = guestSkip.RunnrPretrade.outputHTML(guestSkipPlan, guestRails);
+  check("visitor skip plan does not say sit", !/<span>Trend day<\/span><strong class="gold">sit<\/strong>/.test(skipHtml) && !skipHtml.includes("SIT —"));
+  const guestSkipLog = guestSkip.RunnrPretrade.logPlan(janis, guestRails, guestSkip.window.S.trades, sat);
+  check("visitor skip can log a sized SAMPLE plan", guestSkipLog.ok && guestSkipLog.row.size === guestSkipPlan.size);
+
+  const guestIdle = load({
+    withPretrade: true,
+    state: { bal: 10000, risk: 1, sym: "€", trades: [], pretrade: { maxRiskPct: 2, maxDailyLossPct: 5, minRR: 1.5 } },
+  });
+  guestIdle.RunnrTrendDay.resetForTests();
+  const idlePlan = guestIdle.RunnrPretrade.computePlan(janis, guestRails, [], sat);
+  check("outside RTH unsettled does not zero size", idlePlan.size > 0 && idlePlan.trendDaySit === false && idlePlan.trendDayMult === 1 && guestIdle.RunnrTrendDay.shouldOpenOverlay(sat) === false);
+
+  const trap = load({
+    withPretrade: true,
+    state: { bal: 10000, risk: 1, sym: "€", trades: [], pretrade: { maxRiskPct: 2, maxDailyLossPct: 5, minRR: 1.5 } },
+  });
+  trap.RunnrTrendDay.resetForTests();
+  trap._store["runnr_trend_day_v1:sample"] = JSON.stringify({
+    date: "2026-09-19",
+    checks: [false, false, false, false],
+    score: 0,
+    band: "sit",
+    multiplier: 0,
+    applied: true,
+    skipped: false,
+    source: "manual",
+    userEdited: false,
+  });
+  const trapRec = trap.RunnrTrendDay.todayRecord(sat);
+  check("leftover Apply sit migrates off 0×", trapRec.applied === false && trapRec.migratedSit === true && trap.RunnrTrendDay.riskMultiplier(sat) === 1);
+  const trapPlan = trap.RunnrPretrade.computePlan(janis, guestRails, [], sat);
+  check("migrated visitor gets SAMPLE size", trapPlan.size > 0 && trapPlan.trendDaySit === false);
+
+  const bare = load({
+    withPretrade: true,
+    state: { bal: 10000, risk: 1, sym: "€", trades: [], pretrade: { maxRiskPct: 2, maxDailyLossPct: 5, minRR: 1.5 } },
+  });
+  bare.RunnrTrendDay.resetForTests();
+  bare._store["runnr_trend_day_v1"] = JSON.stringify({
+    date: "2026-09-19",
+    checks: [false, false, false, false],
+    score: 0,
+    band: "sit",
+    multiplier: 0,
+    applied: true,
+    skipped: false,
+    source: "manual",
+  });
+  const bareRec = bare.RunnrTrendDay.todayRecord(sat);
+  check("unscoped v1 sit migrates to scoped sample key", bareRec.migratedSit === true && bareRec.applied === false && !bare._store["runnr_trend_day_v1"] && /"applied":false/.test(String(bare._store["runnr_trend_day_v1:sample"] || "")));
+
+  const explicitSit = load({ withPretrade: true });
+  explicitSit.RunnrTrendDay.resetForTests();
+  const satSit = explicitSit.RunnrTrendDay.apply({ explicit: true }, sat);
+  check("sit is explicit and zeros only after Apply", satSit.explicit === true && satSit.sitChosen === true && explicitSit.RunnrTrendDay.riskMultiplier(sat) === 0);
+  const satSitPlan = explicitSit.RunnrPretrade.computePlan(janis, guestRails, [], sat);
+  check("explicit sit is the 0-share path", satSitPlan.trendDaySit === true && satSitPlan.size === 0);
+  const satSitLog = explicitSit.RunnrPretrade.logPlan(janis, guestRails, [], sat);
+  check("explicit sit log names the sit, not a missing ticker", !satSitLog.ok && /Sit — no trade/.test(satSitLog.error));
+
+  const halfGuest = load({
+    withPretrade: true,
+    state: { bal: 10000, risk: 1, sym: "€", trades: [], pretrade: { maxRiskPct: 2, maxDailyLossPct: 5, minRR: 1.5 } },
+  });
+  halfGuest.RunnrTrendDay.resetForTests();
+  halfGuest.RunnrTrendDay.persistDraft([true, true, false, false], { userEdited: true }, sat);
+  halfGuest.RunnrTrendDay.apply({ explicit: true }, sat);
+  const halfPlan = halfGuest.RunnrPretrade.computePlan(janis, guestRails, [], sat);
+  const fullShares = Math.floor(10000 * 0.02 / Math.abs(336.13 - 326));
+  check("half apply still scales SAMPLE size", halfPlan.size === Math.floor(fullShares / 2) && halfPlan.trendDayMult === 0.5 && halfPlan.size > 0);
+
+  let sitFetches = 0;
+  const autoSit = load({
+    withPretrade: true,
+    fetch(url) {
+      sitFetches += 1;
+      const href = String(url || "");
+      if (href.indexOf("/api/v1/quotes/trend-day") >= 0) {
+        return Promise.resolve({
+          ok: true,
+          json: async () => ({
+            date: "2026-09-18",
+            eligible: true,
+            locked: false,
+            checks: [false, false, false, false],
+            levels: {
+              SPY: { stamp: 566, firstHourHigh: 568, firstHourLow: 564, pmHigh: 570, pmLow: 560, ydayHigh: 575, ydayLow: 550, ok: true },
+              QQQ: { stamp: 490, firstHourHigh: 491, firstHourLow: 488, pmHigh: 495, pmLow: 480, ydayHigh: 500, ydayLow: 470, ok: true },
+            },
+            sides: { SPY: "flat", QQQ: "flat" },
+          }),
+        });
+      }
+      return Promise.reject(new Error("unexpected " + href));
+    },
+  });
+  autoSit.RunnrTrendDay.resetForTests();
+  const autoSitRec = await autoSit.RunnrTrendDay.hydrateAuto(friScore);
+  check("auto sit does not auto-apply 0×", autoSitRec.applied !== true && autoSitRec.score === 0 && autoSit.RunnrTrendDay.riskMultiplier(friScore) === 1 && sitFetches >= 1);
+  const autoSitPlan = autoSit.RunnrPretrade.computePlan({ ticker: "AAPL", dir: "long", entry: 200, stop: 190, target: 230 }, rails, [], friScore);
+  check("auto sit leaves Size usable until confirm", autoSitPlan.size > 0 && autoSitPlan.trendDaySit === false);
 
   console.log("test_trend_day: " + n + " checks ok");
 })().catch((err) => {

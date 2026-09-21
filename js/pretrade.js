@@ -357,7 +357,8 @@
     const target = num(input && input.target);
     const notes = String((input && input.notes) || "");
     const gate = trendDayGate(now);
-    const gateMult = gate && Number.isFinite(gate.multiplier) ? gate.multiplier : 1;
+    const sit = !!(gate && gate.sit);
+    const gateMult = sit ? 0 : (gate && Number.isFinite(gate.multiplier) && gate.multiplier > 0 ? gate.multiplier : 1);
     const maxRiskAmt = r.bal * r.maxRiskPct / 100 * gateMult;
     const maxDailyAmt = r.bal * r.maxDailyLossPct / 100;
     const propDailyAmt = r.bal * r.propDailyDDPct / 100;
@@ -381,6 +382,7 @@
       duplicate: false,
       sampleLocked: false,
       trendDaySit: false,
+      trendDaySkipped: false,
       trendDayMult: gateMult,
     };
     if (SampleQuota.atCap(trades)) {
@@ -420,7 +422,6 @@
     if (rr > 0 && rr + 1e-9 < r.minRR) {
       reasons.push("R:R " + rr.toFixed(2) + " below minimum " + r.minRR.toFixed(2));
     }
-    const sit = !!(gate && gate.sit);
     if (size <= 0 && !sit) reasons.push("No size at max risk / trade");
     if (totalRisk > maxRiskAmt + 0.009) reasons.push("Exceeds max risk per trade");
     if (todayAmt + totalRisk > maxDailyAmt + 0.009) reasons.push("Exceeds max daily loss limit");
@@ -441,6 +442,7 @@
       reasons,
       duplicate: !!duplicate,
       trendDaySit: sit,
+      trendDaySkipped: !!(gate && gate.meta && gate.meta.skipped),
       trendDayMult: gateMult,
     });
   }
@@ -453,10 +455,12 @@
     if (!Number.isFinite(multiplier) || multiplier < 0) multiplier = 1;
     let meta = null;
     try { meta = typeof TD.planMeta === "function" ? TD.planMeta(now) : null; } catch (e2) {}
-    const applied = !!(meta && meta.applied && !meta.skipped);
+    const skipped = !!(meta && meta.skipped);
+    const applied = !!(meta && meta.applied && !skipped);
+    const sitZero = applied && meta.band === "sit" && multiplier === 0;
     return {
-      multiplier: applied ? multiplier : 1,
-      sit: applied && (meta.band === "sit") && multiplier === 0,
+      multiplier: skipped ? 1 : (applied ? multiplier : 1),
+      sit: sitZero,
       meta: meta,
     };
   }
@@ -694,6 +698,9 @@
       return { ok: false, error: "sample-log-cap", computed, sampleGate: sampleQuota(list) };
     }
     const computed = computePlan(input, r, list, now);
+    if (computed.trendDaySit && computed.size <= 0) {
+      return { ok: false, error: "Sit — no trade (0 size). Skip or apply half/full to size.", computed };
+    }
     if (!computed.ticker || !(computed.entry > 0) || !(computed.stop > 0) || computed.size <= 0) {
       return { ok: false, error: "Add ticker, entry, stop & size first", computed };
     }
@@ -882,7 +889,7 @@
     }
     const rrCls = c.blocked || (c.rr > 0 && c.rr < (rails.minRR || 1.5)) ? "neg" : "gold";
     const tk = c.ticker ? esc(c.ticker) : "this setup";
-    const gateLine = (c.trendDayMult != null && c.trendDayMult !== 1)
+    const gateLine = (!c.trendDaySkipped && c.trendDayMult != null && c.trendDayMult !== 1)
       ? '<div class="pt-kv"><span>Trend day</span><strong class="gold">' +
         (c.trendDaySit ? "sit" : (c.trendDayMult === 0.5 ? "half size" : (c.trendDayMult === 0.25 ? "0.25×" : (c.trendDayMult + "×")))) +
         "</strong></div>"

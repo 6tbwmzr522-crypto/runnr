@@ -8,6 +8,7 @@
 
   const KEY = "runnr_trend_day_v1";
   const AUTO_KEY = "runnr_trend_day_auto_v1";
+  const SCHEMA = 2;
   const TZ = "America/New_York";
   const RTH_OPEN = 9 * 60 + 30;
   const RTH_CLOSE = 16 * 60;
@@ -89,9 +90,54 @@
       if (global.localStorage) localStorage.setItem(storageKey(), JSON.stringify(rec));
     } catch (e) {}
     try {
+      if (global.localStorage && bookScope() === "sample") {
+        localStorage.removeItem(KEY);
+      }
+    } catch (eBare) {}
+    try {
       const st = S();
       st.trendDay = rec;
     } catch (e2) {}
+  }
+
+  function isAccidentalSit(rec) {
+    if (!rec || rec.skipped) return false;
+    if (!rec.applied) return false;
+    if (rec.explicit || rec.sitChosen) return false;
+    if (rec.userEdited) return false;
+    const src = String(rec.source || "");
+    if (src === "auto" || src === "mixed") return false;
+    const score = scoreOf(rec.checks);
+    const m = Number(rec.multiplier);
+    return score <= 1 && (rec.band === "sit" || m === 0);
+  }
+
+  function migrateRecord(rec, clock) {
+    if (!rec || typeof rec !== "object") return rec;
+    rec.schema = SCHEMA;
+    if (rec.skipped) {
+      rec.applied = false;
+      rec.multiplier = 1;
+      rec.band = "skip";
+      rec.locked = true;
+      return rec;
+    }
+    if (isAccidentalSit(rec)) {
+      const fresh = blankRecord(clock);
+      fresh.checks = normalizeChecks(rec.checks);
+      fresh.score = scoreOf(fresh.checks);
+      fresh.band = bandOf(fresh.score);
+      fresh.multiplier = multiplierOf(fresh.score);
+      fresh.autoChecks = Array.isArray(rec.autoChecks) ? normalizeChecks(rec.autoChecks) : null;
+      fresh.autoAt = rec.autoAt || "";
+      fresh.autoError = rec.autoError || "";
+      fresh.autoLevels = rec.autoLevels || null;
+      fresh.autoSides = rec.autoSides || null;
+      fresh.autoFixture = !!rec.autoFixture;
+      fresh.migratedSit = true;
+      return fresh;
+    }
+    return rec;
   }
 
   function autoStoreGet() {
@@ -204,14 +250,28 @@
   }
 
   function statusText(score, band) {
+    if (band === "skip") return score + " / 4 · skipped";
     const label = band === "sit" ? "sit" : band === "half" ? "half size" : "full size";
     return score + " / 4 · " + label;
   }
 
   function ctaLabel(band) {
-    if (band === "sit") return "Apply sit";
+    if (band === "sit") return "Sit — no trade (0 size)";
     if (band === "half") return "Apply half size";
     return "Apply full size";
+  }
+
+  function optionalClock(clock) {
+    const c = clock || clockOf();
+    return !!(c.outsideRth || c.beforeScoreWindow);
+  }
+
+  function primaryAction(rec, clock) {
+    const c = clock || clockOf();
+    const band = (rec && rec.band) || "sit";
+    if (band === "half" || band === "full") return "apply";
+    if (optionalClock(c)) return "skip";
+    return "sit";
   }
 
   function sourceOf(rec) {
@@ -236,6 +296,10 @@
       appliedAt: "",
       source: "",
       userEdited: false,
+      explicit: false,
+      sitChosen: false,
+      migratedSit: false,
+      schema: SCHEMA,
       autoChecks: null,
       autoAt: "",
       autoLocked: false,
@@ -254,20 +318,37 @@
       if (draftChecks && draftScope === bookScope()) fresh.checks = normalizeChecks(draftChecks);
       return fresh;
     }
-    const rec = Object.assign(blankRecord(clock), saved);
+    let rec = Object.assign(blankRecord(clock), saved);
+    rec = migrateRecord(rec, clock);
     rec.date = clock.date;
     rec.checks = normalizeChecks(rec.checks);
     rec.autoChecks = Array.isArray(rec.autoChecks) ? normalizeChecks(rec.autoChecks) : null;
     rec.score = scoreOf(rec.checks);
-    rec.band = rec.applied ? (rec.band || bandOf(rec.score)) : bandOf(rec.score);
     rec.source = sourceOf(rec);
     rec.userEdited = !!rec.userEdited;
-    if (!rec.applied && !rec.skipped) {
+    rec.explicit = !!rec.explicit;
+    if (rec.skipped) {
+      rec.applied = false;
+      rec.multiplier = 1;
+      rec.band = "skip";
+      rec.locked = true;
+    } else if (!rec.applied) {
+      rec.band = bandOf(rec.score);
       rec.multiplier = multiplierOf(rec.score);
       rec.locked = false;
     } else {
+      rec.band = rec.band || bandOf(rec.score);
       rec.locked = true;
+      if (rec.band === "sit" && rec.multiplier !== 0.25) rec.multiplier = 0;
     }
+    let dirty = !!rec.migratedSit
+      || !!(saved.skipped && (Number(saved.multiplier) === 0 || saved.applied || saved.band !== "skip"));
+    try {
+      if (!dirty && bookScope() === "sample" && global.localStorage) {
+        dirty = !localStorage.getItem(storageKey()) && !!localStorage.getItem(KEY);
+      }
+    } catch (eDirty) {}
+    if (dirty) storageSet(rec);
     return rec;
   }
 
@@ -359,9 +440,16 @@
     return true;
   }
 
+  function shouldOpenOverlay(now) {
+    if (!shouldShowChip(now)) return false;
+    const clock = clockOf(now);
+    if (optionalClock(clock)) return false;
+    return true;
+  }
+
   function riskMultiplier(now) {
     const rec = todayRecord(now);
-    if (!rec.applied || rec.skipped) return 1;
+    if (!rec || rec.skipped || !rec.applied) return 1;
     const m = Number(rec.multiplier);
     return Number.isFinite(m) && m >= 0 ? m : 1;
   }
@@ -372,13 +460,14 @@
     return {
       date: rec.date,
       score: rec.score,
-      band: rec.band,
+      band: rec.skipped ? "skip" : rec.band,
       multiplier: rec.skipped ? 1 : rec.multiplier,
       applied: !!rec.applied,
       skipped: !!rec.skipped,
       skipReason: rec.skipReason || "",
       checks: rec.checks.slice(),
       source: rec.source || (rec.skipped ? "manual" : ""),
+      explicit: !!rec.explicit,
     };
   }
 
@@ -780,7 +869,8 @@
         markAutoError("Auto unavailable", now);
         return todayRecord(now);
       }
-      return applyAutoSnapshot(snap, now);
+      applyAutoSnapshot(snap, now);
+      return maybeAutoApply(now);
     }).catch(function () {
       autoInflight = null;
       markAutoError("Auto unavailable", now);
@@ -808,7 +898,8 @@
     const clock = clockOf(now);
     const rec = todayRecord(now);
     if (settled(rec)) return rec;
-    const quarter = !!(opts && opts.quarter);
+    const o = opts || {};
+    const quarter = !!o.quarter;
     rec.checks = draftChecks ? normalizeChecks(draftChecks) : rec.checks;
     rec.score = scoreOf(rec.checks);
     rec.band = bandOf(rec.score);
@@ -817,9 +908,12 @@
     rec.skipped = false;
     rec.skipReason = "";
     rec.locked = true;
-    rec.source = sourceOf(rec) || "manual";
+    rec.explicit = o.auto ? rec.band !== "sit" : true;
+    rec.sitChosen = rec.band === "sit" && rec.explicit;
+    rec.source = o.auto ? (sourceOf(rec) || "auto") : (sourceOf(rec) || "manual");
     rec.appliedAt = (now instanceof Date ? now : new Date()).toISOString();
     rec.date = clock.date;
+    rec.schema = SCHEMA;
     storageSet(rec);
     draftScope = bookScope();
     draftChecks = rec.checks.slice();
@@ -837,15 +931,18 @@
     if (settled(rec)) return rec;
     rec.checks = draftChecks ? normalizeChecks(draftChecks) : rec.checks;
     rec.score = scoreOf(rec.checks);
-    rec.band = bandOf(rec.score);
+    rec.band = "skip";
     rec.multiplier = 1;
     rec.applied = false;
     rec.skipped = true;
     rec.skipReason = reason || "user";
     rec.locked = true;
+    rec.explicit = true;
+    rec.sitChosen = false;
     rec.source = rec.source || sourceOf(rec) || "manual";
     rec.appliedAt = (now instanceof Date ? now : new Date()).toISOString();
     rec.date = clock.date;
+    rec.schema = SCHEMA;
     storageSet(rec);
     if (typeof global.persist === "function") {
       try { global.persist(); } catch (e) {}
@@ -853,6 +950,16 @@
     paint();
     refreshSizer();
     return rec;
+  }
+
+  function maybeAutoApply(now) {
+    const clock = clockOf(now);
+    const rec = todayRecord(now);
+    if (settled(rec) || rec.userEdited) return rec;
+    if (!autoEligible(clock)) return rec;
+    if (!rec.autoChecks) return rec;
+    if (rec.score < 2 || rec.band === "sit") return rec;
+    return apply({ auto: true }, now);
   }
 
   function refreshSizer() {
@@ -918,15 +1025,24 @@
         "</button>"
       );
     }).join("");
+    const primary = primaryAction(rec, clock);
     const quarter = band === "sit" && !locked
       ? '<button type="button" class="td-quarter" id="td-quarter">Use 0.25×</button>'
       : "";
     const skipBtn = locked
       ? ""
-      : '<button type="button" class="td-skip" id="td-skip">Skip — size without gate</button>';
-    const cta = locked
+      : (primary === "skip"
+        ? '<button type="button" class="td-cta" id="td-skip">Size without gate</button>'
+        : '<button type="button" class="td-skip" id="td-skip">Skip — size without gate</button>');
+    const sitQuiet = !locked && band === "sit" && primary === "skip"
+      ? '<button type="button" class="td-sit" id="td-apply">Sit — no trade (0 size)</button>'
+      : "";
+    const cta = locked || sitQuiet
       ? ""
       : '<button type="button" class="td-cta" id="td-apply">' + ctaLabel(band) + "</button>";
+    const hint = optionalClock(clock)
+      ? "Optional now — size is not gated until you sit"
+      : "Sit if 0–1 · half at 2 · full at 3–4";
     return (
       '<div class="td-title" id="trend-day-title">Trend day check</div>' +
       '<div class="td-status" id="trend-day-status">' + statusText(score, band) + "</div>" +
@@ -936,19 +1052,25 @@
       cta +
       quarter +
       skipBtn +
-      '<p class="td-hint">Sit if 0–1 · half at 2 · full at 3–4</p>'
+      sitQuiet +
+      '<p class="td-hint">' + hint + "</p>"
     );
   }
 
-  function stampHTML(rec) {
+  function stampHTML(rec, clock) {
     if (!rec) return "";
     if (rec.skipped) {
       return "Trend day check · skipped · sized without gate";
     }
     if (rec.applied) {
-      const extra = rec.band === "sit" && rec.multiplier === 0.25 ? " · 0.25×" : "";
+      const extra = rec.band === "sit" && rec.multiplier === 0.25 ? " · 0.25×" : (rec.band === "sit" ? " · 0 size" : "");
       const src = rec.source === "auto" ? " · auto" : rec.source === "mixed" ? " · edited" : "";
       return "Trend day check · " + statusText(rec.score, rec.band) + extra + src;
+    }
+    const c = clock || clockOf();
+    if (optionalClock(c)) {
+      const when = c.outsideRth ? "Outside RTH" : "before 10:00 ET";
+      return "Trend day check · optional · " + when + " — size not gated";
     }
     return "";
   }
@@ -987,7 +1109,8 @@
       return;
     }
     const rec = todayRecord();
-    const copy = stampHTML(rec);
+    const clock = clockOf();
+    const copy = stampHTML(rec, clock);
     if (!copy) {
       el.hidden = true;
       el.textContent = "";
@@ -995,11 +1118,11 @@
     }
     el.hidden = false;
     el.textContent = copy;
-    el.className = "pt-trend-stamp" + (rec.skipped ? " skipped" : "");
+    el.className = "pt-trend-stamp" + (rec.skipped ? " skipped" : rec.applied ? "" : " optional");
   }
 
   function paint() {
-    if (shouldYield() || !shouldShowChip()) {
+    if (shouldYield() || !shouldOpenOverlay()) {
       setOverlayOpen(false);
       paintStamp();
       return;
@@ -1019,7 +1142,7 @@
     paint();
     hydrateAuto();
     scheduleAutoRefresh();
-    return shouldShowChip();
+    return shouldOpenOverlay();
   }
 
   function onCheck(index, now) {
@@ -1042,11 +1165,11 @@
       if (!t) return;
       e.preventDefault();
       if (t.id === "td-apply") {
-        apply();
+        apply({ explicit: true });
         return;
       }
       if (t.id === "td-quarter") {
-        apply({ quarter: true });
+        apply({ quarter: true, explicit: true });
         return;
       }
       if (t.id === "td-skip") {
@@ -1056,6 +1179,18 @@
       const idx = t.getAttribute("data-td-check");
       if (idx != null) onCheck(+idx);
     });
+    const page = global.document.getElementById("page-sizer");
+    if (page && !page._tdStampBound) {
+      page._tdStampBound = true;
+      page.addEventListener("click", function (e) {
+        const stamp = e.target && e.target.closest ? e.target.closest("#pt-trend-stamp") : null;
+        if (!stamp) return;
+        const rec = todayRecord();
+        if (settled(rec) || shouldYield()) return;
+        paintChip();
+        setOverlayOpen(true);
+      });
+    }
   }
 
   function resetForTests() {
@@ -1089,6 +1224,7 @@
   const api = {
     KEY,
     AUTO_KEY,
+    SCHEMA,
     TZ,
     CHECKS,
     etParts,
@@ -1111,7 +1247,13 @@
     planMeta,
     coachHint,
     shouldShowChip,
+    shouldOpenOverlay,
     shouldYield,
+    optionalClock,
+    primaryAction,
+    isAccidentalSit,
+    migrateRecord,
+    maybeAutoApply,
     isSampleDesk,
     isLoggedIn,
     bookScope,
