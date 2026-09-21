@@ -26,8 +26,8 @@ jobs:
       - name: Build static site
         run: |
           mkdir -p _site
-          cp index.html login.html stats.html sw.js manifest.webmanifest .nojekyll _site/
-          cp -r js icons css report privacy terms refund media sample _site/
+          cp index.html login.html stats.html sw.js manifest.webmanifest robots.txt sitemap.xml .nojekyll _site/
+          cp -r js icons css report privacy terms refund media sample sign-in signin start _site/
           echo "runnr.fyi" > _site/CNAME
 
       - uses: actions/configure-pages@v5

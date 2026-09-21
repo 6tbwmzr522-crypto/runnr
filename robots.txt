@@ -1,0 +1,6 @@
+User-agent: *
+Allow: /
+Disallow: /stats.html
+Disallow: /stats
+
+Sitemap: https://runnr.fyi/sitemap.xml

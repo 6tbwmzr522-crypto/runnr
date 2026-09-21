@@ -206,7 +206,7 @@ const RunnrGrowth = {
         <p class="ob-hook-price">Start free · 7-day trial · then €19/month or €190/year</p>
         <p class="ob-hook-sample">Sample journal is labeled SAMPLE. Those numbers are not yours.</p>
         <div class="ob-hook-actions">
-          <a class="btn" id="ob-hook-start" href="/login.html">Start free</a>
+          <a class="btn" id="ob-hook-start" href="/sign-in">Start free</a>
           <button type="button" class="btn btn-ghost" id="ob-hook-enter">View sample</button>
           <a class="ob-hook-secondary" id="ob-hook-report" href="/report/">Score one trade</a>
         </div>

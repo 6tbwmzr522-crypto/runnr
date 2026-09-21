@@ -162,7 +162,7 @@ function renderHeaderSyncPill() {
     el.classList.remove('on', 'profile-chip');
     el.title = (typeof t === 'function' ? t('common.signInTitle') : 'Sign in');
     el.setAttribute('aria-label', el.title);
-    if (el.tagName === 'A') el.setAttribute('href', '/login.html');
+    if (el.tagName === 'A') el.setAttribute('href', '/sign-in');
   }
 }
 
@@ -342,7 +342,7 @@ function renderSyncAuthBanner() {
     el.innerHTML = `<div style="font-size:12px;color:var(--text2);margin-bottom:4px">Tap <strong>Open sign-in page</strong> above.</div>`;
   } else {
     el.innerHTML = `<div class="card-sm" style="font-size:12px;color:var(--text2);margin-bottom:4px">Sign in to sync your journal, watchlist, and settings across devices.</div>
-      <button class="btn btn-sm" type="button" onclick="openSyncAuthModal()">Sign in</button>`;
+      <a class="btn btn-sm" href="/sign-in">Sign in</a>`;
   }
 }
 
@@ -467,7 +467,7 @@ function openSyncAuthModal() {
     switchPage('sync');
     return;
   }
-  window.location.href = '/login.html';
+  window.location.href = '/sign-in';
 }
 
 function showSyncSignInStatus(text, kind) {
