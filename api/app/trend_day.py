@@ -325,8 +325,6 @@ def cached_snapshot(clock: dict[str, Any], ttl_s: float = 45.0) -> dict[str, Any
     row = cache_get(clock["date"])
     if not row:
         return None
-    if row.get("locked") or clock["minutes"] >= SCORE_CLOSE:
-        return row.get("payload")
     age = time.time() - float(row.get("fetched_at") or 0)
     if age < ttl_s:
         return row.get("payload")

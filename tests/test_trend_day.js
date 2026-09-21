@@ -23,12 +23,12 @@ function check(name, cond) {
 const v = html.match(/var V = "(\d+)"/)[1];
 const cache = sw.match(/CACHE = "runnr-v(\d+)"/)[1];
 check("index.html V matches sw.js CACHE", v === cache);
-check("cache is 169+", Number(v) >= 169);
-check("trend-day.js is cache-busted", html.includes("js/trend-day.js?v=4"));
+check("cache is 179+", Number(v) >= 179);
+check("trend-day.js is cache-busted", html.includes("js/trend-day.js?v=5"));
 check("trend-day loads after tour and intro", html.indexOf("js/intro.js") < html.indexOf("js/trend-day.js") && html.indexOf("js/tour.js") < html.indexOf("js/trend-day.js"));
 check("trend-day loads before pretrade", html.indexOf("js/trend-day.js") < html.indexOf("js/pretrade.js"));
-check("pretrade cache-bust bumped", html.includes("js/pretrade.js?v=19"));
-check("pretrade.css cache-bust bumped", html.includes("css/pretrade.css?v=11"));
+check("pretrade cache-bust bumped", html.includes("js/pretrade.js?v=20"));
+check("pretrade.css cache-bust bumped", html.includes("css/pretrade.css?v=12"));
 check("auto is labeled SPY/QQQ, not Ripster", trendSrc.includes("Auto · SPY/QQQ") && !/ripster/i.test(trendSrc));
 check("auto snapshot key is isolated from the book key", trendSrc.includes('AUTO_KEY = "runnr_trend_day_auto_v1"'));
 check("overlay markup sits on the Size page", html.includes('id="trend-day-overlay"') && html.includes('id="trend-day-chip"') && html.includes('id="page-sizer"'));
@@ -45,7 +45,10 @@ check("gold chip chrome lives in pretrade.css", css.includes("#trend-day-chip") 
 check("pretrade applies the gate multiplier", pretradeSrc.includes("trendDayGate") && pretradeSrc.includes("trendDayMult"));
 check("skip persists on the plan", pretradeSrc.includes("sized without trend-day gate") && pretradeSrc.includes("row.trendDay"));
 check("tour still opens Size", tourSrc.includes("openSizer") && tourSrc.includes('id === "size"'));
-check("tour start/close yields the size gate", tourSrc.includes("yieldTrendDay"));
+check("tour start/close yields the size gate", tourSrc.includes("yieldTrendDay") && tourSrc.includes("onEnterSize"));
+check("chip clicks bind on document capture", trendSrc.includes('addEventListener("click", onChipClick, true)'));
+check("signed-in desk stacks under the chip", css.includes("isolation:isolate") && css.includes("z-index:40") && css.includes("z-index:41"));
+check("sizer quote refresh nudges trend-day", pretradeSrc.includes("RunnrTrendDay.hydrateAuto"));
 check("intro key is still runnr_intro_v1", introSrc.includes('KEY: "runnr_intro_v1"'));
 check("tour query still yields the chip path", trendSrc.includes("tour=1") && trendSrc.includes("shouldYield") && src.includes("tourWantsChipPath"));
 
@@ -67,6 +70,7 @@ function load(opts) {
     className: "page active pt-live",
     classList: fakeClassList(["page", "active", "pt-live"]),
     hidden: false,
+    addEventListener() {},
   };
   const overlay = {
     hidden: true,
@@ -168,7 +172,7 @@ const sat = new Date("2026-09-19T14:10:00Z");
 const clock = load();
 const TD = clock.RunnrTrendDay;
 check("Friday 10:10 ET is the score window", TD.clockOf(friScore).phase === "score" && TD.clockOf(friScore).inScoreWindow === true);
-check("Friday 10:40 ET is after the window", TD.clockOf(friAfter).phase === "after" && TD.clockLabel(TD.clockOf(friAfter)).indexOf("After 10:30 ET") === 0);
+check("Friday 10:40 ET is after the window", TD.clockOf(friAfter).phase === "after" && /Live SPY\/QQQ/.test(TD.clockLabel(TD.clockOf(friAfter))));
 check("Friday 9:45 ET waits for 10:00", TD.clockOf(friBefore).phase === "before" && /10:00 ET/.test(TD.clockLabel(TD.clockOf(friBefore))));
 check("Friday after the close is Outside RTH", TD.clockOf(friOutside).outsideRth === true && /Outside RTH/.test(TD.clockLabel(TD.clockOf(friOutside))));
 check("Saturday is Outside RTH — gate is optional", TD.clockOf(sat).weekend === true && TD.clockLabel(TD.clockOf(sat)) === "Outside RTH — gate is optional");
@@ -251,6 +255,78 @@ check("signed-in Apply half size cuts 100 shares to 50", signedPlan.size === 50 
 const signedLog = signed.RunnrPretrade.logPlan({ ticker: "AAPL", dir: "long", entry: 200, stop: 190, target: 230 }, rails, signed.window.S.trades, friScore);
 check("signed-in log keeps trend-day metadata", signedLog.ok && signedLog.row.trendDay && signedLog.row.trendDay.score === 2 && !signedLog.row.isDemo);
 
+const signedIdle = load({ loggedIn: true, email: "janis@example.com", withPretrade: true });
+signedIdle.RunnrTrendDay.resetForTests();
+const signedOutHtml = signedIdle.RunnrTrendDay.chipHTML(signedIdle.RunnrTrendDay.todayRecord(sat), signedIdle.RunnrTrendDay.clockOf(sat));
+check("signed-in weekend chip is optional like SAMPLE", signedOutHtml.includes("Size without gate") && signedIdle.RunnrTrendDay.shouldOpenOverlay(sat) === false);
+const signedIdlePlan = signedIdle.RunnrPretrade.computePlan({ ticker: "AAPL", dir: "long", entry: 200, stop: 190, target: 230 }, rails, [], sat);
+check("signed-in off-hours unsettled does not zero size", signedIdlePlan.size > 0 && signedIdlePlan.trendDaySit === false);
+
+const signedTrap = load({ loggedIn: true, email: "janis@example.com", withPretrade: true });
+signedTrap.RunnrTrendDay.resetForTests();
+signedTrap._store["runnr_trend_day_v1:janis@example.com"] = JSON.stringify({
+  date: "2026-09-19",
+  checks: [false, false, false, false],
+  score: 0,
+  band: "sit",
+  multiplier: 0,
+  applied: true,
+  skipped: false,
+  source: "manual",
+  userEdited: false,
+  scope: "janis@example.com",
+});
+const signedTrapRec = signedTrap.RunnrTrendDay.todayRecord(sat);
+check("signed-in leftover Apply sit migrates off 0×", signedTrapRec.applied === false && signedTrapRec.migratedSit === true && signedTrap.RunnrTrendDay.riskMultiplier(sat) === 1);
+const signedTrapPlan = signedTrap.RunnrPretrade.computePlan({ ticker: "AAPL", dir: "long", entry: 200, stop: 190, target: 230 }, rails, [], sat);
+check("migrated signed-in book gets size", signedTrapPlan.size > 0 && signedTrapPlan.trendDaySit === false);
+
+const leak = load({ loggedIn: true, email: "janis@example.com", withPretrade: true });
+leak.RunnrTrendDay.resetForTests();
+leak.window.S.trendDay = {
+  date: "2026-09-18",
+  checks: [false, false, false, false],
+  score: 0,
+  band: "sit",
+  multiplier: 0,
+  applied: true,
+  skipped: false,
+  scope: "sample",
+};
+check("SAMPLE trendDay on S does not freeze the signed-in chip", leak.RunnrTrendDay.shouldShowChip(friScore) === true && leak.RunnrTrendDay.todayRecord(friScore).applied !== true);
+
+const cloudBook = load({ loggedIn: true, email: "janis@example.com" });
+cloudBook.RunnrTrendDay.resetForTests();
+cloudBook.window.S.trendDay = {
+  date: "2026-09-18",
+  checks: [true, true, false, false],
+  score: 2,
+  band: "half",
+  applied: false,
+  skipped: false,
+  scope: "janis@example.com",
+};
+check("signed-in book hydrates from matching-scope S.trendDay", cloudBook.RunnrTrendDay.todayRecord(friScore).score === 2 && cloudBook.RunnrTrendDay.todayRecord(friScore).applied !== true);
+
+const signedClick = load({ loggedIn: true, email: "janis@example.com" });
+signedClick.RunnrTrendDay.resetForTests();
+signedClick.RunnrTrendDay.bind();
+const fakeCheck = {
+  id: "",
+  getAttribute() { return "0"; },
+  closest(sel) {
+    if (sel.indexOf("data-td-check") >= 0) return fakeCheck;
+    if (sel === "#trend-day-chip") return { id: "trend-day-chip" };
+    if (sel === "#trend-day-overlay") return { id: "trend-day-overlay" };
+    return null;
+  },
+};
+signedClick.RunnrTrendDay.onChipClick({ target: fakeCheck, preventDefault() {}, stopPropagation() {} });
+const clicked = signedClick.RunnrTrendDay.todayRecord();
+check("signed-in chip click toggles a check", clicked.checks[0] === true && clicked.userEdited === true && clicked.applied !== true);
+check("signed-in after 10:30 still polls while Size is open", signedClick.RunnrTrendDay.shouldPollAuto(friAfter) === true);
+check("weekend does not poll auto", signedClick.RunnrTrendDay.shouldPollAuto(sat) === false);
+
 const sharedStore = {};
 const sampleBook = load({ withPretrade: true, store: sharedStore });
 sampleBook.RunnrTrendDay.resetForTests();
@@ -281,7 +357,7 @@ check("signed-in ?tour=1 still yields Size to the tour", signedTour.RunnrTrendDa
 const after = load();
 after.RunnrTrendDay.resetForTests();
 const afterChip = after.RunnrTrendDay.chipHTML(after.RunnrTrendDay.todayRecord(friAfter), after.RunnrTrendDay.clockOf(friAfter));
-check("after 10:30 still allows a first score", after.RunnrTrendDay.shouldShowChip(friAfter) === true && afterChip.includes("After 10:30 ET — score once"));
+check("after 10:30 still allows a first score", after.RunnrTrendDay.shouldShowChip(friAfter) === true && afterChip.includes("Live SPY/QQQ — still updating"));
 after.RunnrTrendDay.apply({}, friAfter);
 check("after 10:30 locks once applied", after.RunnrTrendDay.todayRecord(friAfter).locked === true && after.RunnrTrendDay.shouldShowChip(friAfter) === false);
 
@@ -455,7 +531,44 @@ check("Sunday without fixture does not auto-fill", weekendAuto.RunnrTrendDay.aut
   live.RunnrTrendDay.resetForTests();
   const liveRec = await live.RunnrTrendDay.hydrateAuto(friScore);
   check("RTH hydrate prefills from /quotes/trend-day", liveRec.score === 4 && liveRec.source === "auto" && liveRec.autoError === "");
-  check("score-window auto apply settles full size", liveRec.applied === true && liveRec.band === "full" && live.RunnrTrendDay.riskMultiplier(friScore) === 1 && live.RunnrTrendDay.shouldShowChip(friScore) === false);
+  check("score-window auto fill stays interactive", liveRec.applied !== true && live.RunnrTrendDay.shouldShowChip(friScore) === true);
+  const flippedLive = live.RunnrTrendDay.onCheck(3, friScore);
+  check("score-window toggle still works after auto fill", flippedLive.userEdited === true && flippedLive.checks[3] === false && flippedLive.applied !== true);
+
+  let afterFetches = 0;
+  const liveAfter = load({
+    loggedIn: true,
+    email: "janis@example.com",
+    fetch(url) {
+      afterFetches += 1;
+      const href = String(url || "");
+      if (href.indexOf("/api/v1/quotes/trend-day") >= 0) {
+        return Promise.resolve({
+          ok: true,
+          json: async () => ({
+            date: "2026-09-18",
+            eligible: true,
+            locked: true,
+            checks: demo.checks,
+            levels: demo.levels,
+            sides: demo.sides,
+            stampAt: demo.stampAt,
+          }),
+        });
+      }
+      return Promise.reject(new Error("unexpected " + href));
+    },
+  });
+  liveAfter.RunnrTrendDay.resetForTests();
+  const firstAfter = await liveAfter.RunnrTrendDay.hydrateAuto(friAfter);
+  check("signed-in after 10:30 prefills and stays unlocked", firstAfter.score === 4 && firstAfter.applied !== true && liveAfter.RunnrTrendDay.shouldShowChip(friAfter) === true);
+  const autoRow = JSON.parse(String(liveAfter._store["runnr_trend_day_auto_v1"] || "{}"));
+  autoRow.fetchedAt = Date.now() - 60000;
+  liveAfter._store["runnr_trend_day_auto_v1"] = JSON.stringify(autoRow);
+  await liveAfter.RunnrTrendDay.hydrateAuto(friAfter);
+  check("after 10:30 stale cache refetches like a live quote", afterFetches >= 2);
+  const signedFlip = liveAfter.RunnrTrendDay.onCheck(0, friAfter);
+  check("signed-in can toggle after live auto fill", signedFlip.userEdited === true && signedFlip.checks[0] === false);
 
   const guestRails = { bal: 10000, maxRiskPct: 2, maxDailyLossPct: 5, minRR: 1.5, propDailyDDPct: 5, propMaxDDPct: 10, sym: "€" };
   const janis = { ticker: "AAPL", dir: "long", entry: 336.13, stop: 326, target: 367 };
