@@ -6,7 +6,7 @@
 ## Funnel
 
 1. **Awareness** — Reddit/Discord/TikTok/forums where people vent blown accounts & no stops  
-2. **Hook** — TikTok bio → SAMPLE desk [`https://runnr.fyi/?demo=1`](https://runnr.fyi/?demo=1) (aliases `/sample`, `#sample`). First screen: they get paid when you skip the stop · Score a trade. Email wall after that aha (saved score + weekly discipline report) — not login.html. Report still at [`/report/`](../report/).  
+2. **Hook** — TikTok bio → SAMPLE desk [`https://runnr.fyi/?demo=1`](https://runnr.fyi/?demo=1) (aliases `/sample`, `#sample`). First screen: they get paid when you skip the stop · Score a trade and see the slip. Then the email wall (save the score + weekly discipline report) — not before the payoff, and not login.html. Trial line stays on that wall. Report still at [`/report/`](../report/).  
 3. **Activation** — Free: size one trade, log 3 with discipline flags, one Coach insight  
 4. **Convert** — Stripe €19/month (or €190/year) when the 7-day trial ends, or earlier if they want to lock in Pro  
 5. **Retain** — Weekly Coach + shareable discipline score  

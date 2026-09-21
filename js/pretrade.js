@@ -924,6 +924,10 @@
     const chips = (c.ready || c.blocked || c.duplicate)
       ? processButtonsHtml(attach, { selected: selected })
       : "";
+    const slip = sampleSlipText(c, rails);
+    const keep = (!c.sampleLocked && isSampleDesk() && (c.ready || c.size > 0))
+      ? '<button type="button" class="btn pt-keep-score" id="pt-keep-score">Keep this score</button>'
+      : "";
     return (
       '<div class="pt-output-kicker">PENDING PLAN</div>' +
       '<div class="pt-output-note">Computed size for the form — not a logged fill.</div>' +
@@ -934,9 +938,18 @@
       '<div class="pt-kv"><span>Total Reward</span><strong class="mint">' + money(c.totalReward, rails.sym) + "</strong></div>" +
       '<div class="pt-kv"><span>R:R Ratio</span><strong class="' + rrCls + '">' + (c.rr ? c.rr.toFixed(2) + " : 1" : "—") + "</strong></div>" +
       gateLine +
+      (slip ? '<p class="pt-slip">' + esc(slip) + "</p>" : "") +
       banner +
-      chips
+      chips +
+      keep
     );
+  }
+
+  function sampleSlipText(c, rails) {
+    if (!isSampleDesk() || !c || c.sampleLocked) return "";
+    const SB = global.RunnrDemoSandbox;
+    if (!SB || typeof SB.slipLine !== "function") return "";
+    try { return String(SB.slipLine(c, rails, S()) || ""); } catch (e) { return ""; }
   }
 
   function renderOutput(c, rails) {
@@ -1232,7 +1245,7 @@
     if (!isSampleDesk()) return false;
     const SB = global.RunnrDemoSandbox;
     if (!SB || typeof SB.onGoldScored !== "function") return false;
-    try { return !!SB.onGoldScored(c, { reason: "score", delayMs: 900 }); } catch (e) { return false; }
+    try { return !!SB.onGoldScored(c, { reason: "score" }); } catch (e) { return false; }
   }
 
   function setView(next) {
@@ -1434,6 +1447,14 @@
       }
       if (e.target.closest("#pt-log")) {
         onLog();
+        return;
+      }
+      if (e.target.closest("#pt-keep-score")) {
+        e.preventDefault();
+        const SB = global.RunnrDemoSandbox;
+        if (SB && typeof SB.showKeepScore === "function") {
+          try { SB.showKeepScore({ reason: "score" }); } catch (err) {}
+        }
         return;
       }
       const proc = e.target.closest("[data-pt-process]");

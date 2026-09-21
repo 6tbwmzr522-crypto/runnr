@@ -22,8 +22,8 @@ const v = html.match(/var V = "(\d+)"/)[1];
 const cache = sw.match(/CACHE = "runnr-v(\d+)"/)[1];
 check("index.html V matches sw.js CACHE", v === cache);
 check("cache is 147+", Number(v) >= 147);
-check("pretrade.js is loaded", html.includes("js/pretrade.js?v=22"));
-check("pretrade.css is loaded", html.includes("css/pretrade.css?v=15"));
+check("pretrade.js is loaded", html.includes("js/pretrade.js?v=23"));
+check("pretrade.css is loaded", html.includes("css/pretrade.css?v=16"));
 check("gold mounts in pretrade-root, not desk-root hijack", html.includes('id="pretrade-root"') && src.includes('getElementById("pretrade-root")'));
 check("legacy CFD sizer stays in the page, hidden", html.includes("CFD / Forex Position Sizer") && html.includes('id="legacy-sizer"') && css.includes("#legacy-sizer{display:none"));
 check("desk still opens via RunnrDesk.open", html.includes('data-nav="desk" onclick="RunnrDesk.open()"'));
@@ -336,7 +336,7 @@ goldSeal.RunnrDemoSandbox = {
 const readyGold = goldSeal.RunnrPretrade.computePlan({
   ticker: "AAPL", dir: "long", entry: 200, stop: 190, target: 230,
 }, rails, [], now);
-check("maybeSealGoldScore forwards the first ready gold score", goldSeal.RunnrPretrade.maybeSealGoldScore(readyGold) === true && goldScoreHits === 1 && goldSeal.goldOpts.reason === "score" && goldSeal.goldOpts.delayMs === 900 && goldSeal.goldPlan.ready === true);
+check("maybeSealGoldScore forwards the ready gold score without covering it", goldSeal.RunnrPretrade.maybeSealGoldScore(readyGold) === true && goldScoreHits === 1 && goldSeal.goldOpts.reason === "score" && goldSeal.goldOpts.delayMs == null && goldSeal.goldPlan.ready === true);
 check("maybeSealGoldScore no-ops without a score hook", PT.maybeSealGoldScore(readyGold) === false);
 
 console.log("test_pretrade_desk: ok " + n);

@@ -238,6 +238,19 @@
   line-height:1.4;
   margin-bottom:10px;
 }
+.pt-slip{
+  margin:10px 0 4px;
+  padding:10px 12px;
+  border:1px solid rgba(201,169,110,0.45);
+  background:rgba(201,169,110,0.08);
+  color:var(--gold-light);
+  font-size:13px;
+  line-height:1.45;
+}
+.pt-keep-score{
+  margin-top:12px;
+  width:100%;
+}
 .pt-already{
   margin-top:12px;
   padding:10px 12px;
