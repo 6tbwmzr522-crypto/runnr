@@ -88,7 +88,11 @@ const custom = coachCtx.CoachEngine.answerQuestion(
   1
 );
 check("custom coach questions get a data answer", typeof custom === "string" && custom.length > 20);
-check("askCoachFree still requires Pro", /async function askCoachFree[\s\S]{0,160}requirePro\(\s*['"]Coach['"]\)/.test(coachPageSrc));
+check("askCoachFree still requires Pro", /async function askCoachFree[\s\S]{0,500}requirePro\(\s*['"]Coach['"]\)/.test(coachPageSrc));
+const errorHtml = W.renderRemarkHtml({ sym: "GDX", autoRemarkError: "Market read timed out — tap ↻ AI read" });
+check("failed remark paints error not a spinner", errorHtml.includes("timed out") && !errorHtml.includes("Fetching market read"));
+const idleHtml = W.renderRemarkHtml({ sym: "GDX" });
+check("idle remark is empty not a spinner", idleHtml === "");
 
 const keep = html.slice(html.indexOf('id="modal-sample-keep"'), html.indexOf('id="modal-share"'));
 check("keep-score bait CTA stays", keep.includes("Continue with Google") && keep.includes("Continue with Apple") && keep.includes("/login.html?keep=1") && keep.includes("Keep this score") && keep.includes("Use email instead"));

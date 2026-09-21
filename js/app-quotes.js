@@ -382,6 +382,12 @@ async function openStockDetail(sym) {
     renderStockModal(displaySym, data);
 
   } catch(e) {
+    const body = document.getElementById('sd-modal-body');
+    if (typeof isFetchTimeout === 'function' && isFetchTimeout(e) && body) {
+      const safe = String(displaySym || '').replace(/\\/g, '\\\\').replace(/'/g, "\\'");
+      body.innerHTML = '<div class="sd-loading">Market data timed out. <button type="button" class="btn btn-sm" onclick="openStockDetail(\'' + safe + '\')">Retry</button></div>';
+      return;
+    }
     // Fallback with simulated realistic data
     const seed = displaySym.split('').reduce((a,c) => a + c.charCodeAt(0), 0);
     const pseudo = n => ((seed * n * 9301 + 49297) % 233280) / 233280;
@@ -650,12 +656,7 @@ function setFeedStatus(state, msg) {
   if (txt) txt.textContent = msg;
 }
 
-// Safe fetch with timeout fallback (AbortSignal.timeout not in all browsers)
-function fetchWithTimeout(url, ms, opts) {
-  const ctrl = new AbortController();
-  const timer = setTimeout(() => ctrl.abort(), ms);
-  return fetch(url, { ...(opts || {}), signal: ctrl.signal }).finally(() => clearTimeout(timer));
-}
+// fetchWithTimeout lives in js/fetch-timeout.js (loaded before quotes).
 
 function livePriceFromChart(json, key, sym) {
   const result = json && json.chart && json.chart.result && json.chart.result[0];
@@ -738,7 +739,13 @@ async function refreshAllPrices() {
           const last = liveprices[display];
           if (last && last.price > 0 && !last.estimated) data = { ...last, stale: true };
         }
-        if (!data) { failCount++; continue; }
+        if (!data) {
+          failCount++;
+          if (!liveprices[display] || !liveprices[display].price) {
+            liveprices[display] = { failed: true, fetchedAt: Date.now(), sym: display };
+          }
+          continue;
+        }
         liveprices[display] = data;
         if (data.estimated) failCount++;
         else if (data.stale) staleCount++;
@@ -769,6 +776,12 @@ async function refreshAllPrices() {
     renderNotifSettings();
   } catch (e) {
     setFeedStatus('error', 'Price fetch failed — tap ↻ Refresh');
+    (S.watchlist || []).forEach((w) => {
+      if (!w || !w.sym) return;
+      const last = liveprices[w.sym];
+      if (!last || !last.price) liveprices[w.sym] = { failed: true, fetchedAt: Date.now(), sym: w.sym };
+    });
+    if (document.getElementById('page-watchlist')?.classList.contains('active')) renderWatchlist();
   } finally {
     feedFetching = false;
   }
@@ -809,8 +822,13 @@ function fmtPrice(p) {
   return Math.round(p).toLocaleString();
 }
 
+function livePricePendingHtml(lp) {
+  if (lp && lp.failed && !lp.price) return '<span class="lp-error">Price unavailable — tap ↻ Refresh</span>';
+  return '<span class="lp-loading">⟳ Fetching price…</span>';
+}
+
 function renderLivePriceRow(lp, w) {
-  if (!lp || !lp.price) return '<span class="lp-loading">⟳ Loading...</span>';
+  if (!lp || !lp.price) return livePricePendingHtml(lp);
   const isPos     = (lp.change || 0) >= 0;
   const distPct   = distToEntry(lp.price, w.entry);
   const near      = isNearEntry(lp.price, w.entry, w.dir);

@@ -376,6 +376,7 @@ function renderPortCta() {
 function drawPortEquity(trades) {
   const canvas = document.getElementById('port-equity-canvas');
   if (!canvas) return;
+  try {
   const dpr = window.devicePixelRatio || 1;
   const W = canvas.offsetWidth || 340;
   const H = 110;
@@ -440,6 +441,18 @@ function drawPortEquity(trades) {
   ctx.textAlign='right';
   ctx.fillStyle = isUp ? '#00e5a0' : '#ff4d6d';
   ctx.fillText(S.sym+Math.round(points[points.length-1]).toLocaleString(), W-4, toY(points[points.length-1])-4);
+  } catch (e) {
+    try {
+      const ctx = canvas.getContext('2d');
+      if (!ctx) return;
+      ctx.setTransform(1, 0, 0, 1, 0, 0);
+      ctx.clearRect(0, 0, canvas.width, canvas.height);
+      ctx.fillStyle = 'rgba(255,255,255,0.45)';
+      ctx.font = '12px DM Sans';
+      ctx.textAlign = 'center';
+      ctx.fillText('Could not draw equity — try again', (canvas.offsetWidth || 340) / 2, 55);
+    } catch (err) {}
+  }
 }
 
 function drawDonut(pct, stopPct, sizePct) {

@@ -378,24 +378,40 @@ const RunnrSync = (() => {
     return !price;
   }
 
-  async function request(path, options = {}, timeoutMs = 20000) {
-    ensureApiUrl();
-    const headers = { "Content-Type": "application/json", ...(options.headers || {}) };
-    if (token()) headers.Authorization = "Bearer " + token();
+  function defaultTimeoutMs() {
+    return typeof FETCH_TIMEOUT_MS === "number" ? FETCH_TIMEOUT_MS : 12000;
+  }
+
+  async function timedFetch(url, timeoutMs, options) {
+    if (typeof fetchWithTimeout === "function") {
+      return fetchWithTimeout(url, timeoutMs, options);
+    }
     const ctrl = new AbortController();
     const timer = setTimeout(() => ctrl.abort(), timeoutMs);
+    try {
+      return await fetch(url, { ...options, signal: ctrl.signal });
+    } finally {
+      clearTimeout(timer);
+    }
+  }
+
+  async function request(path, options = {}, timeoutMs) {
+    ensureApiUrl();
+    const wait = timeoutMs == null ? defaultTimeoutMs() : timeoutMs;
+    const headers = { "Content-Type": "application/json", ...(options.headers || {}) };
+    if (token()) headers.Authorization = "Bearer " + token();
     let res;
     try {
-      res = await fetch(apiBase() + path, { ...options, headers, signal: ctrl.signal });
+      res = await timedFetch(apiBase() + path, wait, { ...options, headers });
     } catch (e) {
       const msg = String(e.message || e);
-      if (e.name === "AbortError") throw new Error("Request timed out — check your connection and try again");
+      if (e.name === "TimeoutError" || e.name === "AbortError" || /timed out/i.test(msg)) {
+        throw new Error("Request timed out — check your connection and try again");
+      }
       if (/failed to fetch|load failed|networkerror|network error/i.test(msg)) {
         throw new Error("Cannot reach Runnr server — check Wi‑Fi or mobile data");
       }
       throw e;
-    } finally {
-      clearTimeout(timer);
     }
     let data = null;
     try {
@@ -1785,7 +1801,9 @@ const RunnrSync = (() => {
       billingKnown = false;
       billingCache = failClosedBilling();
       try {
-        const health = await fetch(apiBase() + "/health").then((r) => r.json()).catch(() => null);
+        const health = await timedFetch(apiBase() + "/health", defaultTimeoutMs(), {})
+          .then((r) => r.json())
+          .catch(() => null);
         if (health && health.stripe_configured === false) {
           billingKnown = true;
           billingCache = failClosedBilling({
@@ -1820,7 +1838,7 @@ const RunnrSync = (() => {
       if (me.intro_seen && window.S) window.S.introWalkthroughSeen = true;
       if (!billingCache.canViewStats) {
         try {
-          const st = await fetch(apiBase() + "/api/v1/stats", {
+          const st = await timedFetch(apiBase() + "/api/v1/stats", defaultTimeoutMs(), {
             headers: { Authorization: "Bearer " + token() },
           });
           billingCache.canViewStats = st.ok;
