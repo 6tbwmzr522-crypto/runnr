@@ -198,16 +198,37 @@ def _migrate_site_stats(conn: sqlite3.Connection) -> None:
         CREATE TABLE IF NOT EXISTS site_stats_days (
             day TEXT PRIMARY KEY,
             pageviews INTEGER NOT NULL DEFAULT 0,
-            uniques INTEGER NOT NULL DEFAULT 0
+            uniques INTEGER NOT NULL DEFAULT 0,
+            new_visitors INTEGER NOT NULL DEFAULT 0,
+            returning_visitors INTEGER NOT NULL DEFAULT 0
         )
         """
     )
+    cols = {row[1] for row in conn.execute("PRAGMA table_info(site_stats_days)").fetchall()}
+    if "new_visitors" not in cols:
+        conn.execute(
+            "ALTER TABLE site_stats_days ADD COLUMN new_visitors INTEGER NOT NULL DEFAULT 0"
+        )
+    if "returning_visitors" not in cols:
+        conn.execute(
+            "ALTER TABLE site_stats_days ADD COLUMN returning_visitors INTEGER NOT NULL DEFAULT 0"
+        )
     conn.execute(
         """
         CREATE TABLE IF NOT EXISTS site_stats_visitors (
             day TEXT NOT NULL,
             visitor_hash TEXT NOT NULL,
             PRIMARY KEY (day, visitor_hash)
+        )
+        """
+    )
+    # Durable anonymous browsers. guest_hash is an HMAC, never a raw client id or IP.
+    conn.execute(
+        """
+        CREATE TABLE IF NOT EXISTS site_stats_guests (
+            guest_hash TEXT PRIMARY KEY,
+            first_seen_day TEXT NOT NULL,
+            last_seen_day TEXT NOT NULL
         )
         """
     )

@@ -65,7 +65,7 @@ check("hook Start free is a real /sign-in href", /id="ob-hook-start"[^>]*href="\
 check("demo chrome CTA is a real /sign-in href", /id="demo-chrome-cta"[^>]*href="\/sign-in"/.test(html));
 check("home landing pitch is static HTML", html.includes("Trading discipline, not a broker") && html.includes("Sizer, journal, score, streak, and session wave"));
 check("login form lives on /sign-in/", login.includes('id="signin-form"') && login.includes("7-day trial") && login.includes('rel="canonical" href="https://runnr.fyi/sign-in/"'));
-check("sign-in script is root-relative", login.includes('src="/js/visit.js?v=1"'));
+check("sign-in script is root-relative", login.includes('src="/js/visit.js?v=2"'));
 check("home has no crawler spinner copy", !html.includes("Fetching CNN Fear") && !html.includes("↻ Loading") && !html.includes(">LOADING<") && !html.includes("Fetching prices...") && !html.includes("Loading market data"));
 check("fear and greed first paint is static", html.includes("CNN Fear &amp; Greed is a mood gauge for the session."));
 

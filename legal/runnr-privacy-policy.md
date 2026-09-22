@@ -30,9 +30,11 @@ Runnr is operated by **Thin Ice Digital Ltd**, registered in England and Wales. 
 ### First-party visitor counts
 We count daily unique visitors and pageviews ourselves on the Runnr API (hosted on Railway). We do **not** use Google Analytics or any other third-party analytics service.
 
-On each counted page load, the server hashes the visitor’s IP address together with the UTC date and browser user-agent, using a secret that never leaves the server. The IP address is then discarded. We store only that hash (so we can tell if the visitor is new that UTC day) and the daily counters. Hashes older than two days are deleted. We never store IP addresses. These totals are internal and are not published.
+On each counted page load, the server hashes the visitor’s IP address together with the UTC date and browser user-agent, using a secret that never leaves the server. The IP address is then discarded. We store that daily hash (so we can tell if the visitor is unique that UTC day) and the daily counters. Daily hashes older than two days are deleted. We never store IP addresses. These totals are internal and are not published.
 
-If your browser sends a **Do Not Track (DNT)** or **Global Privacy Control** signal, we do not record the visit.
+If your browser does not send Do Not Track or Global Privacy Control, the page also sends a random anonymous id kept in localStorage (or a first-party cookie only when storage is blocked). We hash that id with the same secret and store the first and last UTC day it was seen, so we can tell a first visit from a later one. We do not store the raw id. Hashes not seen for about 400 days are deleted.
+
+If your browser sends a **Do Not Track (DNT)** or **Global Privacy Control** signal, we do not record the visit and we do not create or store an anonymous id.
 
 ### Broker integration data
 If you connect Alpaca, IBKR Flex, or Trading 212, we retrieve your trade history in read-only mode. Broker API keys and Flex tokens are stored only on the server, encrypted at rest using AES/Fernet. We do not keep raw broker secrets in your browser. We cannot place, modify, or cancel orders on your behalf.
@@ -66,7 +68,7 @@ Your journal, watchlist, and settings are stored:
 
 We take reasonable technical measures to protect your data, including encryption in transit (HTTPS) and at rest.
 
-First-party visitor hashes and daily counters are stored in the same Railway database as the API. They do not include IP addresses.
+First-party visitor hashes, anonymous-id hashes, and daily counters are stored in the same Railway database as the API. They do not include IP addresses.
 
 ---
 
@@ -97,7 +99,7 @@ If you are unsatisfied with our response, you have the right to lodge a complain
 
 ## 7. Cookies
 
-Runnr uses minimal cookies necessary for session management and authentication. We do not use advertising or tracking cookies. We do not use Google Analytics or any other third-party analytics. First-party visitor counts (described above) do not set a tracking cookie — uniqueness is derived from a daily hash, not a stored identifier on your device.
+Runnr uses minimal cookies necessary for session management and authentication. We do not use advertising cookies. We do not use Google Analytics or any other third-party analytics. Daily unique counts are a hash of IP, date, and browser, not a cookie. To tell new visitors from returning ones, browsers that allow storage and do not send Do Not Track or Global Privacy Control keep a random anonymous id in localStorage. If localStorage is blocked, that same id is stored in a first-party cookie on runnr.fyi. The server stores only a keyed hash of the id.
 
 ---
 

@@ -1275,7 +1275,17 @@
       if (global.RunnrSync && typeof RunnrSync.apiBase === "function") {
         base = RunnrSync.apiBase();
       }
-      const url = String(base).replace(/\/$/, "") + "/api/v1/stats/hit?e=" + encodeURIComponent(event || "demo_view");
+      let guest = "";
+      try {
+        if (global.RunnrVisit && typeof global.RunnrVisit.guestId === "function") {
+          guest = global.RunnrVisit.guestId() || "";
+        }
+      } catch (err) {}
+      const url =
+        String(base).replace(/\/$/, "") +
+        "/api/v1/stats/hit?e=" +
+        encodeURIComponent(event || "demo_view") +
+        (guest ? "&g=" + encodeURIComponent(guest) : "");
       if (nav.sendBeacon) {
         nav.sendBeacon(url);
         return;

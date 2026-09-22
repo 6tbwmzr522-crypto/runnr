@@ -3,10 +3,16 @@ from pathlib import Path
 from fastapi.testclient import TestClient
 
 from app.auth import create_access_token, hash_password
+from app.config import settings
 from app.db import get_db, init_db
 from app.main import app
 from app.routers import stats as stats_mod
-from app.routers.stats import STATS_VIEWER_EMAILS, email_can_view_stats, record_hit
+from app.routers.stats import (
+    STATS_VIEWER_EMAILS,
+    email_can_view_stats,
+    guest_hash,
+    record_hit,
+)
 
 JANIS_EMAILS = (
     "janis@thinicedigital.com",
@@ -49,6 +55,193 @@ def test_hit_stays_public():
         assert res.status_code == 204
         res = client.post("/api/v1/stats/hit", headers={"Sec-GPC": "1"})
         assert res.status_code == 204
+
+
+GUEST_A = "11111111-1111-4111-8111-111111111111"
+GUEST_B = "22222222-2222-4222-8222-222222222222"
+
+
+def _day_counts(day: str):
+    with get_db() as conn:
+        row = conn.execute(
+            """
+            SELECT pageviews, uniques, new_visitors, returning_visitors
+            FROM site_stats_days WHERE day = ?
+            """,
+            (day,),
+        ).fetchone()
+    if not row:
+        return {"pageviews": 0, "uniques": 0, "new_visitors": 0, "returning_visitors": 0}
+    return {k: int(row[k]) for k in row.keys()}
+
+
+def test_new_then_returning_uses_guest_id_not_ip(monkeypatch):
+    init_db()
+    monkeypatch.setattr(stats_mod, "utc_day", lambda now=None: "2026-04-01")
+    record_hit("9.9.9.9", "ua-a", "secret", guest_id=GUEST_A)
+    record_hit("9.9.9.9", "ua-a", "secret", guest_id=GUEST_A)
+    record_hit("9.9.9.9", "ua-a", "secret", guest_id=GUEST_B)
+    day1 = _day_counts("2026-04-01")
+    assert day1["pageviews"] == 3
+    assert day1["uniques"] == 1
+    assert day1["new_visitors"] == 2
+    assert day1["returning_visitors"] == 0
+
+    monkeypatch.setattr(stats_mod, "utc_day", lambda now=None: "2026-04-02")
+    record_hit("8.8.8.8", "ua-b", "secret", guest_id=GUEST_A)
+    record_hit("8.8.8.8", "ua-b", "secret", guest_id=GUEST_A)
+    record_hit("7.7.7.7", "ua-c", "secret")
+    day2 = _day_counts("2026-04-02")
+    assert day2["new_visitors"] == 0
+    assert day2["returning_visitors"] == 1
+    assert day2["uniques"] == 2
+    assert day2["pageviews"] == 3
+
+    digest = guest_hash(GUEST_A, "secret")
+    with get_db() as conn:
+        row = conn.execute(
+            "SELECT first_seen_day, last_seen_day, guest_hash FROM site_stats_guests WHERE guest_hash = ?",
+            (digest,),
+        ).fetchone()
+        raw = conn.execute(
+            "SELECT 1 FROM site_stats_guests WHERE guest_hash = ?",
+            (GUEST_A,),
+        ).fetchone()
+    assert row["first_seen_day"] == "2026-04-01"
+    assert row["last_seen_day"] == "2026-04-02"
+    assert row["guest_hash"] != GUEST_A
+    assert raw is None
+
+
+def test_invalid_guest_id_does_not_count_as_new():
+    init_db()
+    day = stats_mod.utc_day()
+    before = _day_counts(day)
+    with get_db() as conn:
+        guests_before = conn.execute("SELECT COUNT(*) AS n FROM site_stats_guests").fetchone()["n"]
+    record_hit("5.5.5.5", "ua-invalid", "secret", guest_id="not-a-uuid")
+    record_hit("5.5.5.5", "ua-invalid", "secret", guest_id="x" * 80)
+    after = _day_counts(day)
+    with get_db() as conn:
+        guests_after = conn.execute("SELECT COUNT(*) AS n FROM site_stats_guests").fetchone()["n"]
+        stored_raw = conn.execute(
+            "SELECT 1 FROM site_stats_guests WHERE guest_hash IN ('not-a-uuid', ?)",
+            ("x" * 80,),
+        ).fetchone()
+    assert after["pageviews"] == before["pageviews"] + 2
+    assert after["new_visitors"] == before["new_visitors"]
+    assert after["returning_visitors"] == before["returning_visitors"]
+    assert guests_after == guests_before
+    assert stored_raw is None
+
+
+def test_dnt_and_gpc_skip_recording_even_with_guest_id():
+    init_db()
+    gid = "33333333-3333-4333-8333-333333333333"
+    with get_db() as conn:
+        before_pv = conn.execute(
+            "SELECT COALESCE(SUM(pageviews), 0) AS n FROM site_stats_days"
+        ).fetchone()["n"]
+        before_guests = conn.execute("SELECT COUNT(*) AS n FROM site_stats_guests").fetchone()["n"]
+        before_events = conn.execute(
+            "SELECT COALESCE(SUM(count), 0) AS n FROM site_funnel_events"
+        ).fetchone()["n"]
+    with TestClient(app) as client:
+        res = client.post(f"/api/v1/stats/hit?e=demo_view&g={gid}", headers={"DNT": "1"})
+        assert res.status_code == 204
+        res = client.post(f"/api/v1/stats/hit?e=demo_aha&g={gid}", headers={"Sec-GPC": "1"})
+        assert res.status_code == 204
+    with get_db() as conn:
+        after_pv = conn.execute(
+            "SELECT COALESCE(SUM(pageviews), 0) AS n FROM site_stats_days"
+        ).fetchone()["n"]
+        after_guests = conn.execute("SELECT COUNT(*) AS n FROM site_stats_guests").fetchone()["n"]
+        after_events = conn.execute(
+            "SELECT COALESCE(SUM(count), 0) AS n FROM site_funnel_events"
+        ).fetchone()["n"]
+        stored = conn.execute(
+            "SELECT 1 FROM site_stats_guests WHERE guest_hash = ?",
+            (guest_hash(gid, settings.runnr_secret_key),),
+        ).fetchone()
+    assert after_pv == before_pv
+    assert after_guests == before_guests
+    assert after_events == before_events
+    assert stored is None
+
+
+def test_guest_id_still_records_funnel_events():
+    init_db()
+    gid = "44444444-4444-4444-8444-444444444444"
+    with get_db() as conn:
+        before = conn.execute(
+            "SELECT COALESCE(SUM(count), 0) AS n FROM site_funnel_events WHERE event = 'demo_view'"
+        ).fetchone()["n"]
+    with TestClient(app) as client:
+        res = client.post(f"/api/v1/stats/hit?e=demo_view&g={gid}")
+        assert res.status_code == 204
+        res = client.post(f"/api/v1/stats/hit?e=demo_view&g={gid}")
+        assert res.status_code == 204
+    with get_db() as conn:
+        after = conn.execute(
+            "SELECT COALESCE(SUM(count), 0) AS n FROM site_funnel_events WHERE event = 'demo_view'"
+        ).fetchone()["n"]
+    assert after == before + 2
+    day = stats_mod.utc_day()
+    counts = _day_counts(day)
+    assert counts["new_visitors"] >= 1
+
+
+def test_stats_payload_includes_new_and_returning(monkeypatch):
+    init_db()
+    gid = "55555555-5555-4555-8555-555555555555"
+    monkeypatch.setattr(stats_mod, "utc_day", lambda now=None: "2026-05-02")
+    record_hit("1.2.3.4", "ua", "secret", guest_id=gid)
+    monkeypatch.setattr(stats_mod, "utc_day", lambda now=None: "2026-05-03")
+    record_hit("1.2.3.9", "ua-other", "secret", guest_id=gid)
+    monkeypatch.setattr(stats_mod, "utc_day", lambda now=None: "2026-05-03")
+    with TestClient(app) as client:
+        res = client.get(
+            "/api/v1/stats",
+            headers={"Authorization": f"Bearer {token_for('janis@thinicedigital.com')}"},
+        )
+    assert res.status_code == 200
+    data = res.json()
+    assert data["today"]["day"] == "2026-05-03"
+    assert data["today"]["new_visitors"] == 0
+    assert data["today"]["returning_visitors"] == 1
+    may2 = next(row for row in data["days"] if row["day"] == "2026-05-02")
+    assert may2["new_visitors"] == 1
+    assert may2["returning_visitors"] == 0
+    assert "identified browsers" in data["note"]
+    assert "new_visitors" in data["days"][-1]
+
+
+def test_old_guest_rows_prune_with_visitor_cleanup():
+    init_db()
+    stats_mod._last_visitor_cleanup = None
+    with get_db() as conn:
+        conn.execute(
+            """
+            INSERT OR REPLACE INTO site_stats_guests (guest_hash, first_seen_day, last_seen_day)
+            VALUES ('old-guest', '2000-01-01', '2000-01-02')
+            """
+        )
+        conn.execute(
+            """
+            INSERT OR REPLACE INTO site_stats_guests (guest_hash, first_seen_day, last_seen_day)
+            VALUES ('fresh-guest', '2099-01-01', '2099-01-02')
+            """
+        )
+    record_hit("6.6.6.6", "ua", "secret")
+    with get_db() as conn:
+        old = conn.execute(
+            "SELECT 1 FROM site_stats_guests WHERE guest_hash = 'old-guest'"
+        ).fetchone()
+        fresh = conn.execute(
+            "SELECT 1 FROM site_stats_guests WHERE guest_hash = 'fresh-guest'"
+        ).fetchone()
+    assert old is None
+    assert fresh is not None
 
 
 def test_visitor_cleanup_not_on_every_hit():
@@ -186,6 +379,11 @@ def test_stats_html_is_gated():
     assert "email_wall_converted" in html
     assert "Signed-in accounts (not visits)" in html
     assert "never sign in" in html
+    assert 'id="today-new"' in html
+    assert 'id="today-returning"' in html
+    assert "identified browsers" in html
+    assert ">New<" in html
+    assert ">Returning<" in html
 
 
 def test_funnel_requires_auth():
