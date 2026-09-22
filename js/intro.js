@@ -8,9 +8,11 @@ const RunnrIntro = {
   ENABLED: false,
   WALL_ENABLED: true,
   SKIP_LABEL: "Skip to save your score",
+  WATCH_SKIP_LABEL: "Skip to size a trade",
   SOUND_LABEL: "Tap for sound",
   _pendingKeep: null,
   _playingForKeep: false,
+  _watchPath: false,
 
   localFlag() {
     try {
@@ -121,7 +123,7 @@ const RunnrIntro = {
 
   paintSkip() {
     const skip = typeof document !== "undefined" ? document.getElementById("intro-skip") : null;
-    if (skip) skip.textContent = this.SKIP_LABEL;
+    if (skip) skip.textContent = this._watchPath ? this.WATCH_SKIP_LABEL : this.SKIP_LABEL;
   },
 
   paintSound(show) {
@@ -186,12 +188,14 @@ const RunnrIntro = {
       try { video.removeAttribute("autoplay"); } catch (e) {}
     }
     this.paintSound(true);
+    this._watchPath = false;
   },
 
   consumePendingKeep() {
     const fn = this._pendingKeep;
     this._pendingKeep = null;
     this._playingForKeep = false;
+    this._watchPath = false;
     if (typeof fn === "function") {
       try { fn(); } catch (e) {}
     }
@@ -200,17 +204,33 @@ const RunnrIntro = {
   cancelPendingKeep() {
     this._pendingKeep = null;
     this._playingForKeep = false;
+    this._watchPath = false;
   },
 
   playBeforeKeepScore(onDone, opts) {
+    const o = opts || {};
+    this._watchPath = !!o.watchPath;
     this._pendingKeep = typeof onDone === "function" ? onDone : null;
-    this._playingForKeep = true;
-    const opened = this.open(Object.assign({ forKeep: true }, opts || {}));
+    this._playingForKeep = !this._watchPath;
+    const opened = this.open(Object.assign({ forKeep: true }, o));
     if (!opened) {
       this.consumePendingKeep();
       return false;
     }
+    this.paintSkip();
     return true;
+  },
+
+  /**
+   * Watch how Runnr works — video soft-gate, then live Sizer / Beat 1.
+   * Never opens the keep-score wall.
+   */
+  playWatchThenSizer(onDone, opts) {
+    return this.playBeforeKeepScore(typeof onDone === "function" ? onDone : null, Object.assign({
+      force: true,
+      replay: true,
+      watchPath: true,
+    }, opts || {}));
   },
 
   skip(state) {
@@ -226,7 +246,8 @@ const RunnrIntro = {
   },
 
   replay() {
-    // Landing / ?intro=1 replay only. Do not reopen the keep-score wall mid-OAuth.
+    // Bare video replay (?intro=1). Watch CTA uses playWatchThenSizer → Sizer.
+    // Do not reopen the keep-score wall mid-OAuth.
     return this.playBeforeKeepScore(null, { force: true, replay: true });
   },
 

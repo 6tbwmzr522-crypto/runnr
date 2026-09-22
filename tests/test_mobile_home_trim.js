@@ -20,10 +20,10 @@ function check(name, cond) {
 const v = html.match(/var V = "(\d+)"/)[1];
 const cache = sw.match(/CACHE = "runnr-v(\d+)"/)[1];
 check("index.html V matches sw.js CACHE", v === cache);
-check("cache is 175+", Number(v) >= 186);
-check("pages.css cache-bust", html.includes("css/pages.css?v=20"));
+check("cache is 175+", Number(v) >= 187);
+check("pages.css cache-bust", html.includes("css/pages.css?v=21"));
 check("app-nav cache-bust", html.includes("js/app-nav.js?v=6"));
-check("onboarding cache-bust", html.includes("js/onboarding.js?v=41"));
+check("onboarding cache-bust", html.includes("js/onboarding.js?v=42"));
 
 const homeStart = html.indexOf('id="page-home"');
 const homeEnd = html.indexOf('id="page-sizer"');
@@ -55,7 +55,10 @@ check("phone conversion order is loop then landing then job then score",
   && phone.includes("#page-home #home-discipline-card{order:5}"));
 check("phone landing puts Score CTA before the proof card",
   phone.includes(".home-landing-card .ob-hook-actions{order:4}")
-  && phone.includes(".home-landing-card [data-runnr-proof-host]{order:8}"));
+  && phone.includes(".home-landing-card [data-runnr-proof-host]{order:9}"));
+check("phone landing no-card sits by trial price",
+  phone.includes(".home-landing-card .runnr-no-card{order:7}")
+  && phone.includes(".home-landing-card .runnr-readonly{order:8}"));
 check("phone toggle is not the five-tab More sheet",
   phone.includes("html:not(.runnr-guest):not(.runnr-quiet) .home-desk-more-toggle")
   && css.includes(".nav-btn-more{display:flex}")
@@ -74,10 +77,14 @@ check("desktop does not display:none the extras", !/#page-home:not\(\.home-desk-
 check("hook CTA paints before proof via CSS order",
   css.includes(".ob-hook .ob-hook-actions{order:3}")
   && css.includes(".ob-hook .runnr-loop{order:2}")
-  && css.includes(".ob-hook .runnr-proof{order:8}"));
+  && css.includes(".ob-hook .runnr-proof{order:9}"));
 check("hook Free/Pro lines sit by price order",
   css.includes(".ob-hook .runnr-trial-delta{order:5}")
-  && css.includes(".ob-hook .runnr-readonly{order:6}"));
+  && css.includes(".ob-hook .runnr-no-card{order:6}")
+  && css.includes(".ob-hook .runnr-readonly{order:7}"));
+check("hook no-card copy is near trial CTAs",
+  html.includes("No credit card required for trial.")
+  && ob.includes("No credit card required for trial."));
 check("hook feature pills collapse behind What you get",
   html.includes('class="ob-hook-more"')
   && html.includes("<summary>What you get</summary>")

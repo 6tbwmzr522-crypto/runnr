@@ -22,7 +22,7 @@ function check(name, cond) {
 const v = html.match(/var V = "(\d+)"/)[1];
 const cache = sw.match(/CACHE = "runnr-v(\d+)"/)[1];
 check("index.html V matches sw.js CACHE", v === cache);
-check("cache is 162+", Number(v) >= 186);
+check("cache is 162+", Number(v) >= 187);
 check("tour.js cache-busted", html.includes("js/tour.js?v=6"));
 check("tour loads after parked intro", html.indexOf("js/intro.js") < html.indexOf("js/tour.js"));
 check("homepage intro autoplay stays off", introSrc.includes("ENABLED: false") && /id="intro-overlay"[^>]*hidden/.test(html));
