@@ -30,7 +30,10 @@
   let autoTimer = null;
   let autoInflight = null;
   let lastPointerUp = 0;
+  let lastStampPointer = 0;
   let chipOpen = false;
+  let chipUserSet = false;
+  let chipUserDate = "";
 
   function S() {
     return global.S || (global.window && global.window.S) || {};
@@ -480,15 +483,28 @@
     return true;
   }
 
-  function shouldOpenOverlay(now) {
-    if (shouldYield()) return false;
-    if (chipOpen) return true;
+  function autoOpenOverlay(now) {
     const rec = todayRecord(now);
     if (settled(rec)) return false;
     const clock = clockOf(now);
     if (optionalClock(clock)) return false;
     if (softLive(rec, clock)) return false;
     return true;
+  }
+
+  /* Auto-open is the default inside the gate window. A strip tap records
+     an explicit open/closed choice for that ET date so collapse sticks. */
+  function shouldOpenOverlay(now) {
+    if (shouldYield()) return false;
+    const clock = clockOf(now);
+    if (chipUserSet && chipUserDate === clock.date) return !!chipOpen;
+    return autoOpenOverlay(now);
+  }
+
+  function noteUserChip(open, now) {
+    chipUserSet = true;
+    chipUserDate = clockOf(now).date;
+    chipOpen = !!open;
   }
 
   function riskMultiplier(now) {
@@ -811,7 +827,7 @@
     }, now);
     if (snap.date) autoStoreSet({ date: snap.date, snap: snap, locked: !!snap.locked, fetchedAt: Date.now() });
     if (riskMultiplier(now) !== before) refreshSizer();
-    paint();
+    paint(now);
     return todayRecord(now);
   }
 
@@ -820,7 +836,7 @@
     if (settled(rec)) return rec;
     rec.autoError = message || "Auto unavailable";
     storageSet(rec);
-    paintChip();
+    paintChip(now);
     return rec;
   }
 
@@ -974,13 +990,13 @@
     rec.date = clock.date;
     rec.schema = SCHEMA;
     storageSet(rec);
-    chipOpen = false;
+    noteUserChip(false, now);
     draftScope = bookScope();
     draftChecks = rec.checks.slice();
     if (typeof global.persist === "function") {
       try { global.persist(); } catch (e) {}
     }
-    paint();
+    paint(now);
     refreshSizer();
     return rec;
   }
@@ -1004,11 +1020,11 @@
     rec.date = clock.date;
     rec.schema = SCHEMA;
     storageSet(rec);
-    chipOpen = false;
+    noteUserChip(false, now);
     if (typeof global.persist === "function") {
       try { global.persist(); } catch (e) {}
     }
-    paint();
+    paint(now);
     refreshSizer();
     return rec;
   }
@@ -1133,7 +1149,7 @@
       const when = c.outsideRth ? "Outside RTH" : "before 10:00 ET";
       return "Trend day check · optional · " + when + " — size not gated";
     }
-    return "";
+    return "Trend day check · " + statusText(rec.score, rec.band || bandOf(rec.score));
   }
 
   function setOverlayOpen(open) {
@@ -1152,16 +1168,16 @@
     }
   }
 
-  function paintChip() {
-    const rec = todayRecord();
-    const clock = clockOf();
+  function paintChip(now) {
+    const rec = todayRecord(now);
+    const clock = clockOf(now);
     const chip = chipEl();
     if (chip) chip.innerHTML = chipHTML(rec, clock);
     const mark = global.document && document.getElementById("trend-day-watermark");
     if (mark) mark.innerHTML = "Size<br>" + primedTicker();
   }
 
-  function paintStamp() {
+  function paintStamp(now) {
     const el = stampEl();
     if (!el) return;
     const setAttr = function (k, v) {
@@ -1173,9 +1189,10 @@
       setAttr("aria-expanded", "false");
       return;
     }
-    const rec = todayRecord();
-    const clock = clockOf();
+    const rec = todayRecord(now);
+    const clock = clockOf(now);
     const copy = stampHTML(rec, clock);
+    const open = shouldOpenOverlay(now);
     if (!copy) {
       el.hidden = true;
       el.textContent = "";
@@ -1185,7 +1202,7 @@
     el.hidden = false;
     el.textContent = copy;
     el.className = "pt-trend-stamp " + stampTone(rec, clock);
-    setAttr("aria-expanded", chipOpen ? "true" : "false");
+    setAttr("aria-expanded", open ? "true" : "false");
     setAttr("aria-controls", "trend-day-chip");
   }
 
@@ -1193,21 +1210,22 @@
     if (shouldYield()) return false;
     const rec = todayRecord(now);
     const clock = clockOf(now);
-    if (!stampHTML(rec, clock) && !chipOpen) return false;
-    chipOpen = !chipOpen;
-    paint();
-    return chipOpen;
+    const open = shouldOpenOverlay(now);
+    if (!stampHTML(rec, clock) && !open) return false;
+    noteUserChip(!open, now);
+    paint(now);
+    return !!chipOpen;
   }
 
-  function paint() {
-    if (shouldYield() || !shouldOpenOverlay()) {
+  function paint(now) {
+    if (shouldYield() || !shouldOpenOverlay(now)) {
       setOverlayOpen(false);
-      paintStamp();
+      paintStamp(now);
       return;
     }
-    paintChip();
+    paintChip(now);
     setOverlayOpen(true);
-    paintStamp();
+    paintStamp(now);
   }
 
   function onEnterSize() {
@@ -1226,13 +1244,13 @@
   function onCheck(index, now) {
     const rec = todayRecord(now);
     if (settled(rec)) return rec;
-    chipOpen = true;
+    noteUserChip(true, now);
     const before = riskMultiplier(now);
     const next = rec.checks.slice();
     next[index] = !next[index];
     persistDraft(next, { userEdited: true }, now);
     if (riskMultiplier(now) !== before) refreshSizer();
-    paint();
+    paint(now);
     return todayRecord(now);
   }
 
@@ -1261,23 +1279,50 @@
     if (idx != null) onCheck(+idx);
   }
 
+  function chipControlTarget(node) {
+    return node && node.closest ? node.closest("[data-td-check], #td-apply, #td-skip, #td-quarter") : null;
+  }
+
+  function eventHitsStamp(e) {
+    const t = e && e.target;
+    if (chipControlTarget(t)) return false;
+    if (t && t.closest && t.closest("#pt-trend-stamp")) return true;
+    const stamp = stampEl();
+    if (!stamp || stamp.hidden) return false;
+    if (typeof stamp.getBoundingClientRect !== "function") return false;
+    const r = stamp.getBoundingClientRect();
+    if (!r || !(r.width > 0) || !(r.height > 0)) return false;
+    const x = Number(e.clientX);
+    const y = Number(e.clientY);
+    if (!Number.isFinite(x) || !Number.isFinite(y)) return false;
+    return x >= r.left && x <= r.right && y >= r.top && y <= r.bottom;
+  }
+
+  /* Capture-phase: the open chip sits above the strip. A tap on the chevron
+     still toggles when the hit lands in the strip, including through the
+     chip's non-control chrome. Checklist buttons keep their own clicks. */
+  function onStampPointer(e, now) {
+    if (!e || !eventHitsStamp(e)) return false;
+    if (e.type === "pointerup") lastStampPointer = Date.now();
+    else if (e.type === "click" && lastStampPointer && (Date.now() - lastStampPointer) < 500) return true;
+    if (typeof e.preventDefault === "function") e.preventDefault();
+    if (typeof e.stopPropagation === "function") e.stopPropagation();
+    toggleChecklist(now);
+    return true;
+  }
+
+  function onDocPointer(e) {
+    if (onStampPointer(e)) return;
+    onChipClick(e);
+  }
+
   function bind() {
     if (bound || !global.document) return;
     bound = true;
-    global.document.addEventListener("pointerup", onChipClick, true);
-    global.document.addEventListener("click", onChipClick, true);
+    global.document.addEventListener("pointerup", onDocPointer, true);
+    global.document.addEventListener("click", onDocPointer, true);
     const overlay = overlayEl();
-    if (overlay) overlay.addEventListener("click", onChipClick);
-    const page = global.document.getElementById("page-sizer");
-    if (page && typeof page.addEventListener === "function" && !page._tdStampBound) {
-      page._tdStampBound = true;
-      page.addEventListener("click", function (e) {
-        const stamp = e.target && e.target.closest ? e.target.closest("#pt-trend-stamp") : null;
-        if (!stamp) return;
-        e.preventDefault();
-        toggleChecklist();
-      });
-    }
+    if (overlay) overlay.addEventListener("click", onDocPointer);
   }
 
   function resetForTests() {
@@ -1289,7 +1334,10 @@
     }
     autoTimer = null;
     lastPointerUp = 0;
+    lastStampPointer = 0;
     chipOpen = false;
+    chipUserSet = false;
+    chipUserDate = "";
     try {
       if (global.localStorage) {
         const drop = [KEY, AUTO_KEY, storageKey(), storageKey("sample"), storageKey("auth")];
@@ -1344,6 +1392,7 @@
     appliedQuiet,
     stampTone,
     toggleChecklist,
+    onStampPointer,
     isAccidentalSit,
     migrateRecord,
     maybeAutoApply,
