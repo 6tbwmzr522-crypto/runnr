@@ -22,8 +22,8 @@ function check(name, cond) {
 const v = html.match(/var V = "(\d+)"/)[1];
 const cache = sw.match(/CACHE = "runnr-v(\d+)"/)[1];
 check("index.html V matches sw.js CACHE", v === cache);
-check("cache is 162+", Number(v) >= 162);
-check("tour.js cache-busted", html.includes("js/tour.js?v=5"));
+check("cache is 162+", Number(v) >= 186);
+check("tour.js cache-busted", html.includes("js/tour.js?v=6"));
 check("tour loads after parked intro", html.indexOf("js/intro.js") < html.indexOf("js/tour.js"));
 check("homepage intro autoplay stays off", introSrc.includes("ENABLED: false") && /id="intro-overlay"[^>]*hidden/.test(html));
 check("tour overlay markup", html.includes('id="tour-overlay"') && html.includes('id="tour-skip"') && html.includes('id="tour-cta"') && html.includes('id="tour-chip-copy"'));
@@ -37,7 +37,9 @@ check("default ticker is AAPL only", tourSrc.includes('TICKER: "AAPL"') && !/TIC
 check("beats are size journal score shelf close", /"size", "journal", "score", "shelf", "close"/.test(tourSrc));
 check("score auto-advance is ~2s", tourSrc.includes("AUTO_SCORE_MS: 2000"));
 check("does not re-enable intro video", !tourSrc.includes("ENABLED: true") && introSrc.includes("ENABLED: false"));
-check("demo-sandbox holds email wall mid-tour", src.includes("tourBlocksWall") && src.includes("allowsEmailWall"));
+check("demo-sandbox holds email wall for open tour", src.includes("tourBlocksWall") && src.includes("tourIsOpen") && src.includes("onTourSkipped"));
+check("Skip tour calls onTourSkipped not keep wall", tourSrc.includes("onTourSkipped") && !/skip\(state\)\s*\{[^}]*showKeepScore/.test(tourSrc));
+check("tour finish flushes deferred keep", tourSrc.includes("onTourFinished") && src.includes("flushPendingKeepAfterTour"));
 check("boot binds and maybeShows tour", src.includes("RunnrTour?.bind") && src.includes("RunnrTour?.maybeShow"));
 check("phone shelf still lives in More", html.includes('data-more="shelf"') && html.includes('id="more-sheet"'));
 
@@ -107,6 +109,7 @@ guest.T.skip(guest.ctx.S);
 check("skip writes localStorage", guest.store.runnr_tour_v1 === "skipped");
 check("skip closes overlay", guest.T.isOpen() === false);
 check("skip does not nag next visit", guest.T.shouldShow(guest.ctx.S) === false);
+check("skip notifies sandbox onTourSkipped", tourSrc.includes("RunnrDemoSandbox.onTourSkipped"));
 
 const done = loadTour({ store: { runnr_tour_v1: "done" }, sample: true });
 check("completed tour does not nag", done.T.shouldShow({}) === false);
@@ -143,7 +146,7 @@ check("beat 2 ignores factory AAPL without process", guest.T.hasJournaledAapl({
 check("beat 3 done when score UI visible", guest.T.scoreUiVisible({ scoreVisible: true }) === true);
 check("beat 3 done when keep-score wall is open", guest.T.scoreUiVisible({ wallOpen: true }) === true);
 check("email wall blocked mid-size", (guest.T.step = 0, guest.T.open = true, guest.T.allowsEmailWall() === false));
-check("email wall allowed on score beat", (guest.T.step = 2, guest.T.open = true, guest.T.allowsEmailWall() === true));
+check("email wall chip allows score beat copy", (guest.T.step = 2, guest.T.open = true, guest.T.allowsEmailWall() === true));
 guest.T.open = false;
 guest.T.step = 0;
 

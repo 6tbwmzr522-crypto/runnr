@@ -34,10 +34,10 @@ function check(name, cond) {
 const v = html.match(/var V = "(\d+)"/)[1];
 const cache = sw.match(/CACHE = "runnr-v(\d+)"/)[1];
 check("index.html V matches sw.js CACHE", v === cache);
-check("cache is 139+", Number(v) >= 185);
-check("demo-sandbox cache-bust", html.includes("js/demo-sandbox.js?v=25"));
+check("cache is 139+", Number(v) >= 186);
+check("demo-sandbox cache-bust", html.includes("js/demo-sandbox.js?v=26"));
 check("pages.css cache-bust", html.includes("css/pages.css?v=20"));
-check("intro.js cache-bust", html.includes("js/intro.js?v=6"));
+check("intro.js cache-bust", html.includes("js/intro.js?v=7"));
 
 check("stats Guest SAMPLE funnel section", stats.includes("Guest SAMPLE funnel") && stats.includes("email_wall") && stats.includes("guest-demo-view") && stats.includes("email_wall oauth") && stats.includes("email_wall_converted"));
 check("stats clarifies signed-in accounts are not visits", stats.includes("Signed-in accounts (not visits)"));
@@ -461,5 +461,73 @@ check("score path does not open the share card", (function () {
   const fn = sandboxSrc.slice(sandboxSrc.indexOf("function onSampleScored"), sandboxSrc.indexOf("function onProofViewed"));
   return !fn.includes("openShareModal") && !fn.includes("modal-share");
 })());
+
+// Skip tour ≠ keep-score wall
+check("sandbox wires Skip to desk helpers", sandboxSrc.includes("onTourSkipped") && sandboxSrc.includes("forceHideKeepScore") && sandboxSrc.includes("cancelPendingKeepAfterTour"));
+check("boot holds keep while tour will show", sandboxSrc.includes("tourWillShow") && /shouldHoldKeepScore[\s\S]*tourIsOpen[\s\S]*tourWillShow/.test(sandboxSrc));
+
+const skipTour = loadWall({ search: "?demo=1", pathname: "/", hash: "", href: "http://localhost/?demo=1" });
+skipTour.ctx.S = { trades: book, watchlist: SB.factoryWatchlist(), bal: 10000, risk: 1, sym: "€" };
+skipTour.ctx.localStorage.setItem("runnr_intro_v1", "skipped");
+skipTour.ctx.openedSizer = [];
+skipTour.ctx.RunnrPretrade = {
+  prime() { return true; },
+  open(which) { skipTour.ctx.openedSizer.push(which || "desk"); return true; },
+};
+skipTour.ctx.RunnrTour = { isOpen() { return true; }, shouldShow() { return true; }, allowsEmailWall() { return false; } };
+skipTour.ctx.toasts = [];
+skipTour.ctx.showToast = function (a, b) { skipTour.ctx.toasts.push([a, b]); };
+const skipRow = { id: 101, isDemo: true, source: "pretrade", instr: "AAPL", incomplete: false };
+check("mid-tour journal defers the wall", skipTour.ctx.RunnrDemoSandbox.onSampleScored(skipRow, { reason: "process" }) === true);
+check("wall stays closed while tour is open", skipTour.modal.classList.contains("open") === false);
+check("intro stays closed while tour is open", skipTour.overlay.classList.contains("open") === false);
+check("showKeepScore is deferred mid-tour", skipTour.ctx.RunnrDemoSandbox.showKeepScore({ reason: "score" }) === false);
+check("deferred keep is queued", skipTour.ctx.RunnrDemoSandbox.tourBlocksWall() === true);
+skipTour.ctx.RunnrTour = { isOpen() { return false; }, shouldShow() { return false; }, allowsEmailWall() { return true; } };
+skipTour.ctx.RunnrDemoSandbox.onTourSkipped();
+check("Skip tour force-hides keep modal", skipTour.modal.classList.contains("open") === false);
+check("Skip tour does not open intro video", skipTour.overlay.classList.contains("open") === false);
+check("Skip tour opens gold Sizer", skipTour.ctx.openedSizer.indexOf("desk") !== -1);
+check("Skip tour soft one-liner is optional toast", skipTour.ctx.toasts.length >= 1 && /save the score/i.test(String(skipTour.ctx.toasts[0][1] || "")));
+check("Skip cancels deferred keep — finish does not reopen", skipTour.ctx.RunnrDemoSandbox.onTourFinished() === false);
+check("keep modal still closed after cancelled flush", skipTour.modal.classList.contains("open") === false);
+
+const finishTour = loadWall({ search: "?demo=1", pathname: "/", hash: "", href: "http://localhost/?demo=1" });
+finishTour.ctx.S = { trades: book, watchlist: SB.factoryWatchlist(), bal: 10000, risk: 1, sym: "€" };
+finishTour.ctx.localStorage.setItem("runnr_intro_v1", "skipped");
+finishTour.ctx.RunnrTour = { isOpen() { return true; }, shouldShow() { return true; }, allowsEmailWall() { return true; } };
+check("score-beat journal still defers while tour open", finishTour.ctx.RunnrDemoSandbox.onSampleScored(skipRow, { reason: "process" }) === true);
+check("score-beat wall stays closed under tour", finishTour.modal.classList.contains("open") === false);
+finishTour.ctx.RunnrTour = { isOpen() { return false; }, shouldShow() { return false; }, allowsEmailWall() { return true; } };
+check("tour finish flushes keep after a real score", finishTour.ctx.RunnrDemoSandbox.onTourFinished() === true);
+check("keep opens after finish — not after Skip", finishTour.modal.classList.contains("open") === true);
+
+const bootHold = loadSandbox({ search: "?demo=1", pathname: "/", hash: "", href: "http://localhost/?demo=1" });
+bootHold.localStorage.setItem("runnr_sample_seal_v1", "1");
+bootHold.localStorage.setItem("runnr_intro_v1", "skipped");
+bootHold.S = { trades: book, watchlist: SB.factoryWatchlist(), bal: 10000, risk: 1, sym: "€" };
+bootHold.RunnrTour = { isOpen() { return false; }, shouldShow() { return true; }, allowsEmailWall() { return true; } };
+const bootModal = {
+  className: "",
+  classList: {
+    items: new Set(),
+    add(c) { this.items.add(c); bootModal.className = [...this.items].join(" "); },
+    remove(c) { this.items.delete(c); bootModal.className = [...this.items].join(" "); },
+    toggle(c, on) { if (on) this.add(c); else this.remove(c); },
+    contains(c) { return this.items.has(c); },
+  },
+  querySelector() { return null; },
+};
+const prevBootGet = bootHold.document.getElementById;
+bootHold.document.getElementById = function (id) {
+  if (id === "modal-sample-keep") return bootModal;
+  return prevBootGet.call(bootHold.document, id);
+};
+bootHold.document.querySelector = function (sel) {
+  if (sel === "#modal-sample-keep .sample-keep-copy") return { textContent: "" };
+  return null;
+};
+bootHold.RunnrDemoSandbox.bootSampleLanding(bootHold.S);
+check("sealed boot does not open keep when tour will show", bootModal.classList.contains("open") === false);
 
 console.log("test_sample_landing: ok " + n);

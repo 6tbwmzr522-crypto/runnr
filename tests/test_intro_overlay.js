@@ -23,7 +23,7 @@ const v = html.match(/var V = "(\d+)"/)[1];
 const cache = sw.match(/CACHE = "runnr-v(\d+)"/)[1];
 check("index.html V matches sw.js CACHE", v === cache);
 check("cache is 166+", Number(v) >= 166);
-check("intro.js cache-busted", html.includes("js/intro.js?v=6"));
+check("intro.js cache-busted", html.includes("js/intro.js?v=7"));
 check("intro overlay markup", html.includes('id="intro-overlay"') && html.includes('id="intro-skip"'));
 check("intro video is the email-wall cut", html.includes("/media/runnr-intro-email-wall.mp4") && introSrc.includes("/media/runnr-intro-email-wall.mp4"));
 check("intro poster is in the repo path", html.includes("/media/runnr-intro-email-wall.jpg") && introSrc.includes("/media/runnr-intro-email-wall.jpg"));
@@ -38,6 +38,7 @@ check("tap for sound copy", html.includes("Tap for sound") && introSrc.includes(
 check("keep-score has no replay", !html.includes('id="sample-keep-replay"') && !html.slice(html.indexOf('id="modal-sample-keep"'), html.indexOf('id="modal-share"')).includes("Watch how Runnr works"));
 check("landing has quiet watch", html.includes('id="sample-hero-watch"') && html.includes("Watch how Runnr works"));
 check("replay does not reopen the keep-score wall", introSrc.includes("playBeforeKeepScore(null") && !introSrc.includes("showKeepScore({ skipIntro: true })"));
+check("cancelPendingKeep clears wall callback", introSrc.includes("cancelPendingKeep"));
 check("pages deploys media folder", pages.includes("media"));
 check("readme says email-wall not social", mediaReadme.includes("email wall") && mediaReadme.includes("not") && /Instagram|TikTok/.test(mediaReadme));
 check("public hook is a different overlay", html.includes('id="onboarding-overlay"'));

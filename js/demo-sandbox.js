@@ -592,12 +592,61 @@
     return openGoldSizer(primed);
   }
 
-  function tourBlocksWall() {
+  // Pending keep after a real score while the chip tour is open.
+  // Flush on tour finish — never on Skip (Skip lands on the desk).
+  let pendingKeepAfterTour = null;
+
+  function tourIsOpen() {
     try {
-      return !!(global.RunnrTour && RunnrTour.isOpen && RunnrTour.isOpen() && RunnrTour.allowsEmailWall && !RunnrTour.allowsEmailWall());
+      return !!(global.RunnrTour && RunnrTour.isOpen && RunnrTour.isOpen());
     } catch (e) {
       return false;
     }
+  }
+
+  function tourWillShow(state) {
+    try {
+      return !!(global.RunnrTour && typeof RunnrTour.shouldShow === "function" && RunnrTour.shouldShow(state || global.S));
+    } catch (e) {
+      return false;
+    }
+  }
+
+  /**
+   * Hold the keep-score wall for the whole open chip tour.
+   * Opening it under the chip (lower z-index) made Skip tour reveal
+   * "Skip to save your score" / Keep this score — the trap.
+   */
+  function tourBlocksWall() {
+    return tourIsOpen();
+  }
+
+  function queueKeepAfterTour(opts) {
+    pendingKeepAfterTour = Object.assign({}, opts || {}, { reason: (opts && opts.reason) || "score" });
+    return true;
+  }
+
+  function cancelPendingKeepAfterTour() {
+    pendingKeepAfterTour = null;
+    try {
+      const Intro = global.RunnrIntro;
+      if (Intro && typeof Intro.cancelPendingKeep === "function") Intro.cancelPendingKeep();
+      else if (Intro) {
+        Intro._pendingKeep = null;
+        Intro._playingForKeep = false;
+      }
+    } catch (e) {}
+    return true;
+  }
+
+  function flushPendingKeepAfterTour() {
+    const pending = pendingKeepAfterTour;
+    pendingKeepAfterTour = null;
+    if (!pending) return false;
+    if (isLoggedIn()) return false;
+    if (!hasSeal() && pending.reason !== "chrome" && pending.reason !== "sample-log-cap") return false;
+    // afterTour: bypass chip-tour hold only — do not force-replay the intro video.
+    return !!showKeepScore(Object.assign({}, pending, { afterTour: true }));
   }
 
   function onSampleScored(trade, opts) {
@@ -606,8 +655,12 @@
     if (trade && !isDemoTrade(trade)) return false;
     markSeal();
     scheduleScoreMeaning();
-    if (tourBlocksWall()) return true;
-    showKeepScore({ reason: (opts && opts.reason) || "score" });
+    const keepOpts = { reason: (opts && opts.reason) || "score" };
+    if (tourBlocksWall()) {
+      queueKeepAfterTour(keepOpts);
+      return true;
+    }
+    showKeepScore(keepOpts);
     return true;
   }
 
@@ -958,13 +1011,18 @@
     if (!Intro || typeof Intro.playBeforeKeepScore !== "function") return false;
     if (typeof Intro.isOpen === "function" && Intro.isOpen()) return true;
     return !!Intro.playBeforeKeepScore(function () {
-      showKeepScore(Object.assign({}, opts || {}, { skipIntro: true }));
+      showKeepScore(Object.assign({}, opts || {}, { skipIntro: true, afterTour: true }));
     }, opts);
   }
 
   function showKeepScore(opts) {
     if (isLoggedIn()) return false;
     const o = opts || {};
+    // Never open under an active chip tour — Skip would reveal the wall.
+    if (!o.afterTour && tourBlocksWall()) {
+      queueKeepAfterTour(o);
+      return false;
+    }
     if (!o.skipIntro) {
       const Intro = global.RunnrIntro;
       if (Intro && typeof Intro.isOpen === "function" && Intro.isOpen()) return true;
@@ -1004,6 +1062,49 @@
     }
     if (modal) modal.classList.remove("open");
     return true;
+  }
+
+  /** Close keep + intro without the sealed-hold reopen. Seal stays for Keep CTA. */
+  function forceHideKeepScore() {
+    cancelPendingKeepAfterTour();
+    try {
+      const Intro = global.RunnrIntro;
+      if (Intro && typeof Intro.close === "function") Intro.close();
+    } catch (e) {}
+    const modal = global.document && document.getElementById("modal-sample-keep");
+    if (modal) {
+      try { modal.classList.remove("open"); } catch (e) {}
+      try { modal.classList.remove("sample-keep-locked"); } catch (e) {}
+    }
+    try {
+      if (global.document && !document.querySelector(".modal-overlay.open")) {
+        document.body.style.overflow = "";
+      }
+    } catch (e) {}
+    return true;
+  }
+
+  /**
+   * Skip tour — desk first, no keep wall / intro video.
+   * Soft one-liner is fine; no new modal.
+   */
+  function onTourSkipped() {
+    cancelPendingKeepAfterTour();
+    forceHideKeepScore();
+    try {
+      if (typeof global.showToast === "function") {
+        showToast("SAMPLE", "You can save the score after you size one");
+      }
+    } catch (e) {}
+    try {
+      openGoldSizer(sampleScorePrime(global.S));
+    } catch (e) {}
+    return true;
+  }
+
+  /** Tour completed — if they scored mid-tour, open keep now. */
+  function onTourFinished() {
+    return flushPendingKeepAfterTour();
   }
 
   function bindSampleHero() {
@@ -1088,15 +1189,19 @@
   }
 
   function bootSampleLanding(state) {
+    const book = state || global.S;
     bindSampleHero();
     bindKeepScore();
-    if (shouldShowSampleHero(state || global.S)) {
+    if (shouldShowSampleHero(book)) {
       showSampleHero();
     } else {
       hideSampleHero();
     }
-    paintChrome(state || global.S);
-    if (shouldHoldKeepScore(state || global.S)) showKeepScore();
+    paintChrome(book);
+    // Do not open Keep under / before the chip tour — Skip would reveal it.
+    if (shouldHoldKeepScore(book) && !tourIsOpen() && !tourWillShow(book)) {
+      showKeepScore();
+    }
   }
 
   // Guest SAMPLE beacons:
@@ -1185,6 +1290,15 @@
     scheduleScoreMeaning,
     showKeepScore,
     hideKeepScore,
+    forceHideKeepScore,
+    tourBlocksWall,
+    tourIsOpen,
+    tourWillShow,
+    queueKeepAfterTour,
+    cancelPendingKeepAfterTour,
+    flushPendingKeepAfterTour,
+    onTourSkipped,
+    onTourFinished,
     fireEmailWallBeacons,
     keepOAuthHref,
     paintKeepOAuth,
