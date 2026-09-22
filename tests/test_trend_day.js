@@ -24,11 +24,11 @@ const v = html.match(/var V = "(\d+)"/)[1];
 const cache = sw.match(/CACHE = "runnr-v(\d+)"/)[1];
 check("index.html V matches sw.js CACHE", v === cache);
 check("cache is 180+", Number(v) >= 180);
-check("trend-day.js is cache-busted", html.includes("js/trend-day.js?v=7"));
+check("trend-day.js is cache-busted", html.includes("js/trend-day.js?v=8"));
 check("trend-day loads after tour and intro", html.indexOf("js/intro.js") < html.indexOf("js/trend-day.js") && html.indexOf("js/tour.js") < html.indexOf("js/trend-day.js"));
 check("trend-day loads before pretrade", html.indexOf("js/trend-day.js") < html.indexOf("js/pretrade.js"));
 check("pretrade cache-bust bumped", html.includes("js/pretrade.js?v=24"));
-check("pretrade.css cache-bust bumped", html.includes("css/pretrade.css?v=18"));
+check("pretrade.css cache-bust bumped", html.includes("css/pretrade.css?v=19"));
 check("soft auto-apply does not settle the chip", trendSrc.includes("function softLive") && trendSrc.includes("Applied · full size") && trendSrc.includes("Applied · half size") && !/function maybeAutoApply[\s\S]{0,400}applied\s*=\s*true/.test(trendSrc));
 check("trend strip is a button that opens the checklist", pretradeSrc.includes('type="button" class="pt-trend-stamp"') && pretradeSrc.includes('aria-controls="trend-day-chip"') && trendSrc.includes("toggleChecklist") && trendSrc.includes("aria-expanded"));
 check("live strip is a gold control", css.includes(".pt-trend-stamp.live") && css.includes(".pt-trend-stamp:focus-visible") && css.includes("cursor:pointer"));
@@ -49,7 +49,8 @@ check("pretrade applies the gate multiplier", pretradeSrc.includes("trendDayGate
 check("skip persists on the plan", pretradeSrc.includes("sized without trend-day gate") && pretradeSrc.includes("row.trendDay"));
 check("tour still opens Size", tourSrc.includes("openSizer") && tourSrc.includes('id === "size"'));
 check("tour start/close yields the size gate", tourSrc.includes("yieldTrendDay") && tourSrc.includes("onEnterSize"));
-check("chip clicks bind on document capture", trendSrc.includes('addEventListener("click", onChipClick, true)') && trendSrc.includes('addEventListener("pointerup", onChipClick, true)'));
+check("chip clicks bind on document capture", trendSrc.includes('addEventListener("click", onDocPointer, true)') && trendSrc.includes('addEventListener("pointerup", onDocPointer, true)') && trendSrc.includes("onChipClick") && trendSrc.includes("onStampPointer"));
+check("open chip does not eat the strip", /#trend-day-chip\{[^}]*pointer-events:\s*none/.test(css) && css.includes(".pt-trend-stamp[hidden]{display:none !important}") && css.includes(".pt-trend-stamp[aria-expanded=\"true\"]::after"));
 check("signed-in desk stacks under the chip", css.includes("position:fixed") && css.includes("z-index:80") && css.includes("z-index:81"));
 check("sizer quote refresh nudges trend-day", pretradeSrc.includes("RunnrTrendDay.hydrateAuto"));
 check("intro key is still runnr_intro_v1", introSrc.includes('KEY: "runnr_intro_v1"'));
@@ -574,8 +575,89 @@ reopen.RunnrTrendDay.applyAutoSnapshot(demo, friScore);
 reopen.RunnrTrendDay.apply({}, friScore);
 check("explicit apply still collapses to the strip", reopen.RunnrTrendDay.shouldShowChip(friScore) === false && reopen.RunnrTrendDay.shouldOpenOverlay(friScore) === false && /4 \/ 4 · full size · auto/.test(reopen.RunnrTrendDay.stampHTML(reopen.RunnrTrendDay.todayRecord(friScore), reopen.RunnrTrendDay.clockOf(friScore))));
 check("explicit apply strip still opens the checklist", reopen.RunnrTrendDay.toggleChecklist(friScore) === true && reopen.RunnrTrendDay.shouldOpenOverlay(friScore) === true);
+check("explicit apply strip still closes the checklist", reopen.RunnrTrendDay.toggleChecklist(friScore) === false && reopen.RunnrTrendDay.shouldOpenOverlay(friScore) === false);
 const reopenHtml = reopen.RunnrTrendDay.chipHTML(reopen.RunnrTrendDay.todayRecord(friScore), reopen.RunnrTrendDay.clockOf(friScore));
 check("reopened checklist still explains the four checks", reopenHtml.includes("Outside first-hour range") && reopenHtml.includes("Sit if 0–1 · half at 2 · full at 3–4"));
+
+function chevronEvent(target, x, y, type) {
+  return {
+    type: type || "click",
+    target,
+    clientX: x,
+    clientY: y,
+    preventDefault() { this.defaulted = true; },
+    stopPropagation() { this.stopped = true; },
+  };
+}
+
+function runStripToggle(label, opts) {
+  const ctx = load(opts);
+  ctx.RunnrTrendDay.resetForTests();
+  const stamp = ctx._els["pt-trend-stamp"];
+  const overlay = ctx._els["trend-day-overlay"];
+  stamp.getBoundingClientRect = function () {
+    return { left: 16, top: 420, right: 370, bottom: 468, width: 354, height: 48 };
+  };
+  const rec0 = ctx.RunnrTrendDay.todayRecord(friScore);
+  check(label + " score-window strip names the sit score", /Trend day check · 0 \/ 4 · sit/.test(ctx.RunnrTrendDay.stampHTML(rec0, ctx.RunnrTrendDay.clockOf(friScore))));
+  check(label + " score window still auto-opens", ctx.RunnrTrendDay.shouldOpenOverlay(friScore) === true);
+  ctx.RunnrTrendDay.paint(friScore);
+  check(
+    label + " expanded strip is the collapse chevron",
+    stamp.hidden === false && stamp.getAttribute("aria-expanded") === "true" && /0 \/ 4 · sit/.test(stamp.textContent) && overlay.hidden === false
+  );
+  const chipChrome = {
+    closest(sel) {
+      const s = String(sel);
+      if (s === "#trend-day-chip" || s === "#trend-day-overlay") return chipChrome;
+      return null;
+    },
+  };
+  check(
+    label + " chevron under the open panel collapses",
+    ctx.RunnrTrendDay.onStampPointer(chevronEvent(chipChrome, 340, 444), friScore) === true
+      && ctx.RunnrTrendDay.shouldOpenOverlay(friScore) === false
+      && overlay.hidden === true
+      && stamp.getAttribute("aria-expanded") === "false"
+      && ctx.RunnrTrendDay.riskMultiplier(friScore) === 1
+  );
+  check(
+    label + " chevron reopens the checklist",
+    ctx.RunnrTrendDay.onStampPointer(chevronEvent(chipChrome, 340, 444), friScore) === true
+      && ctx.RunnrTrendDay.shouldOpenOverlay(friScore) === true
+      && stamp.getAttribute("aria-expanded") === "true"
+      && overlay.hidden === false
+  );
+  const direct = {
+    closest(sel) { return String(sel).indexOf("pt-trend-stamp") >= 0 ? direct : null; },
+  };
+  check(label + " strip body toggles too", ctx.RunnrTrendDay.onStampPointer(chevronEvent(direct, 80, 440), friScore) === true && ctx.RunnrTrendDay.shouldOpenOverlay(friScore) === false);
+  ctx.RunnrTrendDay.onStampPointer(chevronEvent(chipChrome, 340, 444, "pointerup"), friScore);
+  const afterPointer = ctx.RunnrTrendDay.shouldOpenOverlay(friScore);
+  ctx.RunnrTrendDay.onStampPointer(chevronEvent(chipChrome, 340, 444, "click"), friScore);
+  check(label + " pointerup+click does not double-toggle the strip", afterPointer === true && ctx.RunnrTrendDay.shouldOpenOverlay(friScore) === true);
+  const sitBtn = {
+    id: "td-apply",
+    closest(sel) {
+      const s = String(sel);
+      if (s.indexOf("#td-apply") >= 0 || s.indexOf("data-td-check") >= 0) return sitBtn;
+      if (s === "#trend-day-chip") return { id: "trend-day-chip" };
+      return null;
+    },
+  };
+  check(label + " sit button is not stolen by the strip", ctx.RunnrTrendDay.onStampPointer(chevronEvent(sitBtn, 340, 444)) === false && ctx.RunnrTrendDay.shouldOpenOverlay(friScore) === true);
+  ctx.RunnrTrendDay.paint(sat);
+  check(
+    label + " outside RTH stays collapsed and optional",
+    ctx.RunnrTrendDay.shouldOpenOverlay(sat) === false && stamp.getAttribute("aria-expanded") === "false" && /size not gated/.test(stamp.textContent)
+  );
+  const rails = ctx.RunnrPretrade.normalizeRails(ctx.window.S.pretrade, ctx.window.S);
+  const plan = ctx.RunnrPretrade.computePlan({ ticker: "AAPL", dir: "long", entry: 200, stop: 190, target: 230 }, rails, [], sat);
+  check(label + " outside RTH does not sit-trap", plan.size > 0 && plan.trendDaySit === false && plan.trendDayMult === 1);
+}
+
+runStripToggle("guest", { withPretrade: true });
+runStripToggle("signed-in", { withPretrade: true, loggedIn: true, email: "janis@example.com" });
 
 (async function () {
   const tdfix = load({ location: { search: "?demo=1&tdfix=1", hash: "" } });

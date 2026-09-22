@@ -660,7 +660,9 @@ html.runnr-demo #header .header-desk-btn{display:inline-flex !important}
   top:16px;
   right:14px;
   width:min(304px,calc(100% - 28px));
-  pointer-events:auto;
+  /* Only the checklist controls take hits. Title, hint, and padding pass
+     through so the strip chevron and sizer fields under the card stay live. */
+  pointer-events:none;
   z-index:81;
   isolation:isolate;
   transform:translateZ(0);
@@ -791,6 +793,7 @@ html.runnr-demo #header .header-desk-btn{display:inline-flex !important}
   color:var(--text3);
   letter-spacing:0.01em;
 }
+.pt-trend-stamp[hidden]{display:none !important}
 .pt-trend-stamp{
   display:block;
   box-sizing:border-box;
@@ -811,6 +814,8 @@ html.runnr-demo #header .header-desk-btn{display:inline-flex !important}
   cursor:pointer;
   pointer-events:auto;
   position:relative;
+  z-index:2;
+  touch-action:manipulation;
 }
 .pt-trend-stamp::after{
   content:"";
