@@ -56,6 +56,7 @@
   td.num, th.num { text-align: right; font-variant-numeric: tabular-nums; }
   .empty { color: var(--text3); font-size: 14px; }
   .gate-link { color: var(--gold); }
+  .table-scroll { overflow-x: auto; }
 </style>
 </head>
 <body>
@@ -73,7 +74,7 @@
   </div>
 
   <div id="stats-main" hidden>
-  <p class="lead">Daily unique visitors and pageviews, counted on our own Railway API. No Google Analytics. Browsers that send Do Not Track or Global Privacy Control are not recorded. Totals are internal and are not published.</p>
+  <p class="lead">Daily unique visitors and pageviews, counted on our own Railway API. No Google Analytics. Browsers that send Do Not Track or Global Privacy Control are not recorded. New and Returning split identified browsers into first-timers and people who came back. Totals are internal and are not published.</p>
   <p class="status" id="status">Loading…</p>
 
   <h2>Today</h2>
@@ -87,6 +88,16 @@
       <div class="label">Pageviews</div>
       <div class="num" id="today-views">—</div>
       <p class="hint">Loads of the app and sign-in page</p>
+    </div>
+    <div class="kpi">
+      <div class="label">New</div>
+      <div class="num" id="today-new">—</div>
+      <p class="hint">First UTC day for this anonymous browser</p>
+    </div>
+    <div class="kpi">
+      <div class="label">Returning</div>
+      <div class="num" id="today-returning">—</div>
+      <p class="hint">Seen on an earlier UTC day</p>
     </div>
   </div>
 
@@ -105,22 +116,27 @@
   </div>
 
   <h2>Last 90 days</h2>
+  <div class="table-scroll">
   <table>
     <thead>
       <tr>
         <th>Day (UTC)</th>
         <th class="num">Uniques</th>
+        <th class="num">New</th>
+        <th class="num">Returning</th>
         <th class="num">Pageviews</th>
         <th>Uniques</th>
       </tr>
     </thead>
     <tbody id="days-body">
-      <tr><td colspan="4" class="empty">No days yet.</td></tr>
+      <tr><td colspan="6" class="empty">No days yet.</td></tr>
     </tbody>
   </table>
+  </div>
 
   <h2>How this is counted</h2>
-  <p>On each load of <code>index.html</code> or the sign-in page, the page sends a tiny beacon to our API. The server hashes the visitor’s IP address together with the UTC date and user-agent, using a secret that never leaves the server, then discards the IP. We store only that hash (to know if the visitor is new today) and the counters you see here. Hashes older than two days are deleted.</p>
+  <p>On each load of <code>index.html</code> or the sign-in page, the page sends a tiny beacon to our API. The server hashes the visitor’s IP address together with the UTC date and user-agent, using a secret that never leaves the server, then discards the IP. We store only that hash (to know if the visitor is unique today) and the counters you see here. Those hashes older than two days are deleted.</p>
+  <p>Browsers that do not send Do Not Track or Global Privacy Control also keep a random anonymous id in localStorage, or in a first-party cookie if storage is blocked. The server hashes that id with the same secret and stores the first and last UTC day it was seen — not the raw id, and not the IP. <strong>New</strong> means that id’s first day is today. <strong>Returning</strong> means it was seen on an earlier UTC day. New + Returning is that day’s identified browsers. It can differ slightly from Uniques when a hit had no id, storage was cleared, or the IP changed while the id stayed.</p>
   <p>We do not store IP addresses. We do not use advertising cookies. We do not send this data to Google or any other analytics vendor. These totals are internal and are not published. Details are in the <a href="/privacy/">Privacy Policy</a>.</p>
 
   <h2>TikTok bio</h2>
@@ -292,6 +308,8 @@
       var days = (data.days || []).slice().reverse();
       setText("today-uniques", fmt(today.uniques));
       setText("today-views", fmt(today.pageviews));
+      setText("today-new", fmt(today.new_visitors));
+      setText("today-returning", fmt(today.returning_visitors));
       setText("total-uniques", fmt(totals.uniques));
       setText("total-views", fmt(totals.pageviews));
       var maxU = 1;
@@ -308,6 +326,8 @@
         var pct = Math.max(2, Math.round((row.uniques / maxU) * 100));
         return "<tr><td>" + row.day + "</td>" +
           '<td class="num">' + fmt(row.uniques) + "</td>" +
+          '<td class="num">' + fmt(row.new_visitors) + "</td>" +
+          '<td class="num">' + fmt(row.returning_visitors) + "</td>" +
           '<td class="num">' + fmt(row.pageviews) + "</td>" +
           '<td><div class="bar-wrap"><div class="bar" style="width:' + pct + '%"></div></div></td></tr>';
       }).join("");
