@@ -140,6 +140,11 @@ const RunnrGrowth = {
     }
     const hint = document.getElementById("disc-weight-hint");
     if (hint) hint.hidden = false;
+    try {
+      if (typeof RunnrDemoSandbox !== "undefined" && RunnrDemoSandbox.paintScoreMeaning) {
+        RunnrDemoSandbox.paintScoreMeaning();
+      }
+    } catch (e) {}
     const evidenceEl = document.getElementById("disc-evidence");
     if (evidenceEl) {
       const mix = (unlocked && score.evidence) ? score.evidence : { synced: 0, imported: 0, manual: 0 };
@@ -203,6 +208,11 @@ const RunnrGrowth = {
         <h2>Trading discipline, not a broker</h2>
         <p>Sizer, journal, score, streak, and session wave. Not a P&amp;L tracker.</p>
       </div>
+      <ol class="runnr-loop" aria-label="Daily loop">
+        <li><span class="runnr-loop-step">1 · Size</span><span class="runnr-loop-copy">Risk + stop before you click</span></li>
+        <li><span class="runnr-loop-step">2 · Log</span><span class="runnr-loop-copy">Plan without a log is a wish</span></li>
+        <li><span class="runnr-loop-step">3 · Score</span><span class="runnr-loop-copy">Process first, P&amp;L can wait</span></li>
+      </ol>
       ${typeof RunnrDemoSandbox !== "undefined" && RunnrDemoSandbox.proofCardHtml
         ? RunnrDemoSandbox.proofCardHtml()
         : ""}
@@ -216,6 +226,8 @@ const RunnrGrowth = {
         </dl>
       </details>
         <p class="ob-hook-price">Start free · 7-day trial · then €19/month or €190/year</p>
+        <p class="runnr-trial-delta">Free trial: full desk 7 days. Then Pro (€19/mo or €190/yr) keeps journal, Coach, alerts &amp; broker sync.</p>
+        <p class="runnr-readonly">Runnr never places trades — broker sync is read-only.</p>
         <p class="ob-hook-sample">Sample journal is labeled SAMPLE. Those numbers are not yours.</p>
         <div class="ob-hook-actions">
           <a class="btn" id="ob-hook-start" href="/sign-in">Start free</a>

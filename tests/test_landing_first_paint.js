@@ -16,8 +16,9 @@ function check(name, cond) {
 const v = html.match(/var V = "(\d+)"/)[1];
 const cache = sw.match(/CACHE = "runnr-v(\d+)"/)[1];
 check("index.html V matches sw.js CACHE", v === cache);
-check("onboarding cache-bust", html.includes("js/onboarding.js?v=40"));
-check("demo sandbox is loaded", html.includes("js/demo-sandbox.js?v=24"));
+check("onboarding cache-bust", html.includes("js/onboarding.js?v=41"));
+check("demo sandbox is loaded", html.includes("js/demo-sandbox.js?v=25"));
+check("pages.css cache-bust", html.includes("css/pages.css?v=20"));
 check("demo chrome is persistent on the guest desk", html.includes('id="demo-chrome"') && html.includes('id="demo-chrome-cta"') && html.includes("SAMPLE · not your book"));
 check("demo=1 skips the first-paint hook", html.includes("demo=1") && /runnr_hook_v1[\s\S]*demo=1|demo=1[\s\S]*runnr_hook_v1/.test(html));
 
@@ -32,6 +33,8 @@ check("hook has one Start free CTA", (hook.match(/Start free/g) || []).length >=
 check("hook Start free goes to login", hook.includes('id="ob-hook-start"') && hook.includes('href="/sign-in"'));
 check("hook does not duplicate Sign in blocks", !/card-title[^>]*>Sign in/.test(hook) && (hook.match(/>Sign in</g) || []).length === 0);
 check("hook pricing is the real offer", hook.includes("7-day trial") && hook.includes("€19/month") && hook.includes("€190/year"));
+check("hook Free/Pro delta + read-only sit by price", hook.includes("Free trial: full desk 7 days") && hook.includes("€19/mo or €190/yr") && hook.includes("Runnr never places trades — broker sync is read-only"));
+check("hook has quiet 3-step Size/Log/Score loop", hook.includes("runnr-loop") && hook.includes("1 · Size") && hook.includes("2 · Log") && hook.includes("3 · Score"));
 check("no invented 30-trade free tier", !html.includes("30 journal") && !html.includes("30 trades/month"));
 check("js hook matches html CTA", ob.includes('id="ob-hook-start"') && ob.includes("Start free") && ob.includes("View sample"));
 

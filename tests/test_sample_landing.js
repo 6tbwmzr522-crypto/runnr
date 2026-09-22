@@ -34,9 +34,9 @@ function check(name, cond) {
 const v = html.match(/var V = "(\d+)"/)[1];
 const cache = sw.match(/CACHE = "runnr-v(\d+)"/)[1];
 check("index.html V matches sw.js CACHE", v === cache);
-check("cache is 139+", Number(v) >= 139);
-check("demo-sandbox cache-bust", html.includes("js/demo-sandbox.js?v=24"));
-check("pages.css cache-bust", html.includes("css/pages.css?v=19"));
+check("cache is 139+", Number(v) >= 185);
+check("demo-sandbox cache-bust", html.includes("js/demo-sandbox.js?v=25"));
+check("pages.css cache-bust", html.includes("css/pages.css?v=20"));
 check("intro.js cache-bust", html.includes("js/intro.js?v=6"));
 
 check("stats Guest SAMPLE funnel section", stats.includes("Guest SAMPLE funnel") && stats.includes("email_wall") && stats.includes("guest-demo-view") && stats.includes("email_wall oauth") && stats.includes("email_wall_converted"));
@@ -76,6 +76,14 @@ check("returning-user login is not keep=1 bait", /href="\/sign-in"(?!\?keep=1)/.
 check("keep-score heading stays Keep this score", /id="modal-sample-keep"[\s\S]*Keep this score/.test(html));
 check("keep-score copy is score + weekly report bait", html.includes("Your score: ready.") && html.includes("undisciplined P&amp;L vs the clean one") && sandboxSrc.includes("undisciplined P&L vs the clean one"));
 check("keep-score keeps 7-day no auto-bill", keepHtml.includes("Start free · 7-day trial") && keepHtml.includes("Nothing bills automatically.") && !keepHtml.includes("Keep this score — 7 days free") && !keepHtml.includes("Use Runnr free for 7 days"));
+check("keep-score Free/Pro delta is inline", keepHtml.includes("Free trial: full desk 7 days") && keepHtml.includes("€19/mo") && keepHtml.includes("€190/yr") && keepHtml.includes("journal, Coach, alerts"));
+check("keep-score never-places-trades is inline", keepHtml.includes("Runnr never places trades") && keepHtml.includes("read-only"));
+check("landing has quiet 3-step loop", html.includes('id="home-runnr-loop"') && html.includes("1 · Size") && html.includes("2 · Log") && html.includes("3 · Score") && html.includes("Process first, P&amp;L can wait"));
+check("hook has quiet 3-step loop", /id="onboarding-overlay"[\s\S]*runnr-loop[\s\S]*1 · Size[\s\S]*id="sample-hero"/.test(html));
+check("ob-hook Free/Pro + read-only near price", /ob-hook-price[\s\S]*runnr-trial-delta[\s\S]*runnr-readonly[\s\S]*ob-hook-sample/.test(html));
+check("Connect page leads with never-places-trades", html.includes('class="runnr-readonly sync-readonly"') && /page-sync[\s\S]*Runnr never places trades — broker sync is read-only/.test(html));
+check("score meaning copy exists once", html.includes("Discipline Score = did you follow size, stop, and plan") && sandboxSrc.includes("SCORE_MEANING_KEY") && sandboxSrc.includes("runnr_score_meaning_v1") && sandboxSrc.includes("paintScoreMeaning"));
+check("gold score schedules score meaning before the wall", /function onGoldScored[\s\S]*scheduleScoreMeaning[\s\S]*function onProofViewed/.test(sandboxSrc) && /function onSampleScored[\s\S]*scheduleScoreMeaning[\s\S]*showKeepScore/.test(sandboxSrc));
 check("keep-score Google is white primary", /#modal-sample-keep \.sample-keep-google\{[^}]*background:#fff/.test(css.replace(/\s+/g, " ")));
 check("keep-score Apple is solid black", /#modal-sample-keep \.sample-keep-apple\{[^}]*background:#000/.test(css.replace(/\s+/g, " ")));
 check("keep-score card reuses tour-chip gold energy", /#modal-sample-keep \.modal\{[^}]*border:1px solid var\(--gold-light\)/.test(css.replace(/\s+/g, " ")) && /#modal-sample-keep \.modal\{[^}]*box-shadow:0 18px 50px rgba\(0,0,0,0\.45\)/.test(css.replace(/\s+/g, " ")) && /#modal-sample-keep \.modal-title\{[^}]*color:var\(--gold-light\)/.test(css.replace(/\s+/g, " ")));
@@ -243,6 +251,11 @@ liveScore.wallOpens = 0;
 liveScore.openModal = function () { liveScore.wallOpens += 1; };
 check("live gold score seals without opening the wall", liveScore.RunnrDemoSandbox.onGoldScored({ ready: true, size: 50, entry: 198, stop: 194, totalRisk: 200 }, { reason: "score" }) === true && liveScore.wallOpens === 0);
 check("live gold score still holds keep-score for a later save", liveScore.RunnrDemoSandbox.shouldHoldKeepScore() === true);
+check("first gold score arms the meaning tip", liveScore.RunnrDemoSandbox.shouldShowScoreMeaning() === true);
+check("score meaning copy is process not P&L", /follow size, stop, and plan/.test(liveScore.RunnrDemoSandbox.scoreMeaningCopy()) && /not how much you made/.test(liveScore.RunnrDemoSandbox.scoreMeaningCopy()));
+liveScore.RunnrDemoSandbox.markScoreMeaningSeen();
+liveScore.sessionStorage.removeItem("runnr_score_meaning_active_v1");
+check("meaning tip does not nag after localStorage flag", liveScore.RunnrDemoSandbox.shouldShowScoreMeaning() === false && liveScore.RunnrDemoSandbox.scoreMeaningHtml() === "");
 
 const slipOver = SB.slipLine({ ready: true, totalRisk: 200, size: 50 }, { bal: 10000, sym: "€" }, { risk: 1, sym: "€" });
 check("slip uses this plan against the 1% rule", slipOver === "Risked 2% on a 1% rule — €100 over on this plan.");

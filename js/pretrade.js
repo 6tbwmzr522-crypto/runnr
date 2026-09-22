@@ -925,6 +925,7 @@
       ? processButtonsHtml(attach, { selected: selected })
       : "";
     const slip = sampleSlipText(c, rails);
+    const meaning = sampleScoreMeaningHtml(c);
     const keep = (!c.sampleLocked && isSampleDesk() && (c.ready || c.size > 0))
       ? '<button type="button" class="btn pt-keep-score" id="pt-keep-score">Keep this score</button>'
       : "";
@@ -939,10 +940,19 @@
       '<div class="pt-kv"><span>R:R Ratio</span><strong class="' + rrCls + '">' + (c.rr ? c.rr.toFixed(2) + " : 1" : "—") + "</strong></div>" +
       gateLine +
       (slip ? '<p class="pt-slip">' + esc(slip) + "</p>" : "") +
+      meaning +
       banner +
       chips +
       keep
     );
+  }
+
+  function sampleScoreMeaningHtml(c) {
+    if (!isSampleDesk() || !c || c.sampleLocked) return "";
+    if (!(c.ready || c.size > 0)) return "";
+    const SB = global.RunnrDemoSandbox;
+    if (!SB || typeof SB.scoreMeaningHtml !== "function") return "";
+    try { return String(SB.scoreMeaningHtml("pt-score-meaning") || ""); } catch (e) { return ""; }
   }
 
   function sampleSlipText(c, rails) {
@@ -1099,6 +1109,13 @@
         "</div>" +
         '<button type="button" class="pt-nav-btn" id="pt-open-journal">JOURNAL</button>' +
       "</header>" +
+      (isSampleDesk()
+        ? '<ol class="runnr-loop" aria-label="Daily loop">' +
+            '<li><span class="runnr-loop-step">1 · Size</span><span class="runnr-loop-copy">Risk + stop before you click</span></li>' +
+            '<li><span class="runnr-loop-step">2 · Log</span><span class="runnr-loop-copy">Plan without a log is a wish</span></li>' +
+            '<li><span class="runnr-loop-step">3 · Score</span><span class="runnr-loop-copy">Process first, P&amp;L can wait</span></li>' +
+          "</ol>"
+        : "") +
       '<section class="pt-stats" aria-label="Account">' +
         '<div><div class="pt-stat-lbl">ACCOUNT BALANCE</div><div class="pt-stat-val gold" id="pt-stat-bal"></div></div>' +
         '<div><div class="pt-stat-lbl">TODAY RISKED</div><div class="pt-stat-val" id="pt-stat-risked"></div><div class="pt-stat-sub" id="pt-stat-limit"></div></div>' +

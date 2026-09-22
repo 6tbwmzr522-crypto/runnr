@@ -20,10 +20,10 @@ function check(name, cond) {
 const v = html.match(/var V = "(\d+)"/)[1];
 const cache = sw.match(/CACHE = "runnr-v(\d+)"/)[1];
 check("index.html V matches sw.js CACHE", v === cache);
-check("cache is 175+", Number(v) >= 175);
-check("pages.css cache-bust", html.includes("css/pages.css?v=19"));
+check("cache is 175+", Number(v) >= 185);
+check("pages.css cache-bust", html.includes("css/pages.css?v=20"));
 check("app-nav cache-bust", html.includes("js/app-nav.js?v=6"));
-check("onboarding cache-bust", html.includes("js/onboarding.js?v=40"));
+check("onboarding cache-bust", html.includes("js/onboarding.js?v=41"));
 
 const homeStart = html.indexOf('id="page-home"');
 const homeEnd = html.indexOf('id="page-sizer"');
@@ -48,13 +48,14 @@ const phoneCss = css.match(/@media \(max-width:1023px\)\{([\s\S]*?)\n\/\* ──
 check("phone home-trim media query exists", !!phoneCss);
 const phone = phoneCss ? phoneCss[1] : "";
 check("phone parks extras until expanded", phone.includes("#page-home:not(.home-desk-expanded) .home-desk-extra{display:none}"));
-check("phone conversion order is landing then job then score",
-  phone.includes("#page-home .home-landing-card{order:1}")
-  && phone.includes("#page-home .home-job-hero{order:2}")
-  && phone.includes("#page-home #home-discipline-card{order:4}"));
+check("phone conversion order is loop then landing then job then score",
+  phone.includes("#page-home .runnr-loop{order:1}")
+  && phone.includes("#page-home .home-landing-card{order:2}")
+  && phone.includes("#page-home .home-job-hero{order:3}")
+  && phone.includes("#page-home #home-discipline-card{order:5}"));
 check("phone landing puts Score CTA before the proof card",
   phone.includes(".home-landing-card .ob-hook-actions{order:4}")
-  && phone.includes(".home-landing-card [data-runnr-proof-host]{order:6}"));
+  && phone.includes(".home-landing-card [data-runnr-proof-host]{order:8}"));
 check("phone toggle is not the five-tab More sheet",
   phone.includes("html:not(.runnr-guest):not(.runnr-quiet) .home-desk-more-toggle")
   && css.includes(".nav-btn-more{display:flex}")
@@ -71,8 +72,12 @@ check("desktop hides the phone desk-more toggle", d.includes(".home-desk-more-to
 check("desktop does not display:none the extras", !/#page-home:not\(\.home-desk-expanded\) \.home-desk-extra\{display:none\}/.test(d));
 
 check("hook CTA paints before proof via CSS order",
-  css.includes(".ob-hook .ob-hook-actions{order:2}")
-  && css.includes(".ob-hook .runnr-proof{order:5}"));
+  css.includes(".ob-hook .ob-hook-actions{order:3}")
+  && css.includes(".ob-hook .runnr-loop{order:2}")
+  && css.includes(".ob-hook .runnr-proof{order:8}"));
+check("hook Free/Pro lines sit by price order",
+  css.includes(".ob-hook .runnr-trial-delta{order:5}")
+  && css.includes(".ob-hook .runnr-readonly{order:6}"));
 check("hook feature pills collapse behind What you get",
   html.includes('class="ob-hook-more"')
   && html.includes("<summary>What you get</summary>")
