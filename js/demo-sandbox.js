@@ -19,6 +19,9 @@
   const HERO_KEY = "runnr_sample_hero_v1";
   const KEEP_KEY = "runnr_sample_keep_v1";
   const SEAL_KEY = "runnr_sample_seal_v1";
+  const SCORE_MEANING_KEY = "runnr_score_meaning_v1";
+  const SCORE_MEANING_ACTIVE = "runnr_score_meaning_active_v1";
+  const SCORE_MEANING_COPY = "Discipline Score = did you follow size, stop, and plan — not how much you made.";
   const BIO_URL = "https://runnr.fyi/?demo=1";
   const ALIAS_PATH = "/sample";
   const KEEP_HREF = "/sign-in?keep=1";
@@ -602,6 +605,7 @@
     if (!isDemoState(global.S)) return false;
     if (trade && !isDemoTrade(trade)) return false;
     markSeal();
+    scheduleScoreMeaning();
     if (tourBlocksWall()) return true;
     showKeepScore({ reason: (opts && opts.reason) || "score" });
     return true;
@@ -622,7 +626,105 @@
     if (!isDemoState(global.S)) return false;
     if (!isReadyGoldScore(computed)) return false;
     markSeal();
+    scheduleScoreMeaning();
     return true;
+  }
+
+  function shouldShowScoreMeaning() {
+    if (isLoggedIn()) return false;
+    try {
+      if (global.sessionStorage && sessionStorage.getItem(SCORE_MEANING_ACTIVE) === "1") return true;
+    } catch (e) {}
+    try {
+      return !(global.localStorage && localStorage.getItem(SCORE_MEANING_KEY) === "1");
+    } catch (e2) {
+      return true;
+    }
+  }
+
+  function markScoreMeaningSeen() {
+    try {
+      if (global.localStorage) localStorage.setItem(SCORE_MEANING_KEY, "1");
+    } catch (e) {}
+    try {
+      if (global.sessionStorage) sessionStorage.setItem(SCORE_MEANING_ACTIVE, "1");
+    } catch (e2) {}
+    return true;
+  }
+
+  function clearScoreMeaningActive() {
+    try {
+      if (global.sessionStorage) sessionStorage.removeItem(SCORE_MEANING_ACTIVE);
+    } catch (e) {}
+  }
+
+  function scoreMeaningCopy() {
+    return SCORE_MEANING_COPY;
+  }
+
+  function scoreMeaningHtml(cls) {
+    if (!shouldShowScoreMeaning()) return "";
+    try {
+      if (global.sessionStorage) sessionStorage.setItem(SCORE_MEANING_ACTIVE, "1");
+    } catch (e) {}
+    const klass = cls || "pt-score-meaning";
+    return '<p class="' + klass + '" id="pt-score-meaning" role="status">' + SCORE_MEANING_COPY + "</p>";
+  }
+
+  let meaningTimer = null;
+
+  function fadeScoreMeaningEl(el) {
+    if (!el) return;
+    try { el.classList.add("is-fading"); } catch (e) {}
+    try {
+      global.setTimeout(function () {
+        try { el.hidden = true; } catch (e2) {}
+        try { if (el.parentNode) el.parentNode.removeChild(el); } catch (e3) {}
+        clearScoreMeaningActive();
+      }, 850);
+    } catch (e) {}
+  }
+
+  function paintScoreMeaning(opts) {
+    if (isLoggedIn()) return false;
+    const force = !!(opts && opts.force);
+    if (!shouldShowScoreMeaning()) {
+      const stale = global.document && document.getElementById("disc-score-meaning");
+      if (stale) stale.hidden = true;
+      return false;
+    }
+    // Home card only paints when this session already activated the tip (sizer)
+    // or when a score hook forces it — never from the factory SAMPLE book alone.
+    let active = false;
+    try {
+      active = !!(global.sessionStorage && sessionStorage.getItem(SCORE_MEANING_ACTIVE) === "1");
+    } catch (e) {}
+    if (!force && !active) return false;
+    const home = global.document && document.getElementById("disc-score-meaning");
+    if (home) {
+      home.hidden = false;
+      home.textContent = SCORE_MEANING_COPY;
+      home.classList.remove("is-fading");
+    }
+    markScoreMeaningSeen();
+    try {
+      if (meaningTimer) global.clearTimeout(meaningTimer);
+      meaningTimer = global.setTimeout(function () {
+        fadeScoreMeaningEl(home);
+        fadeScoreMeaningEl(global.document && document.getElementById("pt-score-meaning"));
+      }, 5200);
+    } catch (e) {}
+    return true;
+  }
+
+  function scheduleScoreMeaning() {
+    try {
+      if (global.setTimeout) {
+        global.setTimeout(function () { paintScoreMeaning({ force: true }); }, 0);
+        return true;
+      }
+    } catch (e) {}
+    return paintScoreMeaning({ force: true });
   }
 
   function onProofViewed() {
@@ -1075,6 +1177,12 @@
     onSampleScored,
     onGoldScored,
     onProofViewed,
+    shouldShowScoreMeaning,
+    markScoreMeaningSeen,
+    scoreMeaningCopy,
+    scoreMeaningHtml,
+    paintScoreMeaning,
+    scheduleScoreMeaning,
     showKeepScore,
     hideKeepScore,
     fireEmailWallBeacons,

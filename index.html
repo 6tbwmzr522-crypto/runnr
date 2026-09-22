@@ -5,7 +5,7 @@
 <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
 <script>
 (function () {
-  var V = "184";
+  var V = "185";
   try {
     if (localStorage.getItem("runnr_app_v") !== V) {
       localStorage.setItem("runnr_app_v", V);
@@ -67,8 +67,8 @@
 <link rel="stylesheet" href="css/tokens.css?v=1">
 <link rel="stylesheet" href="css/layout.css?v=2">
 <link rel="stylesheet" href="css/components.css?v=5">
-<link rel="stylesheet" href="css/pages.css?v=19">
-<link rel="stylesheet" href="css/pretrade.css?v=16">
+<link rel="stylesheet" href="css/pages.css?v=20">
+<link rel="stylesheet" href="css/pretrade.css?v=17">
 </head>
 <body>
 <div id="app">
@@ -123,6 +123,12 @@
     <div class="page active" id="page-home">
       <div class="home-frame">
 
+      <ol class="runnr-loop" id="home-runnr-loop" aria-label="Daily loop">
+        <li><span class="runnr-loop-step">1 · Size</span><span class="runnr-loop-copy">Risk + stop before you click</span></li>
+        <li><span class="runnr-loop-step">2 · Log</span><span class="runnr-loop-copy">Plan without a log is a wish</span></li>
+        <li><span class="runnr-loop-step">3 · Score</span><span class="runnr-loop-copy">Process first, P&amp;L can wait</span></li>
+      </ol>
+
       <div class="card home-landing-card" id="home-landing">
         <div class="ob-kicker">You do not trade here</div>
         <h2 class="home-landing-title">Trading discipline, not a broker</h2>
@@ -155,6 +161,8 @@
           <button type="button" class="home-sizer-link" id="home-open-sizer" onclick="switchPage('sizer')">Open sizer</button>
         </div>
         <p class="ob-hook-price">Start free · 7-day trial · then €19/month or €190/year</p>
+        <p class="runnr-trial-delta">Free trial: full desk 7 days. Then Pro (€19/mo or €190/yr) keeps journal, Coach, alerts &amp; broker sync.</p>
+        <p class="runnr-readonly">Runnr never places trades — broker sync is read-only.</p>
       </div>
 
       <div class="home-job-hero" id="home-job-hero" hidden>
@@ -193,6 +201,7 @@
           </div>
         </div>
         <p class="disc-weight-hint" id="disc-weight-hint" data-i18n="home.scoreWeightHint">Synced fills count more than manual logs — a confidence mix, not fake precision.</p>
+        <p class="disc-score-meaning" id="disc-score-meaning" hidden role="status">Discipline Score = did you follow size, stop, and plan — not how much you made.</p>
         <div class="disc-evidence" id="disc-evidence" hidden></div>
         <p class="disc-unlock-note" id="disc-unlock-note">Log 3 trades to unlock your score &amp; share card</p>
         <button class="btn btn-sm btn-ghost home-analyse-btn" style="width:100%" onclick="RunnrGrowth.open(S)" data-i18n="home.analyseTrade">↻ Analyse another trade</button>
@@ -916,7 +925,8 @@
     <!-- ══ SYNC ═══════════════════════════════════════════════════════════ -->
     <div class="page" id="page-sync">
       <div style="font-family:var(--font-head);font-size:18px;font-weight:700;margin-bottom:4px" data-i18n="sync.title">Broker Sync</div>
-      <div style="font-size:12px;color:var(--text3);margin-bottom:12px" data-i18n="sync.subtitle">Connect once. Pull real trades into your journal.</div>
+      <div style="font-size:12px;color:var(--text3);margin-bottom:8px" data-i18n="sync.subtitle">Connect once. Pull real trades into your journal.</div>
+      <p class="runnr-readonly sync-readonly">Runnr never places trades — broker sync is read-only.</p>
       <div id="sync-login-gate" class="card" style="margin-bottom:12px;border-color:var(--accent2)">
         <div class="card-title" data-i18n="sync.signIn">Sign in</div>
         <div style="font-size:13px;color:var(--text2);margin-bottom:14px;line-height:1.45" data-i18n="sync.signInDesc">Sync journal &amp; watchlist across Mac and iPhone. Same account on every device.</div>
@@ -1003,7 +1013,7 @@
           <a href="/stats.html" class="js-stats-link" hidden data-i18n="footer.stats">Stats</a>
           <button type="button" onclick="openPricing()" data-i18n="footer.pricing">Pricing</button>
         </div>
-        <div style="font-size:11px;color:var(--text3);margin-top:8px;line-height:1.45">Alpaca &amp; IBKR Flex: read-only · keys encrypted · no order execution</div>
+        <div style="font-size:11px;color:var(--text3);margin-top:8px;line-height:1.45">Runnr never places trades — Alpaca, IBKR Flex &amp; Trading 212 sync are read-only · keys encrypted</div>
       </div>
     </div>
 
@@ -1461,6 +1471,11 @@
         <h2>Trading discipline, not a broker</h2>
         <p>Sizer, journal, score, streak, and session wave. Not a P&amp;L tracker.</p>
       </div>
+      <ol class="runnr-loop" aria-label="Daily loop">
+        <li><span class="runnr-loop-step">1 · Size</span><span class="runnr-loop-copy">Risk + stop before you click</span></li>
+        <li><span class="runnr-loop-step">2 · Log</span><span class="runnr-loop-copy">Plan without a log is a wish</span></li>
+        <li><span class="runnr-loop-step">3 · Score</span><span class="runnr-loop-copy">Process first, P&amp;L can wait</span></li>
+      </ol>
       <article class="runnr-proof" data-runnr-proof aria-label="Alex Runner SAMPLE case">
         <header class="runnr-proof-head">
           <div class="runnr-proof-who">
@@ -1492,6 +1507,8 @@
         </dl>
       </details>
       <p class="ob-hook-price">Start free · 7-day trial · then €19/month or €190/year</p>
+      <p class="runnr-trial-delta">Free trial: full desk 7 days. Then Pro (€19/mo or €190/yr) keeps journal, Coach, alerts &amp; broker sync.</p>
+      <p class="runnr-readonly">Runnr never places trades — broker sync is read-only.</p>
       <p class="ob-hook-sample">Sample journal is labeled SAMPLE. Those numbers are not yours.</p>
       <div class="ob-hook-actions">
         <a class="btn" id="ob-hook-start" href="/sign-in">Start free</a>
@@ -1739,6 +1756,8 @@
     <div class="modal-title">Keep this score <button class="modal-close" onclick="closeModal('modal-sample-keep')">✕</button></div>
     <p class="sample-keep-copy">Your score: ready. Save it — plus the weekly report that shows undisciplined P&amp;L vs the clean one.</p>
     <p class="sample-keep-trial">Start free · 7-day trial. Nothing bills automatically.</p>
+    <p class="runnr-trial-delta">Free trial: full desk 7 days. Then Pro (€19/mo or €190/yr) keeps journal, Coach, alerts &amp; broker sync.</p>
+    <p class="runnr-readonly">Runnr never places trades — broker sync is read-only.</p>
     <div class="oauth-row sample-keep-oauth" id="sample-keep-oauth">
       <a class="oauth-btn sample-keep-google" id="sample-keep-google" data-sample-keep-oauth="google" href="https://api.runnr.fyi/api/v1/auth/oauth/google/start?next=/?demo=1">
         <span class="oauth-mark" aria-hidden="true">
@@ -1910,7 +1929,7 @@
 <script src="js/coach.js?v=29"></script>
 <script src="js/options-coach.js?v=1"></script>
 <script src="js/fvg-retrace.js?v=1"></script>
-<script src="js/onboarding.js?v=40"></script>
+<script src="js/onboarding.js?v=41"></script>
 <script src="js/intro.js?v=6"></script>
 <script src="js/tour.js?v=5"></script>
 <script src="js/csv-presets.js?v=4"></script>
@@ -1918,13 +1937,13 @@
 <script src="js/fetch-timeout.js?v=1"></script>
 <script src="js/trade-limit.js?v=4"></script>
 <script src="js/desk-quiet.js?v=3"></script>
-<script src="js/demo-sandbox.js?v=24"></script>
+<script src="js/demo-sandbox.js?v=25"></script>
 <script src="js/sync.js?v=72"></script>
 <script src="js/desk-sessions.js?v=2"></script>
 <script src="js/desk.js?v=18"></script>
 <script src="js/cooldown.js?v=2"></script>
 <script src="js/trend-day.js?v=7"></script>
-<script src="js/pretrade.js?v=23"></script>
+<script src="js/pretrade.js?v=24"></script>
 <script src="js/wave.js?v=2"></script>
 <script src="js/shelf.js?v=6"></script>
 <script src="js/visit.js?v=1"></script>
