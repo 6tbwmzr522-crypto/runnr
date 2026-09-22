@@ -34,10 +34,11 @@ function check(name, cond) {
 const v = html.match(/var V = "(\d+)"/)[1];
 const cache = sw.match(/CACHE = "runnr-v(\d+)"/)[1];
 check("index.html V matches sw.js CACHE", v === cache);
-check("cache is 139+", Number(v) >= 186);
-check("demo-sandbox cache-bust", html.includes("js/demo-sandbox.js?v=26"));
-check("pages.css cache-bust", html.includes("css/pages.css?v=20"));
-check("intro.js cache-bust", html.includes("js/intro.js?v=7"));
+check("cache is 139+", Number(v) >= 187);
+check("demo-sandbox cache-bust", html.includes("js/demo-sandbox.js?v=27"));
+check("pages.css cache-bust", html.includes("css/pages.css?v=21"));
+check("intro.js cache-bust", html.includes("js/intro.js?v=8"));
+check("onboarding.js cache-bust", html.includes("js/onboarding.js?v=42"));
 
 check("stats Guest SAMPLE funnel section", stats.includes("Guest SAMPLE funnel") && stats.includes("email_wall") && stats.includes("guest-demo-view") && stats.includes("email_wall oauth") && stats.includes("email_wall_converted"));
 check("stats clarifies signed-in accounts are not visits", stats.includes("Signed-in accounts (not visits)"));
@@ -76,11 +77,16 @@ check("returning-user login is not keep=1 bait", /href="\/sign-in"(?!\?keep=1)/.
 check("keep-score heading stays Keep this score", /id="modal-sample-keep"[\s\S]*Keep this score/.test(html));
 check("keep-score copy is score + weekly report bait", html.includes("Your score: ready.") && html.includes("undisciplined P&amp;L vs the clean one") && sandboxSrc.includes("undisciplined P&L vs the clean one"));
 check("keep-score keeps 7-day no auto-bill", keepHtml.includes("Start free · 7-day trial") && keepHtml.includes("Nothing bills automatically.") && !keepHtml.includes("Keep this score — 7 days free") && !keepHtml.includes("Use Runnr free for 7 days"));
+check("keep-score has no credit card note", keepHtml.includes("No credit card required for trial."));
 check("keep-score Free/Pro delta is inline", keepHtml.includes("Free trial: full desk 7 days") && keepHtml.includes("€19/mo") && keepHtml.includes("€190/yr") && keepHtml.includes("journal, Coach, alerts"));
 check("keep-score never-places-trades is inline", keepHtml.includes("Runnr never places trades") && keepHtml.includes("read-only"));
 check("landing has quiet 3-step loop", html.includes('id="home-runnr-loop"') && html.includes("1 · Size") && html.includes("2 · Log") && html.includes("3 · Score") && html.includes("Process first, P&amp;L can wait"));
 check("hook has quiet 3-step loop", /id="onboarding-overlay"[\s\S]*runnr-loop[\s\S]*1 · Size[\s\S]*id="sample-hero"/.test(html));
-check("ob-hook Free/Pro + read-only near price", /ob-hook-price[\s\S]*runnr-trial-delta[\s\S]*runnr-readonly[\s\S]*ob-hook-sample/.test(html));
+check("hook has no credit card note near trial", /ob-hook-price[\s\S]*runnr-trial-delta[\s\S]*runnr-no-card[\s\S]*No credit card required for trial/.test(html));
+check("home landing has no credit card note", /home-landing[\s\S]*ob-hook-price[\s\S]*runnr-no-card[\s\S]*No credit card required for trial/.test(html));
+check("demo chrome has no credit card note", /demo-chrome-cta[\s\S]*runnr-no-card[\s\S]*No credit card required for trial/.test(html));
+check("onboarding hook mirrors no-card copy", onboardingSrc.includes("runnr-no-card") && onboardingSrc.includes("No credit card required for trial."));
+check("ob-hook Free/Pro + no-card + read-only near price", /ob-hook-price[\s\S]*runnr-trial-delta[\s\S]*runnr-no-card[\s\S]*runnr-readonly[\s\S]*ob-hook-sample/.test(html));
 check("Connect page leads with never-places-trades", html.includes('class="runnr-readonly sync-readonly"') && /page-sync[\s\S]*Runnr never places trades — broker sync is read-only/.test(html));
 check("score meaning copy exists once", html.includes("Discipline Score = did you follow size, stop, and plan") && sandboxSrc.includes("SCORE_MEANING_KEY") && sandboxSrc.includes("runnr_score_meaning_v1") && sandboxSrc.includes("paintScoreMeaning"));
 check("gold score schedules score meaning before the wall", /function onGoldScored[\s\S]*scheduleScoreMeaning[\s\S]*function onProofViewed/.test(sandboxSrc) && /function onSampleScored[\s\S]*scheduleScoreMeaning[\s\S]*showKeepScore/.test(sandboxSrc));
@@ -91,7 +97,10 @@ check("keep-score has no extra eyebrow copy", !/SAVE YOUR SCORE/i.test(keepHtml)
 check("OAuth returns to SAMPLE desk", sandboxSrc.includes('KEEP_RETURN = "/?demo=1"') && sandboxSrc.includes("resumeAfterKeepAuth") && bootSrc.includes("keepOAuthReturn"));
 check("keep-score has no process chips", !keepHtml.includes("sample-keep-process") && !keepHtml.includes("HOW DID IT GO?") && !keepHtml.includes("Followed") && !keepHtml.includes("Leaked") && !keepHtml.includes("Skipped") && !sandboxSrc.includes("sample-keep-process"));
 check("keep-score has no Watch CTA", !keepHtml.includes("sample-keep-replay") && !keepHtml.includes("Watch how Runnr works"));
-check("landing watch replays intro without reopening the wall", sandboxSrc.includes("sample-hero-watch") && introSrc.includes("playBeforeKeepScore(null") && !introSrc.includes("showKeepScore({ skipIntro: true })"));
+check("landing watch plays intro then lands on Sizer / Beat 1", sandboxSrc.includes("sample-hero-watch") && sandboxSrc.includes("startWatchHow") && sandboxSrc.includes("landWatchOnSizer") && sandboxSrc.includes("playWatchThenSizer") && introSrc.includes("playWatchThenSizer") && !introSrc.includes("showKeepScore({ skipIntro: true })"));
+check("Watch path never opens Keep as first destination", /function startWatchHow[\s\S]*playWatchThenSizer[\s\S]*landWatchOnSizer/.test(sandboxSrc) && /function landWatchOnSizer[\s\S]*forceHideKeepScore[\s\S]*openGoldSizer[\s\S]*RunnrTour\.start/.test(sandboxSrc));
+check("Watch skip copy is size a trade not save score", introSrc.includes("Skip to size a trade") && introSrc.includes("WATCH_SKIP_LABEL"));
+check("bare replay still avoids Keep wall", introSrc.includes("playBeforeKeepScore(null") && !introSrc.includes("showKeepScore({ skipIntro: true })"));
 check("video plays before the wall", sandboxSrc.includes("playIntroThenKeep") && sandboxSrc.includes("shouldPlayBeforeKeepScore"));
 check("chip tour stays optional on the wall", sandboxSrc.includes("tourWantsChipPath") && sandboxSrc.includes("tour=1"));
 check("keep-score does not lead with Alpaca/T212", !/Alpaca|T212|Trading 212/.test(html.slice(html.indexOf('id="modal-sample-keep"'), html.indexOf('id="modal-share"'))));
@@ -529,5 +538,65 @@ bootHold.document.querySelector = function (sel) {
 };
 bootHold.RunnrDemoSandbox.bootSampleLanding(bootHold.S);
 check("sealed boot does not open keep when tour will show", bootModal.classList.contains("open") === false);
+
+// Watch how Runnr works → video → Beat 1 / Sizer, never Keep first
+const watchPath = loadWall({ search: "?demo=1", pathname: "/", hash: "", href: "http://localhost/?demo=1" });
+watchPath.ctx.S = { trades: book, watchlist: SB.factoryWatchlist(), bal: 10000, risk: 1, sym: "€" };
+watchPath.ctx.openedSizer = [];
+watchPath.ctx.tourStarts = 0;
+watchPath.ctx.RunnrPretrade = {
+  prime() { return true; },
+  open(which) { watchPath.ctx.openedSizer.push(which || "desk"); return true; },
+};
+watchPath.ctx.RunnrTour = {
+  isOpen() { return false; },
+  shouldShow() { return false; },
+  allowsEmailWall() { return true; },
+  start() { watchPath.ctx.tourStarts += 1; return true; },
+};
+const watchBtn = {
+  dataset: {},
+  addEventListener(type, fn) { if (type === "click") watchBtn._click = fn; },
+};
+const heroEl = { hidden: false, classList: { remove() {}, add() {}, contains() { return false; } } };
+const prevWatchGet = watchPath.ctx.document.getElementById;
+watchPath.ctx.document.getElementById = function (id) {
+  if (id === "sample-hero-watch") return watchBtn;
+  if (id === "sample-score-cta") return { dataset: {}, addEventListener() {} };
+  if (id === "sample-hero-skip") return { dataset: {}, addEventListener() {} };
+  if (id === "sample-hero") return heroEl;
+  return prevWatchGet.call(watchPath.ctx.document, id);
+};
+watchPath.ctx.RunnrDemoSandbox.bootSampleLanding(watchPath.ctx.S);
+check("Watch CTA is bound", typeof watchBtn._click === "function");
+watchBtn._click({ preventDefault() {} });
+check("Watch opens intro soft-gate first", watchPath.overlay.classList.contains("open") === true);
+check("Watch does not open Keep while video plays", watchPath.modal.classList.contains("open") === false);
+check("Watch skip copy points at sizer", watchPath.skip.textContent === "Skip to size a trade");
+watchPath.ctx.RunnrIntro.finish(watchPath.ctx.S);
+check("Watch finish closes intro", watchPath.overlay.classList.contains("open") === false);
+check("Watch finish opens gold Sizer", watchPath.ctx.openedSizer.indexOf("desk") !== -1);
+check("Watch finish starts Beat 1 tour", watchPath.ctx.tourStarts === 1);
+check("Watch finish does not open Keep wall", watchPath.modal.classList.contains("open") === false);
+
+const watchSkip = loadWall({ search: "?demo=1", pathname: "/", hash: "", href: "http://localhost/?demo=1" });
+watchSkip.ctx.S = { trades: book, watchlist: SB.factoryWatchlist(), bal: 10000, risk: 1, sym: "€" };
+watchSkip.ctx.openedSizer = [];
+watchSkip.ctx.tourStarts = 0;
+watchSkip.ctx.RunnrPretrade = {
+  prime() { return true; },
+  open(which) { watchSkip.ctx.openedSizer.push(which || "desk"); return true; },
+};
+watchSkip.ctx.RunnrTour = {
+  isOpen() { return false; },
+  shouldShow() { return false; },
+  allowsEmailWall() { return true; },
+  start() { watchSkip.ctx.tourStarts += 1; return true; },
+};
+check("startWatchHow plays video", watchSkip.ctx.RunnrDemoSandbox.startWatchHow() === true && watchSkip.overlay.classList.contains("open") === true);
+watchSkip.ctx.RunnrIntro.skip(watchSkip.ctx.S);
+check("Watch skip lands on Sizer", watchSkip.ctx.openedSizer.indexOf("desk") !== -1);
+check("Watch skip starts Beat 1", watchSkip.ctx.tourStarts === 1);
+check("Watch skip does not open Keep", watchSkip.modal.classList.contains("open") === false);
 
 console.log("test_sample_landing: ok " + n);

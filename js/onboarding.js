@@ -227,6 +227,7 @@ const RunnrGrowth = {
       </details>
         <p class="ob-hook-price">Start free · 7-day trial · then €19/month or €190/year</p>
         <p class="runnr-trial-delta">Free trial: full desk 7 days. Then Pro (€19/mo or €190/yr) keeps journal, Coach, alerts &amp; broker sync.</p>
+        <p class="runnr-no-card">No credit card required for trial.</p>
         <p class="runnr-readonly">Runnr never places trades — broker sync is read-only.</p>
         <p class="ob-hook-sample">Sample journal is labeled SAMPLE. Those numbers are not yours.</p>
         <div class="ob-hook-actions">

@@ -5,7 +5,7 @@
 <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
 <script>
 (function () {
-  var V = "186";
+  var V = "187";
   try {
     if (localStorage.getItem("runnr_app_v") !== V) {
       localStorage.setItem("runnr_app_v", V);
@@ -67,7 +67,7 @@
 <link rel="stylesheet" href="css/tokens.css?v=1">
 <link rel="stylesheet" href="css/layout.css?v=2">
 <link rel="stylesheet" href="css/components.css?v=5">
-<link rel="stylesheet" href="css/pages.css?v=20">
+<link rel="stylesheet" href="css/pages.css?v=21">
 <link rel="stylesheet" href="css/pretrade.css?v=17">
 </head>
 <body>
@@ -97,7 +97,10 @@
 
   <div id="demo-chrome" hidden>
     <span class="demo-chrome-text" data-i18n="header.demoChrome">SAMPLE · not your book</span>
-    <a class="btn btn-sm" id="demo-chrome-cta" href="/sign-in" data-i18n="header.demoCta">Start free · 7-day trial</a>
+    <div class="demo-chrome-cta-col">
+      <a class="btn btn-sm" id="demo-chrome-cta" href="/sign-in" data-i18n="header.demoCta">Start free · 7-day trial</a>
+      <span class="runnr-no-card">No credit card required for trial.</span>
+    </div>
   </div>
 
   <div id="demo-banner" onclick="switchPage('sync')">
@@ -162,6 +165,7 @@
         </div>
         <p class="ob-hook-price">Start free · 7-day trial · then €19/month or €190/year</p>
         <p class="runnr-trial-delta">Free trial: full desk 7 days. Then Pro (€19/mo or €190/yr) keeps journal, Coach, alerts &amp; broker sync.</p>
+        <p class="runnr-no-card">No credit card required for trial.</p>
         <p class="runnr-readonly">Runnr never places trades — broker sync is read-only.</p>
       </div>
 
@@ -1508,6 +1512,7 @@
       </details>
       <p class="ob-hook-price">Start free · 7-day trial · then €19/month or €190/year</p>
       <p class="runnr-trial-delta">Free trial: full desk 7 days. Then Pro (€19/mo or €190/yr) keeps journal, Coach, alerts &amp; broker sync.</p>
+      <p class="runnr-no-card">No credit card required for trial.</p>
       <p class="runnr-readonly">Runnr never places trades — broker sync is read-only.</p>
       <p class="ob-hook-sample">Sample journal is labeled SAMPLE. Those numbers are not yours.</p>
       <div class="ob-hook-actions">
@@ -1757,6 +1762,7 @@
     <p class="sample-keep-copy">Your score: ready. Save it — plus the weekly report that shows undisciplined P&amp;L vs the clean one.</p>
     <p class="sample-keep-trial">Start free · 7-day trial. Nothing bills automatically.</p>
     <p class="runnr-trial-delta">Free trial: full desk 7 days. Then Pro (€19/mo or €190/yr) keeps journal, Coach, alerts &amp; broker sync.</p>
+    <p class="runnr-no-card">No credit card required for trial.</p>
     <p class="runnr-readonly">Runnr never places trades — broker sync is read-only.</p>
     <div class="oauth-row sample-keep-oauth" id="sample-keep-oauth">
       <a class="oauth-btn sample-keep-google" id="sample-keep-google" data-sample-keep-oauth="google" href="https://api.runnr.fyi/api/v1/auth/oauth/google/start?next=/?demo=1">
@@ -1929,15 +1935,15 @@
 <script src="js/coach.js?v=29"></script>
 <script src="js/options-coach.js?v=1"></script>
 <script src="js/fvg-retrace.js?v=1"></script>
-<script src="js/onboarding.js?v=41"></script>
-<script src="js/intro.js?v=7"></script>
+<script src="js/onboarding.js?v=42"></script>
+<script src="js/intro.js?v=8"></script>
 <script src="js/tour.js?v=6"></script>
 <script src="js/csv-presets.js?v=4"></script>
 <script src="js/brokers.js?v=1"></script>
 <script src="js/fetch-timeout.js?v=1"></script>
 <script src="js/trade-limit.js?v=4"></script>
 <script src="js/desk-quiet.js?v=3"></script>
-<script src="js/demo-sandbox.js?v=26"></script>
+<script src="js/demo-sandbox.js?v=27"></script>
 <script src="js/sync.js?v=72"></script>
 <script src="js/desk-sessions.js?v=2"></script>
 <script src="js/desk.js?v=18"></script>

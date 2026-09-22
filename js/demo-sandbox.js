@@ -1107,6 +1107,55 @@
     return flushPendingKeepAfterTour();
   }
 
+  /**
+   * After Watch video (or skip): live gold Sizer + Beat 1 chip tour.
+   * Keep wall stays closed until a real scored plan (#78/#80 rules).
+   */
+  function landWatchOnSizer() {
+    cancelPendingKeepAfterTour();
+    forceHideKeepScore();
+    try {
+      const book = global.S;
+      if (book && !isLoggedIn() && !looksLikeRealBook(book)) {
+        if (!firstIncompleteSample(book) || demoTradeCount(book) < MIN_BOOK) {
+          apply(book, { force: true });
+          if (typeof global.persist === "function") global.persist();
+        }
+      }
+    } catch (e) {}
+    openGoldSizer(sampleScorePrime(global.S));
+    try {
+      if (global.RunnrTour && typeof RunnrTour.start === "function") {
+        RunnrTour.start(global.S);
+      }
+    } catch (e) {}
+    return true;
+  }
+
+  /**
+   * Watch how Runnr works — optional intro soft-gate, then Beat 1 / Sizer.
+   * Never opens Keep this score as the first destination.
+   */
+  function startWatchHow() {
+    markHeroDismissed();
+    hideSampleHero();
+    cancelPendingKeepAfterTour();
+    forceHideKeepScore();
+    const afterVideo = function () {
+      landWatchOnSizer();
+    };
+    try {
+      const Intro = global.RunnrIntro;
+      if (Intro && typeof Intro.playWatchThenSizer === "function") {
+        return !!Intro.playWatchThenSizer(afterVideo);
+      }
+      if (Intro && typeof Intro.playBeforeKeepScore === "function") {
+        return !!Intro.playBeforeKeepScore(afterVideo, { force: true, replay: true, watchPath: true });
+      }
+    } catch (e) {}
+    return landWatchOnSizer();
+  }
+
   function bindSampleHero() {
     const doc = global.document;
     if (!doc) return;
@@ -1123,9 +1172,7 @@
       watch.dataset.sampleBound = "1";
       watch.addEventListener("click", function (ev) {
         if (ev && ev.preventDefault) ev.preventDefault();
-        try {
-          if (global.RunnrIntro && typeof RunnrIntro.replay === "function") RunnrIntro.replay();
-        } catch (e) {}
+        try { startWatchHow(); } catch (e) {}
       });
     }
     const skip = doc.getElementById("sample-hero-skip");
@@ -1279,6 +1326,8 @@
     firstIncompleteSample,
     sampleScorePrime,
     openScoreTrade,
+    startWatchHow,
+    landWatchOnSizer,
     onSampleScored,
     onGoldScored,
     onProofViewed,
