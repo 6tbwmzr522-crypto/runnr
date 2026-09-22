@@ -197,6 +197,11 @@ const RunnrIntro = {
     }
   },
 
+  cancelPendingKeep() {
+    this._pendingKeep = null;
+    this._playingForKeep = false;
+  },
+
   playBeforeKeepScore(onDone, opts) {
     this._pendingKeep = typeof onDone === "function" ? onDone : null;
     this._playingForKeep = true;

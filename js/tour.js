@@ -530,11 +530,23 @@ const RunnrTour = {
   skip(state) {
     this.markDone(state, "skipped");
     this.close();
+    // Skip ≠ save score. Land on the SAMPLE desk; never open Keep / intro.
+    try {
+      if (typeof RunnrDemoSandbox !== "undefined" && typeof RunnrDemoSandbox.onTourSkipped === "function") {
+        RunnrDemoSandbox.onTourSkipped();
+      }
+    } catch (e) {}
   },
 
   finish(state) {
     this.markDone(state, "done");
     this.close();
+    // Real score mid-tour may have deferred the wall — flush only on finish.
+    try {
+      if (typeof RunnrDemoSandbox !== "undefined" && typeof RunnrDemoSandbox.onTourFinished === "function") {
+        RunnrDemoSandbox.onTourFinished();
+      }
+    } catch (e) {}
   },
 
   close() {
