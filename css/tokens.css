@@ -1,6 +1,7 @@
 /* Extracted from index.html — look-preserving. Do not restyle. */
 
 :root {
+  color-scheme: dark;
   --bg: #080c12;
   --surface: #0c1118;
   --surface2: #101620;

@@ -31,7 +31,7 @@ const appFiles = [
   "js/app-boot.js",
 ];
 appFiles.forEach((f) => {
-  const pin = f === "js/app-journal.js" ? "?v=6"
+  const pin = f === "js/app-journal.js" ? "?v=7"
     : f === "js/app-nav.js" ? "?v=6"
     : f === "js/app-boot.js" ? "?v=8"
     : f === "js/app-watchlist.js" ? "?v=5"

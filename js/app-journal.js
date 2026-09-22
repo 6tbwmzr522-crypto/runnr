@@ -778,7 +778,7 @@ function setFlag(type, val) {
   const yes = document.getElementById(type+'-yes');
   const no  = document.getElementById(type+'-no');
   yes.style.background = val==='yes' ? 'var(--accent)' : '';
-  yes.style.color = val==='yes' ? '#070d0b' : '';
+  yes.style.color = val==='yes' ? (document.body.classList.contains('light') ? '#fff' : '#070d0b') : '';
   no.style.background  = val==='no'  ? 'var(--red)' : '';
   no.style.color  = val==='no'  ? '#fff' : '';
 }

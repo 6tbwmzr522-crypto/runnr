@@ -490,12 +490,63 @@ body.light {
   --red-dim: rgba(184, 58, 74, 0.1);
   --amber: #9A7B42;
   --amber-dim: rgba(201, 169, 110, 0.15);
+  color-scheme: light;
 }
 body.light::before{opacity:0.35}
 body.light #header{background:rgba(245,242,236,0.95)}
 body.light #nav{background:var(--surface);border-top-color:var(--border)}
 body.light .field input,
-body.light .field select{background:var(--surface2);color:var(--text);border-color:var(--border)}
+body.light .field select,
+body.light .field textarea,
+body.light .pt-field input,
+body.light .pt-field select,
+body.light .pt-log-row input,
+body.light .coach-free-ask,
+body.light .opt-portfolio-input input{
+  background:var(--surface2);
+  color:var(--text);
+  caret-color:var(--text);
+  border-color:var(--border);
+  -webkit-text-fill-color:var(--text);
+}
+body.light .opt-portfolio-input input{background:var(--surface3)}
+body.light .field input::placeholder,
+body.light .field textarea::placeholder,
+body.light .pt-field input::placeholder,
+body.light .pt-log-row input::placeholder,
+body.light .coach-free-ask::placeholder{
+  color:var(--text3);
+  -webkit-text-fill-color:var(--text3);
+  opacity:1;
+}
+body.light input:-webkit-autofill,
+body.light textarea:-webkit-autofill,
+body.light select:-webkit-autofill{
+  -webkit-text-fill-color:var(--text);
+  caret-color:var(--text);
+  box-shadow:0 0 0 1000px var(--surface2) inset;
+}
+body.light .btn:not(.btn-ghost):not(.btn-danger),
+body.light .te-replay.te-replay-primary,
+body.light .te-replay.te-replay-primary:hover,
+body.light .te-replay.te-replay-primary:active,
+body.light .period-tab.active,
+body.light .notif-perm-banner .nb-btn{color:#fff}
+body.light .desk-cmd{background:rgba(245,242,236,0.94)}
+body.light .desk-sbar .track{background:rgba(26,18,8,0.12)}
+body.light .pt-bar{background:rgba(26,18,8,0.12)}
+body.light .pt-output,
+body.light .pt-derived{border-color:var(--border)}
+body.light #modal-cooldown .cooldown-sheet{background:var(--surface);color:var(--text)}
+body.light #modal-cooldown .cooldown-stay{background:var(--surface3);color:var(--text)}
+/* Trend-day checklist stays a dark card. Pin ink so light-mode text tokens do not flip to brown-on-navy. */
+body.light #trend-day-chip .td-check{color:#F5F2EC}
+body.light #trend-day-chip .td-title{color:#E8C97A}
+body.light #trend-day-chip .td-clock,
+body.light #trend-day-chip .td-auto.err,
+body.light #trend-day-chip .td-quarter,
+body.light #trend-day-chip .td-skip,
+body.light #trend-day-chip .td-hint{color:rgba(245,242,236,0.66)}
 body.light .modal{background:var(--surface);color:var(--text)}
 body.light .modal-close{background:var(--surface2);color:var(--text2)}
 body.light .broker-card,

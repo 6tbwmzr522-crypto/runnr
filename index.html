@@ -5,7 +5,7 @@
 <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
 <script>
 (function () {
-  var V = "187";
+  var V = "188";
   try {
     if (localStorage.getItem("runnr_app_v") !== V) {
       localStorage.setItem("runnr_app_v", V);
@@ -66,9 +66,9 @@
 <link rel="stylesheet" href="css/desk.css?v=10">
 <link rel="stylesheet" href="css/tokens.css?v=1">
 <link rel="stylesheet" href="css/layout.css?v=2">
-<link rel="stylesheet" href="css/components.css?v=5">
+<link rel="stylesheet" href="css/components.css?v=6">
 <link rel="stylesheet" href="css/pages.css?v=21">
-<link rel="stylesheet" href="css/pretrade.css?v=17">
+<link rel="stylesheet" href="css/pretrade.css?v=18">
 </head>
 <body>
 <div id="app">
@@ -731,7 +731,7 @@
           <p class="free-trade-counter" data-free-trade-counter hidden style="margin:0"></p>
           <button class="see-all home-share-btn" id="journal-share-btn" type="button" onclick="RunnrGrowth.openShareModal(S, 'score')">Share ↗</button>
           <button class="btn btn-sm btn-ghost" id="journal-t212-btn" type="button" onclick="importT212Fills()" style="display:none">Import T212</button>
-          <button class="btn btn-sm" onclick="saveLogFromSizer('cfd')" style="background:var(--accent);color:#070d0b;font-family:var(--font-head);font-size:12px;font-weight:700;border:none;cursor:pointer;padding:7px 14px;border-radius:20px">+ Log Trade</button>
+          <button class="btn btn-sm" onclick="saveLogFromSizer('cfd')" style="background:var(--accent);font-family:var(--font-head);font-size:12px;font-weight:700;border:none;cursor:pointer;padding:7px 14px;border-radius:20px">+ Log Trade</button>
         </div>
       </div>
       <div id="journal-challenge-status" class="journal-challenge-status">
@@ -896,7 +896,7 @@
         <h3 style="font-size:15px" data-i18n="watch.title">Watchlist</h3>
         <div style="display:flex;gap:8px">
           <button class="btn btn-sm header-desk-btn" onclick="RunnrDesk.open()" style="border-radius:20px;padding:7px 12px" data-i18n="header.terminal">Terminal</button>
-          <button class="btn btn-sm" onclick="openModal('modal-add-watch')" style="background:var(--accent);color:#070d0b;font-family:var(--font-head);font-size:12px;font-weight:700;border:none;cursor:pointer;padding:7px 14px;border-radius:20px" data-i18n="watch.addSetup">+ Add Setup</button>
+          <button class="btn btn-sm" onclick="openModal('modal-add-watch')" style="background:var(--accent);font-family:var(--font-head);font-size:12px;font-weight:700;border:none;cursor:pointer;padding:7px 14px;border-radius:20px" data-i18n="watch.addSetup">+ Add Setup</button>
         </div>
       </div>
       <div class="feed-status" style="margin-bottom:10px">
@@ -1957,7 +1957,7 @@
 <script src="js/app-nav.js?v=6"></script>
 <script src="js/app-settings.js?v=1"></script>
 <script src="js/app-sizer.js?v=1"></script>
-<script src="js/app-journal.js?v=6"></script>
+<script src="js/app-journal.js?v=7"></script>
 <script src="js/app-watchlist.js?v=5"></script>
 <script src="js/app-quotes.js?v=4"></script>
 <script src="js/app-alerts.js?v=1"></script>
