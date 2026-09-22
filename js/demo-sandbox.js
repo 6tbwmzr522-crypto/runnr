@@ -510,7 +510,7 @@
     return true;
   }
 
-  function hideSampleHero() {
+  function hideSampleHero(opts) {
     const el = sampleHeroEl();
     if (el) {
       el.classList.remove("open");
@@ -521,6 +521,8 @@
         document.documentElement.classList.remove("runnr-sample-landing");
       }
     } catch (e) {}
+    // Watch path opens the intro soft-gate next — defer chip tour until after video.
+    if (opts && opts.deferTour) return;
     try {
       if (global.RunnrTour && typeof RunnrTour.maybeShow === "function") {
         RunnrTour.maybeShow(global.S);
@@ -1138,7 +1140,7 @@
    */
   function startWatchHow() {
     markHeroDismissed();
-    hideSampleHero();
+    hideSampleHero({ deferTour: true });
     cancelPendingKeepAfterTour();
     forceHideKeepScore();
     const afterVideo = function () {
