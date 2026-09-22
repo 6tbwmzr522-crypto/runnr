@@ -408,6 +408,7 @@ function updateHomeStats() {
 // ── LIGHT / DARK MODE ────────────────────────────────────────────────────────
 function toggleTheme() {
   const isLight = document.body.classList.toggle('light');
+  document.documentElement.classList.toggle('light', isLight);
   const btn = document.getElementById('theme-toggle');
   if (btn) btn.textContent = isLight ? t('common.dark') : t('common.light');
   try { localStorage.setItem('runnr_theme', isLight ? 'light' : 'dark'); } catch(e) {}
@@ -421,6 +422,7 @@ function toggleTheme() {
 // Restore saved theme
 try {
   if (localStorage.getItem('runnr_theme') === 'light') {
+    document.documentElement.classList.add('light');
     document.body.classList.add('light');
     const btn = document.getElementById('theme-toggle');
     if (btn) btn.textContent = '🌙 Dark';

@@ -23,7 +23,7 @@ const appCss = [
   "css/pages.css",
 ];
 appCss.forEach((f) => {
-  const pin = f === "css/pages.css" ? "?v=21" : f === "css/layout.css" ? "?v=2" : f === "css/components.css" ? "?v=5" : "?v=1";
+  const pin = f === "css/pages.css" ? "?v=21" : f === "css/layout.css" ? "?v=2" : f === "css/components.css" ? "?v=7" : "?v=1";
   check(f + " is loaded with cache-bust", html.includes(f + pin));
   check(f + " is in the stylesheet list", stylesheets.includes(f));
 });
@@ -36,12 +36,12 @@ check("extracted sheets follow desk.css in original order",
   && stylesheets.indexOf("css/pages.css") === 4);
 check("legal.css is not loaded on the app page", !stylesheets.includes("css/legal.css"));
 check("pretrade.css loads after pages.css", stylesheets.indexOf("css/pretrade.css") === stylesheets.indexOf("css/pages.css") + 1);
-check("pretrade.css is cache-busted", html.includes("css/pretrade.css?v=17"));
+check("pretrade.css is cache-busted", html.includes("css/pretrade.css?v=18"));
 check("no giant inline style block remains", !/<style[\s>]/.test(html));
 check("index.html is under 160KB after css extract", Buffer.byteLength(html) < 160000);
 
 check("tokens still define dark + fonts", /--bg:\s*#080c12/.test(css) && /--font-head:/.test(css));
-check("light mode tokens still exist", /body\.light\s*\{/.test(css) && /--bg:\s*#F5F2EC/.test(css));
+check("light mode tokens still exist", /:is\(html\.light, body\.light\)\s*\{/.test(css) && /--bg:\s*#F5F2EC/.test(css));
 check("desktop shell media query kept", /@media \(min-width:1024px\)\{/.test(css));
 check("desktop hover media query kept", /@media \(min-width:1024px\) and \(hover:hover\)\{/.test(css));
 check("guest hook still hides the desk", css.includes("html.runnr-show-hook #app{visibility:hidden"));

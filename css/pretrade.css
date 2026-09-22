@@ -162,15 +162,23 @@
 }
 .pt-field input,.pt-field select,.pt-log-row input{
   width:100%;
-  background:#101620;
+  background:var(--surface2);
   border:1px solid rgba(201,169,110,0.18);
   color:var(--text);
+  caret-color:var(--text);
   font-family:var(--font-num);
   font-size:15px;
   padding:9px 11px;
   border-radius:2px;
   outline:none;
 }
+.pt-field input::placeholder,
+.pt-field select::placeholder,
+.pt-log-row input::placeholder{
+  color:var(--text3);
+  opacity:1;
+}
+.pt-field select option{background:var(--surface2);color:var(--text)}
 .pt-field input:focus,.pt-field select:focus,.pt-log-row input:focus{border-color:var(--gold)}
 .pt-quote{
   margin:6px 0 0;
@@ -211,7 +219,7 @@
   white-space:nowrap;
 }
 .pt-output{
-  background:#080c12;
+  background:var(--bg);
   border:1px solid rgba(201,169,110,0.16);
   padding:12px 14px;
   min-height:220px;
@@ -313,7 +321,7 @@
 .pt-derived{
   grid-column:2;
   grid-row:4;
-  background:#080c12;
+  background:var(--bg);
   border:1px solid rgba(201,169,110,0.16);
   padding:10px 12px;
 }
