@@ -783,19 +783,19 @@ html:not(.runnr-guest) #home-coach-banner{display:none !important}
     margin-top:22px;
     padding-top:18px;
   }
-  body.light #page-home .home-frame,
-  body.light #page-portfolio .port-frame{background:var(--border)}
-  body.light #page-home .home-frame > *,
-  body.light #page-portfolio .port-frame > *,
-  body.light #page-home .stat-item,
-  body.light #page-home .market-tile,
-  body.light #page-home .watch-shelf-tile,
-  body.light #page-portfolio .kpi,
-  body.light #page-portfolio .trade-highlight{background:var(--surface2)}
-  body.light #page-portfolio .port-kpis,
-  body.light #page-portfolio .port-bestworst,
-  body.light #page-portfolio .port-ls-embed,
-  body.light #page-portfolio .disc-legend{background:var(--border)}
+  :is(html.light, body.light) #page-home .home-frame,
+  :is(html.light, body.light) #page-portfolio .port-frame{background:var(--border)}
+  :is(html.light, body.light) #page-home .home-frame > *,
+  :is(html.light, body.light) #page-portfolio .port-frame > *,
+  :is(html.light, body.light) #page-home .stat-item,
+  :is(html.light, body.light) #page-home .market-tile,
+  :is(html.light, body.light) #page-home .watch-shelf-tile,
+  :is(html.light, body.light) #page-portfolio .kpi,
+  :is(html.light, body.light) #page-portfolio .trade-highlight{background:var(--surface2)}
+  :is(html.light, body.light) #page-portfolio .port-kpis,
+  :is(html.light, body.light) #page-portfolio .port-bestworst,
+  :is(html.light, body.light) #page-portfolio .port-ls-embed,
+  :is(html.light, body.light) #page-portfolio .disc-legend{background:var(--border)}
   .watch-compact-row{padding:7px 0}
   .wcr-remark{-webkit-line-clamp:1;margin-top:2px}
   #page-watchlist{max-width:1120px}

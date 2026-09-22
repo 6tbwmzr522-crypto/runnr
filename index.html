@@ -5,7 +5,7 @@
 <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
 <script>
 (function () {
-  var V = "188";
+  var V = "189";
   try {
     if (localStorage.getItem("runnr_app_v") !== V) {
       localStorage.setItem("runnr_app_v", V);
@@ -23,6 +23,13 @@
         sessionStorage.setItem("runnr_reload_" + V, "1");
         location.reload();
       }
+    }
+  } catch (e) {}
+})();
+(function () {
+  try {
+    if (localStorage.getItem("runnr_theme") === "light") {
+      document.documentElement.classList.add("light");
     }
   } catch (e) {}
 })();
@@ -66,7 +73,7 @@
 <link rel="stylesheet" href="css/desk.css?v=10">
 <link rel="stylesheet" href="css/tokens.css?v=1">
 <link rel="stylesheet" href="css/layout.css?v=2">
-<link rel="stylesheet" href="css/components.css?v=6">
+<link rel="stylesheet" href="css/components.css?v=7">
 <link rel="stylesheet" href="css/pages.css?v=21">
 <link rel="stylesheet" href="css/pretrade.css?v=18">
 </head>
@@ -1955,7 +1962,7 @@
 <script src="js/visit.js?v=1"></script>
 <script src="js/app-state.js?v=1"></script>
 <script src="js/app-nav.js?v=6"></script>
-<script src="js/app-settings.js?v=1"></script>
+<script src="js/app-settings.js?v=2"></script>
 <script src="js/app-sizer.js?v=1"></script>
 <script src="js/app-journal.js?v=7"></script>
 <script src="js/app-watchlist.js?v=5"></script>
@@ -1964,7 +1971,7 @@
 <script src="js/app-portfolio.js?v=2"></script>
 <script src="js/app-sync-ui.js?v=3"></script>
 <script src="js/app-coach-page.js?v=3"></script>
-<script src="js/app-boot.js?v=8"></script>
+<script src="js/app-boot.js?v=9"></script>
 
 </body>
 </html>

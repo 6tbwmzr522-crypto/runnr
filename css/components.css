@@ -470,7 +470,7 @@
 }
 
 /* ── LIGHT MODE (Thin Ice cream) ── */
-body.light {
+:is(html.light, body.light) {
   --bg: #F5F2EC;
   --surface: #FAF8F4;
   --surface2: #F0EBE3;
@@ -492,86 +492,102 @@ body.light {
   --amber-dim: rgba(201, 169, 110, 0.15);
   color-scheme: light;
 }
-body.light::before{opacity:0.35}
-body.light #header{background:rgba(245,242,236,0.95)}
-body.light #nav{background:var(--surface);border-top-color:var(--border)}
-body.light .field input,
-body.light .field select,
-body.light .field textarea,
-body.light .pt-field input,
-body.light .pt-field select,
-body.light .pt-log-row input,
-body.light .coach-free-ask,
-body.light .opt-portfolio-input input{
+:is(html.light, body.light)::before{opacity:0.35}
+:is(html.light, body.light) #header{background:rgba(245,242,236,0.95)}
+:is(html.light, body.light) #nav{background:var(--surface);border-top-color:var(--border)}
+:is(html.light, body.light) .field input,
+:is(html.light, body.light) .field select,
+:is(html.light, body.light) .field textarea,
+:is(html.light, body.light) .pt-field input,
+:is(html.light, body.light) .pt-field select,
+:is(html.light, body.light) .pt-log-row input,
+:is(html.light, body.light) .coach-free-ask,
+:is(html.light, body.light) .opt-portfolio-input input{
   background:var(--surface2);
   color:var(--text);
   caret-color:var(--text);
   border-color:var(--border);
   -webkit-text-fill-color:var(--text);
+  color-scheme:light;
 }
-body.light .opt-portfolio-input input{background:var(--surface3)}
-body.light .field input::placeholder,
-body.light .field textarea::placeholder,
-body.light .pt-field input::placeholder,
-body.light .pt-log-row input::placeholder,
-body.light .coach-free-ask::placeholder{
+:is(html.light, body.light) .opt-portfolio-input input{background:var(--surface3)}
+:is(html.light, body.light) .field input::placeholder,
+:is(html.light, body.light) .field textarea::placeholder,
+:is(html.light, body.light) .pt-field input::placeholder,
+:is(html.light, body.light) .pt-log-row input::placeholder,
+:is(html.light, body.light) .coach-free-ask::placeholder{
   color:var(--text3);
   -webkit-text-fill-color:var(--text3);
   opacity:1;
 }
-body.light input:-webkit-autofill,
-body.light textarea:-webkit-autofill,
-body.light select:-webkit-autofill{
+:is(html.light, body.light) input:-webkit-autofill,
+:is(html.light, body.light) textarea:-webkit-autofill,
+:is(html.light, body.light) select:-webkit-autofill{
   -webkit-text-fill-color:var(--text);
   caret-color:var(--text);
   box-shadow:0 0 0 1000px var(--surface2) inset;
 }
-body.light .btn:not(.btn-ghost):not(.btn-danger),
-body.light .te-replay.te-replay-primary,
-body.light .te-replay.te-replay-primary:hover,
-body.light .te-replay.te-replay-primary:active,
-body.light .period-tab.active,
-body.light .notif-perm-banner .nb-btn{color:#fff}
-body.light .desk-cmd{background:rgba(245,242,236,0.94)}
-body.light .desk-sbar .track{background:rgba(26,18,8,0.12)}
-body.light .pt-bar{background:rgba(26,18,8,0.12)}
-body.light .pt-output,
-body.light .pt-derived{border-color:var(--border)}
-body.light #modal-cooldown .cooldown-sheet{background:var(--surface);color:var(--text)}
-body.light #modal-cooldown .cooldown-stay{background:var(--surface3);color:var(--text)}
+:is(html.light, body.light) .btn:not(.btn-ghost):not(.btn-danger),
+:is(html.light, body.light) .te-replay.te-replay-primary,
+:is(html.light, body.light) .te-replay.te-replay-primary:hover,
+:is(html.light, body.light) .te-replay.te-replay-primary:active,
+:is(html.light, body.light) .period-tab.active,
+:is(html.light, body.light) .notif-perm-banner .nb-btn{color:#fff}
+:is(html.light, body.light) .desk-cmd{background:rgba(245,242,236,0.94)}
+:is(html.light, body.light) .desk-sbar .track{background:rgba(26,18,8,0.12)}
+:is(html.light, body.light) .pt-bar{background:rgba(26,18,8,0.12)}
+:is(html.light, body.light) .pt-output,
+:is(html.light, body.light) .pt-derived{border-color:var(--border)}
+:is(html.light, body.light) .pt-filter{
+  color:var(--text2);
+  border-color:var(--border-strong);
+}
+:is(html.light, body.light) .pt-filter.on{
+  color:var(--gold);
+  border-color:var(--gold);
+  background:var(--gold-dim);
+}
+:is(html.light, body.light) .modal,
+:is(html.light, body.light) .modal input,
+:is(html.light, body.light) .modal textarea,
+:is(html.light, body.light) .modal select{
+  color-scheme:light;
+}
+:is(html.light, body.light) #modal-cooldown .cooldown-sheet{background:var(--surface);color:var(--text)}
+:is(html.light, body.light) #modal-cooldown .cooldown-stay{background:var(--surface3);color:var(--text)}
 /* Trend-day checklist stays a dark card. Pin ink so light-mode text tokens do not flip to brown-on-navy. */
-body.light #trend-day-chip .td-check{color:#F5F2EC}
-body.light #trend-day-chip .td-title{color:#E8C97A}
-body.light #trend-day-chip .td-clock,
-body.light #trend-day-chip .td-auto.err,
-body.light #trend-day-chip .td-quarter,
-body.light #trend-day-chip .td-skip,
-body.light #trend-day-chip .td-hint{color:rgba(245,242,236,0.66)}
-body.light .modal{background:var(--surface);color:var(--text)}
-body.light .modal-close{background:var(--surface2);color:var(--text2)}
-body.light .broker-card,
-body.light .coach-insight,
-body.light .trade-entry,
-body.light .watch-item{background:var(--surface2);border-color:var(--border)}
-body.light .highlight-card{background:linear-gradient(135deg,var(--surface2),var(--surface3))}
-body.light .result-box{background:linear-gradient(135deg,var(--surface2),var(--surface3));border-color:var(--accent2)}
-body.light .tabs{background:var(--surface2)}
-body.light .tab.active{background:var(--accent);color:#fff}
-body.light .notif{background:rgba(0,122,85,0.08);border-color:var(--accent2)}
-body.light .incomplete-banner{background:rgba(184,134,11,0.1);color:var(--amber)}
-body.light .opt-mode-pill{background:var(--surface2);color:var(--text3)}
-body.light .opt-mode-pill.active{background:var(--accent);color:#fff;border-color:var(--accent)}
-body.light .opt-portfolio-input,
-  body.light .opt-gate,
-  body.light .fvg-strip,
-  body.light .rule-card,
-body.light .sd-full,
-body.light .sd-stat{background:var(--surface2);border-color:var(--border)}
-body.light .opt-portfolio-input input{background:var(--surface3);color:var(--text)}
-body.light .fg-card,
-body.light .stock-detail{background:var(--surface2);border-color:var(--border)}
-body.light #equity-canvas{filter:invert(0)}
-body.light #wave-canvas{background:rgba(201,169,110,0.08)}
+:is(html.light, body.light) #trend-day-chip .td-check{color:#F5F2EC}
+:is(html.light, body.light) #trend-day-chip .td-title{color:#E8C97A}
+:is(html.light, body.light) #trend-day-chip .td-clock,
+:is(html.light, body.light) #trend-day-chip .td-auto.err,
+:is(html.light, body.light) #trend-day-chip .td-quarter,
+:is(html.light, body.light) #trend-day-chip .td-skip,
+:is(html.light, body.light) #trend-day-chip .td-hint{color:rgba(245,242,236,0.66)}
+:is(html.light, body.light) .modal{background:var(--surface);color:var(--text)}
+:is(html.light, body.light) .modal-close{background:var(--surface2);color:var(--text2)}
+:is(html.light, body.light) .broker-card,
+:is(html.light, body.light) .coach-insight,
+:is(html.light, body.light) .trade-entry,
+:is(html.light, body.light) .watch-item{background:var(--surface2);border-color:var(--border)}
+:is(html.light, body.light) .highlight-card{background:linear-gradient(135deg,var(--surface2),var(--surface3))}
+:is(html.light, body.light) .result-box{background:linear-gradient(135deg,var(--surface2),var(--surface3));border-color:var(--accent2)}
+:is(html.light, body.light) .tabs{background:var(--surface2)}
+:is(html.light, body.light) .tab.active{background:var(--accent);color:#fff}
+:is(html.light, body.light) .notif{background:rgba(0,122,85,0.08);border-color:var(--accent2)}
+:is(html.light, body.light) .incomplete-banner{background:rgba(184,134,11,0.1);color:var(--amber)}
+:is(html.light, body.light) .opt-mode-pill{background:var(--surface2);color:var(--text3)}
+:is(html.light, body.light) .opt-mode-pill.active{background:var(--accent);color:#fff;border-color:var(--accent)}
+:is(html.light, body.light) .opt-portfolio-input,
+  :is(html.light, body.light) .opt-gate,
+  :is(html.light, body.light) .fvg-strip,
+  :is(html.light, body.light) .rule-card,
+:is(html.light, body.light) .sd-full,
+:is(html.light, body.light) .sd-stat{background:var(--surface2);border-color:var(--border)}
+:is(html.light, body.light) .opt-portfolio-input input{background:var(--surface3);color:var(--text)}
+:is(html.light, body.light) .fg-card,
+:is(html.light, body.light) .stock-detail{background:var(--surface2);border-color:var(--border)}
+:is(html.light, body.light) #equity-canvas{filter:invert(0)}
+:is(html.light, body.light) #wave-canvas{background:rgba(201,169,110,0.08)}
 
 /* Theme toggle button */
 #theme-toggle{background:transparent;border:1px solid var(--border);border-radius:20px;padding:4px 11px;font-size:9px;font-weight:500;color:var(--gold);cursor:pointer;font-family:var(--font-body);transition:all 0.2s;letter-spacing:0.14em;text-transform:uppercase}

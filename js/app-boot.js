@@ -7,6 +7,9 @@ function openModal(id) {
   if (window.RunnrGrowth?.close) RunnrGrowth.close();
   const el = document.getElementById(id);
   if (!el) return;
+  const light = document.documentElement.classList.contains('light') || document.body.classList.contains('light');
+  el.style.colorScheme = light ? 'light' : 'dark';
+  void el.offsetWidth;
   el.classList.add('open');
   document.body.style.overflow = 'hidden';
 }
