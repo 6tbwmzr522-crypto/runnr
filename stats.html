@@ -144,6 +144,11 @@
   <p><code id="tiktok-bio-url">https://runnr.fyi/?demo=1</code></p>
   <p class="lead">Aliases: <code>https://runnr.fyi/sample</code> · <code>https://runnr.fyi/#sample</code>. First screen: “They get paid when you skip the stop.” · Score a trade. Email wall after that aha (saved score + weekly discipline report).</p>
 
+  <h2>Instagram ads</h2>
+  <p class="lead">Paste this as the website URL in Meta Ads Manager. Cold guests skip the pitch and the tour and land on one primed AAPL long with a single Score button.</p>
+  <p><code id="ig-ad-url">https://runnr.fyi/?demo=1&amp;ig=1</code></p>
+  <p class="lead">Same path: <code>?demo=1&amp;utm_source=instagram</code> or <code>utm_source=ig</code>. Organic <code>/?demo=1</code> and signed-in visits stay on the existing desk. Beacon <code>demo_ig_land</code> once per guest session, then the usual score beacons.</p>
+
   <h2>Guest SAMPLE funnel</h2>
   <p class="lead" id="guest-funnel-note">SAMPLE beacons from logged-out visitors (visit → aha → score → email wall → CTA). Visit uniques ≠ accounts.</p>
   <p class="status" id="guest-funnel-status">Loading guest funnel…</p>
@@ -152,6 +157,11 @@
       <div class="label">demo_view</div>
       <div class="num" id="guest-demo-view">—</div>
       <p class="hint" id="guest-demo-view-total">Today · SAMPLE land</p>
+    </div>
+    <div class="kpi">
+      <div class="label">demo_ig_land</div>
+      <div class="num" id="guest-demo-ig">—</div>
+      <p class="hint" id="guest-demo-ig-total">Today · Instagram score-first land</p>
     </div>
     <div class="kpi">
       <div class="label">demo_aha</div>
@@ -364,6 +374,7 @@
           if (el) el.textContent = "Today · total " + fmt(totalEv[key] || 0) + (label ? " · " + label : "");
         }
         setText("guest-demo-view", fmt(todayEv.demo_view));
+        setText("guest-demo-ig", fmt(todayEv.demo_ig_land));
         setText("guest-demo-aha", fmt(todayEv.demo_aha));
         setText("guest-demo-score", fmt(todayEv.demo_score_trade));
         setText("guest-email-wall", fmt(todayEv.email_wall_shown) + " / " + fmt(todayEv.email_wall_locked));
@@ -371,6 +382,7 @@
         setText("guest-demo-cta", fmt(todayEv.demo_cta_start));
         setText("guest-users-created", fmt(funnel.users_created_today));
         guestHint("guest-demo-view-total", "demo_view", "SAMPLE land");
+        guestHint("guest-demo-ig-total", "demo_ig_land", "Instagram score-first land");
         guestHint("guest-demo-aha-total", "demo_aha", "scored a trade, once per guest per day");
         guestHint("guest-demo-score-total", "demo_score_trade", "scored");
         var wallEl = document.getElementById("guest-email-wall-total");

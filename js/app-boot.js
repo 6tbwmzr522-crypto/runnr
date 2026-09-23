@@ -351,6 +351,7 @@ if (document.readyState === 'loading') {
 }
 function routeDeskOrGold() {
   if (document.documentElement.classList.contains('runnr-sample-landing')) return;
+  if (document.documentElement.classList.contains('runnr-ig-score')) return;
   const PT = window.RunnrPretrade;
   if (PT && typeof PT.wantsUnifiedJournal === 'function' && PT.wantsUnifiedJournal()) {
     if (typeof PT.openUnifiedJournal === 'function') PT.openUnifiedJournal();

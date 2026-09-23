@@ -146,6 +146,46 @@ html.runnr-sample-landing #app{visibility:hidden;pointer-events:none}
 html.runnr-sample-landing #onboarding-overlay{display:none !important}
 #sample-hero{position:fixed;inset:0;width:100%;height:100%;background:var(--bg);z-index:500;display:none;flex-direction:column;max-width:none;margin:0}
 html.runnr-sample-landing #sample-hero,#sample-hero.open{display:flex}
+html.runnr-ig-score #app{visibility:hidden;pointer-events:none}
+html.runnr-ig-score #onboarding-overlay,
+html.runnr-ig-score #sample-hero{display:none !important}
+#ig-score{
+  position:fixed;inset:0;width:100%;height:100%;
+  background:var(--bg);z-index:520;display:none;flex-direction:column;
+  max-width:none;margin:0;
+}
+html.runnr-ig-score #ig-score,#ig-score.open{display:flex}
+.ig-score-inner{
+  max-width:390px;margin:0 auto;width:100%;flex:1;overflow-y:auto;
+  padding:20px 20px calc(20px + var(--safe-bottom));
+  display:flex;flex-direction:column;justify-content:center;box-sizing:border-box;
+}
+.ig-score-brand{
+  font-family:var(--font-head);font-style:italic;font-size:22px;font-weight:700;color:var(--accent);
+}
+.ig-score-brand span{
+  margin-left:8px;font-family:var(--font-body);font-style:normal;font-weight:600;
+  font-size:10px;letter-spacing:0.16em;color:var(--gold);
+  border:1px solid rgba(201,169,110,0.45);padding:2px 6px;vertical-align:middle;
+}
+.ig-score-inner h2{
+  font-family:var(--font-head);font-weight:500;font-size:32px;line-height:1.1;
+  margin:14px 0 8px;color:var(--text);
+}
+.ig-score-plan{margin:0 0 14px;font-size:16px;letter-spacing:0.04em;color:var(--gold)}
+.ig-score-fields{display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px;margin:0 0 12px}
+.ig-score-field{display:block;min-width:0}
+.ig-score-field span{
+  display:block;font-size:9px;letter-spacing:0.16em;text-transform:uppercase;
+  color:var(--text3);margin-bottom:4px;
+}
+.ig-score-field input{
+  width:100%;box-sizing:border-box;background:var(--surface);
+  border:1px solid rgba(201,169,110,0.22);color:var(--text);
+  font-family:var(--font-num);font-size:22px;padding:10px 8px;border-radius:2px;
+}
+.ig-score-meta{margin:0 0 16px;font-size:12px;color:var(--text3);line-height:1.4}
+#ig-score .btn{min-height:52px;font-size:16px;width:100%}
 .sample-hero-top{padding:16px 20px;display:flex;align-items:center;justify-content:space-between;border-bottom:1px solid var(--border);flex-shrink:0;max-width:430px;margin:0 auto;width:100%}
 .sample-hero-inner{max-width:430px;margin:0 auto;width:100%;flex:1;overflow-y:auto;padding:24px 20px calc(24px + var(--safe-bottom));display:flex;flex-direction:column;justify-content:center}
 .sample-keep-copy{font-size:14px;color:var(--text2);line-height:1.5;margin:0 0 8px}

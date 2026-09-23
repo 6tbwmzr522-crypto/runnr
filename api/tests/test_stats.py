@@ -377,6 +377,9 @@ def test_stats_html_is_gated():
     assert "email_wall" in html
     assert "email_wall oauth" in html
     assert "email_wall_converted" in html
+    assert "demo_ig_land" in html
+    assert 'id="ig-ad-url"' in html
+    assert "ig=1" in html
     assert "Signed-in accounts (not visits)" in html
     assert "never sign in" in html
     assert 'id="today-new"' in html
@@ -472,6 +475,7 @@ def test_funnel_counts_signed_in_journals():
         assert "guest_events_totals" in data
         assert "users_created_today" in data
         assert "demo_view" in data["guest_events_today"]
+        assert "demo_ig_land" in data["guest_events_today"]
         assert "email_wall_shown" in data["guest_events_today"]
         assert "email_wall_locked" in data["guest_events_today"]
         assert "email_wall_oauth_start" in data["guest_events_today"]
