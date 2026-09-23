@@ -15,6 +15,7 @@ from app.trial import local_trial_is_active, utc_now
 # Never record locked without shown.
 FUNNEL_EVENTS = (
     "demo_view",
+    "demo_ig_land",
     "demo_aha",
     "demo_score_trade",
     "demo_cta_start",

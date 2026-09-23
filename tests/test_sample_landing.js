@@ -35,8 +35,8 @@ const v = html.match(/var V = "(\d+)"/)[1];
 const cache = sw.match(/CACHE = "runnr-v(\d+)"/)[1];
 check("index.html V matches sw.js CACHE", v === cache);
 check("cache is 139+", Number(v) >= 187);
-check("demo-sandbox cache-bust", html.includes("js/demo-sandbox.js?v=28"));
-check("pages.css cache-bust", html.includes("css/pages.css?v=21"));
+check("demo-sandbox cache-bust", html.includes("js/demo-sandbox.js?v=29"));
+check("pages.css cache-bust", html.includes("css/pages.css?v=22"));
 check("intro.js cache-bust", html.includes("js/intro.js?v=8"));
 check("onboarding.js cache-bust", html.includes("js/onboarding.js?v=42"));
 
@@ -598,5 +598,58 @@ watchSkip.ctx.RunnrIntro.skip(watchSkip.ctx.S);
 check("Watch skip lands on Sizer", watchSkip.ctx.openedSizer.indexOf("desk") !== -1);
 check("Watch skip starts Beat 1", watchSkip.ctx.tourStarts === 1);
 check("Watch skip does not open Keep", watchSkip.modal.classList.contains("open") === false);
+
+check("IG ad URL is the Meta destination", SB.IG_URL === "https://runnr.fyi/?demo=1&ig=1");
+check("organic demo is not the ig card", SB.isIgScoreLanding({ search: "?demo=1", pathname: "/", hash: "" }) === false && SB.shouldShowIgScore(guest) === false);
+check("ig=1 is a sample landing", SB.isSampleLandingLocation({ search: "?ig=1", pathname: "/", hash: "" }) === true && SB.isIgScoreLanding({ search: "?ig=1", pathname: "/", hash: "" }) === true);
+check("utm instagram is the ig path", SB.isIgScoreLanding({ search: "?demo=1&utm_source=instagram&utm_medium=paid", pathname: "/", hash: "" }) === true);
+check("utm facebook is not the ig path", SB.isIgScoreLanding({ search: "?utm_source=facebook", pathname: "/", hash: "" }) === false);
+check("#score is the ig path", SB.isIgScoreLanding({ search: "", pathname: "/", hash: "#score" }) === true);
+check("bare home is not the ig path", SB.isIgScoreLanding({ search: "", pathname: "/", hash: "" }) === false);
+
+const igHtml = html.slice(html.indexOf('id="ig-score"'), html.indexOf('id="tour-overlay"'));
+check("ig card is one Score button", igHtml.includes('id="ig-score-cta"') && igHtml.includes("Score a trade") && (igHtml.match(/<button/g) || []).length === 1);
+check("ig card primes AAPL long fields", igHtml.includes('id="ig-score-entry"') && igHtml.includes('value="198"') && igHtml.includes('id="ig-score-stop"') && igHtml.includes('value="194"') && igHtml.includes('id="ig-score-target"') && igHtml.includes('value="214"') && igHtml.includes("AAPL"));
+check("ig card has no watch or skip", !/Watch how/.test(igHtml) && !/Skip/.test(igHtml));
+check("first paint opens the ig card instead of the pitch hero", html.includes("runnr-ig-score") && html.includes("ig=1") && html.includes("runnr_ig_score_v1"));
+check("stats documents the Meta ads URL", stats.includes('id="ig-ad-url"') && stats.includes("demo=1") && stats.includes("ig=1") && stats.includes("demo_ig_land"));
+check("route bails while the ig card is up", bootSrc.includes("runnr-ig-score"));
+
+const igClick = loadSandbox({ search: "?demo=1&ig=1", pathname: "/", hash: "", href: "http://localhost/?demo=1&ig=1" });
+const igHits = [];
+igClick.navigator.sendBeacon = function (url) {
+  const m = String(url).match(/[?&]e=([^&]+)/);
+  igHits.push(decodeURIComponent((m && m[1]) || ""));
+  return true;
+};
+igClick.S = { trades: book, watchlist: SB.factoryWatchlist(), bal: 10000, risk: 1, sym: "€" };
+igClick.primed = null;
+igClick.opened = [];
+igClick.RunnrPretrade = {
+  prime(input) { igClick.primed = input; return input; },
+  open(which) { igClick.opened.push(which || "desk"); return true; },
+};
+check("cold ig guest sees the score card", igClick.RunnrDemoSandbox.shouldShowIgScore(igClick.S) === true);
+check("cold ig guest skips the pitch hero", igClick.RunnrDemoSandbox.shouldShowSampleHero(igClick.S) === false);
+check("Score click opens the primed sizer", igClick.RunnrDemoSandbox.activateIgScore(igClick.S) === true && igClick.opened[0] === "desk");
+check("Score click beacons demo_score_trade", igHits.indexOf("demo_score_trade") !== -1);
+check("Score click primes AAPL long 198/194/214", igClick.primed && igClick.primed.ticker === "AAPL" && igClick.primed.dir === "long" && Number(igClick.primed.entry) === 198 && Number(igClick.primed.stop) === 194 && Number(igClick.primed.target) === 214);
+check("Score click does not seal before the plan renders", igClick.RunnrDemoSandbox.hasSeal() === false);
+check("ready primed plan still beacons demo_aha", igClick.RunnrDemoSandbox.onGoldScored({ ready: true, size: 50, entry: 198, stop: 194 }, { reason: "score" }) === true && igHits.indexOf("demo_aha") !== -1);
+check("card stays down after Score", igClick.RunnrDemoSandbox.shouldShowIgScore(igClick.S) === false);
+igClick.sessionStorage.removeItem("runnr_ig_land_v1");
+igClick.RunnrDemoSandbox.noteIgLand();
+igClick.RunnrDemoSandbox.noteIgLand();
+check("ig land beacons once per session", igHits.filter((e) => e === "demo_ig_land").length === 1);
+
+const igSigned = loadSandbox({ search: "?demo=1&ig=1", pathname: "/", hash: "", href: "http://localhost/?demo=1&ig=1" });
+igSigned.localStorage.setItem("runnr_api_token", "tok");
+const igSignedBook = { bal: 10000, risk: 1, sym: "€", trades: book, watchlist: SB.factoryWatchlist() };
+check("signed-in ad URL skips the score card", igSigned.RunnrDemoSandbox.shouldShowIgScore(igSignedBook) === false);
+check("signed-in ad URL skips the pitch hero", igSigned.RunnrDemoSandbox.shouldShowSampleHero(igSignedBook) === false);
+check("signed-in ad URL does not count as ig land", igSigned.RunnrDemoSandbox.noteIgLand() === false);
+
+const igReal = loadSandbox({ search: "?demo=1&ig=1", pathname: "/", hash: "", href: "http://localhost/?demo=1&ig=1" });
+check("real book on the ad URL skips the score card", igReal.RunnrDemoSandbox.shouldShowIgScore(real) === false);
 
 console.log("test_sample_landing: ok " + n);

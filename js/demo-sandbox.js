@@ -23,6 +23,9 @@
   const SCORE_MEANING_ACTIVE = "runnr_score_meaning_active_v1";
   const SCORE_MEANING_COPY = "Discipline Score = did you follow size, stop, and plan — not how much you made.";
   const BIO_URL = "https://runnr.fyi/?demo=1";
+  const IG_URL = "https://runnr.fyi/?demo=1&ig=1";
+  const IG_SCORE_KEY = "runnr_ig_score_v1";
+  const IG_LAND_KEY = "runnr_ig_land_v1";
   const ALIAS_PATH = "/sample";
   const KEEP_HREF = "/sign-in?keep=1";
   const KEEP_RETURN = "/?demo=1";
@@ -87,8 +90,23 @@
     return false;
   }
 
+  function isIgScoreLanding(loc) {
+    loc = loc || (global.location || {});
+    try {
+      const search = String(loc.search || "");
+      if (/(?:^|[?&])ig=1(?:&|$)/.test(search)) return true;
+      if (/(?:^|[?&])utm_source=(?:ig|instagram)(?:&|$)/i.test(search)) return true;
+    } catch (e) {}
+    try {
+      const hash = String(loc.hash || "").replace(/^#/, "").split(/[/?&]/)[0].toLowerCase();
+      if (hash === "score") return true;
+    } catch (e2) {}
+    return false;
+  }
+
   function isSampleLandingLocation(loc) {
     loc = loc || (global.location || {});
+    if (isIgScoreLanding(loc)) return true;
     try {
       if (/(?:^|[?&])demo=1(?:&|$)/.test(String(loc.search || ""))) return true;
     } catch (e) {}
@@ -533,6 +551,7 @@
   function shouldShowSampleHero(state) {
     if (isLoggedIn()) return false;
     if (looksLikeRealBook(state)) return false;
+    if (isIgScoreLanding()) return false;
     if (!queryForce() && !isDemoState(state)) return false;
     if (!queryForce()) return false;
     if (hasAha() || heroDismissed()) return false;
@@ -1158,6 +1177,114 @@
     return landWatchOnSizer();
   }
 
+  function igScoreEl() {
+    return global.document && document.getElementById("ig-score");
+  }
+
+  function igScoreDismissed() {
+    return storageGet(global.sessionStorage, IG_SCORE_KEY) === "done";
+  }
+
+  function igMaxRiskLabel() {
+    try {
+      const rails = global.RunnrPretrade && RunnrPretrade.DEFAULT_RAILS;
+      const pct = rails && Number(rails.maxRiskPct);
+      if (pct > 0) return String(pct).replace(/\.0$/, "") + "%";
+    } catch (e) {}
+    return "2%";
+  }
+
+  function igPlanMeta(primed) {
+    const entry = Number(primed && primed.entry);
+    const stop = Number(primed && primed.stop);
+    const target = Number(primed && primed.target);
+    const risk = Math.abs(entry - stop);
+    const reward = target > 0 && entry > 0 ? Math.abs(target - entry) : 0;
+    const rr = risk > 0 && reward > 0 ? reward / risk : 0;
+    return "Max risk " + igMaxRiskLabel() + " · R:R " + (rr ? rr.toFixed(1) : "—");
+  }
+
+  function paintIgScore(state) {
+    const primed = sampleScorePrime(state);
+    const doc = global.document;
+    if (!doc) return primed;
+    const plan = doc.getElementById("ig-score-plan");
+    const dir = String(primed.dir || "long").toLowerCase() === "short" ? "Short" : "Long";
+    if (plan) plan.textContent = (primed.ticker || "AAPL") + " · " + dir;
+    const setVal = function (id, value) {
+      const el = doc.getElementById(id);
+      if (el) el.value = value == null ? "" : String(value);
+    };
+    setVal("ig-score-entry", primed.entry);
+    setVal("ig-score-stop", primed.stop);
+    setVal("ig-score-target", primed.target);
+    const meta = doc.getElementById("ig-score-meta");
+    if (meta) meta.textContent = igPlanMeta(primed);
+    return primed;
+  }
+
+  function shouldShowIgScore(state) {
+    if (!isIgScoreLanding()) return false;
+    if (isLoggedIn()) return false;
+    if (looksLikeRealBook(state)) return false;
+    if (hasAha() || hasSeal() || igScoreDismissed()) return false;
+    return true;
+  }
+
+  function showIgScore(state) {
+    const el = igScoreEl();
+    if (!el) return false;
+    paintIgScore(state);
+    el.hidden = false;
+    el.classList.add("open");
+    try {
+      if (global.document && document.documentElement) {
+        document.documentElement.classList.add("runnr-ig-score");
+        document.documentElement.classList.remove("runnr-sample-landing");
+      }
+    } catch (e) {}
+    return true;
+  }
+
+  function hideIgScore() {
+    const el = igScoreEl();
+    if (el) {
+      el.classList.remove("open");
+      el.hidden = true;
+    }
+    try {
+      if (global.document && document.documentElement) {
+        document.documentElement.classList.remove("runnr-ig-score");
+      }
+    } catch (e) {}
+  }
+
+  function noteIgLand() {
+    if (isLoggedIn() || !isIgScoreLanding()) return false;
+    return onceSessionFlag(IG_LAND_KEY, function () {
+      beacon("demo_ig_land");
+    });
+  }
+
+  function activateIgScore(state) {
+    storageSet(global.sessionStorage, IG_SCORE_KEY, "done");
+    hideIgScore();
+    return openScoreTrade(state || global.S);
+  }
+
+  function bindIgScore() {
+    const doc = global.document;
+    if (!doc) return;
+    const score = doc.getElementById("ig-score-cta");
+    if (score && !score.dataset.igBound) {
+      score.dataset.igBound = "1";
+      score.addEventListener("click", function (ev) {
+        if (ev && ev.preventDefault) ev.preventDefault();
+        activateIgScore(global.S);
+      });
+    }
+  }
+
   function bindSampleHero() {
     const doc = global.document;
     if (!doc) return;
@@ -1240,10 +1367,17 @@
   function bootSampleLanding(state) {
     const book = state || global.S;
     bindSampleHero();
+    bindIgScore();
     bindKeepScore();
-    if (shouldShowSampleHero(book)) {
+    if (isIgScoreLanding() && !isLoggedIn()) noteIgLand();
+    if (shouldShowIgScore(book)) {
+      hideSampleHero({ deferTour: true });
+      showIgScore(book);
+    } else if (shouldShowSampleHero(book)) {
+      hideIgScore();
       showSampleHero();
     } else {
+      hideIgScore();
       hideSampleHero();
     }
     paintChrome(book);
@@ -1255,6 +1389,7 @@
 
   // Guest SAMPLE beacons:
   // demo_view — SAMPLE desk land, once per browser session. Not the homepage proof card.
+  // demo_ig_land — Instagram score-first URL, once per guest session. Pitch hero stays for ?demo=1.
   // demo_aha — guest scored a trade, once per guest per UTC day. Proof/hero does not fire this.
   // demo_score_trade — opened the sizer from Score a trade.
   // email_wall_shown — Keep this score modal opened, once per guest per UTC day.
@@ -1300,6 +1435,7 @@
     REV,
     MIN_BOOK,
     BIO_URL,
+    IG_URL,
     ALIAS_PATH,
     KEEP_HREF,
     KEEP_RETURN,
@@ -1324,6 +1460,13 @@
     beacon,
     queryForce,
     isSampleLandingLocation,
+    isIgScoreLanding,
+    shouldShowIgScore,
+    showIgScore,
+    hideIgScore,
+    paintIgScore,
+    noteIgLand,
+    activateIgScore,
     proofModel,
     proofCardHtml,
     paintProof,

@@ -66,6 +66,22 @@ const RunnrTour = {
     }
   },
 
+  /* Instagram ad URL: guest Score card, no chip tour. Signed-in stays on the normal tour. */
+  igScoreLanding() {
+    if (this.isLoggedIn()) return false;
+    try {
+      const loc = (typeof location !== "undefined" && location)
+        || (typeof window !== "undefined" && window.location)
+        || {};
+      const search = String(loc.search || "");
+      if (/(?:^|[?&])ig=1(?:&|$)/.test(search)) return true;
+      if (/(?:^|[?&])utm_source=(?:ig|instagram)(?:&|$)/i.test(search)) return true;
+      const hash = String(loc.hash || "").replace(/^#/, "").split(/[/?&]/)[0].toLowerCase();
+      if (hash === "score") return true;
+    } catch (e) {}
+    return false;
+  },
+
   isLoggedIn() {
     try {
       if (typeof RunnrSync !== "undefined" && RunnrSync.isLoggedIn && RunnrSync.isLoggedIn()) return true;
@@ -91,6 +107,7 @@ const RunnrTour = {
     if (typeof document === "undefined") return false;
     if (document.documentElement.classList.contains("runnr-show-hook")) return true;
     if (document.documentElement.classList.contains("runnr-sample-landing")) return true;
+    if (document.documentElement.classList.contains("runnr-ig-score")) return true;
     const hook = document.getElementById("onboarding-overlay");
     if (hook && hook.classList.contains("open")) return true;
     const hero = document.getElementById("sample-hero");
@@ -103,6 +120,7 @@ const RunnrTour = {
   shouldShow(state) {
     if (this.queryOff()) return false;
     if (this.queryForce()) return true;
+    if (this.igScoreLanding()) return false;
     if (this.localSeen()) return false;
     if (this.profileSeen(state)) return false;
     if (this.blockingOverlay()) return false;
