@@ -35,7 +35,7 @@ const v = html.match(/var V = "(\d+)"/)[1];
 const cache = sw.match(/CACHE = "runnr-v(\d+)"/)[1];
 check("index.html V matches sw.js CACHE", v === cache);
 check("cache is 139+", Number(v) >= 187);
-check("demo-sandbox cache-bust", html.includes("js/demo-sandbox.js?v=28"));
+check("demo-sandbox cache-bust", html.includes("js/demo-sandbox.js?v=29"));
 check("pages.css cache-bust", html.includes("css/pages.css?v=21"));
 check("intro.js cache-bust", html.includes("js/intro.js?v=8"));
 check("onboarding.js cache-bust", html.includes("js/onboarding.js?v=42"));
@@ -432,7 +432,13 @@ const sealedWall = loadWallBeacons({ search: "?demo=1", pathname: "/", hash: "",
   ctx.localStorage.setItem("runnr_sample_seal_v1", "1");
 });
 check("sealed wall opens", sealedWall.RunnrDemoSandbox.showKeepScore({ skipIntro: true, reason: "score" }) === true);
-check("sealed wall fires shown then locked", sealedWall.beacons[0] === "email_wall_shown" && sealedWall.beacons[1] === "email_wall_locked");
+check("sealed wall queues land and aha before shown then locked", (function () {
+  const view = sealedWall.beacons.indexOf("demo_view");
+  const aha = sealedWall.beacons.indexOf("demo_aha");
+  const shown = sealedWall.beacons.indexOf("email_wall_shown");
+  const locked = sealedWall.beacons.indexOf("email_wall_locked");
+  return view !== -1 && aha !== -1 && shown !== -1 && locked !== -1 && view < aha && aha < shown && shown < locked;
+})());
 sealedWall.RunnrDemoSandbox.showKeepScore({ skipIntro: true });
 check("wall beacons are once per day", sealedWall.beacons.filter((e) => e === "email_wall_shown").length === 1 && sealedWall.beacons.filter((e) => e === "email_wall_locked").length === 1);
 sealedWall.sessionStorage.removeItem("runnr_email_wall_shown_v1");
@@ -441,7 +447,7 @@ sealedWall.RunnrDemoSandbox.showKeepScore({ skipIntro: true });
 check("revisit does not re-fire shown or locked", sealedWall.beacons.filter((e) => e === "email_wall_shown").length === 1 && sealedWall.beacons.filter((e) => e === "email_wall_locked").length === 1);
 
 const openWall = loadWallBeacons({ search: "?demo=1", pathname: "/", hash: "", href: "http://localhost/?demo=1" });
-check("unsealed wall fires shown only", openWall.RunnrDemoSandbox.showKeepScore({ skipIntro: true }) === true && openWall.beacons[0] === "email_wall_shown" && openWall.beacons.indexOf("email_wall_locked") === -1);
+check("unsealed wall still queues aha before shown and does not lock", openWall.RunnrDemoSandbox.showKeepScore({ skipIntro: true }) === true && openWall.beacons.indexOf("demo_aha") !== -1 && openWall.beacons.indexOf("demo_aha") < openWall.beacons.indexOf("email_wall_shown") && openWall.beacons.indexOf("email_wall_locked") === -1);
 
 const oauthWall = loadWallBeacons({ search: "?demo=1", pathname: "/", hash: "", href: "http://localhost/?demo=1" });
 check("OAuth href returns to SAMPLE desk", /next=%2F%3Fdemo%3D1/.test(oauthWall.RunnrDemoSandbox.keepOAuthHref("google")));
@@ -598,5 +604,57 @@ watchSkip.ctx.RunnrIntro.skip(watchSkip.ctx.S);
 check("Watch skip lands on Sizer", watchSkip.ctx.openedSizer.indexOf("desk") !== -1);
 check("Watch skip starts Beat 1", watchSkip.ctx.tourStarts === 1);
 check("Watch skip does not open Keep", watchSkip.modal.classList.contains("open") === false);
+
+function eventsFrom(urls) {
+  return urls.map((url) => {
+    const m = String(url).match(/[?&]e=([^&]+)/);
+    return decodeURIComponent((m && m[1]) || "");
+  });
+}
+
+const dropped = loadSandbox({ search: "?demo=1", pathname: "/", hash: "#pretrade", href: "http://localhost/?demo=1#pretrade" });
+const droppedUrls = [];
+dropped.navigator.sendBeacon = function () { return false; };
+dropped.fetch = function (url) { droppedUrls.push(String(url)); return { catch() {} }; };
+dropped.S = { trades: book, watchlist: SB.factoryWatchlist(), bal: 10000, risk: 1, sym: "€" };
+dropped.localStorage.setItem("runnr_sample_aha_day_v1", new Date().toISOString().slice(0, 10));
+dropped.sessionStorage.setItem("runnr_demo_viewed", "1");
+check("ready gold score still seals when sendBeacon drops the hit", dropped.RunnrDemoSandbox.onGoldScored({ ready: true, size: 50, entry: 198, stop: 194 }, { reason: "score" }) === true);
+const droppedEvents = eventsFrom(droppedUrls);
+check("gold score queues demo_view then demo_aha via fetch", droppedEvents[0] === "demo_view" && droppedEvents[1] === "demo_aha");
+check("gold score does not open the wall by itself", droppedEvents.indexOf("email_wall_shown") === -1);
+check("successful fallback remembers the aha day", dropped.localStorage.getItem("runnr_sample_aha_day_v2") === new Date().toISOString().slice(0, 10));
+dropped.RunnrDemoSandbox.onGoldScored({ ready: true, size: 50, entry: 198, stop: 194 });
+check("fallback aha is once per guest per day", droppedEvents.filter((e) => e === "demo_aha").length === 1);
+
+const wallAfter = loadWallBeacons({ search: "?demo=1", pathname: "/", hash: "#pretrade", href: "http://localhost/?demo=1#pretrade" }, function (ctx) {
+  ctx.navigator.sendBeacon = function () { return false; };
+  ctx.fetch = function (url) {
+    const m = String(url).match(/[?&]e=([^&]+)/);
+    ctx.beacons.push(decodeURIComponent((m && m[1]) || ""));
+    return { catch() {} };
+  };
+  ctx.localStorage.setItem("runnr_sample_seal_v1", "1");
+  ctx.localStorage.setItem("runnr_sample_aha_day_v1", new Date().toISOString().slice(0, 10));
+  ctx.sessionStorage.setItem("runnr_demo_viewed", "1");
+});
+check("keep wall still opens after a dropped score beacon", wallAfter.RunnrDemoSandbox.showKeepScore({ skipIntro: true, reason: "score" }) === true);
+check("wall is never the only funnel hit", (function () {
+  const view = wallAfter.beacons.indexOf("demo_view");
+  const aha = wallAfter.beacons.indexOf("demo_aha");
+  const shown = wallAfter.beacons.indexOf("email_wall_shown");
+  const locked = wallAfter.beacons.indexOf("email_wall_locked");
+  return view !== -1 && aha !== -1 && shown !== -1 && locked !== -1 && view < aha && aha < shown && shown < locked;
+})());
+
+const pretradeLand = loadSandbox({ search: "?demo=1", pathname: "/", hash: "#pretrade", href: "http://localhost/?demo=1#pretrade" });
+const landUrls = [];
+pretradeLand.navigator.sendBeacon = function () { return false; };
+pretradeLand.fetch = function (url) { landUrls.push(String(url)); return { catch() {} }; };
+pretradeLand.S = { trades: book, watchlist: SB.factoryWatchlist(), bal: 10000, risk: 1, sym: "€" };
+pretradeLand.RunnrDemoSandbox.hydrate(pretradeLand.S);
+check("?demo=1#pretrade queues demo_view on land", eventsFrom(landUrls).indexOf("demo_view") !== -1);
+pretradeLand.RunnrDemoSandbox.hydrate(pretradeLand.S);
+check("land demo_view is once per session", eventsFrom(landUrls).filter((e) => e === "demo_view").length === 1);
 
 console.log("test_sample_landing: ok " + n);

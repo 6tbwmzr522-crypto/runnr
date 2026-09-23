@@ -9,13 +9,16 @@
 
   const REV = 1;
   const MIN_BOOK = 12;
-  const VIEW_KEY = "runnr_demo_viewed";
+  // v2: v1 flags were written before sendBeacon. Outside a click, sendBeacon
+  // can return false and drop the hit. The flag then blocked a retry, so a
+  // later Keep-this-score click recorded email_wall_* with no demo_view/demo_aha.
+  const VIEW_KEY = "runnr_demo_viewed_v2";
   const WALL_SHOWN_KEY = "runnr_email_wall_shown_v1";
   const WALL_LOCKED_KEY = "runnr_email_wall_locked_v1";
   const WALL_OAUTH_KEY = "runnr_email_wall_oauth_v1";
   const WALL_CONVERTED_KEY = "runnr_email_wall_converted_v1";
   const AHA_KEY = "runnr_sample_aha_v1";
-  const AHA_DAY_KEY = "runnr_sample_aha_day_v1";
+  const AHA_DAY_KEY = "runnr_sample_aha_day_v2";
   const HERO_KEY = "runnr_sample_hero_v1";
   const KEEP_KEY = "runnr_sample_keep_v1";
   const SEAL_KEY = "runnr_sample_seal_v1";
@@ -215,8 +218,10 @@
     if (applied || isDemoState(state)) paintChrome(state);
     paintProof();
     bindProof();
-    bootSampleLanding(state);
-    if (applied) beacon("demo_view");
+    // Land beacon before hero/tour boot. A throw there must not swallow demo_view.
+    // ?demo=1#pretrade is still a SAMPLE land even when the book was already applied.
+    if (applied || queryForce()) noteSampleView();
+    try { bootSampleLanding(state); } catch (e) {}
     return applied;
   }
 
@@ -475,11 +480,11 @@
   function markAha(reason) {
     storageSet(global.localStorage, AHA_KEY, "1");
     storageSet(global.sessionStorage, KEEP_KEY, reason || "1");
-    paintChrome(global.S);
+    try { paintChrome(global.S); } catch (e) {}
     // Proof / homepage hero is not a scored trade. Do not count it as demo_aha.
-    if (reason === "proof") return;
-    onceLocalDay(AHA_DAY_KEY, function () {
-      beacon("demo_aha");
+    if (reason === "proof") return false;
+    return onceLocalDay(AHA_DAY_KEY, function () {
+      return beacon("demo_aha");
     });
   }
 
@@ -680,6 +685,10 @@
     if (isLoggedIn()) return false;
     if (!isDemoState(global.S)) return false;
     if (!isReadyGoldScore(computed)) return false;
+    // Score is the aha. Record the land too — #pretrade can open the desk
+    // without a separate "Score a trade" click, and that click is the only
+    // demo_score_trade path.
+    noteSampleView();
     markSeal();
     scheduleScoreMeaning();
     return true;
@@ -834,9 +843,15 @@
     const day = utcDay(now);
     try {
       if (global.localStorage && localStorage.getItem(key) === day) return false;
+    } catch (e) {}
+    // Remember the day only after the hit is queued. A dropped sendBeacon
+    // must be able to retry on the Keep-this-score click.
+    let ok = true;
+    if (typeof fn === "function") ok = fn() !== false;
+    if (!ok) return false;
+    try {
       if (global.localStorage) localStorage.setItem(key, day);
     } catch (e) {}
-    if (typeof fn === "function") fn();
     return true;
   }
 
@@ -844,11 +859,11 @@
     // shown = keep-score modal opened, once per guest per UTC day.
     // locked = that same open is sealed. Never a revisit, and never without shown.
     const shownFresh = onceLocalDay(WALL_SHOWN_KEY, function () {
-      beacon("email_wall_shown");
+      return beacon("email_wall_shown");
     });
     if (locked && shownFresh) {
       onceLocalDay(WALL_LOCKED_KEY, function () {
-        beacon("email_wall_locked");
+        return beacon("email_wall_locked");
       });
     }
     return true;
@@ -1048,7 +1063,12 @@
       modal.classList.add("open");
       opened = true;
     }
-    if (opened) fireEmailWallBeacons(shouldHoldKeepScore());
+    if (opened) {
+      // Wall copy says the score is ready. Queue land + aha first so a
+      // dropped render-time beacon cannot leave email_wall_* as the only hits.
+      ensureGuestScoreBeacons();
+      fireEmailWallBeacons(shouldHoldKeepScore());
+    }
     return opened;
   }
 
@@ -1254,21 +1274,38 @@
   }
 
   // Guest SAMPLE beacons:
-  // demo_view — SAMPLE desk land, once per browser session. Not the homepage proof card.
+  // demo_view — SAMPLE desk land (?demo=1, /sample, #sample, #pretrade), once per browser session.
   // demo_aha — guest scored a trade, once per guest per UTC day. Proof/hero does not fire this.
   // demo_score_trade — opened the sizer from Score a trade.
   // email_wall_shown — Keep this score modal opened, once per guest per UTC day.
   // email_wall_locked — that open was sealed. Only with a fresh shown, not on revisit.
   // email_wall_oauth_start / email_wall_converted — Google/Apple tap, then a signed-in return.
+  // A gold score or the keep-score wall must already have queued demo_aha. Never wall-only.
+  function noteSampleView() {
+    if (isLoggedIn()) return false;
+    try {
+      if (!queryForce() && !isDemoState(global.S)) return false;
+    } catch (e) {
+      return false;
+    }
+    return beacon("demo_view");
+  }
+
+  function ensureGuestScoreBeacons() {
+    if (isLoggedIn()) return false;
+    noteSampleView();
+    markAha("score");
+    return true;
+  }
+
   function beacon(event) {
     try {
       const nav = global.navigator;
-      if (!nav) return;
-      if (nav.doNotTrack === "1" || nav.globalPrivacyControl) return;
+      if (!nav) return false;
+      if (nav.doNotTrack === "1" || nav.globalPrivacyControl) return false;
       if (event === "demo_view") {
         try {
-          if (global.sessionStorage && sessionStorage.getItem(VIEW_KEY) === "1") return;
-          if (global.sessionStorage) sessionStorage.setItem(VIEW_KEY, "1");
+          if (global.sessionStorage && sessionStorage.getItem(VIEW_KEY) === "1") return false;
         } catch (e) {}
       }
       let base = "https://api.runnr.fyi";
@@ -1286,14 +1323,24 @@
         "/api/v1/stats/hit?e=" +
         encodeURIComponent(event || "demo_view") +
         (guest ? "&g=" + encodeURIComponent(guest) : "");
-      if (nav.sendBeacon) {
-        nav.sendBeacon(url);
-        return;
-      }
-      if (typeof global.fetch === "function") {
+      let queued = false;
+      try {
+        if (typeof nav.sendBeacon === "function" && nav.sendBeacon(url)) queued = true;
+      } catch (err) {}
+      if (!queued && typeof global.fetch === "function") {
         global.fetch(url, { method: "POST", keepalive: true, mode: "cors", credentials: "omit" });
+        queued = true;
       }
-    } catch (e) {}
+      if (!queued) return false;
+      if (event === "demo_view") {
+        try {
+          if (global.sessionStorage) sessionStorage.setItem(VIEW_KEY, "1");
+        } catch (e) {}
+      }
+      return true;
+    } catch (e) {
+      return false;
+    }
   }
 
   const api = {
