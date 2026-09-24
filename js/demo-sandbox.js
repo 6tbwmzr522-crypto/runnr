@@ -29,10 +29,11 @@
   const IG_VARIANT_KEY = "runnr_ig_variant_v1";
   const IG_SESSION_KEY = "runnr_ig_session_v1";
   const WALL_VERSION_KEY = "runnr_wall_v1";
+  const WALL_OVERRIDE_KEY = "runnr_wall_override_v1";
   const WALL_SESSION_KEY = "runnr_wall_session_v1";
-  // Config flag for the IG keep-score wall. "full" is the pricing wall.
-  // Flip to "lite" to ship Save your score. URL &wall=lite|full still overrides.
-  const WALL_DEFAULT = "full";
+  // Keep-score wall for every guest. "lite" is Save your score.
+  // &wall=lite|full still overrides and is the only value persisted.
+  const WALL_DEFAULT = "lite";
   const WALL_VERSION_EVENTS = {
     email_wall_shown: true,
     email_wall_locked: true,
@@ -1371,6 +1372,11 @@
     return normalizeWallVersion(storageGet(global.localStorage, WALL_VERSION_KEY));
   }
 
+  function explicitWallVersion() {
+    if (storageGet(global.localStorage, WALL_OVERRIDE_KEY) !== "1") return "";
+    return storedWallVersion();
+  }
+
   function wallSessionActive() {
     return storageGet(global.sessionStorage, WALL_SESSION_KEY) === "1";
   }
@@ -1378,11 +1384,15 @@
   function assignWallVersion(loc) {
     loc = loc || (global.location || {});
     const override = wallVersionFromUrl(loc);
-    if (!isIgScoreLanding(loc) && !override) return "";
-    const version = override || storedWallVersion() || WALL_DEFAULT;
-    storageSet(global.localStorage, WALL_VERSION_KEY, version);
+    if (override) {
+      storageSet(global.localStorage, WALL_VERSION_KEY, override);
+      storageSet(global.localStorage, WALL_OVERRIDE_KEY, "1");
+      storageSet(global.sessionStorage, WALL_SESSION_KEY, "1");
+      return override;
+    }
+    if (!isIgScoreLanding(loc)) return "";
     storageSet(global.sessionStorage, WALL_SESSION_KEY, "1");
-    return version;
+    return explicitWallVersion() || WALL_DEFAULT;
   }
 
   function wallVersion() {
@@ -1392,7 +1402,7 @@
       if (assigned) return assigned;
     }
     if (wallSessionActive() || igSessionActive()) {
-      return storedWallVersion() || WALL_DEFAULT;
+      return explicitWallVersion() || WALL_DEFAULT;
     }
     return WALL_DEFAULT;
   }

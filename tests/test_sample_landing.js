@@ -35,7 +35,7 @@ const v = html.match(/var V = "(\d+)"/)[1];
 const cache = sw.match(/CACHE = "runnr-v(\d+)"/)[1];
 check("index.html V matches sw.js CACHE", v === cache);
 check("cache is 139+", Number(v) >= 187);
-check("demo-sandbox cache-bust", html.includes("js/demo-sandbox.js?v=32"));
+check("demo-sandbox cache-bust", html.includes("js/demo-sandbox.js?v=33"));
 check("pages.css cache-bust", html.includes("css/pages.css?v=24"));
 check("intro.js cache-bust", html.includes("js/intro.js?v=8"));
 check("onboarding.js cache-bust", html.includes("js/onboarding.js?v=42"));
@@ -826,7 +826,7 @@ const tslaHtml = tslaCtx.RunnrPretrade.outputHTML(tslaPlan, tslaRails);
 check("TSLA short uses the typed plan not the AAPL sample", tslaPlan.size === 20 && tslaPlan.riskPerShare === 10 && tslaPlan.totalReward === 600 && Math.abs(tslaPlan.rr - 3) < 1e-9);
 check("TSLA result copy is not the AAPL card", tslaHtml.includes("TSLA · Short") && tslaHtml.includes("20 sh") && tslaHtml.includes("3.00 : 1") && tslaHtml.includes("Sample Trade Result") && tslaHtml.includes("HOW DID IT GO?") && tslaHtml.includes("Keep this score") && tslaHtml.includes("Risked 2% on a 1% rule") && !tslaHtml.includes("AAPL") && !tslaHtml.includes("50 sh") && !/>198</.test(tslaHtml) && !tslaHtml.includes("4.00 : 1"));
 
-check("wall config defaults to the full pricing wall", SB.WALL_DEFAULT === "full");
+check("wall config defaults to the lite sheet", SB.WALL_DEFAULT === "lite");
 check("lite wall CSS hides pricing and mutes the trust line", css.includes("#modal-sample-keep.sample-keep-lite .runnr-readonly{display:none}") && css.includes("#modal-sample-keep .sample-keep-lite-trust{display:none}") && /sample-keep-lite-trust\{[^}]*color:var\(--text3\)/.test(css.replace(/\s+/g, "")));
 
 function mountKeep(ctx) {
@@ -859,11 +859,12 @@ function mountKeep(ctx) {
 
 const fullKeep = loadSandbox({ search: "?demo=1&ig=1", pathname: "/", hash: "", href: "http://localhost/?demo=1&ig=1" });
 const fullNodes = mountKeep(fullKeep);
-check("default IG wall opens the full copy", fullKeep.RunnrDemoSandbox.showKeepScore({ skipIntro: true }) === true && fullNodes.title.textContent === "Keep this score" && /Your score: ready/.test(fullNodes.copy.textContent) && fullNodes.modal.classList.contains("sample-keep-lite") === false);
-check("first IG land stores the full wall", fullKeep.localStorage.getItem("runnr_wall_v1") === "full");
-check("returning IG guest keeps the full wall", fullKeep.RunnrDemoSandbox.assignWallVersion() === "full");
+check("default IG wall opens the lite sheet", fullKeep.RunnrDemoSandbox.showKeepScore({ skipIntro: true }) === true && fullNodes.title.textContent === "Save your score" && fullNodes.copy.textContent === "Free. No card. Takes one tap." && fullNodes.modal.classList.contains("sample-keep-lite") === true);
+check("default IG land does not store a wall", fullKeep.localStorage.getItem("runnr_wall_v1") == null && fullKeep.localStorage.getItem("runnr_wall_override_v1") == null);
+fullKeep.localStorage.setItem("runnr_wall_v1", "full");
+check("stale stored full without an override still shows lite", fullKeep.RunnrDemoSandbox.wallVersion() === "lite" && fullKeep.RunnrDemoSandbox.showKeepScore({ skipIntro: true }) === true && fullNodes.title.textContent === "Save your score");
 fullKeep.location.search = "?demo=1&ig=1&wall=nope";
-check("bad wall param keeps the stored wall", fullKeep.RunnrDemoSandbox.assignWallVersion() === "full");
+check("bad wall param stays on the lite default", fullKeep.RunnrDemoSandbox.assignWallVersion() === "lite" && fullKeep.localStorage.getItem("runnr_wall_override_v1") == null);
 
 const liteKeep = loadSandbox({ search: "?demo=1&ig=1&wall=lite", pathname: "/", hash: "", href: "http://localhost/?demo=1&ig=1&wall=lite" });
 const liteNodes = mountKeep(liteKeep);
@@ -874,11 +875,15 @@ check("stored lite survives the next IG land", liteKeep.RunnrDemoSandbox.showKee
 liteKeep.location.search = "?demo=1";
 check("IG session keeps the lite wall after the URL drops ig", liteKeep.RunnrDemoSandbox.wallVersion() === "lite" && liteNodes.copy.textContent === "Free. No card. Takes one tap.");
 liteKeep.location.search = "?demo=1&ig=1&wall=full";
-check("wall=full restores the pricing wall", liteKeep.RunnrDemoSandbox.showKeepScore({ skipIntro: true }) === true && liteNodes.title.textContent === "Keep this score" && /Your score: ready/.test(liteNodes.copy.textContent) && liteNodes.modal.classList.contains("sample-keep-lite") === false && liteKeep.localStorage.getItem("runnr_wall_v1") === "full");
+check("wall=full restores the pricing wall", liteKeep.RunnrDemoSandbox.showKeepScore({ skipIntro: true }) === true && liteNodes.title.textContent === "Keep this score" && /Your score: ready/.test(liteNodes.copy.textContent) && liteNodes.modal.classList.contains("sample-keep-lite") === false && liteKeep.localStorage.getItem("runnr_wall_v1") === "full" && liteKeep.localStorage.getItem("runnr_wall_override_v1") === "1");
+liteKeep.location.search = "?demo=1&ig=1";
+check("explicit wall=full sticks after the param is gone", liteKeep.RunnrDemoSandbox.wallVersion() === "full" && liteKeep.RunnrDemoSandbox.showKeepScore({ skipIntro: true }) === true && liteNodes.title.textContent === "Keep this score");
 
 const organicWall = loadSandbox({ search: "?demo=1", pathname: "/", hash: "", href: "http://localhost/?demo=1" });
 check("organic demo does not assign a wall", organicWall.RunnrDemoSandbox.assignWallVersion() === "" && organicWall.localStorage.getItem("runnr_wall_v1") == null);
-check("organic demo still resolves the full wall", organicWall.RunnrDemoSandbox.wallVersion() === "full");
+check("organic demo resolves the lite wall", organicWall.RunnrDemoSandbox.wallVersion() === "lite");
+organicWall.localStorage.setItem("runnr_wall_v1", "full");
+check("organic stale full does not override the lite default", organicWall.RunnrDemoSandbox.wallVersion() === "lite");
 
 const liteBeacons = loadSandbox({ search: "?demo=1&ig=1&igv=empty&wall=lite", pathname: "/", hash: "", href: "http://localhost/?demo=1&ig=1&igv=empty&wall=lite" });
 const liteUrls = [];
@@ -901,6 +906,6 @@ const organicWallBeacon = loadSandbox({ search: "?demo=1", pathname: "/", hash: 
 const organicWallUrls = [];
 organicWallBeacon.navigator.sendBeacon = function (url) { organicWallUrls.push(String(url)); return true; };
 organicWallBeacon.RunnrDemoSandbox.fireEmailWallBeacons(true);
-check("organic wall beacons are full and unvarianted", organicWallUrls.some((u) => /email_wall_shown/.test(u) && /[?&]w=full(?:&|$)/.test(u)) && organicWallUrls.every((u) => !/[?&]v=/.test(u)));
+check("organic wall beacons are lite and unvarianted", organicWallUrls.some((u) => /email_wall_shown/.test(u) && /[?&]w=lite(?:&|$)/.test(u)) && organicWallUrls.every((u) => !/[?&]v=/.test(u)));
 
 console.log("test_sample_landing: ok " + n);
