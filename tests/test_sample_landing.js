@@ -659,7 +659,8 @@ check("organic score still opens the desk", scoreFn.includes("openGoldSizer(prim
 const igFn = sandboxSrc.slice(sandboxSrc.indexOf("function activateIgScore"), sandboxSrc.indexOf("function bindIgScore"));
 check("IG score uses the result path", igFn.includes("openIgScoreResult") && !igFn.includes("openScoreTrade"));
 check("IG result focuses the output candy", /function openIgScoreResult[\s\S]*focus:\s*"result"/.test(sandboxSrc) && pretradeSrc.includes('which === "result"') && pretradeSrc.includes("initialOutputInner") && pretradeSrc.includes("Sample Trade Result"));
-check("IG result CSS hides terminal chrome", css.includes("html.runnr-ig-result") && css.includes("#desk-clock") && css.includes(".desk-heat") && css.includes(".pt-kv:not(.pt-kv-size):not(.pt-kv-risk)"));
+check("IG result CSS hides terminal chrome", css.includes("html.runnr-ig-result") && css.includes("#desk-clock") && css.includes(".desk-heat") && css.includes(".pt-form"));
+check("IG result keeps the full output panel", !/html\.runnr-ig-result[^{]*\.pt-kv:not/.test(css) && !/html\.runnr-ig-result[^{]*\.pt-output-kicker/.test(css) && !/html\.runnr-ig-result[^{]*\.pt-cleared/.test(css));
 
 const igCandy = loadSandbox({ search: "?demo=1&ig=1", pathname: "/", hash: "", href: "http://localhost/?demo=1&ig=1" });
 igCandy.document.documentElement.dataset = {};
@@ -673,6 +674,7 @@ const candyPlan = igCandy.RunnrPretrade.computePlan({
 const candyHtml = igCandy.RunnrPretrade.outputHTML(candyPlan, candyRails);
 check("IG sample sizes 50 shares at 2% of €10k", candyPlan.ready === true && candyPlan.size === 50 && candyPlan.totalRisk === 200);
 check("IG sample output is the result candy", candyHtml.includes("Sample Trade Result") && candyHtml.includes("50 sh") && candyHtml.includes("Total Risk") && candyHtml.includes("HOW DID IT GO?") && candyHtml.includes("Followed") && candyHtml.includes("Leaked") && candyHtml.includes("Skipped") && candyHtml.includes("Keep this score") && candyHtml.includes("Risked 2% on a 1% rule") && candyHtml.includes("€100 over"));
+check("IG sample output keeps every metric row", candyHtml.includes("PENDING PLAN") && candyHtml.includes("Risk / Share") && candyHtml.includes("Reward / Share") && candyHtml.includes("Total Reward") && candyHtml.includes("R:R Ratio") && candyHtml.includes("4.00 : 1") && candyHtml.includes("PENDING · APPROVED"));
 
 const igSigned = loadSandbox({ search: "?demo=1&ig=1", pathname: "/", hash: "", href: "http://localhost/?demo=1&ig=1" });
 igSigned.localStorage.setItem("runnr_api_token", "tok");

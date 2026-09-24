@@ -867,7 +867,7 @@ html.runnr-demo #header .header-desk-btn{display:inline-flex !important}
   letter-spacing:0.04em;
 }
 
-/* Instagram Score lands on the sample result, not the terminal. */
+/* Instagram Score lands on the full gold output, not the terminal. */
 html.runnr-ig-result .desk-cmd .clock,
 html.runnr-ig-result #desk-clock,
 html.runnr-ig-result .desk-mkts,
@@ -887,10 +887,7 @@ html.runnr-ig-result .pt-form,
 html.runnr-ig-result .pt-sample-cap,
 html.runnr-ig-result .pt-panel[aria-label="Risk guardrails"],
 html.runnr-ig-result .pt-panel[aria-label="Position sizer"] > .pt-sec-hd,
-html.runnr-ig-result .pt-output-kicker,
-html.runnr-ig-result .pt-cleared,
-html.runnr-ig-result .pt-score-meaning,
-html.runnr-ig-result .pt-kv:not(.pt-kv-size):not(.pt-kv-risk){
+html.runnr-ig-result .pt-score-meaning{
   display:none !important;
 }
 html.runnr-ig-result #pretrade-root.pt-root{
@@ -914,33 +911,9 @@ html.runnr-ig-result .pt-panel[aria-label="Position sizer"]{
 }
 html.runnr-ig-result .pt-output{
   min-height:0;
-  background:var(--surface);
-  border:1px solid rgba(201,169,110,0.45);
-  padding:18px 16px 16px;
 }
 html.runnr-ig-result .pt-output:focus{
   outline:none;
-}
-html.runnr-ig-result .pt-output-note{
-  font-family:var(--font-head);
-  font-weight:500;
-  font-size:28px;
-  line-height:1.15;
-  color:var(--text);
-  margin:0 0 14px;
-}
-html.runnr-ig-result .pt-kv-size strong,
-html.runnr-ig-result .pt-kv-risk strong{
-  font-size:28px;
-  font-weight:400;
-}
-html.runnr-ig-result .pt-process-btn{
-  min-height:44px;
-}
-html.runnr-ig-result .pt-keep-score{
-  min-height:52px;
-  font-size:13px;
-  letter-spacing:0.14em;
 }
 
 @media (max-width:900px){
