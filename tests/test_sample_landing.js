@@ -35,7 +35,7 @@ const v = html.match(/var V = "(\d+)"/)[1];
 const cache = sw.match(/CACHE = "runnr-v(\d+)"/)[1];
 check("index.html V matches sw.js CACHE", v === cache);
 check("cache is 139+", Number(v) >= 187);
-check("demo-sandbox cache-bust", html.includes("js/demo-sandbox.js?v=29"));
+check("demo-sandbox cache-bust", html.includes("js/demo-sandbox.js?v=30"));
 check("pages.css cache-bust", html.includes("css/pages.css?v=22"));
 check("intro.js cache-bust", html.includes("js/intro.js?v=8"));
 check("onboarding.js cache-bust", html.includes("js/onboarding.js?v=42"));
@@ -631,16 +631,48 @@ igClick.RunnrPretrade = {
 };
 check("cold ig guest sees the score card", igClick.RunnrDemoSandbox.shouldShowIgScore(igClick.S) === true);
 check("cold ig guest skips the pitch hero", igClick.RunnrDemoSandbox.shouldShowSampleHero(igClick.S) === false);
-check("Score click opens the primed sizer", igClick.RunnrDemoSandbox.activateIgScore(igClick.S) === true && igClick.opened[0] === "desk");
+const igClasses = new Set();
+igClick.document.documentElement.classList = {
+  add(c) { igClasses.add(c); },
+  remove(c) { igClasses.delete(c); },
+  toggle() {},
+  contains(c) { return igClasses.has(c); },
+};
+check("Score click opens the result payoff", igClick.RunnrDemoSandbox.activateIgScore(igClick.S) === true && igClick.opened[0] === "result");
+check("Score click marks the result surface", igClasses.has("runnr-ig-result") === true && igClasses.has("runnr-ig-score") === false);
 check("Score click beacons demo_score_trade", igHits.indexOf("demo_score_trade") !== -1);
+check("Score click beacons demo_score_trade once", igHits.filter((e) => e === "demo_score_trade").length === 1);
 check("Score click primes AAPL long 198/194/214", igClick.primed && igClick.primed.ticker === "AAPL" && igClick.primed.dir === "long" && Number(igClick.primed.entry) === 198 && Number(igClick.primed.stop) === 194 && Number(igClick.primed.target) === 214);
 check("Score click does not seal before the plan renders", igClick.RunnrDemoSandbox.hasSeal() === false);
 check("ready primed plan still beacons demo_aha", igClick.RunnrDemoSandbox.onGoldScored({ ready: true, size: 50, entry: 198, stop: 194 }, { reason: "score" }) === true && igHits.indexOf("demo_aha") !== -1);
+check("demo_aha fires once for the ready paint", igHits.filter((e) => e === "demo_aha").length === 1);
+igClick.RunnrDemoSandbox.onGoldScored({ ready: true, size: 50, entry: 198, stop: 194 }, { reason: "score" });
+check("a second ready paint does not double demo_aha", igHits.filter((e) => e === "demo_aha").length === 1);
 check("card stays down after Score", igClick.RunnrDemoSandbox.shouldShowIgScore(igClick.S) === false);
 igClick.sessionStorage.removeItem("runnr_ig_land_v1");
 igClick.RunnrDemoSandbox.noteIgLand();
 igClick.RunnrDemoSandbox.noteIgLand();
 check("ig land beacons once per session", igHits.filter((e) => e === "demo_ig_land").length === 1);
+
+const scoreFn = sandboxSrc.slice(sandboxSrc.indexOf("function openScoreTrade"), sandboxSrc.indexOf("function markIgResult"));
+check("organic score still opens the desk", scoreFn.includes("openGoldSizer(primed)") && !/focus:\s*"result"/.test(scoreFn));
+const igFn = sandboxSrc.slice(sandboxSrc.indexOf("function activateIgScore"), sandboxSrc.indexOf("function bindIgScore"));
+check("IG score uses the result path", igFn.includes("openIgScoreResult") && !igFn.includes("openScoreTrade"));
+check("IG result focuses the output candy", /function openIgScoreResult[\s\S]*focus:\s*"result"/.test(sandboxSrc) && pretradeSrc.includes('which === "result"') && pretradeSrc.includes("initialOutputInner") && pretradeSrc.includes("Sample Trade Result"));
+check("IG result CSS hides terminal chrome", css.includes("html.runnr-ig-result") && css.includes("#desk-clock") && css.includes(".desk-heat") && css.includes(".pt-kv:not(.pt-kv-size):not(.pt-kv-risk)"));
+
+const igCandy = loadSandbox({ search: "?demo=1&ig=1", pathname: "/", hash: "", href: "http://localhost/?demo=1&ig=1" });
+igCandy.document.documentElement.dataset = {};
+igCandy.document.addEventListener = function () {};
+igCandy.S = { trades: book, watchlist: SB.factoryWatchlist(), bal: 10000, risk: 1, sym: "€" };
+vm.runInNewContext(pretradeSrc, igCandy);
+const candyRails = igCandy.RunnrPretrade.normalizeRails({ bal: 10000, sym: "€", maxRiskPct: 2 }, igCandy.S);
+const candyPlan = igCandy.RunnrPretrade.computePlan({
+  ticker: "AAPL", dir: "long", entry: 198, stop: 194, target: 214,
+}, candyRails, igCandy.S.trades, new Date("2026-09-24T12:00:00Z"));
+const candyHtml = igCandy.RunnrPretrade.outputHTML(candyPlan, candyRails);
+check("IG sample sizes 50 shares at 2% of €10k", candyPlan.ready === true && candyPlan.size === 50 && candyPlan.totalRisk === 200);
+check("IG sample output is the result candy", candyHtml.includes("Sample Trade Result") && candyHtml.includes("50 sh") && candyHtml.includes("Total Risk") && candyHtml.includes("HOW DID IT GO?") && candyHtml.includes("Followed") && candyHtml.includes("Leaked") && candyHtml.includes("Skipped") && candyHtml.includes("Keep this score") && candyHtml.includes("Risked 2% on a 1% rule") && candyHtml.includes("€100 over"));
 
 const igSigned = loadSandbox({ search: "?demo=1&ig=1", pathname: "/", hash: "", href: "http://localhost/?demo=1&ig=1" });
 igSigned.localStorage.setItem("runnr_api_token", "tok");

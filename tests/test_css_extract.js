@@ -36,7 +36,7 @@ check("extracted sheets follow desk.css in original order",
   && stylesheets.indexOf("css/pages.css") === 4);
 check("legal.css is not loaded on the app page", !stylesheets.includes("css/legal.css"));
 check("pretrade.css loads after pages.css", stylesheets.indexOf("css/pretrade.css") === stylesheets.indexOf("css/pages.css") + 1);
-check("pretrade.css is cache-busted", html.includes("css/pretrade.css?v=19"));
+check("pretrade.css is cache-busted", html.includes("css/pretrade.css?v=20"));
 check("no giant inline style block remains", !/<style[\s>]/.test(html));
 check("index.html is under 160KB after css extract", Buffer.byteLength(html) < 160000);
 
