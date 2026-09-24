@@ -867,6 +867,55 @@ html.runnr-demo #header .header-desk-btn{display:inline-flex !important}
   letter-spacing:0.04em;
 }
 
+/* Instagram Score lands on the full gold output, not the terminal. */
+html.runnr-ig-result .desk-cmd .clock,
+html.runnr-ig-result #desk-clock,
+html.runnr-ig-result .desk-mkts,
+html.runnr-ig-result .desk-heat,
+html.runnr-ig-result .desk-tape,
+html.runnr-ig-result #trend-day-overlay,
+html.runnr-ig-result #trend-day-chip,
+html.runnr-ig-result .pt-trend-stamp,
+html.runnr-ig-result .pt-top,
+html.runnr-ig-result .runnr-loop,
+html.runnr-ig-result .pt-stats,
+html.runnr-ig-result .pt-edge,
+html.runnr-ig-result .pt-progress,
+html.runnr-ig-result .pt-recent,
+html.runnr-ig-result .pt-foot,
+html.runnr-ig-result .pt-form,
+html.runnr-ig-result .pt-sample-cap,
+html.runnr-ig-result .pt-panel[aria-label="Risk guardrails"],
+html.runnr-ig-result .pt-panel[aria-label="Position sizer"] > .pt-sec-hd,
+html.runnr-ig-result .pt-score-meaning{
+  display:none !important;
+}
+html.runnr-ig-result #pretrade-root.pt-root{
+  justify-content:safe center;
+  max-width:440px;
+  width:100%;
+  margin:0 auto;
+  padding:28px 18px calc(28px + env(safe-area-inset-bottom, 0px));
+  box-sizing:border-box;
+  background:var(--bg);
+}
+html.runnr-ig-result .pt-split,
+html.runnr-ig-result .pt-sizer{
+  display:block;
+  width:100%;
+}
+html.runnr-ig-result .pt-panel[aria-label="Position sizer"]{
+  background:transparent;
+  border:none;
+  padding:0;
+}
+html.runnr-ig-result .pt-output{
+  min-height:0;
+}
+html.runnr-ig-result .pt-output:focus{
+  outline:none;
+}
+
 @media (max-width:900px){
   .pt-split,.pt-sizer,.pt-rails,.pt-stats,.pt-edge-grid,.pt-prog-stats{grid-template-columns:1fr}
   .pt-stats > div,.pt-edge-grid > div{border-right:none;border-bottom:1px solid rgba(201,169,110,0.18)}

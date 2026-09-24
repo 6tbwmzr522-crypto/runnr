@@ -582,13 +582,14 @@
     };
   }
 
-  function openGoldSizer(primeInput) {
+  function openGoldSizer(primeInput, opts) {
     const PT = global.RunnrPretrade;
     if (PT && typeof PT.prime === "function" && primeInput) {
       try { PT.prime(primeInput); } catch (e) {}
     }
+    const result = !!(opts && opts.focus === "result");
     if (PT && typeof PT.open === "function") {
-      try { PT.open("desk"); return true; } catch (e) {}
+      try { PT.open(result ? "result" : "desk"); return true; } catch (e) {}
     }
     if (typeof global.switchPage === "function") {
       try { global.switchPage("sizer"); return true; } catch (e) {}
@@ -596,9 +597,9 @@
     return false;
   }
 
-  function openScoreTrade(state) {
+  function prepareSampleScore(state, opts) {
     markHeroDismissed();
-    hideSampleHero();
+    hideSampleHero(opts && opts.deferTour ? { deferTour: true } : undefined);
     const book = state || global.S;
     try {
       if (book && !isLoggedIn() && !looksLikeRealBook(book)) {
@@ -608,9 +609,40 @@
         }
       }
     } catch (e) {}
-    const primed = sampleScorePrime(book);
+    return sampleScorePrime(book);
+  }
+
+  function openScoreTrade(state) {
+    const primed = prepareSampleScore(state);
     beacon("demo_score_trade");
     return openGoldSizer(primed);
+  }
+
+  function markIgResult() {
+    try {
+      const doc = global.document;
+      if (!doc) return false;
+      const root = doc.documentElement;
+      if (root && root.classList) {
+        root.classList.add("runnr-ig-result");
+        root.classList.remove("runnr-ig-score");
+        root.classList.remove("runnr-sample-landing");
+      }
+      if (doc.body && doc.body.classList) doc.body.classList.add("runnr-ig-result");
+    } catch (e) {}
+    return true;
+  }
+
+  /**
+   * Instagram Score only. Organic demo Score still opens the full gold desk.
+   * Prime the same AAPL plan, then paint the output candy instead of the terminal.
+   */
+  function openIgScoreResult(state) {
+    hideIgScore();
+    markIgResult();
+    const primed = prepareSampleScore(state || global.S, { deferTour: true });
+    beacon("demo_score_trade");
+    return openGoldSizer(primed, { focus: "result" });
   }
 
   // Pending keep after a real score while the chip tour is open.
@@ -1268,8 +1300,7 @@
 
   function activateIgScore(state) {
     storageSet(global.sessionStorage, IG_SCORE_KEY, "done");
-    hideIgScore();
-    return openScoreTrade(state || global.S);
+    return openIgScoreResult(state || global.S);
   }
 
   function bindIgScore() {
@@ -1467,6 +1498,7 @@
     paintIgScore,
     noteIgLand,
     activateIgScore,
+    openIgScoreResult,
     proofModel,
     proofCardHtml,
     paintProof,

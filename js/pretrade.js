@@ -17,6 +17,7 @@
   const TICKER_DEBOUNCE_MS = 450;
 
   let view = "desk";
+  let resultFocus = false;
   let form = { ticker: "AAPL", dir: "long", entry: "", stop: "", target: "", notes: "" };
   let railsDraft = null;
   let quoteTimer = null;
@@ -929,12 +930,15 @@
     const keep = (!c.sampleLocked && isSampleDesk() && (c.ready || c.size > 0))
       ? '<button type="button" class="btn pt-keep-score" id="pt-keep-score">Keep this score</button>'
       : "";
+    const note = isSampleDesk()
+      ? "Sample Trade Result"
+      : "Computed size for the form — not a logged fill.";
     return (
       '<div class="pt-output-kicker">PENDING PLAN</div>' +
-      '<div class="pt-output-note">Computed size for the form — not a logged fill.</div>' +
-      '<div class="pt-kv"><span>Position Size</span><strong class="mint">' + (c.size || 0) + " sh</strong></div>" +
+      '<div class="pt-output-note">' + note + "</div>" +
+      '<div class="pt-kv pt-kv-size"><span>Position Size</span><strong class="mint">' + (c.size || 0) + " sh</strong></div>" +
       '<div class="pt-kv"><span>Risk / Share</span><strong>' + money(c.riskPerShare, rails.sym) + "</strong></div>" +
-      '<div class="pt-kv"><span>Total Risk</span><strong class="neg">' + money(c.totalRisk, rails.sym) + "</strong></div>" +
+      '<div class="pt-kv pt-kv-risk"><span>Total Risk</span><strong class="neg">' + money(c.totalRisk, rails.sym) + "</strong></div>" +
       '<div class="pt-kv"><span>Reward / Share</span><strong class="mint">' + money(c.rewardPerShare, rails.sym) + "</strong></div>" +
       '<div class="pt-kv"><span>Total Reward</span><strong class="mint">' + money(c.totalReward, rails.sym) + "</strong></div>" +
       '<div class="pt-kv"><span>R:R Ratio</span><strong class="' + rrCls + '">' + (c.rr ? c.rr.toFixed(2) + " : 1" : "—") + "</strong></div>" +
@@ -1098,6 +1102,18 @@
     return "€";
   }
 
+  function planReadyForPaint(c) {
+    return !!(c && (c.sampleLocked || c.ready || c.size > 0 || c.riskPerShare > 0));
+  }
+
+  function initialOutputInner(rails) {
+    const empty = '<div class="pt-output-empty">Pending plan — enter ticker, entry &amp; stop</div>';
+    if (!resultFocus) return empty;
+    const c = computePlan(form, rails, deskTrades(), new Date());
+    if (!planReadyForPaint(c)) return empty;
+    return outputHTML(c, rails);
+  }
+
   function deskHTML(rails) {
     const longOn = form.dir !== "short";
     return (
@@ -1154,7 +1170,7 @@
                 '<button type="button" class="pt-log" id="pt-log">LOG TRADE</button>' +
               "</div>" +
             "</div>" +
-            '<div class="pt-output" id="pt-output"><div class="pt-output-empty">Pending plan — enter ticker, entry &amp; stop</div></div>' +
+            '<div class="pt-output" id="pt-output">' + initialOutputInner(rails) + "</div>" +
           "</div>" +
         "</section>" +
         '<section class="pt-panel" aria-label="Risk guardrails">' +
@@ -1553,6 +1569,7 @@
   }
 
   function syncHash(kind) {
+    if (resultFocus) return;
     try {
       const loc = global.location;
       if (!loc || !global.history || typeof history.replaceState !== "function") return;
@@ -1589,11 +1606,40 @@
     return form;
   }
 
+  function markIgResultClass() {
+    try {
+      const doc = global.document;
+      if (!doc) return;
+      if (doc.documentElement && doc.documentElement.classList) {
+        doc.documentElement.classList.add("runnr-ig-result");
+        doc.documentElement.classList.remove("runnr-ig-score");
+      }
+      if (doc.body && doc.body.classList) doc.body.classList.add("runnr-ig-result");
+    } catch (e) {}
+  }
+
+  function revealResult() {
+    const el = global.document && document.getElementById("pt-output");
+    if (!el) return;
+    try {
+      el.setAttribute("tabindex", "-1");
+      el.setAttribute("role", "region");
+      el.setAttribute("aria-label", "Sample Trade Result");
+    } catch (e) {}
+    try {
+      if (typeof el.scrollIntoView === "function") el.scrollIntoView({ block: "start" });
+    } catch (e2) {}
+    try {
+      if (typeof el.focus === "function") el.focus();
+    } catch (e3) {}
+  }
+
   function enter() {
     const app = global.document && document.getElementById("app");
     if (app) app.classList.add("desk-wide");
     const page = global.document && document.getElementById("page-sizer");
     if (page) page.classList.add("pt-live");
+    if (resultFocus) markIgResultClass();
     railsDraft = readRails();
     view = "desk";
     render();
@@ -1604,6 +1650,7 @@
     if (global.RunnrTrendDay && typeof RunnrTrendDay.onEnterSize === "function") {
       try { RunnrTrendDay.onEnterSize(); } catch (e) {}
     }
+    if (resultFocus) revealResult();
   }
 
   function leave() {
@@ -1620,7 +1667,11 @@
       openUnifiedJournal();
       return;
     }
-    if (which === "desk" || which === "gold") view = "desk";
+    if (which === "result") {
+      resultFocus = true;
+      markIgResultClass();
+    }
+    if (which === "desk" || which === "gold" || which === "result") view = "desk";
     if (typeof global.switchPage === "function") global.switchPage("sizer");
     else enter();
   }

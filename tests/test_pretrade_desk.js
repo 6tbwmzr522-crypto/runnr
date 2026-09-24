@@ -22,8 +22,8 @@ const v = html.match(/var V = "(\d+)"/)[1];
 const cache = sw.match(/CACHE = "runnr-v(\d+)"/)[1];
 check("index.html V matches sw.js CACHE", v === cache);
 check("cache is 147+", Number(v) >= 147);
-check("pretrade.js is loaded", html.includes("js/pretrade.js?v=24"));
-check("pretrade.css is loaded", html.includes("css/pretrade.css?v=19"));
+check("pretrade.js is loaded", html.includes("js/pretrade.js?v=25"));
+check("pretrade.css is loaded", html.includes("css/pretrade.css?v=21"));
 check("gold mounts in pretrade-root, not desk-root hijack", html.includes('id="pretrade-root"') && src.includes('getElementById("pretrade-root")'));
 check("legacy CFD sizer stays in the page, hidden", html.includes("CFD / Forex Position Sizer") && html.includes('id="legacy-sizer"') && css.includes("#legacy-sizer{display:none"));
 check("desk still opens via RunnrDesk.open", html.includes('data-nav="desk" onclick="RunnrDesk.open()"'));
@@ -215,7 +215,8 @@ check("progress includes pending plan risk", Math.abs(ghostProg.logged - 398) < 
 check("within is false when this plan would breach", ghostProg.within === false && ghostProg.loggedOver === false);
 
 const ghostHtml = J.outputHTML(ghost, jRails);
-check("pending output is labeled PENDING PLAN", ghostHtml.includes("PENDING PLAN") && ghostHtml.includes("not a logged fill"));
+check("pending output is labeled PENDING PLAN", ghostHtml.includes("PENDING PLAN") && ghostHtml.includes("Sample Trade Result"));
+check("guest sample note is Sample Trade Result", ghostHtml.includes("Sample Trade Result") && !ghostHtml.includes("not a logged fill"));
 check("ghost plan still labels reward per share", ghostHtml.includes("Reward / Share") && ghostHtml.includes("Total Reward") && !/<span>Reward<\/span>/.test(ghostHtml));
 check("duplicate copy leads instead of ✕ BLOCKED", ghostHtml.includes("ALREADY LOGGED TODAY") && !ghostHtml.includes("✕ BLOCKED"));
 check("duplicate copy does not contradict the logged fill", ghostHtml.includes("already in Recent Trades") && ghostHtml.includes("pending plan"));
@@ -236,6 +237,15 @@ const tsla = J.computePlan({ ticker: "TSLA", dir: "long", entry: 100, stop: 90, 
 check("a new ticker is blocked without the duplicate flag", tsla.blocked === true && tsla.duplicate === false);
 const tslaHtml = J.outputHTML(tsla, jRails);
 check("new blocked plan says pending, not a logged fill", tslaHtml.includes("✕ BLOCKED") && tslaHtml.includes("not logged yet") && tslaHtml.includes("PENDING PLAN"));
+
+const signedNote = load();
+signedNote.localStorage.setItem("runnr_api_token", "tok");
+const signedRails = signedNote.RunnrPretrade.normalizeRails(signedNote.window.S.pretrade, signedNote.window.S);
+const signedPlan = signedNote.RunnrPretrade.computePlan({
+  ticker: "AAPL", dir: "long", entry: 200, stop: 190, target: 230,
+}, signedRails, [], now);
+const signedHtml = signedNote.RunnrPretrade.outputHTML(signedPlan, signedRails);
+check("signed-in output keeps the form note", signedHtml.includes("Computed size for the form — not a logged fill.") && !signedHtml.includes("Sample Trade Result"));
 check("new blocked plan still shows the numbers", tslaHtml.includes("Position Size") && tslaHtml.includes(String(tsla.size)));
 
 const capCtx = load();
