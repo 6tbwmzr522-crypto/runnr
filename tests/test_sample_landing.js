@@ -35,8 +35,8 @@ const v = html.match(/var V = "(\d+)"/)[1];
 const cache = sw.match(/CACHE = "runnr-v(\d+)"/)[1];
 check("index.html V matches sw.js CACHE", v === cache);
 check("cache is 139+", Number(v) >= 187);
-check("demo-sandbox cache-bust", html.includes("js/demo-sandbox.js?v=31"));
-check("pages.css cache-bust", html.includes("css/pages.css?v=23"));
+check("demo-sandbox cache-bust", html.includes("js/demo-sandbox.js?v=32"));
+check("pages.css cache-bust", html.includes("css/pages.css?v=24"));
 check("intro.js cache-bust", html.includes("js/intro.js?v=8"));
 check("onboarding.js cache-bust", html.includes("js/onboarding.js?v=42"));
 
@@ -75,6 +75,7 @@ check("keep-score quiet email fallback", html.slice(html.indexOf('id="modal-samp
 check("keep-score offers returning-user login", /Already have an account\?[\s\S]*href="\/sign-in"/.test(html.slice(html.indexOf('id="modal-sample-keep"'), html.indexOf('id="modal-share"'))));
 check("returning-user login is not keep=1 bait", /href="\/sign-in"(?!\?keep=1)/.test(html.slice(html.indexOf('id="modal-sample-keep"'), html.indexOf('id="modal-share"'))));
 check("keep-score heading stays Keep this score", /id="modal-sample-keep"[\s\S]*Keep this score/.test(html));
+check("lite wall is markup only until the flag paints it", keepHtml.includes('id="sample-keep-title"') && keepHtml.includes('id="sample-keep-lite-trust"') && !keepHtml.includes("Save your score") && !keepHtml.includes("Free. No card. Takes one tap."));
 check("keep-score copy is score + weekly report bait", html.includes("Your score: ready.") && html.includes("undisciplined P&amp;L vs the clean one") && sandboxSrc.includes("undisciplined P&L vs the clean one"));
 check("keep-score keeps 7-day no auto-bill", keepHtml.includes("Start free · 7-day trial") && keepHtml.includes("Nothing bills automatically.") && !keepHtml.includes("Keep this score — 7 days free") && !keepHtml.includes("Use Runnr free for 7 days"));
 check("keep-score has no credit card note", keepHtml.includes("No credit card required for trial."));
@@ -824,5 +825,82 @@ const tslaPlan = tslaCtx.RunnrPretrade.computePlan({ ticker: "TSLA", dir: "short
 const tslaHtml = tslaCtx.RunnrPretrade.outputHTML(tslaPlan, tslaRails);
 check("TSLA short uses the typed plan not the AAPL sample", tslaPlan.size === 20 && tslaPlan.riskPerShare === 10 && tslaPlan.totalReward === 600 && Math.abs(tslaPlan.rr - 3) < 1e-9);
 check("TSLA result copy is not the AAPL card", tslaHtml.includes("TSLA · Short") && tslaHtml.includes("20 sh") && tslaHtml.includes("3.00 : 1") && tslaHtml.includes("Sample Trade Result") && tslaHtml.includes("HOW DID IT GO?") && tslaHtml.includes("Keep this score") && tslaHtml.includes("Risked 2% on a 1% rule") && !tslaHtml.includes("AAPL") && !tslaHtml.includes("50 sh") && !/>198</.test(tslaHtml) && !tslaHtml.includes("4.00 : 1"));
+
+check("wall config defaults to the full pricing wall", SB.WALL_DEFAULT === "full");
+check("lite wall CSS hides pricing and mutes the trust line", css.includes("#modal-sample-keep.sample-keep-lite .runnr-readonly{display:none}") && css.includes("#modal-sample-keep .sample-keep-lite-trust{display:none}") && /sample-keep-lite-trust\{[^}]*color:var\(--text3\)/.test(css.replace(/\s+/g, "")));
+
+function mountKeep(ctx) {
+  const modal = {
+    className: "",
+    classList: {
+      items: new Set(),
+      add(c) { this.items.add(c); },
+      remove(c) { this.items.delete(c); },
+      toggle(c, on) { if (on) this.add(c); else this.remove(c); },
+      contains(c) { return this.items.has(c); },
+    },
+    querySelector() { return null; },
+  };
+  const title = { textContent: "Keep this score" };
+  const copy = { textContent: "" };
+  ctx.document.getElementById = function (id) {
+    if (id === "modal-sample-keep") return modal;
+    if (id === "sample-keep-title") return title;
+    if (id === "sample-keep-dismiss") return { hidden: false };
+    return null;
+  };
+  ctx.document.querySelector = function (sel) {
+    if (sel === "#modal-sample-keep .sample-keep-copy") return copy;
+    return null;
+  };
+  ctx.openModal = function () { modal.classList.add("open"); };
+  return { modal, title, copy };
+}
+
+const fullKeep = loadSandbox({ search: "?demo=1&ig=1", pathname: "/", hash: "", href: "http://localhost/?demo=1&ig=1" });
+const fullNodes = mountKeep(fullKeep);
+check("default IG wall opens the full copy", fullKeep.RunnrDemoSandbox.showKeepScore({ skipIntro: true }) === true && fullNodes.title.textContent === "Keep this score" && /Your score: ready/.test(fullNodes.copy.textContent) && fullNodes.modal.classList.contains("sample-keep-lite") === false);
+check("first IG land stores the full wall", fullKeep.localStorage.getItem("runnr_wall_v1") === "full");
+check("returning IG guest keeps the full wall", fullKeep.RunnrDemoSandbox.assignWallVersion() === "full");
+fullKeep.location.search = "?demo=1&ig=1&wall=nope";
+check("bad wall param keeps the stored wall", fullKeep.RunnrDemoSandbox.assignWallVersion() === "full");
+
+const liteKeep = loadSandbox({ search: "?demo=1&ig=1&wall=lite", pathname: "/", hash: "", href: "http://localhost/?demo=1&ig=1&wall=lite" });
+const liteNodes = mountKeep(liteKeep);
+check("wall=lite paints Save your score", liteKeep.RunnrDemoSandbox.showKeepScore({ skipIntro: true }) === true && liteNodes.title.textContent === "Save your score" && liteNodes.copy.textContent === "Free. No card. Takes one tap." && liteNodes.modal.classList.contains("sample-keep-lite") === true);
+check("wall=lite is persisted", liteKeep.localStorage.getItem("runnr_wall_v1") === "lite");
+liteKeep.location.search = "?demo=1&ig=1";
+check("stored lite survives the next IG land", liteKeep.RunnrDemoSandbox.showKeepScore({ skipIntro: true }) === true && liteNodes.title.textContent === "Save your score" && liteNodes.modal.classList.contains("sample-keep-lite") === true);
+liteKeep.location.search = "?demo=1";
+check("IG session keeps the lite wall after the URL drops ig", liteKeep.RunnrDemoSandbox.wallVersion() === "lite" && liteNodes.copy.textContent === "Free. No card. Takes one tap.");
+liteKeep.location.search = "?demo=1&ig=1&wall=full";
+check("wall=full restores the pricing wall", liteKeep.RunnrDemoSandbox.showKeepScore({ skipIntro: true }) === true && liteNodes.title.textContent === "Keep this score" && /Your score: ready/.test(liteNodes.copy.textContent) && liteNodes.modal.classList.contains("sample-keep-lite") === false && liteKeep.localStorage.getItem("runnr_wall_v1") === "full");
+
+const organicWall = loadSandbox({ search: "?demo=1", pathname: "/", hash: "", href: "http://localhost/?demo=1" });
+check("organic demo does not assign a wall", organicWall.RunnrDemoSandbox.assignWallVersion() === "" && organicWall.localStorage.getItem("runnr_wall_v1") == null);
+check("organic demo still resolves the full wall", organicWall.RunnrDemoSandbox.wallVersion() === "full");
+
+const liteBeacons = loadSandbox({ search: "?demo=1&ig=1&igv=empty&wall=lite", pathname: "/", hash: "", href: "http://localhost/?demo=1&ig=1&igv=empty&wall=lite" });
+const liteUrls = [];
+liteBeacons.navigator.sendBeacon = function (url) { liteUrls.push(String(url)); return true; };
+liteBeacons.RunnrDemoSandbox.assignIgVariant();
+liteBeacons.RunnrDemoSandbox.assignWallVersion();
+liteBeacons.location.search = "?demo=1";
+liteBeacons.RunnrDemoSandbox.fireEmailWallBeacons(true);
+liteBeacons.RunnrDemoSandbox.noteKeepOAuthStart("google");
+liteBeacons.RunnrDemoSandbox.beacon("email_wall_converted");
+liteBeacons.RunnrDemoSandbox.beacon("demo_score_trade");
+function tagged(event, wall) {
+  return liteUrls.some((u) => new RegExp("[?&]e=" + event + "(?:&|$)").test(u) && new RegExp("[?&]w=" + wall + "(?:&|$)").test(u) && /[?&]v=empty(?:&|$)/.test(u));
+}
+check("lite wall shown and locked are tagged", tagged("email_wall_shown", "lite") && tagged("email_wall_locked", "lite"));
+check("lite oauth start and converted are tagged", tagged("email_wall_oauth_start", "lite") && tagged("email_wall_converted", "lite"));
+check("score beacon keeps the variant and skips the wall tag", liteUrls.some((u) => /demo_score_trade/.test(u) && /[?&]v=empty(?:&|$)/.test(u) && !/[?&]w=/.test(u)));
+
+const organicWallBeacon = loadSandbox({ search: "?demo=1", pathname: "/", hash: "", href: "http://localhost/?demo=1" });
+const organicWallUrls = [];
+organicWallBeacon.navigator.sendBeacon = function (url) { organicWallUrls.push(String(url)); return true; };
+organicWallBeacon.RunnrDemoSandbox.fireEmailWallBeacons(true);
+check("organic wall beacons are full and unvarianted", organicWallUrls.some((u) => /email_wall_shown/.test(u) && /[?&]w=full(?:&|$)/.test(u)) && organicWallUrls.every((u) => !/[?&]v=/.test(u)));
 
 console.log("test_sample_landing: ok " + n);

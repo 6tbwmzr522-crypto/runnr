@@ -18,7 +18,7 @@ from fastapi.responses import JSONResponse
 from app.auth import get_current_user
 from app.config import settings
 from app.db import get_db
-from app.funnel import FUNNEL_EVENT_SET, build_funnel, record_variant_event
+from app.funnel import FUNNEL_EVENT_SET, build_funnel, record_variant_event, record_wall_event
 
 router = APIRouter(tags=["stats"])
 
@@ -177,6 +177,7 @@ def record_hit(
     event: str | None = None,
     guest_id: str | None = None,
     variant: str | None = None,
+    wall: str | None = None,
 ) -> None:
     day = utc_day()
     digest = visitor_hash(ip, day, user_agent, secret)
@@ -216,6 +217,7 @@ def record_hit(
                 (day, event),
             )
             record_variant_event(conn, event, variant, day)
+            record_wall_event(conn, event, wall, day)
         maybe_cleanup_old_visitors(conn, cutoff)
 
 
@@ -230,7 +232,7 @@ def require_stats_viewer(user: dict = Depends(get_current_user)) -> dict:
 
 
 @router.post("/stats/hit", status_code=204)
-def stats_hit(request: Request, e: str | None = None, g: str | None = None, v: str | None = None):
+def stats_hit(request: Request, e: str | None = None, g: str | None = None, v: str | None = None, w: str | None = None):
     if dnt_enabled(request):
         return Response(status_code=204)
     ua = (request.headers.get("user-agent") or "")[:_UA_MAX]
@@ -242,6 +244,7 @@ def stats_hit(request: Request, e: str | None = None, g: str | None = None, v: s
         event=event,
         guest_id=g,
         variant=v,
+        wall=w,
     )
     return Response(status_code=204)
 

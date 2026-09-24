@@ -212,6 +212,15 @@ html.runnr-ig-empty:not(.runnr-ig-painted) #ig-score-target{color:transparent}
 #modal-sample-keep .runnr-no-card,
 #modal-sample-keep .runnr-readonly{text-align:left;margin:0 0 8px}
 #modal-sample-keep .runnr-readonly{margin-bottom:14px}
+#modal-sample-keep .sample-keep-lite-trust{display:none}
+#modal-sample-keep.sample-keep-lite .sample-keep-trial,
+#modal-sample-keep.sample-keep-lite .runnr-trial-delta,
+#modal-sample-keep.sample-keep-lite .runnr-no-card,
+#modal-sample-keep.sample-keep-lite .runnr-readonly{display:none}
+#modal-sample-keep.sample-keep-lite .sample-keep-lite-trust{
+  display:block;margin:2px 0 12px;text-align:center;
+  font-size:11px;line-height:1.45;color:var(--text3);
+}
 #modal-sample-keep{
   background:rgba(4,6,10,0.46);
   backdrop-filter:blur(2px);

@@ -28,6 +28,17 @@
   const IG_LAND_KEY = "runnr_ig_land_v1";
   const IG_VARIANT_KEY = "runnr_ig_variant_v1";
   const IG_SESSION_KEY = "runnr_ig_session_v1";
+  const WALL_VERSION_KEY = "runnr_wall_v1";
+  const WALL_SESSION_KEY = "runnr_wall_session_v1";
+  // Config flag for the IG keep-score wall. "full" is the pricing wall.
+  // Flip to "lite" to ship Save your score. URL &wall=lite|full still overrides.
+  const WALL_DEFAULT = "full";
+  const WALL_VERSION_EVENTS = {
+    email_wall_shown: true,
+    email_wall_locked: true,
+    email_wall_oauth_start: true,
+    email_wall_converted: true,
+  };
   const IG_TAGGED_EVENTS = {
     demo_ig_land: true,
     demo_score_trade: true,
@@ -892,6 +903,9 @@
   // stays under the copy so TikTok guests do not think one-tap OAuth starts a paid plan.
   const DEFAULT_KEEP_COPY = "Your score: ready. Save it — plus the weekly report that shows undisciplined P&L vs the clean one.";
   const CAP_KEEP_COPY = "3 SAMPLE plans used — save your score to keep sizing & logging. SAMPLE stays SAMPLE — it never merges into a real book.";
+  const FULL_KEEP_TITLE = "Keep this score";
+  const LITE_KEEP_TITLE = "Save your score";
+  const LITE_KEEP_COPY = "Free. No card. Takes one tap.";
 
   function onceSessionFlag(key, fn) {
     try {
@@ -1119,11 +1133,14 @@
         : false;
       if (wantsIntro && !tourWantsChipPath() && playIntroThenKeep(o)) return true;
     }
+    const modal = global.document && document.getElementById("modal-sample-keep");
+    const wall = paintKeepWall(modal);
     const copy = global.document && document.querySelector("#modal-sample-keep .sample-keep-copy");
     if (copy) {
-      copy.textContent = (opts && opts.reason === "sample-log-cap") ? CAP_KEEP_COPY : DEFAULT_KEEP_COPY;
+      copy.textContent = wall === "lite"
+        ? LITE_KEEP_COPY
+        : ((opts && opts.reason === "sample-log-cap") ? CAP_KEEP_COPY : DEFAULT_KEEP_COPY);
     }
-    const modal = global.document && document.getElementById("modal-sample-keep");
     paintKeepLock(modal);
     paintKeepOAuth();
     let opened = false;
@@ -1331,6 +1348,65 @@
       if (assigned) return assigned;
     }
     return storedIgVariant();
+  }
+
+  function normalizeWallVersion(raw) {
+    const v = String(raw || "").trim().toLowerCase();
+    if (v === "lite" || v === "full") return v;
+    return "";
+  }
+
+  function wallVersionFromUrl(loc) {
+    loc = loc || (global.location || {});
+    try {
+      const search = String(loc.search || "");
+      const m = search.match(/(?:^|[?&])wall=(lite|full)(?:&|$)/i);
+      return m ? normalizeWallVersion(m[1]) : "";
+    } catch (e) {
+      return "";
+    }
+  }
+
+  function storedWallVersion() {
+    return normalizeWallVersion(storageGet(global.localStorage, WALL_VERSION_KEY));
+  }
+
+  function wallSessionActive() {
+    return storageGet(global.sessionStorage, WALL_SESSION_KEY) === "1";
+  }
+
+  function assignWallVersion(loc) {
+    loc = loc || (global.location || {});
+    const override = wallVersionFromUrl(loc);
+    if (!isIgScoreLanding(loc) && !override) return "";
+    const version = override || storedWallVersion() || WALL_DEFAULT;
+    storageSet(global.localStorage, WALL_VERSION_KEY, version);
+    storageSet(global.sessionStorage, WALL_SESSION_KEY, "1");
+    return version;
+  }
+
+  function wallVersion() {
+    const override = wallVersionFromUrl();
+    if (override || isIgScoreLanding()) {
+      const assigned = assignWallVersion();
+      if (assigned) return assigned;
+    }
+    if (wallSessionActive() || igSessionActive()) {
+      return storedWallVersion() || WALL_DEFAULT;
+    }
+    return WALL_DEFAULT;
+  }
+
+  function paintKeepWall(modal) {
+    const version = wallVersion();
+    const lite = version === "lite";
+    const el = modal || (global.document && document.getElementById("modal-sample-keep"));
+    if (el && el.classList && typeof el.classList.toggle === "function") {
+      el.classList.toggle("sample-keep-lite", lite);
+    }
+    const title = global.document && document.getElementById("sample-keep-title");
+    if (title) title.textContent = lite ? LITE_KEEP_TITLE : FULL_KEEP_TITLE;
+    return version;
   }
 
   function igTickerOk(raw) {
@@ -1542,6 +1618,7 @@
   function noteIgLand() {
     if (isLoggedIn() || !isIgScoreLanding()) return false;
     assignIgVariant();
+    assignWallVersion();
     return onceSessionFlag(IG_LAND_KEY, function () {
       beacon("demo_ig_land");
     });
@@ -1735,12 +1812,14 @@
         }
       } catch (err) {}
       const variant = IG_TAGGED_EVENTS[event] ? igVariant() : "";
+      const wall = WALL_VERSION_EVENTS[event] ? wallVersion() : "";
       const url =
         String(base).replace(/\/$/, "") +
         "/api/v1/stats/hit?e=" +
         encodeURIComponent(event || "demo_view") +
         (guest ? "&g=" + encodeURIComponent(guest) : "") +
-        (variant ? "&v=" + encodeURIComponent(variant) : "");
+        (variant ? "&v=" + encodeURIComponent(variant) : "") +
+        (wall ? "&w=" + encodeURIComponent(wall) : "");
       if (nav.sendBeacon) {
         nav.sendBeacon(url);
         return;
@@ -1758,6 +1837,10 @@
     IG_URL,
     IG_VARIANT_KEY,
     IG_SESSION_KEY,
+    WALL_VERSION_KEY,
+    WALL_DEFAULT,
+    assignWallVersion,
+    wallVersion,
     ALIAS_PATH,
     KEEP_HREF,
     KEEP_RETURN,

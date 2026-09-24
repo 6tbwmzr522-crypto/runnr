@@ -698,3 +698,54 @@ def test_register_attributes_new_ig_account(monkeypatch):
     assert row["ig_variant"] == "empty"
     assert plain["ig_variant"] in (None, "")
 
+
+def _wall_total(event: str, wall: str) -> int:
+    with get_db() as conn:
+        row = conn.execute(
+            """
+            SELECT COALESCE(SUM(count), 0) AS n
+            FROM site_funnel_walls
+            WHERE event = ? AND wall = ?
+            """,
+            (event, wall),
+        ).fetchone()
+    return int(row["n"] or 0)
+
+
+def test_wall_version_hit_is_tagged_without_changing_ig_totals():
+    init_db()
+    before_shown = _event_total("email_wall_shown")
+    before_lite = _wall_total("email_wall_shown", "lite")
+    before_locked = _wall_total("email_wall_locked", "lite")
+    before_full = _wall_total("email_wall_oauth_start", "full")
+    before_converted_lite = _wall_total("email_wall_converted", "lite")
+    before_converted_full = _wall_total("email_wall_converted", "full")
+    before_view_wall = _wall_total("demo_view", "lite")
+    before_empty = _variant_total("email_wall_shown", "empty")
+    before_view = _event_total("demo_view")
+    with TestClient(app) as client:
+        assert client.post("/api/v1/stats/hit?e=email_wall_shown&v=empty&w=lite").status_code == 204
+        assert client.post("/api/v1/stats/hit?e=email_wall_locked&w=lite").status_code == 204
+        assert client.post("/api/v1/stats/hit?e=email_wall_oauth_start&w=full").status_code == 204
+        assert client.post("/api/v1/stats/hit?e=email_wall_converted&w=nope").status_code == 204
+        assert client.post("/api/v1/stats/hit?e=demo_view&w=lite").status_code == 204
+        res = client.get(
+            "/api/v1/admin/funnel",
+            headers={"Authorization": f"Bearer {token_for('janis@thinicedigital.com')}"},
+        )
+    assert res.status_code == 200, res.text
+    data = res.json()
+    assert _event_total("email_wall_shown") == before_shown + 1
+    assert _event_total("demo_view") == before_view + 1
+    assert _wall_total("email_wall_shown", "lite") == before_lite + 1
+    assert _wall_total("email_wall_locked", "lite") == before_locked + 1
+    assert _wall_total("email_wall_oauth_start", "full") == before_full + 1
+    assert _wall_total("email_wall_converted", "lite") == before_converted_lite
+    assert _wall_total("email_wall_converted", "full") == before_converted_full
+    assert _wall_total("demo_view", "lite") == before_view_wall
+    assert _variant_total("email_wall_shown", "empty") == before_empty + 1
+    assert data["ig_ab"]["today"]["empty"]["email_wall_shown"] >= before_empty + 1
+    assert data["wall"]["today"]["lite"]["email_wall_shown"] >= before_lite + 1
+    assert data["wall"]["today"]["full"]["email_wall_oauth_start"] >= before_full + 1
+    assert "demo_view" not in data["wall"]["events"]
+

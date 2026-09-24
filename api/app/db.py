@@ -202,6 +202,17 @@ def _migrate_funnel_events(conn: sqlite3.Connection) -> None:
         )
         """
     )
+    conn.execute(
+        """
+        CREATE TABLE IF NOT EXISTS site_funnel_walls (
+          day TEXT NOT NULL,
+          event TEXT NOT NULL,
+          wall TEXT NOT NULL,
+          count INTEGER NOT NULL DEFAULT 0,
+          PRIMARY KEY (day, event, wall)
+        )
+        """
+    )
 
 
 def _migrate_site_stats(conn: sqlite3.Connection) -> None:
