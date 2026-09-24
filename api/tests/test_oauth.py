@@ -223,3 +223,65 @@ def test_sentinel_password_never_verifies():
     assert is_oauth_sentinel(OAUTH_PASSWORD_SENTINEL)
     assert is_oauth_sentinel("")
     assert not verify_password("anything1", OAUTH_PASSWORD_SENTINEL)
+
+
+def test_oauth_state_keeps_ig_variant():
+    from app.oauth import decode_oauth_state, encode_oauth_state
+
+    raw = encode_oauth_state("google", "/?demo=1", "empty")
+    data = decode_oauth_state(raw, "google")
+    assert data["v"] == "empty"
+    assert data["n"] == "/?demo=1"
+    plain = decode_oauth_state(encode_oauth_state("google", "/", "nope"), "google")
+    assert "v" not in plain
+
+
+def test_new_oauth_user_records_ig_variant_once():
+    from app.db import init_db
+
+    init_db()
+    email = "ig.empty.oauth@example.com"
+    with get_db() as conn:
+        before = conn.execute(
+            """
+            SELECT COALESCE(SUM(count), 0) AS n
+            FROM site_funnel_variants
+            WHERE event = 'users_created' AND variant = 'empty'
+            """
+        ).fetchone()["n"]
+    created = upsert_oauth_user(
+        provider="google",
+        provider_sub="ig-empty-sub-1",
+        email=email,
+        ig_variant="empty",
+    )
+    row = _user_by_email(email)
+    assert row["ig_variant"] == "empty"
+    assert created["id"] == row["id"]
+    again = upsert_oauth_user(
+        provider="google",
+        provider_sub="ig-empty-sub-1",
+        email=email,
+        ig_variant="prefill",
+    )
+    assert again["id"] == created["id"]
+    assert _user_by_email(email)["ig_variant"] == "empty"
+    with get_db() as conn:
+        count = conn.execute(
+            """
+            SELECT COALESCE(SUM(count), 0) AS n
+            FROM site_funnel_variants
+            WHERE event = 'users_created' AND variant = 'empty'
+            """
+        ).fetchone()["n"]
+    assert int(count) == int(before) + 1
+
+    existing = _insert_user("ig.existing.oauth@example.com")
+    upsert_oauth_user(
+        provider="google",
+        provider_sub="ig-existing-sub",
+        email="ig.existing.oauth@example.com",
+        ig_variant="prefill",
+    )
+    assert _user_by_email("ig.existing.oauth@example.com")["ig_variant"] in (None, "")
+    assert existing

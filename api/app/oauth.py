@@ -14,6 +14,7 @@ from jose import JWTError, jwt
 from app.auth import create_access_token, hash_password
 from app.config import settings
 from app.db import get_db
+from app.funnel import normalize_ig_variant, record_variant_event
 from app.names import normalize_first_name
 from app.trial import default_trial_ends_at_iso
 
@@ -71,12 +72,15 @@ def _apple_private_key() -> str:
     return (settings.apple_oauth_private_key or "").strip().replace("\\n", "\n")
 
 
-def encode_oauth_state(provider: str, next_path: str = "/") -> str:
+def encode_oauth_state(provider: str, next_path: str = "/", variant: str | None = None) -> str:
     payload = {
         "p": provider,
         "n": next_path or "/",
         "exp": datetime.now(timezone.utc).timestamp() + STATE_MINUTES * 60,
     }
+    chosen = normalize_ig_variant(variant)
+    if chosen:
+        payload["v"] = chosen
     return jwt.encode(payload, settings.runnr_secret_key, algorithm="HS256")
 
 
@@ -308,6 +312,7 @@ def upsert_oauth_user(
     email_verified: bool = True,
     first_name: str | None = None,
     avatar_url: str | None = None,
+    ig_variant: str | None = None,
 ) -> dict[str, Any]:
     """Attach this identity to an existing email user, or create one."""
     provider = (provider or "").strip().lower()
@@ -339,14 +344,16 @@ def upsert_oauth_user(
                 (email,),
             ).fetchone()
         if user is None:
+            chosen = normalize_ig_variant(ig_variant)
             cur = conn.execute(
                 """
-                INSERT INTO users (email, password_hash, email_verified, first_name, avatar_url, trial_ends_at)
-                VALUES (?, ?, ?, ?, ?, ?)
+                INSERT INTO users (email, password_hash, email_verified, first_name, avatar_url, trial_ends_at, ig_variant)
+                VALUES (?, ?, ?, ?, ?, ?, ?)
                 """,
-                (email, OAUTH_PASSWORD_SENTINEL, verified, first_name, avatar_url, default_trial_ends_at_iso()),
+                (email, OAUTH_PASSWORD_SENTINEL, verified, first_name, avatar_url, default_trial_ends_at_iso(), chosen),
             )
             user_id = int(cur.lastrowid)
+            record_variant_event(conn, "users_created", chosen)
             user = conn.execute("SELECT * FROM users WHERE id = ?", (user_id,)).fetchone()
         else:
             user_id = int(user["id"])

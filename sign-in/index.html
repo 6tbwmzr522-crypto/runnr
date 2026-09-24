@@ -176,9 +176,20 @@
   let pendingToken = "";
   let resetToken = "";
 
+  function igAccountVariant() {
+    try {
+      if (sessionStorage.getItem("runnr_ig_session_v1") !== "1") return "";
+      var v = localStorage.getItem("runnr_ig_variant_v1");
+      if (v === "prefill" || v === "empty") return v;
+    } catch (e) {}
+    return "";
+  }
   function oauthStart(provider) {
     var next = safeNextPath() || (keepScore ? "/?demo=1" : "/?signedin=1");
-    return API + "/api/v1/auth/oauth/" + provider + "/start?next=" + encodeURIComponent(next);
+    var url = API + "/api/v1/auth/oauth/" + provider + "/start?next=" + encodeURIComponent(next);
+    var igv = igAccountVariant();
+    if (igv) url += "&igv=" + encodeURIComponent(igv);
+    return url;
   }
   var gBtn = document.getElementById("oauth-google");
   var aBtn = document.getElementById("oauth-apple");
@@ -541,6 +552,8 @@
         setStatus("Creating your account…", "work");
         var body = { email: fields.email, password: fields.password };
         if (fields.firstName) body.first_name = fields.firstName;
+        var igv = igAccountVariant();
+        if (igv) body.ig_variant = igv;
         data = await apiPost("/api/v1/auth/register", body);
       }
       saveSession(data.access_token, data.email || fields.email);

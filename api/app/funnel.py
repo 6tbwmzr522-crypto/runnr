@@ -26,6 +26,22 @@ FUNNEL_EVENTS = (
 )
 FUNNEL_EVENT_SET = frozenset(FUNNEL_EVENTS)
 
+# Instagram score-first A/B. Combined guest totals stay on site_funnel_events.
+# Variant rows are a second dimension and never replace those totals.
+IG_AB_START = "2026-09-24"
+IG_AB_VARIANTS = ("prefill", "empty")
+IG_AB_EVENTS = (
+    "demo_ig_land",
+    "demo_score_trade",
+    "demo_aha",
+    "email_wall_shown",
+    "email_wall_locked",
+    "email_wall_oauth_start",
+    "email_wall_converted",
+    "demo_cta_start",
+    "users_created",
+)
+
 GUEST_NOTE = (
     "Visit uniques ≠ users; guest events are SAMPLE beacons; users only after "
     "email register. Guests who never sign in or never sync cannot be counted "
@@ -79,6 +95,68 @@ def _guest_event_counts(conn, *, day: str | None = None) -> dict[str, int]:
     return out
 
 
+def normalize_ig_variant(raw: str | None) -> str | None:
+    if raw is None:
+        return None
+    name = str(raw).strip().lower()
+    if name in IG_AB_VARIANTS:
+        return name
+    return None
+
+
+def record_variant_event(conn, event: str, variant: str | None, day: str | None = None) -> None:
+    """Count one allowlisted-or-account event for an IG lander variant.
+
+    Does not touch site_funnel_events, so the combined guest cards stay intact.
+    """
+    name = str(event or "").strip()
+    chosen = normalize_ig_variant(variant)
+    if not name or chosen is None or name not in IG_AB_EVENTS:
+        return
+    stamp = day or _utc_day()
+    conn.execute(
+        """
+        INSERT INTO site_funnel_variants (day, event, variant, count)
+        VALUES (?, ?, ?, 1)
+        ON CONFLICT(day, event, variant) DO UPDATE SET count = count + 1
+        """,
+        (stamp, name, chosen),
+    )
+
+
+def _empty_variant_counts() -> dict[str, int]:
+    return {name: 0 for name in IG_AB_EVENTS}
+
+
+def _variant_matrix(conn, *, day: str | None) -> dict[str, dict[str, int]]:
+    out = {variant: _empty_variant_counts() for variant in IG_AB_VARIANTS}
+    if day is None:
+        rows = conn.execute(
+            """
+            SELECT variant, event, COALESCE(SUM(count), 0) AS count
+            FROM site_funnel_variants
+            WHERE day >= ?
+            GROUP BY variant, event
+            """,
+            (IG_AB_START,),
+        ).fetchall()
+    else:
+        rows = conn.execute(
+            """
+            SELECT variant, event, count
+            FROM site_funnel_variants
+            WHERE day = ? AND day >= ?
+            """,
+            (day, IG_AB_START),
+        ).fetchall()
+    for row in rows:
+        variant = str(row["variant"] or "")
+        event = str(row["event"] or "")
+        if variant in out and event in out[variant]:
+            out[variant][event] = int(row["count"] or 0)
+    return out
+
+
 def _users_created_on(conn, day: str) -> int:
     # created_at may be "YYYY-MM-DD HH:MM:SS" or ISO-8601 with T/Z.
     row = conn.execute(
@@ -106,6 +184,8 @@ def build_funnel() -> dict:
         guest_events_today = _guest_event_counts(conn, day=today)
         guest_events_totals = _guest_event_counts(conn, day=None)
         users_created_today = _users_created_on(conn, today)
+        ig_ab_today = _variant_matrix(conn, day=today)
+        ig_ab_since = _variant_matrix(conn, day=None)
 
     trade_counts: dict[int, int] = {}
     for row in states:
@@ -165,6 +245,13 @@ def build_funnel() -> dict:
         "guest_events_today": guest_events_today,
         "guest_events_totals": guest_events_totals,
         "users_created_today": users_created_today,
+        "ig_ab": {
+            "start": IG_AB_START,
+            "variants": list(IG_AB_VARIANTS),
+            "events": list(IG_AB_EVENTS),
+            "today": ig_ab_today,
+            "since": ig_ab_since,
+        },
         "note": GUEST_NOTE,
         "timezone": "UTC",
     }

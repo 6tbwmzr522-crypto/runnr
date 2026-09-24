@@ -35,8 +35,8 @@ const v = html.match(/var V = "(\d+)"/)[1];
 const cache = sw.match(/CACHE = "runnr-v(\d+)"/)[1];
 check("index.html V matches sw.js CACHE", v === cache);
 check("cache is 139+", Number(v) >= 187);
-check("demo-sandbox cache-bust", html.includes("js/demo-sandbox.js?v=30"));
-check("pages.css cache-bust", html.includes("css/pages.css?v=22"));
+check("demo-sandbox cache-bust", html.includes("js/demo-sandbox.js?v=31"));
+check("pages.css cache-bust", html.includes("css/pages.css?v=23"));
 check("intro.js cache-bust", html.includes("js/intro.js?v=8"));
 check("onboarding.js cache-bust", html.includes("js/onboarding.js?v=42"));
 
@@ -608,16 +608,22 @@ check("#score is the ig path", SB.isIgScoreLanding({ search: "", pathname: "/", 
 check("bare home is not the ig path", SB.isIgScoreLanding({ search: "", pathname: "/", hash: "" }) === false);
 
 const igHtml = html.slice(html.indexOf('id="ig-score"'), html.indexOf('id="tour-overlay"'));
-check("ig card is one Score button", igHtml.includes('id="ig-score-cta"') && igHtml.includes("Score a trade") && (igHtml.match(/<button/g) || []).length === 1);
+check("ig card headline is score your last trade", igHtml.includes("Score your last trade") && !igHtml.includes("Score this trade"));
+check("ig card score CTA stays Score a trade", igHtml.includes('id="ig-score-cta"') && igHtml.includes("Score a trade") && !/Watch how/.test(igHtml) && !/>Skip</.test(igHtml));
+check("empty variant markup has ticker and direction", igHtml.includes('id="ig-score-ticker"') && igHtml.includes('placeholder="AAPL"') && igHtml.includes('data-ig-dir="long"') && igHtml.includes('data-ig-dir="short"') && igHtml.includes('id="ig-score-setup"'));
 check("ig card primes AAPL long fields", igHtml.includes('id="ig-score-entry"') && igHtml.includes('value="198"') && igHtml.includes('id="ig-score-stop"') && igHtml.includes('value="194"') && igHtml.includes('id="ig-score-target"') && igHtml.includes('value="214"') && igHtml.includes("AAPL"));
 check("ig card has no watch or skip", !/Watch how/.test(igHtml) && !/Skip/.test(igHtml));
 check("first paint opens the ig card instead of the pitch hero", html.includes("runnr-ig-score") && html.includes("ig=1") && html.includes("runnr_ig_score_v1"));
 check("stats documents the Meta ads URL", stats.includes('id="ig-ad-url"') && stats.includes("demo=1") && stats.includes("ig=1") && stats.includes("demo_ig_land"));
+check("stats has the IG A/B section", stats.includes("Instagram A/B") && stats.includes('id="ig-ab"') && stats.includes("Land → score") && stats.includes("Score → converted") && stats.includes("users_created"));
 check("route bails while the ig card is up", bootSrc.includes("runnr-ig-score"));
 
 const igClick = loadSandbox({ search: "?demo=1&ig=1", pathname: "/", hash: "", href: "http://localhost/?demo=1&ig=1" });
+igClick.localStorage.setItem("runnr_ig_variant_v1", "prefill");
 const igHits = [];
+const igHitUrls = [];
 igClick.navigator.sendBeacon = function (url) {
+  igHitUrls.push(String(url));
   const m = String(url).match(/[?&]e=([^&]+)/);
   igHits.push(decodeURIComponent((m && m[1]) || ""));
   return true;
@@ -653,6 +659,8 @@ igClick.sessionStorage.removeItem("runnr_ig_land_v1");
 igClick.RunnrDemoSandbox.noteIgLand();
 igClick.RunnrDemoSandbox.noteIgLand();
 check("ig land beacons once per session", igHits.filter((e) => e === "demo_ig_land").length === 1);
+check("prefill land beacon is tagged prefill", igHitUrls.some((u) => /demo_ig_land/.test(u) && /[?&]v=prefill(?:&|$)/.test(u)));
+check("prefill score beacon is tagged prefill", igHitUrls.some((u) => /demo_score_trade/.test(u) && /[?&]v=prefill(?:&|$)/.test(u)));
 
 const scoreFn = sandboxSrc.slice(sandboxSrc.indexOf("function openScoreTrade"), sandboxSrc.indexOf("function markIgResult"));
 check("organic score still opens the desk", scoreFn.includes("openGoldSizer(primed)") && !/focus:\s*"result"/.test(scoreFn));
@@ -685,5 +693,136 @@ check("signed-in ad URL does not count as ig land", igSigned.RunnrDemoSandbox.no
 
 const igReal = loadSandbox({ search: "?demo=1&ig=1", pathname: "/", hash: "", href: "http://localhost/?demo=1&ig=1" });
 check("real book on the ad URL skips the score card", igReal.RunnrDemoSandbox.shouldShowIgScore(real) === false);
+
+function clsSet(initial) {
+  const items = new Set(initial || []);
+  return {
+    add(c) { items.add(c); },
+    remove(c) { items.delete(c); },
+    contains(c) { return items.has(c); },
+  };
+}
+function igInput(value) {
+  return {
+    value: value == null ? "" : String(value),
+    placeholder: "",
+    hidden: false,
+    disabled: false,
+    textContent: "",
+    classList: clsSet(),
+    dataset: {},
+    setAttribute() {},
+    removeAttribute() {},
+  };
+}
+function mountIgFields(ctx, values) {
+  const fields = {
+    "ig-score": igInput(""),
+    "ig-score-ticker": igInput(values.ticker || ""),
+    "ig-score-entry": igInput(values.entry || ""),
+    "ig-score-stop": igInput(values.stop || ""),
+    "ig-score-target": igInput(values.target || ""),
+    "ig-score-plan": igInput(""),
+    "ig-score-meta": igInput(""),
+    "ig-score-hint": igInput(""),
+    "ig-score-cta": igInput(""),
+    "ig-score-setup": igInput(""),
+    "ig-dir-long": igInput(""),
+    "ig-dir-short": igInput(""),
+  };
+  fields["ig-score"].classList = clsSet();
+  fields["ig-dir-long"].classList = clsSet(values.dir === "short" ? [] : ["on"]);
+  fields["ig-dir-short"].classList = clsSet(values.dir === "short" ? ["on"] : []);
+  fields["ig-score-hint"].hidden = true;
+  ctx.document.getElementById = function (id) { return fields[id] || null; };
+  return fields;
+}
+
+check("roll under 0.5 is prefill", SB.variantFromRoll(0) === "prefill" && SB.variantFromRoll(0.49) === "prefill");
+check("roll at 0.5 and above is empty", SB.variantFromRoll(0.5) === "empty" && SB.variantFromRoll(0.9) === "empty");
+
+const igAssign = loadSandbox({ search: "?demo=1&ig=1", pathname: "/", hash: "", href: "http://localhost/?demo=1&ig=1" });
+const igAssigned = igAssign.RunnrDemoSandbox.assignIgVariant();
+check("first IG land assigns one variant", igAssigned === "prefill" || igAssigned === "empty");
+check("assignment sticks in localStorage", igAssign.localStorage.getItem("runnr_ig_variant_v1") === igAssigned);
+check("returning guest keeps that variant", igAssign.RunnrDemoSandbox.assignIgVariant() === igAssigned && igAssign.RunnrDemoSandbox.igVariant() === igAssigned);
+igAssign.location.search = "?demo=1&ig=1&igv=" + (igAssigned === "empty" ? "prefill" : "empty");
+const igOverridden = igAssigned === "empty" ? "prefill" : "empty";
+check("igv override switches variant", igAssign.RunnrDemoSandbox.assignIgVariant() === igOverridden);
+check("override is persisted", igAssign.localStorage.getItem("runnr_ig_variant_v1") === igOverridden);
+igAssign.location.search = "?demo=1&ig=1&igv=nope";
+check("bad igv keeps the stored variant", igAssign.RunnrDemoSandbox.assignIgVariant() === igOverridden);
+
+const organicAssign = loadSandbox({ search: "?demo=1", pathname: "/", hash: "", href: "http://localhost/?demo=1" });
+check("organic demo does not assign a variant", organicAssign.RunnrDemoSandbox.assignIgVariant() === "" && organicAssign.RunnrDemoSandbox.igVariant() === "");
+check("organic demo does not write the variant key", organicAssign.localStorage.getItem("runnr_ig_variant_v1") == null);
+
+check("empty gate wants a ticker", igAssign.RunnrDemoSandbox.igPlanGate({ ticker: "", dir: "long", entry: "198", stop: "194" }).ok === false);
+check("empty gate wants entry and stop", igAssign.RunnrDemoSandbox.igPlanGate({ ticker: "TSLA", dir: "long", entry: "", stop: "" }).ok === false);
+check("long stop must sit below entry", igAssign.RunnrDemoSandbox.igPlanGate({ ticker: "TSLA", dir: "long", entry: "250", stop: "260" }).ok === false);
+check("short stop must sit above entry", igAssign.RunnrDemoSandbox.igPlanGate({ ticker: "TSLA", dir: "short", entry: "250", stop: "240" }).ok === false);
+const noTarget = igAssign.RunnrDemoSandbox.igPlanGate({ ticker: "TSLA", dir: "short", entry: "250", stop: "260", target: "" });
+check("target is optional when stop is on the right side", noTarget.ok === true && noTarget.hasTarget === false && /optional/i.test(noTarget.hint));
+const withTarget = igAssign.RunnrDemoSandbox.igPlanGate({ ticker: "tsla", dir: "short", entry: "250", stop: "260", target: "220" });
+check("filled short plan is ready", withTarget.ok === true && withTarget.ticker === "TSLA" && withTarget.dir === "short" && Math.abs(withTarget.rr - 3) < 1e-9);
+
+const igEmptyClick = loadSandbox({ search: "?demo=1&ig=1&igv=empty", pathname: "/", hash: "", href: "http://localhost/?demo=1&ig=1&igv=empty" });
+const igEmptyHits = [];
+igEmptyClick.navigator.sendBeacon = function (url) {
+  igEmptyHits.push(String(url));
+  return true;
+};
+igEmptyClick.S = { trades: book, watchlist: SB.factoryWatchlist(), bal: 10000, risk: 1, sym: "€" };
+igEmptyClick.primed = null;
+igEmptyClick.opened = [];
+igEmptyClick.RunnrPretrade = {
+  prime(input) { igEmptyClick.primed = input; return input; },
+  open(which) { igEmptyClick.opened.push(which || "desk"); return true; },
+};
+const badFields = mountIgFields(igEmptyClick, { ticker: "TSLA", dir: "long", entry: "250", stop: "260", target: "" });
+check("wrong-side stop does not open the result", igEmptyClick.RunnrDemoSandbox.activateIgScore(igEmptyClick.S) === false && igEmptyClick.opened.length === 0);
+check("wrong-side stop disables Score and shows a hint", badFields["ig-score-cta"].disabled === true && /below entry/i.test(badFields["ig-score-hint"].textContent));
+mountIgFields(igEmptyClick, { ticker: "TSLA", dir: "short", entry: "250", stop: "260", target: "220" });
+check("empty variant scores the typed plan", igEmptyClick.RunnrDemoSandbox.activateIgScore(igEmptyClick.S) === true && igEmptyClick.opened[0] === "result");
+check("empty variant primes TSLA short 250/260/220", igEmptyClick.primed && igEmptyClick.primed.ticker === "TSLA" && igEmptyClick.primed.dir === "short" && Number(igEmptyClick.primed.entry) === 250 && Number(igEmptyClick.primed.stop) === 260 && Number(igEmptyClick.primed.target) === 220);
+check("empty score beacon is tagged empty", igEmptyHits.some((u) => /demo_score_trade/.test(u) && /[?&]v=empty(?:&|$)/.test(u)));
+igEmptyClick.sessionStorage.removeItem("runnr_ig_land_v1");
+igEmptyClick.RunnrDemoSandbox.noteIgLand();
+check("empty land beacon is tagged empty", igEmptyHits.some((u) => /demo_ig_land/.test(u) && /[?&]v=empty(?:&|$)/.test(u)));
+
+const organicBeacon = loadSandbox({ search: "?demo=1", pathname: "/", hash: "", href: "http://localhost/?demo=1" });
+const organicUrls = [];
+organicBeacon.navigator.sendBeacon = function (url) { organicUrls.push(String(url)); return true; };
+organicBeacon.S = { trades: book, watchlist: SB.factoryWatchlist(), bal: 10000, risk: 1, sym: "€" };
+organicBeacon.RunnrPretrade = { prime() { return true; }, open() { return true; } };
+organicBeacon.RunnrDemoSandbox.openScoreTrade(organicBeacon.S);
+check("organic score beacon is not variant-tagged", organicUrls.some((u) => /demo_score_trade/.test(u)) && organicUrls.every((u) => !/[?&]v=/.test(u)));
+
+const igWall = loadSandbox({ search: "?demo=1&ig=1&igv=empty", pathname: "/", hash: "", href: "http://localhost/?demo=1&ig=1&igv=empty" });
+igWall.RunnrDemoSandbox.assignIgVariant();
+igWall.location.search = "?demo=1";
+const igWallUrls = [];
+igWall.navigator.sendBeacon = function (url) { igWallUrls.push(String(url)); return true; };
+igWall.RunnrDemoSandbox.fireEmailWallBeacons(true);
+check("IG session wall beacons carry the variant after the URL changes", igWallUrls.some((u) => /email_wall_shown/.test(u) && /[?&]v=empty(?:&|$)/.test(u)) && igWallUrls.some((u) => /email_wall_locked/.test(u) && /[?&]v=empty(?:&|$)/.test(u)));
+
+const tslaCtx = loadSandbox({ search: "?demo=1&ig=1&igv=empty", pathname: "/", hash: "", href: "http://localhost/?demo=1&ig=1&igv=empty" });
+tslaCtx.S = { trades: book, watchlist: SB.factoryWatchlist(), bal: 10000, risk: 1, sym: "€" };
+tslaCtx.document.documentElement.dataset = {};
+tslaCtx.document.addEventListener = function () {};
+tslaCtx.switchPage = function () {};
+vm.runInNewContext(pretradeSrc, tslaCtx);
+tslaCtx.RunnrPretrade.open("result");
+const tslaRails = tslaCtx.RunnrPretrade.normalizeRails({ bal: 10000, sym: "€", maxRiskPct: 2 }, tslaCtx.S);
+tslaCtx.RunnrPretrade.prime({ ticker: "TSLA", dir: "short", entry: "250", stop: "260", target: "" });
+check("prime clears a missing target", tslaCtx.RunnrPretrade.prime().target === "" && tslaCtx.RunnrPretrade.prime().ticker === "TSLA");
+const tslaBare = tslaCtx.RunnrPretrade.computePlan({ ticker: "TSLA", dir: "short", entry: 250, stop: 260 }, tslaRails, tslaCtx.S.trades, new Date("2026-09-24T12:00:00Z"));
+const tslaBareHtml = tslaCtx.RunnrPretrade.outputHTML(tslaBare, tslaRails);
+check("missing target still sizes off the 2% rail", tslaBare.ready === true && tslaBare.size === 20 && tslaBare.totalRisk === 200 && tslaBare.rewardPerShare === 0);
+check("missing target reward rows are dashes", /Reward \/ Share<\/span><strong[^>]*>—</.test(tslaBareHtml) && /Total Reward<\/span><strong[^>]*>—</.test(tslaBareHtml) && tslaBareHtml.includes("PENDING · APPROVED"));
+const tslaPlan = tslaCtx.RunnrPretrade.computePlan({ ticker: "TSLA", dir: "short", entry: 250, stop: 260, target: 220 }, tslaRails, tslaCtx.S.trades, new Date("2026-09-24T12:00:00Z"));
+const tslaHtml = tslaCtx.RunnrPretrade.outputHTML(tslaPlan, tslaRails);
+check("TSLA short uses the typed plan not the AAPL sample", tslaPlan.size === 20 && tslaPlan.riskPerShare === 10 && tslaPlan.totalReward === 600 && Math.abs(tslaPlan.rr - 3) < 1e-9);
+check("TSLA result copy is not the AAPL card", tslaHtml.includes("TSLA · Short") && tslaHtml.includes("20 sh") && tslaHtml.includes("3.00 : 1") && tslaHtml.includes("Sample Trade Result") && tslaHtml.includes("HOW DID IT GO?") && tslaHtml.includes("Keep this score") && tslaHtml.includes("Risked 2% on a 1% rule") && !tslaHtml.includes("AAPL") && !tslaHtml.includes("50 sh") && !/>198</.test(tslaHtml) && !tslaHtml.includes("4.00 : 1"));
 
 console.log("test_sample_landing: ok " + n);

@@ -18,7 +18,7 @@ const v = html.match(/var V = "(\d+)"/)[1];
 const cache = sw.match(/CACHE = "runnr-v(\d+)"/)[1];
 check("index.html V matches sw.js CACHE", v === cache);
 check("cache is 177+", Number(v) >= 177);
-check("fetch-timeout.js is loaded before sync.js", html.indexOf("js/fetch-timeout.js?v=1") < html.indexOf("js/sync.js?v=72"));
+check("fetch-timeout.js is loaded before sync.js", html.indexOf("js/fetch-timeout.js?v=1") < html.indexOf("js/sync.js?v=73"));
 check("fetch-timeout.js is in the script list", scripts.includes("js/fetch-timeout.js"));
 check("quotes no longer define a private fetchWithTimeout", !/function fetchWithTimeout\(/.test(fs.readFileSync(path.join(__dirname, "..", "js/app-quotes.js"), "utf8")));
 check("default timeout is 12s", RunnrFetch.FETCH_TIMEOUT_MS === 12000);

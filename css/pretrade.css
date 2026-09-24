@@ -240,6 +240,9 @@
   color:var(--gold);
   margin-bottom:4px;
 }
+.pt-output-setup{
+  margin:0 0 12px;font-size:15px;letter-spacing:0.04em;color:var(--gold);
+}
 .pt-output-note{
   font-size:11px;
   color:var(--text3);

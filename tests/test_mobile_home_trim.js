@@ -21,7 +21,7 @@ const v = html.match(/var V = "(\d+)"/)[1];
 const cache = sw.match(/CACHE = "runnr-v(\d+)"/)[1];
 check("index.html V matches sw.js CACHE", v === cache);
 check("cache is 175+", Number(v) >= 187);
-check("pages.css cache-bust", html.includes("css/pages.css?v=22"));
+check("pages.css cache-bust", html.includes("css/pages.css?v=23"));
 check("app-nav cache-bust", html.includes("js/app-nav.js?v=6"));
 check("onboarding cache-bust", html.includes("js/onboarding.js?v=42"));
 
