@@ -169,6 +169,7 @@ def _migrate_users_billing(conn: sqlite3.Connection) -> None:
         ("intro_seen", "INTEGER DEFAULT 0"),
         ("avatar_url", "TEXT"),
         ("trial_ends_at", "TEXT"),
+        ("ig_variant", "TEXT"),
     ]
     for col, ddl in migrations:
         if col not in cols:
@@ -187,6 +188,28 @@ def _migrate_funnel_events(conn: sqlite3.Connection) -> None:
           event TEXT NOT NULL,
           count INTEGER NOT NULL DEFAULT 0,
           PRIMARY KEY (day, event)
+        )
+        """
+    )
+    conn.execute(
+        """
+        CREATE TABLE IF NOT EXISTS site_funnel_variants (
+          day TEXT NOT NULL,
+          event TEXT NOT NULL,
+          variant TEXT NOT NULL,
+          count INTEGER NOT NULL DEFAULT 0,
+          PRIMARY KEY (day, event, variant)
+        )
+        """
+    )
+    conn.execute(
+        """
+        CREATE TABLE IF NOT EXISTS site_funnel_walls (
+          day TEXT NOT NULL,
+          event TEXT NOT NULL,
+          wall TEXT NOT NULL,
+          count INTEGER NOT NULL DEFAULT 0,
+          PRIMARY KEY (day, event, wall)
         )
         """
     )

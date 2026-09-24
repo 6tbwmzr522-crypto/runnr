@@ -378,6 +378,8 @@ def test_stats_html_is_gated():
     assert "email_wall oauth" in html
     assert "email_wall_converted" in html
     assert "demo_ig_land" in html
+    assert "Instagram A/B" in html
+    assert 'id="ig-ab"' in html
     assert 'id="ig-ad-url"' in html
     assert "ig=1" in html
     assert "Signed-in accounts (not visits)" in html
@@ -476,6 +478,10 @@ def test_funnel_counts_signed_in_journals():
         assert "users_created_today" in data
         assert "demo_view" in data["guest_events_today"]
         assert "demo_ig_land" in data["guest_events_today"]
+        assert data["ig_ab"]["start"] == "2026-09-24"
+        assert set(data["ig_ab"]["variants"]) == {"prefill", "empty"}
+        assert "demo_ig_land" in data["ig_ab"]["today"]["prefill"]
+        assert "users_created" in data["ig_ab"]["since"]["empty"]
         assert "email_wall_shown" in data["guest_events_today"]
         assert "email_wall_locked" in data["guest_events_today"]
         assert "email_wall_oauth_start" in data["guest_events_today"]
@@ -604,4 +610,142 @@ def test_privacy_says_broker_secrets_stay_off_device():
     assert "Do not persist raw Alpaca secrets" in sync
     assert "wipeAlpacaLocalSecrets" in sync
     assert "JSON.stringify({ key: apiKey, secret: apiSecret" not in sync
+
+
+def _variant_total(event: str, variant: str) -> int:
+    with get_db() as conn:
+        row = conn.execute(
+            """
+            SELECT COALESCE(SUM(count), 0) AS n
+            FROM site_funnel_variants
+            WHERE event = ? AND variant = ?
+            """,
+            (event, variant),
+        ).fetchone()
+    return int(row["n"] or 0)
+
+
+def _event_total(event: str) -> int:
+    with get_db() as conn:
+        row = conn.execute(
+            "SELECT COALESCE(SUM(count), 0) AS n FROM site_funnel_events WHERE event = ?",
+            (event,),
+        ).fetchone()
+    return int(row["n"] or 0)
+
+
+def test_ig_variant_hit_splits_without_changing_combined_totals():
+    init_db()
+    before_land = _event_total("demo_ig_land")
+    before_prefill = _variant_total("demo_ig_land", "prefill")
+    before_empty = _variant_total("demo_ig_land", "empty")
+    before_score = _variant_total("demo_score_trade", "empty")
+    with TestClient(app) as client:
+        assert client.post("/api/v1/stats/hit?e=demo_ig_land&v=prefill").status_code == 204
+        assert client.post("/api/v1/stats/hit?e=demo_ig_land&v=empty").status_code == 204
+        assert client.post("/api/v1/stats/hit?e=demo_ig_land&v=nope").status_code == 204
+        assert client.post("/api/v1/stats/hit?e=demo_score_trade&v=empty").status_code == 204
+        assert client.post("/api/v1/stats/hit?e=demo_view&v=prefill").status_code == 204
+        res = client.get(
+            "/api/v1/admin/funnel",
+            headers={"Authorization": f"Bearer {token_for('janis@thinicedigital.com')}"},
+        )
+    assert res.status_code == 200, res.text
+    data = res.json()
+    assert _event_total("demo_ig_land") == before_land + 3
+    assert _variant_total("demo_ig_land", "prefill") == before_prefill + 1
+    assert _variant_total("demo_ig_land", "empty") == before_empty + 1
+    assert _variant_total("demo_score_trade", "empty") == before_score + 1
+    assert data["ig_ab"]["today"]["prefill"]["demo_ig_land"] >= before_prefill + 1
+    assert data["ig_ab"]["today"]["empty"]["demo_score_trade"] >= before_score + 1
+    assert data["ig_ab"]["since"]["empty"]["demo_ig_land"] >= data["ig_ab"]["today"]["empty"]["demo_ig_land"]
+    assert "demo_view" not in data["ig_ab"]["events"] or data["ig_ab"]["today"]["prefill"].get("demo_view", 0) == 0
+
+
+def test_register_attributes_new_ig_account(monkeypatch):
+    from uuid import uuid4
+
+    init_db()
+    monkeypatch.setattr("app.routers.auth.email_configured", lambda: True)
+    monkeypatch.setattr("app.routers.auth.send_verify_email", lambda to, url: False)
+    email = f"ig-empty-{uuid4().hex[:10]}@example.com"
+    other = f"ig-none-{uuid4().hex[:10]}@example.com"
+    before = _variant_total("users_created", "empty")
+    before_prefill = _variant_total("users_created", "prefill")
+    before_events = _event_total("demo_ig_land")
+    with TestClient(app) as client:
+        created = client.post(
+            "/api/v1/auth/register",
+            json={"email": email, "password": "test-pass-12", "ig_variant": "empty"},
+        )
+        assert created.status_code == 200, created.text
+        again = client.post(
+            "/api/v1/auth/register",
+            json={"email": email, "password": "test-pass-12", "ig_variant": "prefill"},
+        )
+        assert again.status_code == 200, again.text
+        ignored = client.post(
+            "/api/v1/auth/register",
+            json={"email": other, "password": "test-pass-12", "ig_variant": "nope"},
+        )
+        assert ignored.status_code == 200, ignored.text
+    assert _variant_total("users_created", "empty") == before + 1
+    assert _variant_total("users_created", "prefill") == before_prefill
+    assert _event_total("demo_ig_land") == before_events
+    with get_db() as conn:
+        row = conn.execute("SELECT ig_variant FROM users WHERE email = ?", (email,)).fetchone()
+        plain = conn.execute("SELECT ig_variant FROM users WHERE email = ?", (other,)).fetchone()
+    assert row["ig_variant"] == "empty"
+    assert plain["ig_variant"] in (None, "")
+
+
+def _wall_total(event: str, wall: str) -> int:
+    with get_db() as conn:
+        row = conn.execute(
+            """
+            SELECT COALESCE(SUM(count), 0) AS n
+            FROM site_funnel_walls
+            WHERE event = ? AND wall = ?
+            """,
+            (event, wall),
+        ).fetchone()
+    return int(row["n"] or 0)
+
+
+def test_wall_version_hit_is_tagged_without_changing_ig_totals():
+    init_db()
+    before_shown = _event_total("email_wall_shown")
+    before_lite = _wall_total("email_wall_shown", "lite")
+    before_locked = _wall_total("email_wall_locked", "lite")
+    before_full = _wall_total("email_wall_oauth_start", "full")
+    before_converted_lite = _wall_total("email_wall_converted", "lite")
+    before_converted_full = _wall_total("email_wall_converted", "full")
+    before_view_wall = _wall_total("demo_view", "lite")
+    before_empty = _variant_total("email_wall_shown", "empty")
+    before_view = _event_total("demo_view")
+    with TestClient(app) as client:
+        assert client.post("/api/v1/stats/hit?e=email_wall_shown&v=empty&w=lite").status_code == 204
+        assert client.post("/api/v1/stats/hit?e=email_wall_locked&w=lite").status_code == 204
+        assert client.post("/api/v1/stats/hit?e=email_wall_oauth_start&w=full").status_code == 204
+        assert client.post("/api/v1/stats/hit?e=email_wall_converted&w=nope").status_code == 204
+        assert client.post("/api/v1/stats/hit?e=demo_view&w=lite").status_code == 204
+        res = client.get(
+            "/api/v1/admin/funnel",
+            headers={"Authorization": f"Bearer {token_for('janis@thinicedigital.com')}"},
+        )
+    assert res.status_code == 200, res.text
+    data = res.json()
+    assert _event_total("email_wall_shown") == before_shown + 1
+    assert _event_total("demo_view") == before_view + 1
+    assert _wall_total("email_wall_shown", "lite") == before_lite + 1
+    assert _wall_total("email_wall_locked", "lite") == before_locked + 1
+    assert _wall_total("email_wall_oauth_start", "full") == before_full + 1
+    assert _wall_total("email_wall_converted", "lite") == before_converted_lite
+    assert _wall_total("email_wall_converted", "full") == before_converted_full
+    assert _wall_total("demo_view", "lite") == before_view_wall
+    assert _variant_total("email_wall_shown", "empty") == before_empty + 1
+    assert data["ig_ab"]["today"]["empty"]["email_wall_shown"] >= before_empty + 1
+    assert data["wall"]["today"]["lite"]["email_wall_shown"] >= before_lite + 1
+    assert data["wall"]["today"]["full"]["email_wall_oauth_start"] >= before_full + 1
+    assert "demo_view" not in data["wall"]["events"]
 

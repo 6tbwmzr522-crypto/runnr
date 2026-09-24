@@ -6,6 +6,7 @@ from app.auth_tokens import consume_token, issue_token
 from app.billing_util import email_is_boss
 from app.config import settings
 from app.db import get_db
+from app.funnel import normalize_ig_variant, record_variant_event
 from app.email_util import email_configured, send_reset_email, send_verify_email
 from app.models.auth import (
     ForgotPasswordRequest,
@@ -150,11 +151,13 @@ def register(body: RegisterRequest):
                 detail="Confirmation emails are not sending yet. Try again later, or use your Runnr house account.",
             )
         verified = 0 if email_configured() else 1
+        ig_variant = normalize_ig_variant(body.ig_variant)
         cur = conn.execute(
-            "INSERT INTO users (email, password_hash, email_verified, first_name, trial_ends_at) VALUES (?, ?, ?, ?, ?)",
-            (email, hash_password(body.password), verified, first_name, default_trial_ends_at_iso()),
+            "INSERT INTO users (email, password_hash, email_verified, first_name, trial_ends_at, ig_variant) VALUES (?, ?, ?, ?, ?, ?)",
+            (email, hash_password(body.password), verified, first_name, default_trial_ends_at_iso(), ig_variant),
         )
         user_id = cur.lastrowid
+        record_variant_event(conn, "users_created", ig_variant)
 
     if email_configured():
         sent, verify_url = _issue_verification(user_id, email)
@@ -318,8 +321,8 @@ a{{color:#C9A96E}}</style></head>
     return HTMLResponse(body, status_code=status_code)
 
 
-def _finish_oauth(identity: dict, next_path: str) -> RedirectResponse:
-    user = upsert_oauth_user(**identity)
+def _finish_oauth(identity: dict, next_path: str, variant: str | None = None) -> RedirectResponse:
+    user = upsert_oauth_user(**identity, ig_variant=variant)
     code = issue_token(user["id"], "oauth", hours=0.25)
     return RedirectResponse(finish_app_redirect(next_path, code), status_code=302)
 
@@ -330,14 +333,14 @@ def oauth_providers():
 
 
 @router.get("/oauth/google/start")
-def oauth_google_start(next: str = Query(default="/")):
+def oauth_google_start(next: str = Query(default="/"), igv: str = Query(default="")):
     if not google_configured():
         return _oauth_error_page(
             "Google sign-in is not configured yet. Add GOOGLE_OAUTH_CLIENT_ID and "
             "GOOGLE_OAUTH_CLIENT_SECRET on the Railway API, then set the redirect URI "
             "https://api.runnr.fyi/api/v1/auth/oauth/google/callback."
         )
-    state = encode_oauth_state("google", safe_next_path(next))
+    state = encode_oauth_state("google", safe_next_path(next), igv)
     return RedirectResponse(google_authorize_url(state), status_code=302)
 
 
@@ -350,13 +353,13 @@ def oauth_google_callback(code: str = "", state: str = "", error: str = ""):
     try:
         st = decode_oauth_state(state, "google")
         identity = exchange_google_code(code)
-        return _finish_oauth(identity, st.get("n") or "/")
+        return _finish_oauth(identity, st.get("n") or "/", st.get("v"))
     except Exception as exc:
         return _oauth_error_page(str(exc) or "Google sign-in failed.", 400)
 
 
 @router.get("/oauth/apple/start")
-def oauth_apple_start(next: str = Query(default="/")):
+def oauth_apple_start(next: str = Query(default="/"), igv: str = Query(default="")):
     if not apple_configured():
         return _oauth_error_page(
             "Apple sign-in needs a paid Apple Developer Program account (Services ID, "
@@ -365,7 +368,7 @@ def oauth_apple_start(next: str = Query(default="/")):
             "APPLE_OAUTH_PRIVATE_KEY on Railway. Return URL: "
             "https://api.runnr.fyi/api/v1/auth/oauth/apple/callback"
         )
-    state = encode_oauth_state("apple", safe_next_path(next))
+    state = encode_oauth_state("apple", safe_next_path(next), igv)
     return RedirectResponse(apple_authorize_url(state), status_code=302)
 
 
@@ -384,7 +387,7 @@ def oauth_apple_callback(
     try:
         st = decode_oauth_state(state, "apple")
         identity = exchange_apple_code(code, id_token=id_token, user_json=user)
-        return _finish_oauth(identity, st.get("n") or "/")
+        return _finish_oauth(identity, st.get("n") or "/", st.get("v"))
     except Exception as exc:
         return _oauth_error_page(str(exc) or "Apple sign-in failed.", 400)
 

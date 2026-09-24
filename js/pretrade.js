@@ -933,14 +933,22 @@
     const note = isSampleDesk()
       ? "Sample Trade Result"
       : "Computed size for the form — not a logged fill.";
+    const rewardKnown = num(c.target) > 0;
+    const rewardShare = rewardKnown ? money(c.rewardPerShare, rails.sym) : "—";
+    const rewardTotal = rewardKnown ? money(c.totalReward, rails.sym) : "—";
+    const setupDir = String(c.dir || "long").toLowerCase() === "short" ? "Short" : "Long";
+    const setup = (resultFocus && c.ticker)
+      ? '<div class="pt-output-setup">' + esc(c.ticker) + " · " + setupDir + "</div>"
+      : "";
     return (
       '<div class="pt-output-kicker">PENDING PLAN</div>' +
       '<div class="pt-output-note">' + note + "</div>" +
+      setup +
       '<div class="pt-kv pt-kv-size"><span>Position Size</span><strong class="mint">' + (c.size || 0) + " sh</strong></div>" +
       '<div class="pt-kv"><span>Risk / Share</span><strong>' + money(c.riskPerShare, rails.sym) + "</strong></div>" +
       '<div class="pt-kv pt-kv-risk"><span>Total Risk</span><strong class="neg">' + money(c.totalRisk, rails.sym) + "</strong></div>" +
-      '<div class="pt-kv"><span>Reward / Share</span><strong class="mint">' + money(c.rewardPerShare, rails.sym) + "</strong></div>" +
-      '<div class="pt-kv"><span>Total Reward</span><strong class="mint">' + money(c.totalReward, rails.sym) + "</strong></div>" +
+      '<div class="pt-kv"><span>Reward / Share</span><strong class="mint">' + rewardShare + "</strong></div>" +
+      '<div class="pt-kv"><span>Total Reward</span><strong class="mint">' + rewardTotal + "</strong></div>" +
       '<div class="pt-kv"><span>R:R Ratio</span><strong class="' + rrCls + '">' + (c.rr ? c.rr.toFixed(2) + " : 1" : "—") + "</strong></div>" +
       gateLine +
       (slip ? '<p class="pt-slip">' + esc(slip) + "</p>" : "") +
@@ -1601,7 +1609,9 @@
     if (input.dir) form.dir = String(input.dir).toLowerCase() === "short" ? "short" : "long";
     if (input.entry != null && input.entry !== "") form.entry = String(input.entry);
     if (input.stop != null && input.stop !== "") form.stop = String(input.stop);
-    if (input.target != null && input.target !== "") form.target = String(input.target);
+    if (Object.prototype.hasOwnProperty.call(input, "target")) {
+      form.target = input.target == null || String(input.target).trim() === "" ? "" : String(input.target);
+    }
     if (input.notes != null) form.notes = String(input.notes);
     return form;
   }

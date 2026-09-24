@@ -5,7 +5,7 @@
 <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
 <script>
 (function () {
-  var V = "194";
+  var V = "197";
   try {
     if (localStorage.getItem("runnr_app_v") !== V) {
       localStorage.setItem("runnr_app_v", V);
@@ -56,6 +56,12 @@
       if (ig) {
         var igDone = false;
         try { igDone = sessionStorage.getItem("runnr_ig_score_v1") === "done"; } catch (e5) {}
+        var igv = "";
+        try {
+          var igm = search.match(/(?:^|[?&])igv=(prefill|empty)(?:&|$)/i);
+          igv = igm ? igm[1].toLowerCase() : (localStorage.getItem("runnr_ig_variant_v1") || "");
+        } catch (e6) {}
+        if (igv === "empty") document.documentElement.classList.add("runnr-ig-empty");
         if (!aha && !igDone) document.documentElement.classList.add("runnr-ig-score");
         return;
       }
@@ -86,8 +92,8 @@
 <link rel="stylesheet" href="css/tokens.css?v=1">
 <link rel="stylesheet" href="css/layout.css?v=2">
 <link rel="stylesheet" href="css/components.css?v=7">
-<link rel="stylesheet" href="css/pages.css?v=22">
-<link rel="stylesheet" href="css/pretrade.css?v=21">
+<link rel="stylesheet" href="css/pages.css?v=24">
+<link rel="stylesheet" href="css/pretrade.css?v=22">
 </head>
 <body>
 <div id="app">
@@ -1572,17 +1578,25 @@
   </div>
 </div>
 
-<div id="ig-score" hidden role="dialog" aria-modal="true" aria-label="Score a trade">
+<div id="ig-score" hidden role="dialog" aria-modal="true" aria-label="Score your last trade">
   <div class="ig-score-inner">
     <div class="ig-score-brand">runnr <span>SAMPLE</span></div>
-    <h2>Score this trade</h2>
+    <h2>Score your last trade</h2>
     <p class="ig-score-plan" id="ig-score-plan">AAPL · Long</p>
+    <div class="ig-score-setup" id="ig-score-setup" hidden>
+      <label class="ig-score-field ig-score-ticker"><span>Ticker</span><input id="ig-score-ticker" placeholder="AAPL" autocomplete="off" autocapitalize="characters" spellcheck="false" maxlength="12"></label>
+      <div class="ig-score-dir" role="group" aria-label="Direction">
+        <button type="button" class="ig-dir-btn on" data-ig-dir="long" id="ig-dir-long" aria-pressed="true">Long</button>
+        <button type="button" class="ig-dir-btn" data-ig-dir="short" id="ig-dir-short" aria-pressed="false">Short</button>
+      </div>
+    </div>
     <div class="ig-score-fields">
-      <label class="ig-score-field"><span>Entry</span><input id="ig-score-entry" value="198" readonly tabindex="-1"></label>
-      <label class="ig-score-field"><span>Stop</span><input id="ig-score-stop" value="194" readonly tabindex="-1"></label>
-      <label class="ig-score-field"><span>Target</span><input id="ig-score-target" value="214" readonly tabindex="-1"></label>
+      <label class="ig-score-field"><span>Entry</span><input id="ig-score-entry" value="198" inputmode="decimal" readonly tabindex="-1"></label>
+      <label class="ig-score-field"><span>Stop</span><input id="ig-score-stop" value="194" inputmode="decimal" readonly tabindex="-1"></label>
+      <label class="ig-score-field"><span>Target</span><input id="ig-score-target" value="214" inputmode="decimal" readonly tabindex="-1"></label>
     </div>
     <p class="ig-score-meta" id="ig-score-meta">Max risk 2% · R:R 4.0</p>
+    <p class="ig-score-hint" id="ig-score-hint" hidden></p>
     <button type="button" class="btn" id="ig-score-cta">Score a trade</button>
   </div>
 </div>
@@ -1792,7 +1806,7 @@
 
 <div class="modal-overlay" id="modal-sample-keep" onclick="closeModalOutside(event,'modal-sample-keep')">
   <div class="modal" onclick="event.stopPropagation()">
-    <div class="modal-title">Keep this score <button class="modal-close" onclick="closeModal('modal-sample-keep')">✕</button></div>
+    <div class="modal-title"><span id="sample-keep-title">Keep this score</span> <button class="modal-close" onclick="closeModal('modal-sample-keep')">✕</button></div>
     <p class="sample-keep-copy">Your score: ready. Save it — plus the weekly report that shows undisciplined P&amp;L vs the clean one.</p>
     <p class="sample-keep-trial">Start free · 7-day trial. Nothing bills automatically.</p>
     <p class="runnr-trial-delta">Free trial: full desk 7 days. Then Pro (€19/mo or €190/yr) keeps journal, Coach, alerts &amp; broker sync.</p>
@@ -1813,6 +1827,7 @@
       </a>
     </div>
     <p class="sample-keep-login">Already have an account? <a href="/sign-in">Log in</a> · <a data-sample-keep-cta href="/sign-in?keep=1">Use email instead</a></p>
+    <p class="sample-keep-lite-trust" id="sample-keep-lite-trust">Runnr never places trades — broker sync is read-only.</p>
     <button type="button" class="btn btn-ghost" id="sample-keep-dismiss">Not now</button>
   </div>
 </div>
@@ -1977,13 +1992,13 @@
 <script src="js/fetch-timeout.js?v=1"></script>
 <script src="js/trade-limit.js?v=4"></script>
 <script src="js/desk-quiet.js?v=3"></script>
-<script src="js/demo-sandbox.js?v=30"></script>
-<script src="js/sync.js?v=72"></script>
+<script src="js/demo-sandbox.js?v=33"></script>
+<script src="js/sync.js?v=73"></script>
 <script src="js/desk-sessions.js?v=2"></script>
 <script src="js/desk.js?v=18"></script>
 <script src="js/cooldown.js?v=2"></script>
 <script src="js/trend-day.js?v=8"></script>
-<script src="js/pretrade.js?v=25"></script>
+<script src="js/pretrade.js?v=26"></script>
 <script src="js/wave.js?v=2"></script>
 <script src="js/shelf.js?v=6"></script>
 <script src="js/visit.js?v=2"></script>

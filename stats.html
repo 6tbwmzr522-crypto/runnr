@@ -57,6 +57,34 @@
   .empty { color: var(--text3); font-size: 14px; }
   .gate-link { color: var(--gold); }
   .table-scroll { overflow-x: auto; }
+  .ig-ab { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin: 8px 0 22px; }
+  .ig-ab-card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 12px 12px 10px;
+  }
+  .ig-ab-card h3 {
+    margin: 0;
+    font-size: 13px;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    color: var(--gold);
+    font-weight: 500;
+  }
+  .ig-ab-sub { margin: 2px 0 8px; font-size: 11px; color: var(--text3); }
+  .ig-ab-row {
+    display: flex;
+    justify-content: space-between;
+    gap: 8px;
+    font-size: 12px;
+    color: var(--text2);
+    padding: 4px 0;
+    border-top: 1px solid rgba(255,255,255,0.05);
+  }
+  .ig-ab-row strong { font-weight: 500; color: var(--text); font-variant-numeric: tabular-nums; }
+  .ig-ab-rate { margin: 8px 0 0; font-size: 12px; color: var(--text3); line-height: 1.4; }
+  .ig-ab-rate strong { color: var(--text); font-weight: 500; }
 </style>
 </head>
 <body>
@@ -145,9 +173,9 @@
   <p class="lead">Aliases: <code>https://runnr.fyi/sample</code> · <code>https://runnr.fyi/#sample</code>. First screen: “They get paid when you skip the stop.” · Score a trade. Email wall after that aha (saved score + weekly discipline report).</p>
 
   <h2>Instagram ads</h2>
-  <p class="lead">Paste this as the website URL in Meta Ads Manager. Cold guests skip the pitch and the tour and land on one primed AAPL long with a single Score button.</p>
+  <p class="lead">Paste this as the website URL in Meta Ads Manager. Cold guests skip the pitch and the tour and land on Score your last trade.</p>
   <p><code id="ig-ad-url">https://runnr.fyi/?demo=1&amp;ig=1</code></p>
-  <p class="lead">Same path: <code>?demo=1&amp;utm_source=instagram</code> or <code>utm_source=ig</code>. Organic <code>/?demo=1</code> and signed-in visits stay on the existing desk. Beacon <code>demo_ig_land</code> once per guest session, then the usual score beacons.</p>
+  <p class="lead">Same path: <code>?demo=1&amp;utm_source=instagram</code> or <code>utm_source=ig</code>. Organic <code>/?demo=1</code> and signed-in visits stay on the existing desk. Beacon <code>demo_ig_land</code> once per guest session, then the usual score beacons. First land assigns <code>prefill</code> (AAPL long) or <code>empty</code> 50/50 and keeps it. QA: <code>&amp;igv=prefill</code> or <code>&amp;igv=empty</code>. The keep-score wall is Save your score (no pricing). QA: <code>&amp;wall=full</code> still shows the trial copy (<code>&amp;wall=lite</code> is the default).</p>
 
   <h2>Guest SAMPLE funnel</h2>
   <p class="lead" id="guest-funnel-note">SAMPLE beacons from logged-out visitors (visit → aha → score → email wall → CTA). Visit uniques ≠ accounts.</p>
@@ -194,6 +222,10 @@
       <p class="hint">New accounts today (UTC)</p>
     </div>
   </div>
+
+  <h2>Instagram A/B</h2>
+  <p class="lead" id="ig-ab-note">Score-first lander only. Today and since the test started, per variant. The cards above stay combined.</p>
+  <div id="ig-ab" class="ig-ab"></div>
 
   <h2>Signed-in funnel</h2>
   <p class="lead" id="funnel-note">How many accounts have a synced journal vs visit uniques. Guests who never sign in cannot be counted.</p>
@@ -350,6 +382,53 @@
       statusEl.textContent = "Stats are unavailable right now. Try again in a moment.";
     });
 
+  function igRate(num, den) {
+    var n = Number(num) || 0;
+    var d = Number(den) || 0;
+    if (!d) return "—";
+    return Math.round((n / d) * 100) + "%";
+  }
+
+  function renderIgAb(funnel) {
+    var host = document.getElementById("ig-ab");
+    var note = document.getElementById("ig-ab-note");
+    if (!host) return;
+    var ab = funnel && funnel.ig_ab;
+    if (!ab || !ab.today || !ab.since) {
+      host.innerHTML = "<p class=\"hint\">A/B counts show up after the API deploy.</p>";
+      return;
+    }
+    if (note && ab.start) {
+      note.textContent = "Score-first lander only. Counts are today · since " + ab.start + " (UTC). The cards above stay combined.";
+    }
+    var variants = ab.variants || ["prefill", "empty"];
+    var labels = { prefill: "Prefill", empty: "Empty" };
+    var rows = [
+      ["demo_ig_land", "Land"],
+      ["demo_score_trade", "Score"],
+      ["demo_aha", "Aha"],
+      ["email_wall_shown", "Wall shown"],
+      ["email_wall_oauth_start", "OAuth start"],
+      ["email_wall_converted", "Converted"],
+      ["users_created", "Accounts"]
+    ];
+    host.innerHTML = variants.map(function (variant) {
+      var today = (ab.today && ab.today[variant]) || {};
+      var since = (ab.since && ab.since[variant]) || {};
+      var body = rows.map(function (row) {
+        return "<div class=\"ig-ab-row\"><span>" + row[1] + "</span><strong>" +
+          fmt(today[row[0]]) + " · " + fmt(since[row[0]]) + "</strong></div>";
+      }).join("");
+      var rates =
+        "<p class=\"ig-ab-rate\">Land → score <strong>" + igRate(since.demo_score_trade, since.demo_ig_land) +
+        "</strong> since · <strong>" + igRate(today.demo_score_trade, today.demo_ig_land) + "</strong> today</p>" +
+        "<p class=\"ig-ab-rate\">Score → converted <strong>" + igRate(since.email_wall_converted, since.demo_score_trade) +
+        "</strong> since · <strong>" + igRate(today.email_wall_converted, today.demo_score_trade) + "</strong> today</p>";
+      return "<article class=\"ig-ab-card\"><h3>" + (labels[variant] || variant) +
+        "</h3><p class=\"ig-ab-sub\">today · since</p>" + body + rates + "</article>";
+    }).join("");
+  }
+
   function loadFunnel() {
     var funnelStatus = document.getElementById("funnel-status");
     fetch(apiBase() + "/api/v1/admin/funnel", {
@@ -396,6 +475,7 @@
         guestHint("guest-demo-cta-total", "demo_cta_start", "start free");
         var guestStatus = document.getElementById("guest-funnel-status");
         if (guestStatus) guestStatus.textContent = "Guest SAMPLE funnel · UTC today";
+        renderIgAb(funnel);
         setText("funnel-users", fmt(funnel.users_total));
         setText("funnel-state", fmt(funnel.users_with_state));
         setText("funnel-ge1", fmt(funnel.users_with_trades_ge_1));

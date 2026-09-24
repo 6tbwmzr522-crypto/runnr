@@ -431,12 +431,24 @@ const RunnrSync = (() => {
     return data;
   }
 
+  function igAccountVariant() {
+    try {
+      if (sessionStorage.getItem("runnr_ig_session_v1") !== "1") return "";
+      const v = localStorage.getItem("runnr_ig_variant_v1");
+      if (v === "prefill" || v === "empty") return v;
+    } catch (e) {}
+    return "";
+  }
+
   async function register(email, password, firstName) {
     const creds = normalizeAuth(email, password);
     const n = normalizeFirstName(firstName);
+    const body = n ? { ...creds, first_name: n } : { ...creds };
+    const igv = igAccountVariant();
+    if (igv) body.ig_variant = igv;
     const data = await request("/api/v1/auth/register", {
       method: "POST",
-      body: JSON.stringify(n ? { ...creds, first_name: n } : creds),
+      body: JSON.stringify(body),
     });
     setToken(data.access_token, data.email || creds.email);
     applyFirstName(data.first_name || n);
@@ -1879,7 +1891,10 @@ const RunnrSync = (() => {
   function oauthStartUrl(provider, nextPath) {
     const p = provider === "apple" ? "apple" : "google";
     const next = nextPath || "/?signedin=1";
-    return apiBase() + "/api/v1/auth/oauth/" + p + "/start?next=" + encodeURIComponent(next);
+    let url = apiBase() + "/api/v1/auth/oauth/" + p + "/start?next=" + encodeURIComponent(next);
+    const igv = igAccountVariant();
+    if (igv) url += "&igv=" + encodeURIComponent(igv);
+    return url;
   }
 
   async function consumeOAuthCode(code) {

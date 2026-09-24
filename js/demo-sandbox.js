@@ -26,6 +26,30 @@
   const IG_URL = "https://runnr.fyi/?demo=1&ig=1";
   const IG_SCORE_KEY = "runnr_ig_score_v1";
   const IG_LAND_KEY = "runnr_ig_land_v1";
+  const IG_VARIANT_KEY = "runnr_ig_variant_v1";
+  const IG_SESSION_KEY = "runnr_ig_session_v1";
+  const WALL_VERSION_KEY = "runnr_wall_v1";
+  const WALL_OVERRIDE_KEY = "runnr_wall_override_v1";
+  const WALL_SESSION_KEY = "runnr_wall_session_v1";
+  // Keep-score wall for every guest. "lite" is Save your score.
+  // &wall=lite|full still overrides and is the only value persisted.
+  const WALL_DEFAULT = "lite";
+  const WALL_VERSION_EVENTS = {
+    email_wall_shown: true,
+    email_wall_locked: true,
+    email_wall_oauth_start: true,
+    email_wall_converted: true,
+  };
+  const IG_TAGGED_EVENTS = {
+    demo_ig_land: true,
+    demo_score_trade: true,
+    demo_aha: true,
+    demo_cta_start: true,
+    email_wall_shown: true,
+    email_wall_locked: true,
+    email_wall_oauth_start: true,
+    email_wall_converted: true,
+  };
   const ALIAS_PATH = "/sample";
   const KEEP_HREF = "/sign-in?keep=1";
   const KEEP_RETURN = "/?demo=1";
@@ -635,14 +659,28 @@
 
   /**
    * Instagram Score only. Organic demo Score still opens the full gold desk.
-   * Prime the same AAPL plan, then paint the output candy instead of the terminal.
+   * Prefill primes the sample AAPL plan. Empty primes the guest's own numbers.
+   * Either way the output candy is the pending plan, not the terminal.
    */
-  function openIgScoreResult(state) {
+  function openIgScoreResult(state, planOverride) {
     hideIgScore();
     markIgResult();
-    const primed = prepareSampleScore(state || global.S, { deferTour: true });
+    const primedSample = prepareSampleScore(state || global.S, { deferTour: true });
+    const primed = planOverride ? igPrimeFromPlan(planOverride) : primedSample;
     beacon("demo_score_trade");
     return openGoldSizer(primed, { focus: "result" });
+  }
+
+  function igPrimeFromPlan(plan) {
+    const dir = String(plan && plan.dir || "long").toLowerCase() === "short" ? "short" : "long";
+    const target = plan && plan.target != null ? String(plan.target).trim() : "";
+    return {
+      ticker: String(plan && plan.ticker || "").trim().toUpperCase(),
+      dir: dir,
+      entry: plan && plan.entry != null ? plan.entry : "",
+      stop: plan && plan.stop != null ? plan.stop : "",
+      target: target,
+    };
   }
 
   // Pending keep after a real score while the chip tour is open.
@@ -866,6 +904,9 @@
   // stays under the copy so TikTok guests do not think one-tap OAuth starts a paid plan.
   const DEFAULT_KEEP_COPY = "Your score: ready. Save it — plus the weekly report that shows undisciplined P&L vs the clean one.";
   const CAP_KEEP_COPY = "3 SAMPLE plans used — save your score to keep sizing & logging. SAMPLE stays SAMPLE — it never merges into a real book.";
+  const FULL_KEEP_TITLE = "Keep this score";
+  const LITE_KEEP_TITLE = "Save your score";
+  const LITE_KEEP_COPY = "Free. No card. Takes one tap.";
 
   function onceSessionFlag(key, fn) {
     try {
@@ -905,14 +946,23 @@
     return true;
   }
 
+  function appendIgVariant(url) {
+    const v = igVariant();
+    if (!v || !url || /[?&]igv=/.test(String(url))) return url;
+    return String(url) + (String(url).indexOf("?") >= 0 ? "&" : "?") + "igv=" + encodeURIComponent(v);
+  }
+
   function keepOAuthHref(provider, nextPath) {
     const Sync = global.RunnrSync;
     const next = nextPath || KEEP_RETURN;
+    let url;
     if (Sync && typeof Sync.oauthStartUrl === "function") {
-      return Sync.oauthStartUrl(provider, next);
+      url = Sync.oauthStartUrl(provider, next);
+    } else {
+      const p = provider === "apple" ? "apple" : "google";
+      url = "https://api.runnr.fyi/api/v1/auth/oauth/" + p + "/start?next=" + encodeURIComponent(next);
     }
-    const p = provider === "apple" ? "apple" : "google";
-    return "https://api.runnr.fyi/api/v1/auth/oauth/" + p + "/start?next=" + encodeURIComponent(next);
+    return appendIgVariant(url);
   }
 
   function paintKeepOAuth() {
@@ -1084,11 +1134,14 @@
         : false;
       if (wantsIntro && !tourWantsChipPath() && playIntroThenKeep(o)) return true;
     }
+    const modal = global.document && document.getElementById("modal-sample-keep");
+    const wall = paintKeepWall(modal);
     const copy = global.document && document.querySelector("#modal-sample-keep .sample-keep-copy");
     if (copy) {
-      copy.textContent = (opts && opts.reason === "sample-log-cap") ? CAP_KEEP_COPY : DEFAULT_KEEP_COPY;
+      copy.textContent = wall === "lite"
+        ? LITE_KEEP_COPY
+        : ((opts && opts.reason === "sample-log-cap") ? CAP_KEEP_COPY : DEFAULT_KEEP_COPY);
     }
-    const modal = global.document && document.getElementById("modal-sample-keep");
     paintKeepLock(modal);
     paintKeepOAuth();
     let opened = false;
@@ -1236,22 +1289,303 @@
     return "Max risk " + igMaxRiskLabel() + " · R:R " + (rr ? rr.toFixed(1) : "—");
   }
 
-  function paintIgScore(state) {
-    const primed = sampleScorePrime(state);
-    const doc = global.document;
-    if (!doc) return primed;
-    const plan = doc.getElementById("ig-score-plan");
-    const dir = String(primed.dir || "long").toLowerCase() === "short" ? "Short" : "Long";
-    if (plan) plan.textContent = (primed.ticker || "AAPL") + " · " + dir;
-    const setVal = function (id, value) {
-      const el = doc.getElementById(id);
-      if (el) el.value = value == null ? "" : String(value);
+  function normalizeIgVariant(raw) {
+    const v = String(raw || "").trim().toLowerCase();
+    if (v === "prefill" || v === "empty") return v;
+    return "";
+  }
+
+  function igVariantFromUrl(loc) {
+    loc = loc || (global.location || {});
+    try {
+      const search = String(loc.search || "");
+      const m = search.match(/(?:^|[?&])igv=(prefill|empty)(?:&|$)/i);
+      return m ? normalizeIgVariant(m[1]) : "";
+    } catch (e) {
+      return "";
+    }
+  }
+
+  function storedIgVariant() {
+    return normalizeIgVariant(storageGet(global.localStorage, IG_VARIANT_KEY));
+  }
+
+  function igSessionActive() {
+    if (isIgScoreLanding()) return true;
+    return storageGet(global.sessionStorage, IG_SESSION_KEY) === "1";
+  }
+
+  function variantFromRoll(roll) {
+    const n = Number(roll);
+    if (!isFinite(n)) return "prefill";
+    return n < 0.5 ? "prefill" : "empty";
+  }
+
+  function rollIgVariant() {
+    try {
+      if (global.crypto && typeof crypto.getRandomValues === "function") {
+        const buf = new Uint32Array(1);
+        crypto.getRandomValues(buf);
+        return buf[0] / 4294967296;
+      }
+    } catch (e) {}
+    return Math.random();
+  }
+
+  function assignIgVariant(loc) {
+    if (!isIgScoreLanding(loc)) return "";
+    const override = igVariantFromUrl(loc);
+    let variant = override || storedIgVariant();
+    if (!variant) variant = variantFromRoll(rollIgVariant());
+    storageSet(global.localStorage, IG_VARIANT_KEY, variant);
+    storageSet(global.sessionStorage, IG_SESSION_KEY, "1");
+    return variant;
+  }
+
+  function igVariant() {
+    if (!igSessionActive()) return "";
+    if (isIgScoreLanding()) {
+      const assigned = assignIgVariant();
+      if (assigned) return assigned;
+    }
+    return storedIgVariant();
+  }
+
+  function normalizeWallVersion(raw) {
+    const v = String(raw || "").trim().toLowerCase();
+    if (v === "lite" || v === "full") return v;
+    return "";
+  }
+
+  function wallVersionFromUrl(loc) {
+    loc = loc || (global.location || {});
+    try {
+      const search = String(loc.search || "");
+      const m = search.match(/(?:^|[?&])wall=(lite|full)(?:&|$)/i);
+      return m ? normalizeWallVersion(m[1]) : "";
+    } catch (e) {
+      return "";
+    }
+  }
+
+  function storedWallVersion() {
+    return normalizeWallVersion(storageGet(global.localStorage, WALL_VERSION_KEY));
+  }
+
+  function explicitWallVersion() {
+    if (storageGet(global.localStorage, WALL_OVERRIDE_KEY) !== "1") return "";
+    return storedWallVersion();
+  }
+
+  function wallSessionActive() {
+    return storageGet(global.sessionStorage, WALL_SESSION_KEY) === "1";
+  }
+
+  function assignWallVersion(loc) {
+    loc = loc || (global.location || {});
+    const override = wallVersionFromUrl(loc);
+    if (override) {
+      storageSet(global.localStorage, WALL_VERSION_KEY, override);
+      storageSet(global.localStorage, WALL_OVERRIDE_KEY, "1");
+      storageSet(global.sessionStorage, WALL_SESSION_KEY, "1");
+      return override;
+    }
+    if (!isIgScoreLanding(loc)) return "";
+    storageSet(global.sessionStorage, WALL_SESSION_KEY, "1");
+    return explicitWallVersion() || WALL_DEFAULT;
+  }
+
+  function wallVersion() {
+    const override = wallVersionFromUrl();
+    if (override || isIgScoreLanding()) {
+      const assigned = assignWallVersion();
+      if (assigned) return assigned;
+    }
+    if (wallSessionActive() || igSessionActive()) {
+      return explicitWallVersion() || WALL_DEFAULT;
+    }
+    return WALL_DEFAULT;
+  }
+
+  function paintKeepWall(modal) {
+    const version = wallVersion();
+    const lite = version === "lite";
+    const el = modal || (global.document && document.getElementById("modal-sample-keep"));
+    if (el && el.classList && typeof el.classList.toggle === "function") {
+      el.classList.toggle("sample-keep-lite", lite);
+    }
+    const title = global.document && document.getElementById("sample-keep-title");
+    if (title) title.textContent = lite ? LITE_KEEP_TITLE : FULL_KEEP_TITLE;
+    return version;
+  }
+
+  function igTickerOk(raw) {
+    const s = String(raw || "").trim().toUpperCase();
+    if (!s || /\s/.test(s)) return false;
+    try {
+      const PT = global.RunnrPretrade;
+      if (PT && typeof PT.looksLikeTicker === "function") return !!PT.looksLikeTicker(s);
+    } catch (e) {}
+    return /^[A-Z]{1,6}(?:[.\-][A-Z0-9]{1,4})?$/.test(s);
+  }
+
+  function igPlanGate(plan) {
+    const ticker = String(plan && plan.ticker || "").trim().toUpperCase();
+    const dir = String(plan && plan.dir || "long").toLowerCase() === "short" ? "short" : "long";
+    const entry = parseFloat(plan && plan.entry);
+    const stop = parseFloat(plan && plan.stop);
+    const targetText = String(plan && plan.target != null ? plan.target : "").trim();
+    const target = targetText === "" ? NaN : parseFloat(targetText);
+    const hasTarget = target > 0;
+    let ok = true;
+    let hint = "";
+    if (!igTickerOk(ticker)) {
+      ok = false;
+      hint = "Add a ticker";
+    } else if (!(entry > 0) || !(stop > 0)) {
+      ok = false;
+      hint = "Add entry and stop";
+    } else if (dir === "long" && !(stop < entry)) {
+      ok = false;
+      hint = "For a long, stop sits below entry";
+    } else if (dir === "short" && !(stop > entry)) {
+      ok = false;
+      hint = "For a short, stop sits above entry";
+    } else if (!hasTarget) {
+      hint = "Target is optional — add one to see reward and R:R";
+    }
+    let rr = 0;
+    if (ok && entry > 0 && stop > 0 && hasTarget) {
+      const risk = Math.abs(entry - stop);
+      const reward = Math.abs(target - entry);
+      rr = risk > 0 ? reward / risk : 0;
+    }
+    return {
+      ok: ok,
+      hint: hint,
+      ticker: ticker,
+      dir: dir,
+      entry: entry,
+      stop: stop,
+      target: hasTarget ? target : "",
+      hasTarget: hasTarget,
+      rr: rr,
     };
-    setVal("ig-score-entry", primed.entry);
-    setVal("ig-score-stop", primed.stop);
-    setVal("ig-score-target", primed.target);
+  }
+
+  function readIgScorePlan() {
+    const doc = global.document;
+    const val = function (id) {
+      const el = doc && doc.getElementById(id);
+      return el ? String(el.value || "").trim() : "";
+    };
+    let dir = "long";
+    const shortBtn = doc && doc.getElementById("ig-dir-short");
+    if (shortBtn && shortBtn.classList && shortBtn.classList.contains("on")) dir = "short";
+    return {
+      ticker: val("ig-score-ticker").toUpperCase(),
+      dir: dir,
+      entry: val("ig-score-entry"),
+      stop: val("ig-score-stop"),
+      target: val("ig-score-target"),
+    };
+  }
+
+  function setHtmlFlag(name, on) {
+    try {
+      const root = global.document && document.documentElement;
+      if (!root || !root.classList) return;
+      if (on && root.classList.add) root.classList.add(name);
+      else if (!on && root.classList.remove) root.classList.remove(name);
+    } catch (e) {}
+  }
+
+  function setIgField(doc, id, opts) {
+    const el = doc && doc.getElementById(id);
+    if (!el) return;
+    const o = opts || {};
+    if (o.value != null) el.value = String(o.value);
+    if (o.placeholder != null) el.placeholder = o.placeholder;
+    if (o.editable) {
+      if (el.removeAttribute) {
+        el.removeAttribute("readonly");
+        el.removeAttribute("tabindex");
+      }
+    } else if (el.setAttribute) {
+      el.setAttribute("readonly", "");
+      el.setAttribute("tabindex", "-1");
+    }
+  }
+
+  function igEmptyMeta(gate) {
+    const riskLabel = "Max risk " + igMaxRiskLabel();
+    if (!gate || !gate.ok) return riskLabel;
+    if (!gate.hasTarget) return riskLabel + " · add a target to see R:R";
+    return riskLabel + " · R:R " + (gate.rr ? gate.rr.toFixed(1) : "—");
+  }
+
+  function refreshIgScoreGate(preset) {
+    const doc = global.document;
+    if (!doc) return null;
+    const variant = storedIgVariant() || (isIgScoreLanding() ? igVariant() : "");
+    const cta = doc.getElementById("ig-score-cta");
+    const hint = doc.getElementById("ig-score-hint");
+    const meta = doc.getElementById("ig-score-meta");
+    if (variant !== "empty") {
+      if (cta) cta.disabled = false;
+      if (hint) {
+        hint.hidden = true;
+        hint.textContent = "";
+      }
+      return null;
+    }
+    const gate = preset || igPlanGate(readIgScorePlan());
+    if (cta) cta.disabled = !gate.ok;
+    if (hint) {
+      hint.hidden = !gate.hint;
+      hint.textContent = gate.hint || "";
+    }
+    if (meta) meta.textContent = igEmptyMeta(gate);
+    return gate;
+  }
+
+  function paintIgScore(state) {
+    const variant = isIgScoreLanding() ? igVariant() : (storedIgVariant() || "prefill");
+    const empty = variant === "empty";
+    const doc = global.document;
+    const root = igScoreEl();
+    if (root && root.classList) {
+      if (empty && root.classList.add) root.classList.add("empty");
+      else if (root.classList.remove) root.classList.remove("empty");
+    }
+    setHtmlFlag("runnr-ig-empty", empty);
+    setHtmlFlag("runnr-ig-painted", true);
+    if (!doc) return empty ? { ticker: "", dir: "long", entry: "", stop: "", target: "" } : sampleScorePrime(state);
+    const plan = doc.getElementById("ig-score-plan");
+    const setup = doc.getElementById("ig-score-setup");
+    if (empty) {
+      if (setup) setup.hidden = false;
+      if (plan) plan.hidden = true;
+      setIgField(doc, "ig-score-ticker", { value: "", placeholder: "AAPL", editable: true });
+      setIgField(doc, "ig-score-entry", { value: "", placeholder: "198", editable: true });
+      setIgField(doc, "ig-score-stop", { value: "", placeholder: "194", editable: true });
+      setIgField(doc, "ig-score-target", { value: "", placeholder: "214", editable: true });
+      const gate = refreshIgScoreGate();
+      return { ticker: "", dir: (gate && gate.dir) || "long", entry: "", stop: "", target: "" };
+    }
+    const primed = sampleScorePrime(state);
+    if (setup) setup.hidden = true;
+    if (plan) {
+      plan.hidden = false;
+      const dir = String(primed.dir || "long").toLowerCase() === "short" ? "Short" : "Long";
+      plan.textContent = (primed.ticker || "AAPL") + " · " + dir;
+    }
+    setIgField(doc, "ig-score-entry", { value: primed.entry == null ? "" : primed.entry, placeholder: "", editable: false });
+    setIgField(doc, "ig-score-stop", { value: primed.stop == null ? "" : primed.stop, placeholder: "", editable: false });
+    setIgField(doc, "ig-score-target", { value: primed.target == null ? "" : primed.target, placeholder: "", editable: false });
     const meta = doc.getElementById("ig-score-meta");
     if (meta) meta.textContent = igPlanMeta(primed);
+    refreshIgScoreGate();
     return primed;
   }
 
@@ -1293,12 +1627,29 @@
 
   function noteIgLand() {
     if (isLoggedIn() || !isIgScoreLanding()) return false;
+    assignIgVariant();
+    assignWallVersion();
     return onceSessionFlag(IG_LAND_KEY, function () {
       beacon("demo_ig_land");
     });
   }
 
   function activateIgScore(state) {
+    const variant = igVariant();
+    if (variant === "empty") {
+      const plan = readIgScorePlan();
+      const gate = igPlanGate(plan);
+      refreshIgScoreGate(gate);
+      if (!gate.ok) return false;
+      storageSet(global.sessionStorage, IG_SCORE_KEY, "done");
+      return openIgScoreResult(state || global.S, {
+        ticker: gate.ticker,
+        dir: gate.dir,
+        entry: gate.entry,
+        stop: gate.stop,
+        target: gate.hasTarget ? gate.target : "",
+      });
+    }
     storageSet(global.sessionStorage, IG_SCORE_KEY, "done");
     return openIgScoreResult(state || global.S);
   }
@@ -1313,6 +1664,29 @@
         if (ev && ev.preventDefault) ev.preventDefault();
         activateIgScore(global.S);
       });
+    }
+    const root = igScoreEl();
+    if (root && root.dataset && !root.dataset.igBound) {
+      root.dataset.igBound = "1";
+      if (root.addEventListener) {
+        root.addEventListener("input", function () { refreshIgScoreGate(); });
+        root.addEventListener("click", function (ev) {
+          const target = ev && ev.target;
+          const btn = target && target.closest ? target.closest("[data-ig-dir]") : null;
+          if (!btn) return;
+          const buttons = root.querySelectorAll ? root.querySelectorAll("[data-ig-dir]") : [];
+          for (let i = 0; i < buttons.length; i++) {
+            const el = buttons[i];
+            const on = el === btn;
+            if (el.classList) {
+              if (on && el.classList.add) el.classList.add("on");
+              else if (!on && el.classList.remove) el.classList.remove("on");
+            }
+            if (el.setAttribute) el.setAttribute("aria-pressed", on ? "true" : "false");
+          }
+          refreshIgScoreGate();
+        });
+      }
     }
   }
 
@@ -1447,11 +1821,15 @@
           guest = global.RunnrVisit.guestId() || "";
         }
       } catch (err) {}
+      const variant = IG_TAGGED_EVENTS[event] ? igVariant() : "";
+      const wall = WALL_VERSION_EVENTS[event] ? wallVersion() : "";
       const url =
         String(base).replace(/\/$/, "") +
         "/api/v1/stats/hit?e=" +
         encodeURIComponent(event || "demo_view") +
-        (guest ? "&g=" + encodeURIComponent(guest) : "");
+        (guest ? "&g=" + encodeURIComponent(guest) : "") +
+        (variant ? "&v=" + encodeURIComponent(variant) : "") +
+        (wall ? "&w=" + encodeURIComponent(wall) : "");
       if (nav.sendBeacon) {
         nav.sendBeacon(url);
         return;
@@ -1467,6 +1845,12 @@
     MIN_BOOK,
     BIO_URL,
     IG_URL,
+    IG_VARIANT_KEY,
+    IG_SESSION_KEY,
+    WALL_VERSION_KEY,
+    WALL_DEFAULT,
+    assignWallVersion,
+    wallVersion,
     ALIAS_PATH,
     KEEP_HREF,
     KEEP_RETURN,
@@ -1497,6 +1881,12 @@
     hideIgScore,
     paintIgScore,
     noteIgLand,
+    assignIgVariant,
+    variantFromRoll,
+    igVariant,
+    igPlanGate,
+    readIgScorePlan,
+    refreshIgScoreGate,
     activateIgScore,
     openIgScoreResult,
     proofModel,
