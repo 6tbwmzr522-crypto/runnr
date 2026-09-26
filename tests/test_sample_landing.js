@@ -41,6 +41,9 @@ check("intro.js cache-bust", html.includes("js/intro.js?v=8"));
 check("onboarding.js cache-bust", html.includes("js/onboarding.js?v=43"));
 
 check("stats Guest SAMPLE funnel section", stats.includes("Guest SAMPLE funnel") && stats.includes("email_wall") && stats.includes("guest-demo-view") && stats.includes("email_wall oauth") && stats.includes("email_wall_converted"));
+check("stats last 90 days is a chart", stats.includes('id="traffic-chart"') && stats.includes('id="traffic-svg"') && stats.includes("function renderTrafficChart") && stats.includes("uniq-fill"));
+check("stats chart has uniques, pageviews, and a trend", stats.includes("lg-u") && stats.includes("lg-v") && stats.includes("lg-t") && stats.includes("stroke-dasharray"));
+check("stats table is the last 14 days", stats.includes("Last 14 days") && stats.includes("daysNewest.slice(0, 14)") && stats.includes("function renderDaysTable") && stats.includes('id="days-body"'));
 check("stats clarifies signed-in accounts are not visits", stats.includes("Signed-in accounts (not visits)"));
 check("sandbox beacons email wall on keep-score open", sandboxSrc.includes("email_wall_shown") && sandboxSrc.includes("email_wall_locked") && sandboxSrc.includes("WALL_SHOWN_KEY") && sandboxSrc.includes("WALL_LOCKED_KEY"));
 check("sandbox beacons OAuth start and convert", sandboxSrc.includes("email_wall_oauth_start") && sandboxSrc.includes("email_wall_converted"));

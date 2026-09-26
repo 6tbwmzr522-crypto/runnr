@@ -85,6 +85,62 @@
   .ig-ab-row strong { font-weight: 500; color: var(--text); font-variant-numeric: tabular-nums; }
   .ig-ab-rate { margin: 8px 0 0; font-size: 12px; color: var(--text3); line-height: 1.4; }
   .ig-ab-rate strong { color: var(--text); font-weight: 500; }
+  .traffic-card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 12px 12px 10px;
+    margin: 8px 0 8px;
+  }
+  .traffic-legend {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px 16px;
+    font-size: 11px;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: var(--text3);
+    margin-bottom: 4px;
+  }
+  .traffic-legend span { display: inline-flex; align-items: center; gap: 6px; }
+  .traffic-legend i { display: inline-block; width: 16px; height: 2px; border-radius: 99px; }
+  .lg-u i { height: 8px; background: linear-gradient(180deg, rgba(201,169,110,0.85), rgba(201,169,110,0.2)); }
+  .lg-v i { background: rgba(0,229,160,0.55); }
+  .lg-t i { background: repeating-linear-gradient(90deg, #C9A96E 0 4px, transparent 4px 7px); }
+  .traffic-plot { position: relative; }
+  .traffic-plot svg { width: 100%; height: auto; display: block; touch-action: none; cursor: crosshair; }
+  .traffic-axis {
+    display: flex;
+    justify-content: space-between;
+    gap: 8px;
+    font-size: 11px;
+    color: var(--text3);
+    font-variant-numeric: tabular-nums;
+    margin-top: 2px;
+  }
+  .traffic-tip {
+    position: absolute;
+    z-index: 2;
+    min-width: 156px;
+    pointer-events: none;
+    background: #10161f;
+    border: 1px solid rgba(201,169,110,0.45);
+    border-radius: 10px;
+    padding: 8px 10px;
+    font-size: 12px;
+    color: var(--text2);
+    box-shadow: 0 10px 28px rgba(0,0,0,0.35);
+  }
+  .traffic-tip strong {
+    display: block;
+    color: var(--gold);
+    font-weight: 500;
+    margin-bottom: 4px;
+    letter-spacing: 0.04em;
+  }
+  .traffic-tip span { display: flex; justify-content: space-between; gap: 12px; }
+  .traffic-tip b { color: var(--text); font-weight: 500; font-variant-numeric: tabular-nums; }
+  .section-note { color: var(--text3); font-size: 13px; margin: 0 0 8px; }
 </style>
 </head>
 <body>
@@ -144,6 +200,23 @@
   </div>
 
   <h2>Last 90 days</h2>
+  <p class="section-note">Uniques are the filled series. Pageviews are the quieter line. The dashed line is the uniques trend.</p>
+  <div class="traffic-card" id="traffic-chart">
+    <div class="traffic-legend" aria-hidden="true">
+      <span class="lg-u"><i></i>Uniques</span>
+      <span class="lg-v"><i></i>Pageviews</span>
+      <span class="lg-t"><i></i>Trend</span>
+    </div>
+    <div class="traffic-plot">
+      <svg id="traffic-svg" viewBox="0 0 640 188" role="img" aria-labelledby="traffic-chart-title">
+        <title id="traffic-chart-title">Uniques and pageviews over the last 90 days</title>
+      </svg>
+      <div class="traffic-tip" id="traffic-tip" hidden></div>
+    </div>
+    <div class="traffic-axis" id="traffic-axis"></div>
+  </div>
+
+  <h2>Last 14 days</h2>
   <div class="table-scroll">
   <table>
     <thead>
@@ -324,6 +397,169 @@
     if (el) el.textContent = value;
   }
 
+  function esc(s) {
+    return String(s == null ? "" : s)
+      .replace(/&/g, "&amp;")
+      .replace(/</g, "&lt;")
+      .replace(/>/g, "&gt;")
+      .replace(/"/g, "&quot;");
+  }
+
+  function renderDaysTable(days) {
+    var body = document.getElementById("days-body");
+    if (!body) return;
+    if (!days.length) {
+      body.innerHTML = '<tr><td colspan="6" class="empty">No days yet.</td></tr>';
+      return;
+    }
+    var maxU = 1;
+    days.forEach(function (row) {
+      if (row.uniques > maxU) maxU = row.uniques;
+    });
+    body.innerHTML = days.map(function (row) {
+      var pct = Math.max(2, Math.round((row.uniques / maxU) * 100));
+      return "<tr><td>" + esc(row.day) + "</td>" +
+        '<td class="num">' + fmt(row.uniques) + "</td>" +
+        '<td class="num">' + fmt(row.new_visitors) + "</td>" +
+        '<td class="num">' + fmt(row.returning_visitors) + "</td>" +
+        '<td class="num">' + fmt(row.pageviews) + "</td>" +
+        '<td><div class="bar-wrap"><div class="bar" style="width:' + pct + '%"></div></div></td></tr>';
+    }).join("");
+  }
+
+  function renderTrafficChart(days) {
+    var svg = document.getElementById("traffic-svg");
+    var tip = document.getElementById("traffic-tip");
+    var axis = document.getElementById("traffic-axis");
+    var title = document.getElementById("traffic-chart-title");
+    if (!svg) return;
+    if (svg._trafficMove) {
+      svg.removeEventListener("pointermove", svg._trafficMove);
+      svg.removeEventListener("pointerdown", svg._trafficMove);
+      svg.removeEventListener("pointerleave", svg._trafficLeave);
+    }
+    if (!days.length) {
+      svg.innerHTML = '<title id="traffic-chart-title">No visits recorded yet</title>';
+      if (tip) tip.hidden = true;
+      if (axis) axis.textContent = "";
+      return;
+    }
+    var W = 640, H = 188, padL = 6, padR = 6, padT = 14, padB = 10;
+    var plotW = W - padL - padR;
+    var plotH = H - padT - padB;
+    var n = days.length;
+    var maxY = 1;
+    days.forEach(function (row) {
+      if (row.uniques > maxY) maxY = row.uniques;
+      if (row.pageviews > maxY) maxY = row.pageviews;
+    });
+    function xAt(i) {
+      if (n === 1) return padL + plotW / 2;
+      return padL + (i / (n - 1)) * plotW;
+    }
+    function yAt(v) {
+      var val = Number(v) || 0;
+      if (val < 0) val = 0;
+      if (val > maxY) val = maxY;
+      return padT + plotH - (val / maxY) * plotH;
+    }
+    var sumX = 0, sumY = 0, sumXY = 0, sumXX = 0;
+    days.forEach(function (row, i) {
+      var u = Number(row.uniques) || 0;
+      sumX += i;
+      sumY += u;
+      sumXY += i * u;
+      sumXX += i * i;
+    });
+    var denom = n * sumXX - sumX * sumX;
+    var slope = denom ? (n * sumXY - sumX * sumY) / denom : 0;
+    var intercept = n ? (sumY - slope * sumX) / n : 0;
+    var base = padT + plotH;
+    var uniq = days.map(function (row, i) {
+      return { x: xAt(i), y: yAt(row.uniques) };
+    });
+    var area = "M" + uniq[0].x.toFixed(1) + "," + base.toFixed(1) +
+      uniq.map(function (p) { return " L" + p.x.toFixed(1) + "," + p.y.toFixed(1); }).join("") +
+      " L" + uniq[n - 1].x.toFixed(1) + "," + base.toFixed(1) + " Z";
+    var uniqLine = uniq.map(function (p) { return p.x.toFixed(1) + "," + p.y.toFixed(1); }).join(" ");
+    var viewLine = days.map(function (row, i) {
+      return xAt(i).toFixed(1) + "," + yAt(row.pageviews).toFixed(1);
+    }).join(" ");
+    var trendLine = days.map(function (row, i) {
+      return xAt(i).toFixed(1) + "," + yAt(intercept + slope * i).toFixed(1);
+    }).join(" ");
+    if (title) title.textContent = "Uniques and pageviews, " + days[0].day + " to " + days[n - 1].day;
+    svg.innerHTML =
+      '<title id="traffic-chart-title">' + esc(title ? title.textContent : "Traffic") + "</title>" +
+      "<defs><linearGradient id=\"uniq-fill\" x1=\"0\" y1=\"0\" x2=\"0\" y2=\"1\">" +
+      "<stop offset=\"0\" stop-color=\"#C9A96E\" stop-opacity=\"0.42\"/>" +
+      "<stop offset=\"1\" stop-color=\"#C9A96E\" stop-opacity=\"0.02\"/>" +
+      "</linearGradient></defs>" +
+      '<path d="' + area + '" fill="url(#uniq-fill)"></path>' +
+      '<polyline points="' + viewLine + '" fill="none" stroke="rgba(0,229,160,0.5)" stroke-width="1.25" stroke-linejoin="round" stroke-linecap="round"></polyline>' +
+      '<polyline points="' + uniqLine + '" fill="none" stroke="#C9A96E" stroke-width="1.8" stroke-linejoin="round" stroke-linecap="round"></polyline>' +
+      '<polyline points="' + trendLine + '" fill="none" stroke="rgba(201,169,110,0.72)" stroke-width="1.15" stroke-dasharray="3 4" stroke-linejoin="round" stroke-linecap="round"></polyline>' +
+      '<line id="traffic-guide" y1="' + padT + '" y2="' + base.toFixed(1) + '" stroke="rgba(245,242,236,0.28)" stroke-width="1" visibility="hidden"></line>' +
+      '<circle id="traffic-dot" r="3.4" fill="#F5F2EC" stroke="#C9A96E" stroke-width="1.4" visibility="hidden"></circle>';
+    if (axis) {
+      var mid = days[Math.floor((n - 1) / 2)];
+      axis.innerHTML = "<span>" + esc(days[0].day) + "</span><span>" + esc(mid.day) + "</span><span>" + esc(days[n - 1].day) + "</span>";
+    }
+    function indexFromEvent(ev) {
+      var rect = svg.getBoundingClientRect();
+      if (!rect.width) return 0;
+      var vx = ((ev.clientX - rect.left) / rect.width) * W;
+      var i = n === 1 ? 0 : Math.round(((vx - padL) / plotW) * (n - 1));
+      if (i < 0) i = 0;
+      if (i > n - 1) i = n - 1;
+      return i;
+    }
+    function showTip(i, ev) {
+      var row = days[i];
+      var guide = document.getElementById("traffic-guide");
+      var dot = document.getElementById("traffic-dot");
+      var px = xAt(i);
+      if (guide) {
+        guide.setAttribute("x1", px.toFixed(1));
+        guide.setAttribute("x2", px.toFixed(1));
+        guide.setAttribute("visibility", "visible");
+      }
+      if (dot) {
+        dot.setAttribute("cx", px.toFixed(1));
+        dot.setAttribute("cy", yAt(row.uniques).toFixed(1));
+        dot.setAttribute("visibility", "visible");
+      }
+      if (!tip) return;
+      tip.hidden = false;
+      tip.innerHTML =
+        "<strong>" + esc(row.day) + "</strong>" +
+        "<span>Uniques <b>" + fmt(row.uniques) + "</b></span>" +
+        "<span>New <b>" + fmt(row.new_visitors) + "</b></span>" +
+        "<span>Returning <b>" + fmt(row.returning_visitors) + "</b></span>" +
+        "<span>Pageviews <b>" + fmt(row.pageviews) + "</b></span>";
+      var plot = svg.parentNode.getBoundingClientRect();
+      var left = ev.clientX - plot.left + 12;
+      var top = ev.clientY - plot.top - 28;
+      if (left + tip.offsetWidth > plot.width - 4) left = ev.clientX - plot.left - tip.offsetWidth - 12;
+      if (left < 4) left = 4;
+      if (top < 4) top = 4;
+      tip.style.left = left + "px";
+      tip.style.top = top + "px";
+    }
+    function hideTip() {
+      var guide = document.getElementById("traffic-guide");
+      var dot = document.getElementById("traffic-dot");
+      if (guide) guide.setAttribute("visibility", "hidden");
+      if (dot) dot.setAttribute("visibility", "hidden");
+      if (tip) tip.hidden = true;
+    }
+    svg._trafficMove = function (ev) { showTip(indexFromEvent(ev), ev); };
+    svg._trafficLeave = hideTip;
+    svg.addEventListener("pointermove", svg._trafficMove);
+    svg.addEventListener("pointerdown", svg._trafficMove);
+    svg.addEventListener("pointerleave", svg._trafficLeave);
+  }
+
   var tok = token();
   if (!tok) {
     showGate();
@@ -347,32 +583,21 @@
       showMain();
       var today = data.today || {};
       var totals = data.totals || {};
-      var days = (data.days || []).slice().reverse();
+      var daysNewest = (data.days || []).slice().reverse();
       setText("today-uniques", fmt(today.uniques));
       setText("today-views", fmt(today.pageviews));
       setText("today-new", fmt(today.new_visitors));
       setText("today-returning", fmt(today.returning_visitors));
       setText("total-uniques", fmt(totals.uniques));
       setText("total-views", fmt(totals.pageviews));
-      var maxU = 1;
-      days.forEach(function (row) {
-        if (row.uniques > maxU) maxU = row.uniques;
-      });
-      var body = document.getElementById("days-body");
-      if (!days.length) {
+      var recent = daysNewest.slice(0, 14);
+      renderTrafficChart(daysNewest.slice().reverse());
+      renderDaysTable(recent);
+      if (!daysNewest.length) {
         statusEl.textContent = "No visits recorded yet.";
         loadFunnel();
         return;
       }
-      body.innerHTML = days.map(function (row) {
-        var pct = Math.max(2, Math.round((row.uniques / maxU) * 100));
-        return "<tr><td>" + row.day + "</td>" +
-          '<td class="num">' + fmt(row.uniques) + "</td>" +
-          '<td class="num">' + fmt(row.new_visitors) + "</td>" +
-          '<td class="num">' + fmt(row.returning_visitors) + "</td>" +
-          '<td class="num">' + fmt(row.pageviews) + "</td>" +
-          '<td><div class="bar-wrap"><div class="bar" style="width:' + pct + '%"></div></div></td></tr>';
-      }).join("");
       statusEl.textContent = "Updated just now · " + (data.timezone || "UTC");
       loadFunnel();
     })
