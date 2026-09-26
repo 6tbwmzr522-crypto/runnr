@@ -36,7 +36,7 @@ const cache = sw.match(/CACHE = "runnr-v(\d+)"/)[1];
 check("index.html V matches sw.js CACHE", v === cache);
 check("cache is 139+", Number(v) >= 187);
 check("demo-sandbox cache-bust", html.includes("js/demo-sandbox.js?v=34"));
-check("pages.css cache-bust", html.includes("css/pages.css?v=25"));
+check("pages.css cache-bust", html.includes("css/pages.css?v=26"));
 check("intro.js cache-bust", html.includes("js/intro.js?v=8"));
 check("onboarding.js cache-bust", html.includes("js/onboarding.js?v=43"));
 
@@ -197,7 +197,8 @@ check("signed-in book is not hydrated", signed.RunnrDemoSandbox.shouldApply(sign
 check("signed-in users skip sample hero", signed.RunnrDemoSandbox.shouldShowSampleHero(signedThin) === false);
 
 const watchSrc = fs.readFileSync(path.join(root, "js/app-watchlist.js"), "utf8");
-check("quiet instagram link opens the sample desk", html.includes('class="ob-hook-ig"') && html.includes("Coming from Instagram? Open the sample desk") && html.includes('href="/?demo=1"'));
+check("quiet instagram link opens the sample desk", html.includes('class="ob-hook-ig"') && html.includes("Coming from Instagram? Open the sample desk") && html.includes('href="/?demo=1"') && onboardingSrc.includes('class="ob-hook-ig"'));
+check("instagram link is a readable gold chip, quieter than the kicker", /\.ob-hook-ig a\{[^}]*color:var\(--gold-light\)/.test(css) && /\.ob-hook-ig a\{[^}]*font-size:13px/.test(css) && /\.ob-hook-ig a\{[^}]*font-weight:400/.test(css) && !/\.ob-hook-ig a\{[^}]*var\(--text3\)/.test(css) && /\.ob-kicker\{[^}]*font-size:11px[^}]*font-weight:700/.test(css));
 check("marketing wall still shows pricing", html.includes("€19/month or €190/year") && html.includes('id="ob-hook-start"'));
 const enterFn = sandboxSrc.slice(sandboxSrc.indexOf("function enterFromHook"), sandboxSrc.indexOf("function landWatchOnSizer"));
 check("hook skip enters the filled sample desk", onboardingSrc.includes("enterFromHook") && enterFn.includes('switchPage("home")') && enterFn.includes("maybeShow") && !enterFn.includes("openGoldSizer"));
