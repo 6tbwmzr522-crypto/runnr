@@ -235,6 +235,7 @@ const RunnrGrowth = {
           <button type="button" class="btn btn-ghost" id="ob-hook-enter">View sample</button>
           <a class="ob-hook-secondary" id="ob-hook-report" href="/report/">Score one trade</a>
         </div>
+        <p class="ob-hook-ig"><a href="/?demo=1">Coming from Instagram? Open the sample desk</a></p>
       </div>`;
     if (typeof RunnrDemoSandbox !== "undefined") {
       try {
@@ -247,8 +248,12 @@ const RunnrGrowth = {
   dismissHook(state) {
     this.completeHook();
     if (state) this.completeOnboarding(state);
+    this.close();
+    let entered = false;
     try {
-      if (typeof RunnrDemoSandbox !== "undefined") {
+      if (typeof RunnrDemoSandbox !== "undefined" && typeof RunnrDemoSandbox.enterFromHook === "function") {
+        entered = !!RunnrDemoSandbox.enterFromHook(state || window.S);
+      } else if (typeof RunnrDemoSandbox !== "undefined") {
         RunnrDemoSandbox.hydrate(state || window.S, { force: false });
         RunnrDemoSandbox.beacon("demo_view");
       }
@@ -257,8 +262,9 @@ const RunnrGrowth = {
     if (typeof updateHomeStats === "function") updateHomeStats();
     if (typeof renderJournal === "function") renderJournal();
     if (typeof applyGuestShell === "function") applyGuestShell();
-    this.close();
-    try { window.RunnrTour?.maybeShow?.(state); } catch (e) {}
+    if (!entered) {
+      try { window.RunnrTour?.maybeShow?.(state); } catch (e) {}
+    }
   },
 
   hideHookPaint() {

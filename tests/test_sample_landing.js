@@ -35,10 +35,10 @@ const v = html.match(/var V = "(\d+)"/)[1];
 const cache = sw.match(/CACHE = "runnr-v(\d+)"/)[1];
 check("index.html V matches sw.js CACHE", v === cache);
 check("cache is 139+", Number(v) >= 187);
-check("demo-sandbox cache-bust", html.includes("js/demo-sandbox.js?v=33"));
-check("pages.css cache-bust", html.includes("css/pages.css?v=24"));
+check("demo-sandbox cache-bust", html.includes("js/demo-sandbox.js?v=34"));
+check("pages.css cache-bust", html.includes("css/pages.css?v=25"));
 check("intro.js cache-bust", html.includes("js/intro.js?v=8"));
-check("onboarding.js cache-bust", html.includes("js/onboarding.js?v=42"));
+check("onboarding.js cache-bust", html.includes("js/onboarding.js?v=43"));
 
 check("stats Guest SAMPLE funnel section", stats.includes("Guest SAMPLE funnel") && stats.includes("email_wall") && stats.includes("guest-demo-view") && stats.includes("email_wall oauth") && stats.includes("email_wall_converted"));
 check("stats clarifies signed-in accounts are not visits", stats.includes("Signed-in accounts (not visits)"));
@@ -192,6 +192,48 @@ signed.localStorage.setItem("runnr_api_token", "tok");
 const signedThin = { bal: 10000, trades: signed.RunnrDemoSandbox.classicSeeds(), watchlist: [] };
 check("signed-in book is not hydrated", signed.RunnrDemoSandbox.shouldApply(signedThin) === false);
 check("signed-in users skip sample hero", signed.RunnrDemoSandbox.shouldShowSampleHero(signedThin) === false);
+
+const watchSrc = fs.readFileSync(path.join(root, "js/app-watchlist.js"), "utf8");
+check("quiet instagram link opens the sample desk", html.includes('class="ob-hook-ig"') && html.includes("Coming from Instagram? Open the sample desk") && html.includes('href="/?demo=1"'));
+check("marketing wall still shows pricing", html.includes("€19/month or €190/year") && html.includes('id="ob-hook-start"'));
+const enterFn = sandboxSrc.slice(sandboxSrc.indexOf("function enterFromHook"), sandboxSrc.indexOf("function landWatchOnSizer"));
+check("hook skip enters the filled sample desk", onboardingSrc.includes("enterFromHook") && enterFn.includes('switchPage("home")') && enterFn.includes("maybeShow") && !enterFn.includes("openGoldSizer"));
+check("hook skip does not force the tour when sample enter ran", /enterFromHook[\s\S]*if \(!entered\)/.test(onboardingSrc));
+check("guest sample watch shows demo setups", watchSrc.includes("function guestSampleDesk") && watchSrc.includes("function visibleWatchItems") && watchSrc.includes("guestSampleDesk()"));
+check("instagram variant assignment is unchanged", sandboxSrc.includes("igv=(prefill|empty)") && sandboxSrc.includes("function assignIgVariant") && sandboxSrc.includes("function variantFromRoll"));
+
+function hookEnterCtx() {
+  const ctx = loadSandbox({ search: "", pathname: "/", hash: "", href: "http://localhost/" });
+  ctx.S = { bal: 10000, risk: 1, sym: "€", trades: [], watchlist: [] };
+  ctx.window.S = ctx.S;
+  ctx._page = "home";
+  ctx._primed = null;
+  ctx._tour = 0;
+  ctx.switchPage = function (key) { ctx._page = key; };
+  ctx.RunnrPretrade = {
+    prime(input) { ctx._primed = input; },
+    open() { ctx._page = "sizer"; return true; },
+  };
+  ctx.RunnrTour = { maybeShow() { ctx._tour += 1; return true; } };
+  return ctx;
+}
+const hookEnter = hookEnterCtx();
+check("bare skip seeds and enters", hookEnter.RunnrDemoSandbox.enterFromHook(hookEnter.S) === true);
+check("bare skip lands on filled home, not the sizer", hookEnter._page === "home" && hookEnter._primed == null);
+check("bare skip fills the sample book", hookEnter.S.trades.length >= 12 && hookEnter.S.watchlist.some((w) => w && w.sym === "AAPL" && w.isDemo === true));
+check("bare skip starts the tour after the sample loads", hookEnter._tour === 1);
+check("bare skip does not seal a score", hookEnter.RunnrDemoSandbox.hasAha() === false);
+
+const hookSigned = hookEnterCtx();
+hookSigned.localStorage.setItem("runnr_api_token", "tok");
+const signedEmpty = { bal: 10000, risk: 1, sym: "€", trades: [], watchlist: [] };
+check("signed-in skip does not seed a sample book", hookSigned.RunnrDemoSandbox.enterFromHook(signedEmpty) === false);
+check("signed-in empty book stays empty", signedEmpty.trades.length === 0 && signedEmpty.watchlist.length === 0);
+
+const hookReal = hookEnterCtx();
+const realEmptyWatch = { bal: 18400, trades: [{ id: 9, instr: "NVDA", pnl: 10, source: "csv" }], watchlist: [] };
+check("real book skip does not enter sample mode", hookReal.RunnrDemoSandbox.enterFromHook(realEmptyWatch) === false);
+check("real book trades stay put", realEmptyWatch.trades.length === 1 && realEmptyWatch.trades[0].source === "csv");
 
 SB.markAha("score");
 check("aha is stored after one SAMPLE action", SB.hasAha() === true);

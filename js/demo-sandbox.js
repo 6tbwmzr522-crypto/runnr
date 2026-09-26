@@ -1214,6 +1214,40 @@
   }
 
   /**
+   * Bare-domain marketing Skip / View sample.
+   * Seed the guest SAMPLE book and open filled Home — the same desk ?demo=1
+   * uses after its hero — then start the chip tour. Does not open the gold
+   * Sizer, so a ready plan is not sealed and the trial CTA stays Start free.
+   * Signed-in users and real books are left alone. Does not touch ?ig=1 / igv=.
+   */
+  function enterFromHook(state) {
+    if (isLoggedIn()) return false;
+    const book = state || global.S;
+    if (!book || looksLikeRealBook(book)) return false;
+    try {
+      if (!firstIncompleteSample(book) || demoTradeCount(book) < MIN_BOOK) {
+        apply(book, { force: true });
+        if (typeof global.persist === "function") global.persist();
+      }
+    } catch (e) {}
+    paintChrome(book);
+    beacon("demo_view");
+    try {
+      if (typeof global.switchPage === "function") global.switchPage("home");
+    } catch (e) {}
+    try {
+      if (typeof global.updateHomeStats === "function") global.updateHomeStats();
+      if (typeof global.renderHomePreviews === "function") global.renderHomePreviews();
+    } catch (e) {}
+    try {
+      if (global.RunnrTour && typeof RunnrTour.maybeShow === "function") {
+        RunnrTour.maybeShow(book);
+      }
+    } catch (e) {}
+    return true;
+  }
+
+  /**
    * After Watch video (or skip): live gold Sizer + Beat 1 chip tour.
    * Keep wall stays closed until a real scored plan (#78/#80 rules).
    */
@@ -1904,6 +1938,7 @@
     sampleScorePrime,
     openScoreTrade,
     startWatchHow,
+    enterFromHook,
     landWatchOnSizer,
     onSampleScored,
     onGoldScored,

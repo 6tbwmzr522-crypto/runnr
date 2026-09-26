@@ -214,8 +214,23 @@ function watchShelfLabel(key) {
   return tt('watch.shelfLevels', 'Set levels');
 }
 
+function guestSampleDesk() {
+  try {
+    if (typeof isGuestLanding === "function" && !isGuestLanding()) return false;
+    if (window.RunnrSync?.isLoggedIn?.()) return false;
+    if (window.RunnrDemoSandbox?.isDemoState) return !!RunnrDemoSandbox.isDemoState(S);
+  } catch (e) {}
+  return false;
+}
+
+function visibleWatchItems() {
+  const all = (S.watchlist || []).filter((w) => w && typeof w === "object");
+  if (guestSampleDesk()) return all;
+  return all.filter((w) => !isFactoryDemoWatchItem(w));
+}
+
 function watchShelfItems() {
-  return (S.watchlist || []).filter((w) => w && !isFactoryDemoWatchItem(w));
+  return visibleWatchItems();
 }
 
 function groupWatchShelves(items) {
@@ -350,7 +365,7 @@ function renderWatchlist() {
   if (!list) return;
   normalizeWatchlist();
   const loggedIn = !!(typeof RunnrSync !== 'undefined' && RunnrSync.isLoggedIn?.());
-  const items = (S.watchlist || []).filter((w) => w && !isFactoryDemoWatchItem(w));
+  const items = visibleWatchItems();
   if (!items.length) {
     list.innerHTML = '<div class="empty-state"><div class="es-icon">👁</div>No setups yet.'
       + (loggedIn ? ' Add one, or open Watch after syncing from another device.' : ' Add your first watch.')
