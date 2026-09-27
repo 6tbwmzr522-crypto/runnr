@@ -253,6 +253,9 @@ function renderJournal() {
     const editable = isTradeEditable(t);
     const editLabel = Baron.isOpenTrade?.(t) ? 'Close' : 'Edit';
     const outcomeRow = pretradeOutcomeHtml(t);
+    const replayChip = typeof DisciplineReplay !== 'undefined' && DisciplineReplay.canReplay(t, S, typeof Baron !== 'undefined' ? Baron : null)
+      ? `<button type="button" class="te-replay te-replay-primary" onclick="openDisciplineReplay('${t.id}', event)">Replay Disciplined</button>`
+      : '';
     return `<div class="trade-entry${editable ? ' trade-entry-editable' : ''}${isPlan ? ' trade-entry-plan' : ''}" data-trade-id="${t.id}" data-editable="${editable ? '1' : '0'}">
       <div class="te-top">
         <div style="display:flex;align-items:center;gap:6px;min-width:0">
@@ -266,9 +269,8 @@ function renderJournal() {
         </div>
       </div>
       <div class="te-meta">${metaLine}</div>
-      <div class="flags">${(t.isDemo || t.seed) ? '<span class="flag flag-ok demo-row-badge">SAMPLE</span>' : ''}${fillEvidenceBadgeHtml(t)}${processFlagHtml(t)}${stopFlag}${sizeFlag}${t.setup === 'fvg' ? '<span class="flag flag-ok">FVG</span>' : ''}${t.challengeFail ? '' : (t.incomplete?'<span class="flag flag-miss">Incomplete</span>':'')}${t.brokeCooldown ? '<span class="flag flag-no">Broke cool-down</span>' : ''}</div>
+      <div class="flags">${(t.isDemo || t.seed) ? '<span class="flag flag-ok demo-row-badge">SAMPLE</span>' : ''}${fillEvidenceBadgeHtml(t)}${processFlagHtml(t)}${stopFlag}${sizeFlag}${replayChip}${t.setup === 'fvg' ? '<span class="flag flag-ok">FVG</span>' : ''}${t.challengeFail ? '' : (t.incomplete?'<span class="flag flag-miss">Incomplete</span>':'')}${t.brokeCooldown ? '<span class="flag flag-no">Broke cool-down</span>' : ''}</div>
       ${outcomeRow}
-      ${typeof DisciplineReplay !== 'undefined' && DisciplineReplay.canReplay(t, S, typeof Baron !== 'undefined' ? Baron : null) ? `<button type="button" class="te-replay te-replay-primary" onclick="openDisciplineReplay('${t.id}', event)">Replay Disciplined</button>` : ''}
       ${t.challengeNote ? `<div class="te-note">${escapeTeText(t.challengeNote)}</div>` : ''}
     </div>`;
     } catch (e) { console.warn('skip bad trade', t && t.id, e); return ''; }

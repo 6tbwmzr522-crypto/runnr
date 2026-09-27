@@ -37,8 +37,11 @@ check("logged-out hook video still present", html.includes('id="intro-overlay"')
 check("logged-out landing card kept", html.includes('id="home-landing"') && html.includes('id="home-score-one"'));
 
 check("Replay journal button uses primary class", src.includes('class="te-replay te-replay-primary"'));
-check("Replay primary CSS is a full-width mint button", css.includes(".te-replay.te-replay-primary")
-  && /te-replay-primary\{[^}]*background:var\(--accent\)/.test(css));
+check("Replay primary CSS is a quiet flag chip", css.includes(".te-replay.te-replay-primary")
+  && /te-replay-primary\{[^}]*padding:3px 8px/.test(css)
+  && /te-replay-primary\{[^}]*background:var\(--accent-dim\)/.test(css)
+  && /te-replay-primary\{[^}]*font-size:9px/.test(css)
+  && !/\.te-replay\.te-replay-primary\{[^}]*width:100%/.test(css));
 check("offerDisciplineReplay is wired after saveLog", src.includes("function offerDisciplineReplay")
   && /function saveLog[\s\S]*offerDisciplineReplay/.test(src));
 
