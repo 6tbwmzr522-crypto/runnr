@@ -3,6 +3,9 @@
  * Alex Runner — €10k, 1% risk, stops held, size leaked.
  * Demo rows are isDemo:true so they never count toward trial/journal caps
  * and never merge into a signed-in real book.
+ *
+ * Guest entry defaults to the 7-day Sizer desk in js/guest-gate.js.
+ * Rollback: ?gate=legacy (or GUEST default "legacy" in that file).
  */
 (function (global) {
   "use strict";
@@ -112,6 +115,23 @@
       if (global.localStorage && localStorage.getItem("runnr_api_token")) return true;
     } catch (e) {}
     return false;
+  }
+
+  function freeModeGuest() {
+    if (isLoggedIn()) return false;
+    try {
+      return !!(global.RunnrGuestGate && typeof RunnrGuestGate.freeMode === "function" && RunnrGuestGate.freeMode());
+    } catch (e) {
+      return false;
+    }
+  }
+
+  function guestTrialOpen() {
+    try {
+      return !!(global.RunnrGuestGate && typeof RunnrGuestGate.trialOpen === "function" && RunnrGuestGate.trialOpen());
+    } catch (e) {
+      return false;
+    }
   }
 
   function isIgScoreLanding(loc) {
@@ -289,7 +309,19 @@
       chrome.classList.toggle("show", !!demo);
     }
     const cta = global.document && document.getElementById("demo-chrome-cta");
-    if (cta && demo && !isLoggedIn()) {
+    if (cta && demo && !isLoggedIn() && freeModeGuest()) {
+      cta.hidden = false;
+      try { cta.removeAttribute("data-i18n"); } catch (e) {}
+      if (guestTrialOpen()) {
+        var day = 0;
+        try { day = Number(RunnrGuestGate.dayIndex()) || 0; } catch (e2) {}
+        cta.textContent = "Day " + (Math.min(6, day) + 1) + " of 7";
+        cta.setAttribute("href", "/sign-in");
+      } else {
+        cta.textContent = "Keep Runnr";
+        cta.setAttribute("href", "#keep-score");
+      }
+    } else if (cta && demo && !isLoggedIn()) {
       if (!hasAha()) {
         cta.hidden = true;
       } else {
@@ -308,8 +340,14 @@
     if (cta && !cta.dataset.demoBound) {
       cta.dataset.demoBound = "1";
       cta.addEventListener("click", function (ev) {
+        if (freeModeGuest() && guestTrialOpen()) {
+          beacon("demo_cta_start");
+          try { if (global.RunnrGuestGate) RunnrGuestGate.noteConvertIntent(); } catch (e) {}
+          return;
+        }
         if (ev && ev.preventDefault) ev.preventDefault();
         beacon("demo_cta_start");
+        try { if (global.RunnrGuestGate) RunnrGuestGate.noteConvertIntent(); } catch (e) {}
         showKeepScore({ reason: "chrome" });
       });
     }
@@ -481,9 +519,11 @@
 
   function shouldHoldKeepScore(state) {
     if (isLoggedIn()) return false;
-    if (!hasSeal()) return false;
     const s = state || global.S;
     if (s && looksLikeRealBook(s)) return false;
+    if (freeModeGuest() && guestTrialOpen()) return false;
+    if (freeModeGuest() && !guestTrialOpen()) return true;
+    if (!hasSeal()) return false;
     return true;
   }
 
@@ -573,6 +613,7 @@
   }
 
   function shouldShowSampleHero(state) {
+    if (freeModeGuest()) return false;
     if (isLoggedIn()) return false;
     if (looksLikeRealBook(state)) return false;
     if (isIgScoreLanding()) return false;
@@ -746,6 +787,10 @@
     if (trade && !isDemoTrade(trade)) return false;
     markSeal();
     scheduleScoreMeaning();
+    try {
+      if (global.RunnrGuestGate) RunnrGuestGate.noteScore("log:" + ((trade && trade.id) || Date.now()));
+    } catch (e) {}
+    if (freeModeGuest() && guestTrialOpen()) return true;
     const keepOpts = { reason: (opts && opts.reason) || "score" };
     if (tourBlocksWall()) {
       queueKeepAfterTour(keepOpts);
@@ -771,6 +816,11 @@
     if (!isReadyGoldScore(computed)) return false;
     markSeal();
     scheduleScoreMeaning();
+    try {
+      if (global.RunnrGuestGate) {
+        RunnrGuestGate.noteScore([computed.ticker, computed.entry, computed.stop, computed.size].join("|"));
+      }
+    } catch (e) {}
     return true;
   }
 
@@ -1073,6 +1123,7 @@
     if (!isLoggedIn()) return false;
     onceSessionFlag(WALL_CONVERTED_KEY, function () {
       beacon("email_wall_converted");
+      try { if (global.RunnrGuestGate) RunnrGuestGate.noteConvert(); } catch (e) {}
     });
     clearKeepOAuth();
     try { hideKeepScore(); } catch (e) {}
@@ -1120,7 +1171,12 @@
 
   function showKeepScore(opts) {
     if (isLoggedIn()) return false;
-    const o = opts || {};
+    if (freeModeGuest() && guestTrialOpen()) return false;
+    let o = opts || {};
+    if (freeModeGuest()) {
+      o = Object.assign({}, o, { skipIntro: true, reason: o.reason || "trial-ended" });
+      opts = o;
+    }
     // Never open under an active chip tour — Skip would reveal the wall.
     if (!o.afterTour && tourBlocksWall()) {
       queueKeepAfterTour(o);
@@ -1142,6 +1198,11 @@
         ? LITE_KEEP_COPY
         : ((opts && opts.reason === "sample-log-cap") ? CAP_KEEP_COPY : DEFAULT_KEEP_COPY);
     }
+    if (freeModeGuest() && !guestTrialOpen()) {
+      const title = global.document && document.getElementById("sample-keep-title");
+      if (title) title.textContent = "7 days on the desk";
+      if (copy) copy.textContent = "The SAMPLE desk stayed open for 7 days. Sign in to keep sizing, the journal, and the score. Then €19/month or €190/year. Nothing bills automatically.";
+    }
     paintKeepLock(modal);
     paintKeepOAuth();
     let opened = false;
@@ -1152,7 +1213,10 @@
       modal.classList.add("open");
       opened = true;
     }
-    if (opened) fireEmailWallBeacons(shouldHoldKeepScore());
+    if (opened) {
+      fireEmailWallBeacons(shouldHoldKeepScore());
+      try { if (freeModeGuest() && global.RunnrGuestGate) RunnrGuestGate.noteHitWall(); } catch (e) {}
+    }
     return opened;
   }
 
@@ -1624,6 +1688,7 @@
   }
 
   function shouldShowIgScore(state) {
+    if (freeModeGuest()) return false;
     if (!isIgScoreLanding()) return false;
     if (isLoggedIn()) return false;
     if (looksLikeRealBook(state)) return false;
@@ -1792,6 +1857,7 @@
       el.addEventListener("click", function () {
         persistKeepBook();
         beacon("demo_cta_start");
+        try { if (global.RunnrGuestGate) RunnrGuestGate.noteConvertIntent(); } catch (e) {}
       });
     });
     doc.querySelectorAll("[data-sample-keep-oauth]").forEach((el) => {
@@ -1803,11 +1869,72 @@
     });
   }
 
+  function explicitDeskFocus() {
+    try {
+      if (global.RunnrGuestGate && typeof RunnrGuestGate.sharedFocus === "function") {
+        return RunnrGuestGate.sharedFocus();
+      }
+    } catch (e) {}
+    return "sizer";
+  }
+
+  /**
+   * Free-7 shared entry: filled SAMPLE book, Sizer in front, no tour or video.
+   * Instagram params stay attribution-only. Signed-in users and real books are left alone.
+   */
+  function enterFreeDesk(state) {
+    if (!freeModeGuest()) return false;
+    const book = state || global.S;
+    try {
+      if (book && !looksLikeRealBook(book)) {
+        if (apply(book, { force: true }) && typeof global.persist === "function") global.persist();
+      }
+    } catch (e) {}
+    try { localStorage.setItem("runnr_hook_v1", "done"); } catch (e2) {}
+    hideIgScore();
+    hideSampleHero({ deferTour: true });
+    try {
+      const root = global.document && document.documentElement;
+      if (root && root.classList) {
+        root.classList.remove("runnr-show-hook", "runnr-sample-landing", "runnr-ig-score");
+        root.classList.add("runnr-free-desk");
+      }
+    } catch (e3) {}
+    try {
+      if (global.RunnrGrowth && typeof RunnrGrowth.hideHookPaint === "function") RunnrGrowth.hideHookPaint();
+    } catch (e4) {}
+    if (isIgScoreLanding()) noteIgLand();
+    paintChrome(book);
+    beacon("demo_view");
+    try {
+      if (global.RunnrGuestGate) {
+        RunnrGuestGate.noteLand(RunnrGuestGate.landSource());
+        RunnrGuestGate.noteTrialDay();
+        RunnrGuestGate.armDeskTime();
+      }
+    } catch (e5) {}
+    const focus = explicitDeskFocus();
+    if (focus === "sizer") {
+      openGoldSizer(sampleScorePrime(book));
+    } else {
+      try {
+        if (typeof global.switchPage === "function") global.switchPage(focus);
+      } catch (e6) {}
+    }
+    try { if (global.RunnrGuestGate) RunnrGuestGate.noteFocus(focus); } catch (e7) {}
+    if (!guestTrialOpen()) showKeepScore({ reason: "trial-ended", skipIntro: true });
+    return true;
+  }
+
   function bootSampleLanding(state) {
     const book = state || global.S;
     bindSampleHero();
     bindIgScore();
     bindKeepScore();
+    if (freeModeGuest()) {
+      enterFreeDesk(book);
+      return;
+    }
     if (isIgScoreLanding() && !isLoggedIn()) noteIgLand();
     if (shouldShowIgScore(book)) {
       hideSampleHero({ deferTour: true });
@@ -1938,6 +2065,8 @@
     sampleScorePrime,
     openScoreTrade,
     startWatchHow,
+    enterFreeDesk,
+    freeModeGuest,
     enterFromHook,
     landWatchOnSizer,
     onSampleScored,

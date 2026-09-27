@@ -66,6 +66,16 @@ const RunnrTour = {
     }
   },
 
+  /* Free-7 guests skip the chip tour entirely. Signed-in and ?gate=legacy stay on it. */
+  freeModeGuest() {
+    if (this.isLoggedIn()) return false;
+    try {
+      return typeof RunnrGuestGate !== "undefined" && !!(RunnrGuestGate.freeMode && RunnrGuestGate.freeMode());
+    } catch (e) {
+      return false;
+    }
+  },
+
   /* Instagram ad URL: guest Score card, no chip tour. Signed-in stays on the normal tour. */
   igScoreLanding() {
     if (this.isLoggedIn()) return false;
@@ -118,6 +128,7 @@ const RunnrTour = {
   },
 
   shouldShow(state) {
+    if (this.freeModeGuest()) return false;
     if (this.queryOff()) return false;
     if (this.queryForce()) return true;
     if (this.igScoreLanding()) return false;

@@ -13,6 +13,39 @@ from app.trial import local_trial_is_active, utc_now
 # Guest SAMPLE keep-score wall: shown first, locked only after a hold,
 # oauth_start on Google/Apple tap, converted after account/OAuth complete.
 # Never record locked without shown.
+# Free-7 guest desk. Land source, tool focus, time-in-desk milestones,
+# score counts, day-in-trial (d7 = day index 7+, the soft wall), hit-wall, convert.
+FREE7_EVENTS = (
+    "guest_land_bare",
+    "guest_land_demo",
+    "guest_land_ig",
+    "guest_land_other",
+    "guest_focus_sizer",
+    "guest_focus_journal",
+    "guest_focus_home",
+    "guest_focus_shelf",
+    "guest_focus_coach",
+    "guest_focus_watchlist",
+    "guest_focus_sync",
+    "guest_focus_portfolio",
+    "guest_focus_desk",
+    "guest_focus_crypto",
+    "guest_desk_30s",
+    "guest_desk_2m",
+    "guest_desk_5m",
+    "guest_score",
+    "guest_trial_d0",
+    "guest_trial_d1",
+    "guest_trial_d2",
+    "guest_trial_d3",
+    "guest_trial_d4",
+    "guest_trial_d5",
+    "guest_trial_d6",
+    "guest_trial_d7",
+    "guest_hit_wall",
+    "guest_convert",
+)
+
 FUNNEL_EVENTS = (
     "demo_view",
     "demo_ig_land",
@@ -23,7 +56,7 @@ FUNNEL_EVENTS = (
     "email_wall_locked",
     "email_wall_oauth_start",
     "email_wall_converted",
-)
+) + FREE7_EVENTS
 FUNNEL_EVENT_SET = frozenset(FUNNEL_EVENTS)
 
 # Instagram score-first A/B. Combined guest totals stay on site_funnel_events.

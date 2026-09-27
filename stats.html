@@ -243,12 +243,47 @@
   <h2>TikTok bio</h2>
   <p class="lead">Cold traffic must land SAMPLE-first — not login.html. Put this in the bio:</p>
   <p><code id="tiktok-bio-url">https://runnr.fyi/?demo=1</code></p>
-  <p class="lead">Aliases: <code>https://runnr.fyi/sample</code> · <code>https://runnr.fyi/#sample</code>. First screen: “They get paid when you skip the stop.” · Score a trade. Email wall after that aha (saved score + weekly discipline report).</p>
+  <p class="lead">Aliases: <code>https://runnr.fyi/sample</code> · <code>https://runnr.fyi/#sample</code>. Cold guests land on the filled SAMPLE Sizer for 7 days (day 0 = first land). The email wall waits until day 8+.</p>
 
   <h2>Instagram ads</h2>
-  <p class="lead">Paste this as the website URL in Meta Ads Manager. Cold guests skip the pitch and the tour and land on Score your last trade.</p>
+  <p class="lead">Paste this as the website URL in Meta Ads Manager. Cold guests skip the pitch and the tour and land on the filled SAMPLE Sizer. <code>ig=1</code> is attribution only.</p>
   <p><code id="ig-ad-url">https://runnr.fyi/?demo=1&amp;ig=1</code></p>
-  <p class="lead">Same path: <code>?demo=1&amp;utm_source=instagram</code> or <code>utm_source=ig</code>. Organic <code>/?demo=1</code> and signed-in visits stay on the existing desk. Beacon <code>demo_ig_land</code> once per guest session, then the usual score beacons. First land assigns <code>prefill</code> (AAPL long) or <code>empty</code> 50/50 and keeps it. QA: <code>&amp;igv=prefill</code> or <code>&amp;igv=empty</code>. The keep-score wall is Save your score (no pricing). QA: <code>&amp;wall=full</code> still shows the trial copy (<code>&amp;wall=lite</code> is the default).</p>
+  <p class="lead">Same path: <code>?demo=1&amp;utm_source=instagram</code> or <code>utm_source=ig</code>. Beacon <code>demo_ig_land</code> once per guest session, then the free-7 desk beacons. Signed-in visits stay on the existing desk. Rollback to the SAMPLE hero, email wall, and IG A/B: <code>?gate=legacy</code> (saved on that device) or set <code>runnr_guest_gate_v1</code> to <code>legacy</code>. Restore with <code>?gate=free7</code>. QA the wall now with <code>&amp;trialday=7</code> (clear with <code>trialday=off</code>). Legacy IG still assigns <code>prefill</code> / <code>empty</code>. QA: <code>&amp;igv=prefill</code> or <code>&amp;igv=empty</code>. The legacy keep-score wall is Save your score (no pricing). QA: <code>&amp;wall=full</code> still shows the trial copy (<code>&amp;wall=lite</code> is the default).</p>
+
+  <h2>Free 7 desk</h2>
+  <p class="lead">Guest lands on Sizer. Day index 0 is the first 24 hours. <code>guest_trial_d7</code> is day 8+ (the soft wall). Focus and land events fire once per tool or session. Score counts every ready plan.</p>
+  <div class="kpis">
+    <div class="kpi">
+      <div class="label">land bare / demo / ig</div>
+      <div class="num" id="guest-land-src">—</div>
+      <p class="hint" id="guest-land-src-total">Today</p>
+    </div>
+    <div class="kpi">
+      <div class="label">focus sizer</div>
+      <div class="num" id="guest-focus-sizer">—</div>
+      <p class="hint" id="guest-focus-sizer-total">Today · once per guest per day</p>
+    </div>
+    <div class="kpi">
+      <div class="label">desk 30s</div>
+      <div class="num" id="guest-desk-30s">—</div>
+      <p class="hint" id="guest-desk-30s-total">Today · still on the desk</p>
+    </div>
+    <div class="kpi">
+      <div class="label">guest_score</div>
+      <div class="num" id="guest-score">—</div>
+      <p class="hint" id="guest-score-total">Today · each ready plan</p>
+    </div>
+    <div class="kpi">
+      <div class="label">trial d0 / d7+</div>
+      <div class="num" id="guest-trial-days">—</div>
+      <p class="hint" id="guest-trial-days-total">Today · first day / wall day</p>
+    </div>
+    <div class="kpi">
+      <div class="label">hit wall / convert</div>
+      <div class="num" id="guest-wall-convert">—</div>
+      <p class="hint" id="guest-wall-convert-total">Today · day 8+ wall, then a signed-in return</p>
+    </div>
+  </div>
 
   <h2>Guest SAMPLE funnel</h2>
   <p class="lead" id="guest-funnel-note">SAMPLE beacons from logged-out visitors (visit → aha → score → email wall → CTA). Visit uniques ≠ accounts.</p>
@@ -677,6 +712,21 @@
           var el = document.getElementById(id);
           if (el) el.textContent = "Today · total " + fmt(totalEv[key] || 0) + (label ? " · " + label : "");
         }
+        setText("guest-land-src", fmt(todayEv.guest_land_bare) + " / " + fmt(todayEv.guest_land_demo) + " / " + fmt(todayEv.guest_land_ig));
+        setText("guest-focus-sizer", fmt(todayEv.guest_focus_sizer));
+        setText("guest-desk-30s", fmt(todayEv.guest_desk_30s));
+        setText("guest-score", fmt(todayEv.guest_score));
+        setText("guest-trial-days", fmt(todayEv.guest_trial_d0) + " / " + fmt(todayEv.guest_trial_d7));
+        setText("guest-wall-convert", fmt(todayEv.guest_hit_wall) + " / " + fmt(todayEv.guest_convert));
+        var landHint = document.getElementById("guest-land-src-total");
+        if (landHint) landHint.textContent = "Today · totals " + fmt(totalEv.guest_land_bare || 0) + " / " + fmt(totalEv.guest_land_demo || 0) + " / " + fmt(totalEv.guest_land_ig || 0) + " · other " + fmt(totalEv.guest_land_other || 0);
+        guestHint("guest-focus-sizer-total", "guest_focus_sizer", "Sizer");
+        guestHint("guest-desk-30s-total", "guest_desk_30s", "30s on the desk");
+        guestHint("guest-score-total", "guest_score", "scores");
+        var trialHint = document.getElementById("guest-trial-days-total");
+        if (trialHint) trialHint.textContent = "Today · totals " + fmt(totalEv.guest_trial_d0 || 0) + " d0 / " + fmt(totalEv.guest_trial_d7 || 0) + " d7+";
+        var wallConvert = document.getElementById("guest-wall-convert-total");
+        if (wallConvert) wallConvert.textContent = "Today · totals " + fmt(totalEv.guest_hit_wall || 0) + " wall / " + fmt(totalEv.guest_convert || 0) + " convert";
         setText("guest-demo-view", fmt(todayEv.demo_view));
         setText("guest-demo-ig", fmt(todayEv.demo_ig_land));
         setText("guest-demo-aha", fmt(todayEv.demo_aha));

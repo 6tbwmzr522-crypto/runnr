@@ -123,6 +123,9 @@
     count: samplePretradeLogCount,
     atCap: function (trades) {
       if (!isSampleDesk()) return false;
+      try {
+        if (typeof RunnrGuestGate !== "undefined" && RunnrGuestGate.trialOpen && RunnrGuestGate.trialOpen()) return false;
+      } catch (e) {}
       return this.count(trades) >= this.CAP;
     },
     openWall: function () {

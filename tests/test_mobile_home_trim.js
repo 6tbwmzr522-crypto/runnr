@@ -22,8 +22,8 @@ const cache = sw.match(/CACHE = "runnr-v(\d+)"/)[1];
 check("index.html V matches sw.js CACHE", v === cache);
 check("cache is 175+", Number(v) >= 187);
 check("pages.css cache-bust", html.includes("css/pages.css?v=26"));
-check("app-nav cache-bust", html.includes("js/app-nav.js?v=6"));
-check("onboarding cache-bust", html.includes("js/onboarding.js?v=43"));
+check("app-nav cache-bust", html.includes("js/app-nav.js?v=7"));
+check("onboarding cache-bust", html.includes("js/onboarding.js?v=44"));
 
 const homeStart = html.indexOf('id="page-home"');
 const homeEnd = html.indexOf('id="page-sizer"');
