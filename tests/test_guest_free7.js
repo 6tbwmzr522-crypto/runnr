@@ -168,6 +168,16 @@ check("bare land beacon", urls.indexOf("e=guest_land_bare") >= 0);
 check("trial day 0 beacon", urls.indexOf("e=guest_trial_d0") >= 0);
 check("sizer focus beacon", urls.indexOf("e=guest_focus_sizer") >= 0);
 check("demo view still fires", urls.indexOf("e=demo_view") >= 0);
+desk._page = "home";
+desk.RunnrDemoSandbox.enterFreeDesk(desk.S);
+check("a later free-desk pass leaves Home on home", desk._page === "home");
+
+const journalLand = loadStack({ search: "", pathname: "/", hash: "#journal" });
+journalLand.RunnrDemoSandbox.enterFreeDesk(journalLand.S);
+check("an explicit journal link still opens journal first", journalLand._page === "journal");
+journalLand._page = "home";
+journalLand.RunnrDemoSandbox.enterFreeDesk(journalLand.S);
+check("Home is not remapped after an explicit journal land", journalLand._page === "home");
 
 desk.RunnrDemoSandbox.onGoldScored({ ready: true, size: 10, entry: 100, stop: 90, ticker: "AAPL" });
 desk.RunnrDemoSandbox.onGoldScored({ ready: true, size: 10, entry: 100, stop: 90, ticker: "AAPL" });

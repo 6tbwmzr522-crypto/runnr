@@ -1878,9 +1878,14 @@
     return "sizer";
   }
 
+  // First shared entry only. Home stats rebind the chrome and call this again;
+  // that pass must not pull an explicit Home (or any later nav) back to Sizer.
+  let freeDeskFocused = false;
+
   /**
    * Free-7 shared entry: filled SAMPLE book, Sizer in front, no tour or video.
    * Instagram params stay attribution-only. Signed-in users and real books are left alone.
+   * The tool focus runs once per page load. Later calls keep chrome and the trial wall current.
    */
   function enterFreeDesk(state) {
     if (!freeModeGuest()) return false;
@@ -1913,15 +1918,24 @@
         RunnrGuestGate.armDeskTime();
       }
     } catch (e5) {}
-    const focus = explicitDeskFocus();
-    if (focus === "sizer") {
-      openGoldSizer(sampleScorePrime(book));
-    } else {
-      try {
-        if (typeof global.switchPage === "function") global.switchPage(focus);
-      } catch (e6) {}
+    if (!freeDeskFocused) {
+      const focus = explicitDeskFocus();
+      let opened = false;
+      if (focus === "sizer") {
+        opened = !!openGoldSizer(sampleScorePrime(book));
+      } else {
+        try {
+          if (typeof global.switchPage === "function") {
+            global.switchPage(focus);
+            opened = true;
+          }
+        } catch (e6) {}
+      }
+      if (opened) {
+        freeDeskFocused = true;
+        try { if (global.RunnrGuestGate) RunnrGuestGate.noteFocus(focus); } catch (e7) {}
+      }
     }
-    try { if (global.RunnrGuestGate) RunnrGuestGate.noteFocus(focus); } catch (e7) {}
     if (!guestTrialOpen()) showKeepScore({ reason: "trial-ended", skipIntro: true });
     return true;
   }
