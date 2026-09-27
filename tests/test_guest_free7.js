@@ -279,4 +279,34 @@ capLegacy.window.S = capLegacy.S;
 vm.runInNewContext(pretradeSrc, capLegacy);
 check("legacy keeps the 3-plan SAMPLE cap", capLegacy.RunnrPretrade.SampleQuota.atCap(logs) === true);
 
-console.log("test_guest_free7: ok " + n);
+const settingsSrc = fs.readFileSync(path.join(root, "js/app-settings.js"), "utf8");
+function loadCoachGate(loc, prime) {
+  const ctx = loadGate(loc, prime);
+  ctx.RunnrSync = {
+    isPro() { return false; },
+    isLoggedIn() { return false; },
+    refreshBilling() { return Promise.resolve(); },
+    billing() { return { emailConfigured: false }; },
+  };
+  ctx.openModal = function () { ctx._modal = true; };
+  ctx.refreshBillingUI = function () {};
+  ctx.document.body = { classList: { add() {}, toggle() { return false; } } };
+  vm.runInNewContext(settingsSrc, ctx);
+  return ctx;
+}
+
+(async function () {
+  const open = loadCoachGate({ search: "", pathname: "/", hash: "" });
+  check("day 0 guest trial unlocks Coach", open.guestCoachOpen() === true);
+  check("requirePro lets Coach through during the trial", await open.requirePro("Coach") === true && open._modal !== true);
+  check("an open trial does not unlock Alerts", await open.requirePro("Alerts") === false && open._modal === true);
+  const wall = loadCoachGate({ search: "?trialday=7", pathname: "/", hash: "" });
+  check("day 8 closes Coach again", wall.guestCoachOpen() === false);
+  check("requirePro blocks Coach after the trial", await wall.requirePro("Coach") === false && wall._modal === true);
+  const legacy = loadCoachGate({ search: "?gate=legacy", pathname: "/", hash: "" });
+  check("legacy guests do not get a free Coach", legacy.guestCoachOpen() === false);
+  console.log("test_guest_free7: ok " + n);
+})().catch(function (err) {
+  console.error(err);
+  process.exit(1);
+});
