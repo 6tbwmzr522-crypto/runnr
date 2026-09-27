@@ -107,8 +107,16 @@ async function openStripePortal() {
     alert('Billing portal: ' + (e.message || e));
   }
 }
+function guestCoachOpen() {
+  try {
+    return !!(window.RunnrGuestGate && typeof RunnrGuestGate.trialOpen === "function" && RunnrGuestGate.trialOpen());
+  } catch (e) {}
+  return false;
+}
+window.guestCoachOpen = guestCoachOpen;
 async function requirePro(featureLabel, opts) {
   opts = opts || {};
+  if (featureLabel === "Coach" && guestCoachOpen()) return true;
   try { await RunnrSync.refreshBilling?.(); } catch (e) {}
   const mailerOn = !!RunnrSync.billing?.().emailConfigured;
   if (!opts.skipEmail && mailerOn && !(await requireVerifiedEmail())) return false;

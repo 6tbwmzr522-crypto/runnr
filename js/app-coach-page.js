@@ -9,7 +9,7 @@ function renderCoachPage() {
   try { if (window.RunnrGrowth) RunnrGrowth.renderDisciplineCard(S); } catch (e) {}
   const label = document.getElementById('coach-week-label');
   if (label) label.textContent = 'Week of ' + new Date().toLocaleDateString('en-GB', { month: 'short', day: 'numeric', year: 'numeric' });
-  const unlocked = hasProAccess();
+  const unlocked = hasProAccess() || (typeof guestCoachOpen === "function" && guestCoachOpen());
   const cta = document.getElementById('coach-upgrade-cta');
   const body = document.getElementById('coach-pro-body');
   if (cta) cta.style.display = unlocked ? 'none' : 'block';
@@ -194,7 +194,7 @@ window.askCoachFree = askCoachFree;
 function drawEquityCurve() {
   const canvas = document.getElementById('equity-canvas');
   if (!canvas) return;
-  if (!hasProAccess()) return;
+  if (!hasProAccess() && !(typeof guestCoachOpen === "function" && guestCoachOpen())) return;
   try {
   const cmp = CoachEngine.equityComparison(S.trades, S.bal);
   const actual = cmp.actual.length > 1 ? cmp.actual : [0, cmp.actualEnd];
