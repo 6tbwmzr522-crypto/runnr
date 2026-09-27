@@ -24,7 +24,9 @@ check("index.html V matches sw.js CACHE", v === cache);
 check("discipline-replay.js is loaded", html.includes("js/discipline-replay.js?v=6"));
 check("replay modal exists", html.includes('id="modal-discipline-replay"'));
 check("journal button copy", html.includes("Replay Disciplined"));
-check("journal Replay is visually primary", src.includes('class="te-replay te-replay-primary"') && css.includes(".te-replay.te-replay-primary"));
+check("journal Replay is a chip in the flag row", src.includes('class="te-replay te-replay-primary"')
+  && /<div class="flags">[\s\S]{0,900}\$\{replayChip\}/.test(src)
+  && css.includes(".te-replay.te-replay-primary"));
 check("journal button gated on canReplay", src.includes("DisciplineReplay.canReplay(t, S"));
 check("journal render does not offer button via isEligible", !/DisciplineReplay\.isEligible\(t\) \?/.test(src));
 check("openDisciplineReplay keeps isEligible safety net", /function openDisciplineReplay[\s\S]{0,400}isEligible\(t\)/.test(src));
