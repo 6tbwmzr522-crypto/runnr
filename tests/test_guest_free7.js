@@ -298,13 +298,21 @@ function loadCoachGate(loc, prime) {
 (async function () {
   const open = loadCoachGate({ search: "", pathname: "/", hash: "" });
   check("day 0 guest trial unlocks Coach", open.guestCoachOpen() === true);
+  check("day 0 guest trial unlocks desk tools", open.guestDeskOpen() === true && open.hasProAccess() === true);
   check("requirePro lets Coach through during the trial", await open.requirePro("Coach") === true && open._modal !== true);
-  check("an open trial does not unlock Alerts", await open.requirePro("Alerts") === false && open._modal === true);
+  check("requirePro lets Alerts through during the trial", await open.requirePro("Alerts") === true && open._modal !== true);
   const wall = loadCoachGate({ search: "?trialday=7", pathname: "/", hash: "" });
-  check("day 8 closes Coach again", wall.guestCoachOpen() === false);
+  wall._modal = false;
+  check("day 8 closes Coach again", wall.guestCoachOpen() === false && wall.hasProAccess() === false);
   check("requirePro blocks Coach after the trial", await wall.requirePro("Coach") === false && wall._modal === true);
+  wall._modal = false;
+  check("requirePro blocks Alerts after the trial", await wall.requirePro("Alerts") === false && wall._modal === true);
   const legacy = loadCoachGate({ search: "?gate=legacy", pathname: "/", hash: "" });
   check("legacy guests do not get a free Coach", legacy.guestCoachOpen() === false);
+  check("legacy guests do not get free Alerts", legacy.hasProAccess() === false && await legacy.requirePro("Alerts") === false);
+  const signed = loadCoachGate({ search: "", pathname: "/", hash: "" });
+  signed.localStorage.setItem("runnr_api_token", "tok");
+  check("a signed-in non-pro still hits the Alerts paywall", signed.guestDeskOpen() === false && await signed.requirePro("Alerts") === false && signed._modal === true);
   console.log("test_guest_free7: ok " + n);
 })().catch(function (err) {
   console.error(err);
