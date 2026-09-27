@@ -69,6 +69,15 @@ const RunnrIntro = {
     return false;
   },
 
+  freeModeGuest() {
+    if (this.isLoggedIn()) return false;
+    try {
+      return typeof RunnrGuestGate !== "undefined" && !!(RunnrGuestGate.freeMode && RunnrGuestGate.freeMode());
+    } catch (e) {
+      return false;
+    }
+  },
+
   tourBlocksVideo() {
     if (this.queryTourForce()) return true;
     try {
@@ -89,6 +98,7 @@ const RunnrIntro = {
 
   shouldPlayBeforeKeepScore(opts) {
     if (!this.WALL_ENABLED) return false;
+    if (this.freeModeGuest()) return false;
     const o = opts || {};
     if (o.skipIntro) return false;
     if (this.isLoggedIn()) return false;
@@ -208,6 +218,12 @@ const RunnrIntro = {
   },
 
   playBeforeKeepScore(onDone, opts) {
+    if (this.freeModeGuest()) {
+      if (typeof onDone === "function") {
+        try { onDone(); } catch (e) {}
+      }
+      return false;
+    }
     const o = opts || {};
     this._watchPath = !!o.watchPath;
     this._pendingKeep = typeof onDone === "function" ? onDone : null;

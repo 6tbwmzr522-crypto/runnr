@@ -22,6 +22,12 @@ const RunnrGrowth = {
 
   shouldShowHook(state) {
     try {
+      if (typeof RunnrGuestGate !== "undefined" && RunnrGuestGate.freeMode && RunnrGuestGate.freeMode()) {
+        const signed = typeof RunnrSync !== "undefined" && RunnrSync.isLoggedIn && RunnrSync.isLoggedIn();
+        if (!signed) return false;
+      }
+    } catch (e) {}
+    try {
       if (localStorage.getItem(this.HOOK_KEY) === "done") return false;
     } catch (e) {}
     try {

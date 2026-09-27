@@ -278,6 +278,7 @@ function startMarketFeedsIfAllowed() {
 }
 
 function switchPage(key) {
+  try { if (window.RunnrGuestGate && RunnrGuestGate.noteFocus) RunnrGuestGate.noteFocus(key); } catch (e) {}
   currentNavKey = key;
   closeMoreSheet();
   document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));

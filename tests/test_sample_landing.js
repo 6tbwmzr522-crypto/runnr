@@ -35,10 +35,10 @@ const v = html.match(/var V = "(\d+)"/)[1];
 const cache = sw.match(/CACHE = "runnr-v(\d+)"/)[1];
 check("index.html V matches sw.js CACHE", v === cache);
 check("cache is 139+", Number(v) >= 187);
-check("demo-sandbox cache-bust", html.includes("js/demo-sandbox.js?v=34"));
+check("demo-sandbox cache-bust", html.includes("js/demo-sandbox.js?v=35"));
 check("pages.css cache-bust", html.includes("css/pages.css?v=26"));
-check("intro.js cache-bust", html.includes("js/intro.js?v=8"));
-check("onboarding.js cache-bust", html.includes("js/onboarding.js?v=43"));
+check("intro.js cache-bust", html.includes("js/intro.js?v=9"));
+check("onboarding.js cache-bust", html.includes("js/onboarding.js?v=44"));
 
 check("stats Guest SAMPLE funnel section", stats.includes("Guest SAMPLE funnel") && stats.includes("email_wall") && stats.includes("guest-demo-view") && stats.includes("email_wall oauth") && stats.includes("email_wall_converted"));
 check("stats last 90 days is a chart", stats.includes('id="traffic-chart"') && stats.includes('id="traffic-svg"') && stats.includes("function renderTrafficChart") && stats.includes("uniq-fill"));

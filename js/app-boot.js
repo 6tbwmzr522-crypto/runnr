@@ -323,6 +323,11 @@ function initApp() {
     else setTimeout(showIntro, 200);
   }
   try { routeDeskOrGold(); } catch (e) {}
+  try {
+    if (window.RunnrDemoSandbox && typeof RunnrDemoSandbox.enterFreeDesk === "function") {
+      RunnrDemoSandbox.enterFreeDesk(S);
+    }
+  } catch (e) {}
   setTimeout(() => {
     try { startMarketFeedsIfAllowed(); } catch (e) {}
     if (window.RunnrSync?.isLoggedIn?.()) {

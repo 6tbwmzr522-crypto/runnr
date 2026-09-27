@@ -324,6 +324,23 @@ def test_hit_ignores_unknown_event_but_counts_pageview():
     assert bad is None
 
 
+def test_hit_counts_free7_guest_events():
+    init_db()
+    with TestClient(app) as client:
+        assert client.post("/api/v1/stats/hit?e=guest_score").status_code == 204
+        assert client.post("/api/v1/stats/hit?e=guest_land_bare").status_code == 204
+        assert client.post("/api/v1/stats/hit?e=guest_hit_wall").status_code == 204
+        assert client.post("/api/v1/stats/hit?e=guest_trial_d0").status_code == 204
+    with get_db() as conn:
+        score = conn.execute(
+            "SELECT COALESCE(SUM(count), 0) AS n FROM site_funnel_events WHERE event = 'guest_score'"
+        ).fetchone()["n"]
+        land = conn.execute(
+            "SELECT COALESCE(SUM(count), 0) AS n FROM site_funnel_events WHERE event = 'guest_land_bare'"
+        ).fetchone()["n"]
+    assert score >= 1
+    assert land >= 1
+
 
 def test_get_stats_requires_auth():
     with TestClient(app) as client:
@@ -486,6 +503,16 @@ def test_funnel_counts_signed_in_journals():
         assert "email_wall_locked" in data["guest_events_today"]
         assert "email_wall_oauth_start" in data["guest_events_today"]
         assert "email_wall_converted" in data["guest_events_today"]
+        assert "guest_land_bare" in data["guest_events_today"]
+        assert "guest_land_demo" in data["guest_events_today"]
+        assert "guest_land_ig" in data["guest_events_today"]
+        assert "guest_focus_sizer" in data["guest_events_today"]
+        assert "guest_score" in data["guest_events_today"]
+        assert "guest_trial_d0" in data["guest_events_today"]
+        assert "guest_trial_d7" in data["guest_events_today"]
+        assert "guest_hit_wall" in data["guest_events_today"]
+        assert "guest_convert" in data["guest_events_today"]
+        assert "guest_desk_30s" in data["guest_events_today"]
         assert isinstance(data["users_created_today"], int)
         assert "0" in data["trade_count_histogram"]
         assert res.headers.get("cache-control") == "no-store"

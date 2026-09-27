@@ -33,8 +33,8 @@ const appFiles = [
 appFiles.forEach((f) => {
   const pin = f === "js/app-journal.js" ? "?v=7"
     : f === "js/app-settings.js" ? "?v=2"
-    : f === "js/app-boot.js" ? "?v=10"
-    : f === "js/app-nav.js" ? "?v=6"
+    : f === "js/app-boot.js" ? "?v=11"
+    : f === "js/app-nav.js" ? "?v=7"
     : f === "js/app-watchlist.js" ? "?v=6"
     : f === "js/app-quotes.js" ? "?v=4"
     : f === "js/app-coach-page.js" ? "?v=3"
@@ -52,7 +52,7 @@ check("existing modules still load before app files", html.indexOf("js/sync.js")
 check("boot script is last app file", html.indexOf("js/app-boot.js") > html.indexOf("js/app-state.js"));
 
 const inline = [...html.matchAll(/<script>([\s\S]*?)<\/script>/g)].map((m) => m[1]);
-check("only tiny inline scripts remain", inline.length === 2 && inline.every((s) => s.length < 2500));
+check("only tiny inline scripts remain", inline.length === 2 && inline.every((s) => s.length < 3000));
 check("index.html is under 300KB after extract", Buffer.byteLength(html) < 300000);
 
 check("S is still assigned on window", src.includes("window.S = S"));

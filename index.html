@@ -5,7 +5,7 @@
 <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
 <script>
 (function () {
-  var V = "199";
+  var V = "200";
   try {
     if (localStorage.getItem("runnr_app_v") !== V) {
       localStorage.setItem("runnr_app_v", V);
@@ -35,46 +35,38 @@
 })();
 (function () {
   try {
-    if (!localStorage.getItem("runnr_api_token")) {
-      document.documentElement.classList.add("runnr-guest");
-    }
-    if (localStorage.getItem("runnr_api_token")) return;
-    var path = (location.pathname || "").replace(/\/+$/, "");
-    var search = location.search || "";
-    var hash = location.hash || "";
-    var ig = /(?:^|[?&])ig=1(?:&|$)/.test(search)
-      || /(?:^|[?&])utm_source=(?:ig|instagram)(?:&|$)/i.test(search)
-      || /^#score\b/i.test(hash);
-    var sample = /[?&]demo=1(?:&|$)/.test(search)
-      || /^#(?:sample|demo)\b/i.test(hash)
-      || /(?:^|\/)sample$/i.test(path)
-      || ig;
-    if (sample) {
-      try { localStorage.setItem("runnr_hook_v1", "done"); } catch (e2) {}
-      var aha = false;
-      try { aha = localStorage.getItem("runnr_sample_aha_v1") === "1"; } catch (e3) {}
-      if (ig) {
-        var igDone = false;
-        try { igDone = sessionStorage.getItem("runnr_ig_score_v1") === "done"; } catch (e5) {}
-        var igv = "";
-        try {
-          var igm = search.match(/(?:^|[?&])igv=(prefill|empty)(?:&|$)/i);
-          igv = igm ? igm[1].toLowerCase() : (localStorage.getItem("runnr_ig_variant_v1") || "");
-        } catch (e6) {}
-        if (igv === "empty") document.documentElement.classList.add("runnr-ig-empty");
-        if (!aha && !igDone) document.documentElement.classList.add("runnr-ig-score");
-        return;
-      }
-      var heroDone = false;
-      try { heroDone = sessionStorage.getItem("runnr_sample_hero_v1") === "done"; } catch (e4) {}
-      if (!aha && !heroDone) document.documentElement.classList.add("runnr-sample-landing");
+    var root = document.documentElement, ls = localStorage, search = location.search || "";
+    if (!ls.getItem("runnr_api_token")) root.classList.add("runnr-guest");
+    if (ls.getItem("runnr_api_token")) return;
+    var gate = ((search.match(/(?:^|[?&])gate=(legacy|free7)(?:&|$)/i) || [])[1] || "").toLowerCase();
+    if (gate) ls.setItem("runnr_guest_gate_v1", gate);
+    else gate = ls.getItem("runnr_guest_gate_v1") || "";
+    if (gate !== "legacy") {
+      ls.setItem("runnr_hook_v1", "done");
+      if (!ls.getItem("runnr_guest_trial_v1")) ls.setItem("runnr_guest_trial_v1", new Date().toISOString());
+      root.classList.add("runnr-free-desk");
       return;
     }
-    if (localStorage.getItem("runnr_hook_v1") === "done") return;
-    document.documentElement.classList.add("runnr-show-hook");
+    var path = (location.pathname || "").replace(/\/+$/, ""), hash = location.hash || "";
+    var ig = /(?:^|[?&])ig=1(?:&|$)/.test(search) || /(?:^|[?&])utm_source=(?:ig|instagram)(?:&|$)/i.test(search) || /^#score\b/i.test(hash);
+    var sample = /[?&]demo=1(?:&|$)/.test(search) || /^#(?:sample|demo)\b/i.test(hash) || /(?:^|\/)sample$/i.test(path) || ig;
+    if (sample) {
+      ls.setItem("runnr_hook_v1", "done");
+      var aha = ls.getItem("runnr_sample_aha_v1") === "1";
+      if (ig) {
+        var igv = ((search.match(/(?:^|[?&])igv=(prefill|empty)(?:&|$)/i) || [])[1] || ls.getItem("runnr_ig_variant_v1") || "").toLowerCase();
+        if (igv === "empty") root.classList.add("runnr-ig-empty");
+        if (!aha && sessionStorage.getItem("runnr_ig_score_v1") !== "done") root.classList.add("runnr-ig-score");
+        return;
+      }
+      if (!aha && sessionStorage.getItem("runnr_sample_hero_v1") !== "done") root.classList.add("runnr-sample-landing");
+      return;
+    }
+    if (ls.getItem("runnr_hook_v1") === "done") return;
+    root.classList.add("runnr-show-hook");
   } catch (e) {
     document.documentElement.classList.add("runnr-guest");
-    document.documentElement.classList.add("runnr-show-hook");
+    document.documentElement.classList.add("runnr-free-desk");
   }
 })();
 </script>
@@ -1979,32 +1971,33 @@
   </div>
 </div>
 
+<script src="js/guest-gate.js?v=1"></script>
 <script src="js/i18n.js?v=21"></script>
 <script src="js/baron.js?v=32"></script>
 <script src="js/discipline-replay.js?v=6"></script>
 <script src="js/coach.js?v=29"></script>
 <script src="js/options-coach.js?v=1"></script>
 <script src="js/fvg-retrace.js?v=1"></script>
-<script src="js/onboarding.js?v=43"></script>
-<script src="js/intro.js?v=8"></script>
-<script src="js/tour.js?v=7"></script>
+<script src="js/onboarding.js?v=44"></script>
+<script src="js/intro.js?v=9"></script>
+<script src="js/tour.js?v=8"></script>
 <script src="js/csv-presets.js?v=4"></script>
 <script src="js/brokers.js?v=1"></script>
 <script src="js/fetch-timeout.js?v=1"></script>
 <script src="js/trade-limit.js?v=4"></script>
 <script src="js/desk-quiet.js?v=3"></script>
-<script src="js/demo-sandbox.js?v=34"></script>
+<script src="js/demo-sandbox.js?v=35"></script>
 <script src="js/sync.js?v=73"></script>
 <script src="js/desk-sessions.js?v=2"></script>
 <script src="js/desk.js?v=18"></script>
 <script src="js/cooldown.js?v=2"></script>
 <script src="js/trend-day.js?v=8"></script>
-<script src="js/pretrade.js?v=26"></script>
+<script src="js/pretrade.js?v=27"></script>
 <script src="js/wave.js?v=2"></script>
 <script src="js/shelf.js?v=6"></script>
 <script src="js/visit.js?v=2"></script>
 <script src="js/app-state.js?v=1"></script>
-<script src="js/app-nav.js?v=6"></script>
+<script src="js/app-nav.js?v=7"></script>
 <script src="js/app-settings.js?v=2"></script>
 <script src="js/app-sizer.js?v=1"></script>
 <script src="js/app-journal.js?v=7"></script>
@@ -2014,7 +2007,7 @@
 <script src="js/app-portfolio.js?v=2"></script>
 <script src="js/app-sync-ui.js?v=3"></script>
 <script src="js/app-coach-page.js?v=3"></script>
-<script src="js/app-boot.js?v=10"></script>
+<script src="js/app-boot.js?v=11"></script>
 
 </body>
 </html>
