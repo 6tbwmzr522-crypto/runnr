@@ -107,16 +107,21 @@ async function openStripePortal() {
     alert('Billing portal: ' + (e.message || e));
   }
 }
-function guestCoachOpen() {
+function guestDeskOpen() {
   try {
     return !!(window.RunnrGuestGate && typeof RunnrGuestGate.trialOpen === "function" && RunnrGuestGate.trialOpen());
   } catch (e) {}
   return false;
 }
+function guestCoachOpen() {
+  return guestDeskOpen();
+}
+window.guestDeskOpen = guestDeskOpen;
 window.guestCoachOpen = guestCoachOpen;
 async function requirePro(featureLabel, opts) {
   opts = opts || {};
-  if (featureLabel === "Coach" && guestCoachOpen()) return true;
+  // Signed-in billing is unchanged: trialOpen() is false once a token exists.
+  if (guestDeskOpen()) return true;
   try { await RunnrSync.refreshBilling?.(); } catch (e) {}
   const mailerOn = !!RunnrSync.billing?.().emailConfigured;
   if (!opts.skipEmail && mailerOn && !(await requireVerifiedEmail())) return false;
@@ -125,6 +130,7 @@ async function requirePro(featureLabel, opts) {
   return false;
 }
 function hasProAccess() {
+  if (guestDeskOpen()) return true;
   try {
     if (typeof RunnrSync !== 'undefined' && typeof RunnrSync.isPro === 'function') {
       return !!RunnrSync.isPro();

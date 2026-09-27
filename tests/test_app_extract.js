@@ -32,7 +32,7 @@ const appFiles = [
 ];
 appFiles.forEach((f) => {
   const pin = f === "js/app-journal.js" ? "?v=7"
-    : f === "js/app-settings.js" ? "?v=3"
+    : f === "js/app-settings.js" ? "?v=4"
     : f === "js/app-boot.js" ? "?v=11"
     : f === "js/app-nav.js" ? "?v=7"
     : f === "js/app-watchlist.js" ? "?v=6"
